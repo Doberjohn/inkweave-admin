@@ -16,4 +16,16 @@ describe('isLoginGate', () => {
   it('rejects a redirect anywhere other than Vercel login', () => {
     expect(isLoginGate(308, 'https://inkweave.ink/')).toBe(false);
   });
+
+  it('accepts a 307 redirect to Vercel login', () => {
+    expect(isLoginGate(307, 'https://vercel.com/sso-api?url=x')).toBe(true);
+  });
+
+  it('rejects a login-status redirect to a look-alike path', () => {
+    expect(isLoginGate(302, 'https://vercel.com/sso-api-other?url=x')).toBe(false);
+  });
+
+  it('rejects a login-status redirect to another host', () => {
+    expect(isLoginGate(307, 'https://vercel.com.example.net/sso-api?url=x')).toBe(false);
+  });
 });

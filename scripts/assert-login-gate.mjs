@@ -5,15 +5,18 @@
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const LOGIN_PREFIX = 'https://vercel.com/sso-api';
+const LOGIN_ORIGIN = 'https://vercel.com';
+const LOGIN_PATH = '/sso-api';
 
-/** True when an anonymous response is Vercel's login redirect. */
+/** True when an anonymous response is Vercel's login redirect: exactly vercel.com/sso-api. */
 export function isLoginGate(status, location) {
-  return (
-    (status === 302 || status === 307) &&
-    typeof location === 'string' &&
-    location.startsWith(LOGIN_PREFIX)
-  );
+  if ((status !== 302 && status !== 307) || typeof location !== 'string') return false;
+  try {
+    const target = new URL(location);
+    return target.origin === LOGIN_ORIGIN && target.pathname === LOGIN_PATH;
+  } catch {
+    return false;
+  }
 }
 
 async function main(urls) {
@@ -22,15 +25,24 @@ async function main(urls) {
     process.exitCode = 2;
     return;
   }
-  let exposed = false;
+  let failed = false;
   for (const url of urls) {
-    const response = await fetch(url, {redirect: 'manual'});
+    // A URL that can't be checked (empty, unreachable, TLS error) fails the gate,
+    // and the remaining URLs are still reported.
+    let response;
+    try {
+      response = await fetch(url, {redirect: 'manual'});
+    } catch (error) {
+      console.log(`ERROR   ${url || '(empty URL)'} -> ${error.cause?.message ?? error.message}`);
+      failed = true;
+      continue;
+    }
     const location = response.headers.get('location');
     const gated = isLoginGate(response.status, location);
     console.log(`${gated ? 'gated  ' : 'EXPOSED'} ${url} -> ${response.status} ${location ?? ''}`);
-    if (!gated) exposed = true;
+    if (!gated) failed = true;
   }
-  if (exposed) process.exitCode = 1;
+  if (failed) process.exitCode = 1;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
