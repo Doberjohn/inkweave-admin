@@ -1,0 +1,3 @@
+[submodule "upstream/inkweave"]
+	path = upstream/inkweave
+	url = ../inkweave.git
