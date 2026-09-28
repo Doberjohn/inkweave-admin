@@ -51,10 +51,12 @@ export default tseslint.config(
       'inkweave/no-unshelled-dialogs': 'error',
     },
   },
-  // D3: app code enters admin only through src/app-bridge.ts.
+  // D3: app code enters admin only through src/app-bridge.ts, from any source
+  // file. The one tooling exception is this config, which loads the app's
+  // design-token plugin from the submodule.
   {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/app-bridge.ts'],
+    files: ['**/*.{ts,tsx,js,jsx,mjs}'],
+    ignores: ['src/app-bridge.ts', 'eslint.config.js'],
     rules: {
       'no-restricted-imports': [
         'error',

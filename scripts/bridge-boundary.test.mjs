@@ -17,6 +17,10 @@ describe('the app-bridge boundary', {timeout: 60_000}, () => {
     expect(await ruleIds('src/shell/Leak.ts')).toContain('no-restricted-imports');
   });
 
+  it('rejects an upstream import in a Node script', async () => {
+    expect(await ruleIds('scripts/leak.mjs')).toContain('no-restricted-imports');
+  });
+
   it('allows upstream imports in src/app-bridge.ts', async () => {
     expect(await ruleIds('src/app-bridge.ts')).not.toContain('no-restricted-imports');
   });
