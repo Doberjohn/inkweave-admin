@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {"source": "/data/:path*", "destination": "https://inkweave.ink/data/:path*"},
+    {"source": "/card-images/:path*", "destination": "https://inkweave.ink/card-images/:path*"},
+    {"source": "/card-images-preview/:path*", "destination": "https://inkweave.ink/card-images-preview/:path*"},
+    {"source": "/fonts/:path*", "destination": "https://inkweave.ink/fonts/:path*"},
+    {"source": "/(.*)", "destination": "/index.html"}
+  ],
+  "headers": [
+    {"source": "/(.*)", "headers": [{"key": "X-Robots-Tag", "value": "noindex, nofollow"}]}
+  ]
+}
