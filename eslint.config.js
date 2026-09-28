@@ -15,12 +15,18 @@ const MEMO_BAN = [
   {selector: "CallExpression[callee.name='useMemo']", message: 'Avoid useMemo: the React Compiler auto-memoizes.'},
   {selector: "CallExpression[callee.name='useCallback']", message: 'Avoid useCallback: the React Compiler auto-memoizes.'},
 ];
-// D3 for dynamic imports, which no-restricted-imports does not see. esquery
-// regexes cannot contain a literal `/`, hence /.
-const UPSTREAM_DYNAMIC_IMPORT = {
-  selector: 'ImportExpression[source.value=/(^|\\u002F)upstream\\u002F/]',
-  message: 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).',
-};
+// D3 also covers dynamic imports and require(), which no-restricted-imports does
+// not see. esquery regexes cannot contain a literal slash, so SLASH holds the
+// regex escape that matches one.
+const SLASH = '\\' + 'u002F';
+const UPSTREAM_PATH = `/(^|${SLASH})upstream(${SLASH}|$)/`;
+const BRIDGE_MESSAGE = 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).';
+const UPSTREAM_LOADS = [
+  `ImportExpression > Literal[value=${UPSTREAM_PATH}]`,
+  `ImportExpression > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
+  `CallExpression[callee.name='require'] > Literal[value=${UPSTREAM_PATH}]`,
+  `CallExpression[callee.name='require'] > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
+].map((selector) => ({selector, message: BRIDGE_MESSAGE}));
 
 export default tseslint.config(
   {ignores: ['dist', 'coverage', 'upstream']},
@@ -70,15 +76,15 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/upstream/**'],
-              message: 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).',
+              group: ['**/upstream', '**/upstream/**'],
+              message: BRIDGE_MESSAGE,
             },
           ],
         },
       ],
       // Flat config replaces a rule's options per file instead of merging them,
       // so this repeats the memo ban for the TypeScript files it also covers.
-      'no-restricted-syntax': ['error', ...MEMO_BAN, UPSTREAM_DYNAMIC_IMPORT],
+      'no-restricted-syntax': ['error', ...MEMO_BAN, ...UPSTREAM_LOADS],
     },
   },
   {
