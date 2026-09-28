@@ -113,17 +113,47 @@ function substitutions(text) {
       found.push(text.slice(i, end + 1));
       i = end;
     } else if (text[i] === '$' && text[i + 1] === '(' && text[i + 2] !== '(') {
-      let depth = 0;
-      let j = i + 1;
-      for (; j < text.length; j++) {
-        if (text[j] === '(') depth++;
-        else if (text[j] === ')' && --depth === 0) break;
-      }
-      found.push(text.slice(i, j + 1));
-      i = j;
+      const end = substitutionEnd(text, i);
+      found.push(text.slice(i, end + 1));
+      i = end;
     }
   }
   return found;
+}
+
+// Index of the `)` closing the $( at `start`, following bash quoting inside it:
+// parentheses in '...' or "..." do not count, a nested $( within "..." does.
+function substitutionEnd(text, start) {
+  let depth = 0;
+  for (let i = start + 1; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\\') {
+      i++;
+    } else if (c === "'") {
+      const end = text.indexOf("'", i + 1);
+      if (end === -1) break;
+      i = end;
+    } else if (c === '"') {
+      for (i++; i < text.length && text[i] !== '"'; i++) {
+        if (text[i] === '\\') i++;
+        else if (text[i] === '$' && text[i + 1] === '(') i = substitutionEnd(text, i);
+      }
+    } else if (c === '(') {
+      depth++;
+    } else if (c === ')' && --depth === 0) {
+      return i;
+    }
+  }
+  return text.length - 1;
+}
+
+// The commands inside every substitution, nested ones included: the tokenizer
+// keeps a "$(...)" in double quotes as a single word.
+function nestedSubstitutions(text) {
+  return substitutions(text).flatMap((sub) => {
+    const inner = sub.startsWith('$(') ? sub.slice(2, -1) : sub.slice(1, -1);
+    return [inner, ...nestedSubstitutions(inner)];
+  });
 }
 
 function stripDocs(src, ps) {
@@ -186,9 +216,11 @@ function stripDocs(src, ps) {
     else if (c === '(') ctx.push('sh');
     else if (c === ')' && ctx.length > 1) ctx.pop();
     else if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<' && src[i - 1] !== '<') {
-      const m = /^<<(-?)[ \t]*(['"]?)(\\?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(src.slice(i));
+      // The delimiter is the whole word (END.txt, E"OF", 'END-OF-FILE'), quotes removed.
+      const m = /^<<(-?)[ \t]*((?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|<>()'"\\])+)/.exec(src.slice(i));
       if (m) {
-        pending.push({word: m[4], dash: m[1] === '-', quoted: Boolean(m[2] || m[3])});
+        const word = m[2].replace(/'([^']*)'|"([^"]*)"|\\(.)/g, (_, sq, dq, esc) => sq ?? dq ?? esc);
+        pending.push({word, dash: m[1] === '-', quoted: /['"\\]/.test(m[2])});
         out += m[0];
         i += m[0].length;
         continue;
@@ -281,8 +313,7 @@ function splitCommands(src, ps) {
 // Top-level commands plus the insides of $(...) (and bash `...`), which may sit in quotes.
 function parse(src, ps) {
   const s = stripDocs(src, ps);
-  const re = ps ? /\$\(([^()]*)\)/g : /\$\(([^()]*)\)|`([^`]*)`/g;
-  const subs = [...s.matchAll(re)].map((m) => m[1] ?? m[2]);
+  const subs = ps ? [...s.matchAll(/\$\(([^()]*)\)/g)].map((m) => m[1]) : nestedSubstitutions(s);
   return [...splitCommands(s, ps), ...subs.flatMap((sub) => splitCommands(sub, ps))].map((c) => ({...c, ps}));
 }
 
