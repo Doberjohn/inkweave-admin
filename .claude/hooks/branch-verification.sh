@@ -22,6 +22,11 @@ if ! echo "$FILE_PATH" | grep -qE "/(src|scripts)/.*\.(ts|tsx|js|jsx|mjs|json|cs
   exit 0
 fi
 
+# An inherited GIT_DIR / GIT_WORK_TREE (say, from a git hook or a wrapper) would
+# make `git -C` read another repository's branch; clear them the way git's own
+# scripts do (git-sh-setup's clear_local_git_env).
+unset $(git rev-parse --local-env-vars)
+
 # Resolve the branch from the edited file's directory (worktree-aware), falling
 # back to the project root when that directory does not exist yet.
 BRANCH=$(git -C "$(dirname "$FILE_PATH")" branch --show-current 2>/dev/null)
