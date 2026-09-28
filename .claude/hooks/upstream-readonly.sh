@@ -90,12 +90,78 @@ function inUpstream(dir) {
 
 // --- Shell words: quotes, escapes, separators, redirections -----------------
 // Bash escapes with a backslash; PowerShell with a backtick, where backslashes
-// are literal path separators and '' / "" double a quote. Heredoc bodies are
-// data (a `<<<` herestring is not a heredoc).
-const stripDocs = (s, ps) =>
-  ps
-    ? s.replace(/@(['"])\r?\n[\s\S]*?\r?\n\1@/g, ' ')
-    : s.replace(/(?<!<)<<-?[ \t]*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?[\s\S]*/, ' ');
+// are literal path separators and '' / "" double a quote.
+//
+// Heredoc bodies and PowerShell here-strings are data, so they are removed
+// before parsing: only the body, through its terminator line, so the commands
+// after it are still analyzed. A bash `<<WORD` counts when it sits in shell text,
+// which includes the inside of $(...) within double quotes (the usual
+// `git commit -m "$(cat <<'EOF' ...)"`); `<<<` is a herestring, not a heredoc.
+function stripDocs(src, ps) {
+  if (ps) return src.replace(/@(['"])\r?\n[\s\S]*?\r?\n\1@/g, ' ');
+  let out = '';
+  const ctx = ['sh']; // sh = shell text, sq = '...', dq = "..."
+  const pending = []; // heredocs opened on the current line, in order
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    const top = ctx[ctx.length - 1];
+    if (c === '\n') {
+      out += c;
+      i++;
+      while (pending.length) {
+        const {word, dash} = pending.shift();
+        while (i < src.length) {
+          const nl = src.indexOf('\n', i);
+          let line = src.slice(i, nl === -1 ? src.length : nl).replace(/\r$/, '');
+          if (dash) line = line.replace(/^\t+/, '');
+          i = nl === -1 ? src.length : nl + 1;
+          if (line === word) break;
+        }
+      }
+      continue;
+    }
+    if (top === 'sq') {
+      if (c === "'") ctx.pop();
+      out += c;
+      i++;
+      continue;
+    }
+    if (c === '\\') {
+      out += src.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    if (top === 'dq') {
+      if (c === '"') ctx.pop();
+      else if (c === '$' && src[i + 1] === '(') {
+        ctx.push('sh');
+        out += '$(';
+        i += 2;
+        continue;
+      }
+      out += c;
+      i++;
+      continue;
+    }
+    if (c === "'") ctx.push('sq');
+    else if (c === '"') ctx.push('dq');
+    else if (c === '(') ctx.push('sh');
+    else if (c === ')' && ctx.length > 1) ctx.pop();
+    else if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<' && src[i - 1] !== '<') {
+      const m = /^<<(-?)[ \t]*(['"]?)\\?([A-Za-z_][A-Za-z0-9_]*)\2/.exec(src.slice(i));
+      if (m) {
+        pending.push({word: m[3], dash: m[1] === '-'});
+        out += m[0];
+        i += m[0].length;
+        continue;
+      }
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
 
 // Each command is {words, redirects: [{op, target}], piped}. A redirection's
 // target is the word after its operator; stream duplicates (2>&1, >&-) name no file.
