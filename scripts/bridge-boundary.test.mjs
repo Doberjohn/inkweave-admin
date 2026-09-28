@@ -8,7 +8,10 @@ const DYNAMIC_LEAK = "export const load = () => import('../../upstream/inkweave/
 const TEMPLATE_LEAK = 'export const load = () => import(`../../upstream/inkweave/apps/web/src/shared/constants`);\n';
 const REQUIRE_LEAK =
   "import {createRequire} from 'node:module';\nconst require = createRequire(import.meta.url);\nexport const pkg = require('../upstream/inkweave/package.json');\n";
+const TEMPLATE_REQUIRE_LEAK =
+  "import {createRequire} from 'node:module';\nconst require = createRequire(import.meta.url);\nexport const load = (file) => require(`../upstream/inkweave/${file}`);\n";
 const ROOT_LEAK = "import app from '../../upstream';\nexport default app;\n";
+const DYNAMIC_ROOT_LEAK = "export const load = () => import('../../upstream');\n";
 const MEMO = "import {useMemo} from 'react';\nexport const useDouble = (n: number) => useMemo(() => n * 2, [n]);\n";
 
 async function lint(filePath, code = LEAK) {
@@ -57,6 +60,14 @@ describe('the app-bridge boundary', {timeout: 60_000}, () => {
 
   it('rejects a require of upstream code in a Node script', async () => {
     expect(await ruleIds('scripts/leak.mjs', REQUIRE_LEAK)).toContain('no-restricted-syntax');
+  });
+
+  it('rejects a template-literal require of upstream code', async () => {
+    expect(await ruleIds('scripts/leak.mjs', TEMPLATE_REQUIRE_LEAK)).toContain('no-restricted-syntax');
+  });
+
+  it('rejects a dynamic import of the upstream root', async () => {
+    expect(await ruleIds('src/shell/Leak.ts', DYNAMIC_ROOT_LEAK)).toContain('no-restricted-syntax');
   });
 
   it('allows a dynamic upstream import in src/app-bridge.ts', async () => {

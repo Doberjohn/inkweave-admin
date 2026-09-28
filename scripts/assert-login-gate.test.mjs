@@ -28,4 +28,8 @@ describe('isLoginGate', () => {
   it('rejects a login-status redirect to another host', () => {
     expect(isLoginGate(307, 'https://vercel.com.example.net/sso-api?url=x')).toBe(false);
   });
+
+  it('rejects a relative location that cannot be parsed as an absolute URL', () => {
+    expect(isLoginGate(307, '/sso-api?url=x')).toBe(false);
+  });
 });
