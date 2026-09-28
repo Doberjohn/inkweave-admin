@@ -47,6 +47,14 @@ jobs:
           node-version-file: '.nvmrc'
           cache: pnpm
 
+      # Standard Protection leaves production domains such as inkweave-admin.vercel.app
+      # public, so the job stops here, before install and build, unless the project
+      # uses All Deployments. The script needs only Node and the Vercel secrets.
+      - name: Refuse to deploy unless every URL needs Vercel login
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/vercel-project-urls.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -55,13 +63,6 @@ jobs:
 
       - name: Build
         run: npx "vercel@${VERCEL_CLI_VERSION:?}" build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      # Standard Protection leaves production domains such as inkweave-admin.vercel.app
-      # public, so this fails unless the project uses All Deployments.
-      - name: Refuse to deploy unless every URL needs Vercel login
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: node scripts/vercel-project-urls.mjs
 
       - name: Deploy prebuilt output to production
         id: deploy

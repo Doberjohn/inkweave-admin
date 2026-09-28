@@ -510,7 +510,7 @@ The owner approved these departures while P1 was implemented. The task text belo
   - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
   - `check:deps --fix` no longer lists a dependency twice.
 
-  The suite now has 38 tests, including the 9 from #7, not the 15 Task 1.14 expects.
+  The suite now has 43 tests, including the 14 from #7, not the 15 Task 1.14 expects.
 
 ### Files created in P1
 
@@ -1697,6 +1697,8 @@ Afterwards run `git switch feature/ADM_P1-scaffold`, and make sure no probe edit
 
 - [ ] **Step 1: Write `CLAUDE.md`**
 
+> **Superseded by #7:** the custom-domain bullet below says Standard Protection gates every `*.vercel.app` URL. It doesn't: production domains stay public, `inkweave-admin.vercel.app` included. Take the "Hosting and security" section from the repo's `CLAUDE.md` instead. It covers All Deployments, the pre-deploy protection check, the team-scoped `VERCEL_TOKEN` and the Git backstop.
+
 ````markdown
 # inkweave-admin
 
@@ -1820,6 +1822,8 @@ Use `create_project` with name `inkweave-admin` and framework Vite, and **no Git
 - whether `ssoProtection` is set.
 
 - [ ] **Step 2: [confirm] Copy the app project's protection mode**
+
+> **Superseded by #7:** set `ssoProtection.deploymentType` to `all` (All Deployments) instead of copying the app's mode, and never use the fallback in item 3. The app's `all_except_custom_domains` and the fallback's `prod_deployment_urls_and_all_previews` both leave production domains public. `deploy.yml` now refuses to deploy under any mode but `all`.
 
 The app project `inkweave` uses `ssoProtection.deploymentType = "all_except_custom_domains"`. On 2026-09-25 that mode was verified to send its production `*.vercel.app` alias to Vercel login (302). The current API also names a `prod_deployment_urls_and_all_previews` mode, which may leave the production alias public, so don't rely on the new project's default.
 
@@ -2081,6 +2085,8 @@ gh run list --repo Doberjohn/inkweave-admin --workflow deploy.yml --limit 1
 ```
 
 Expected: `completed success`. Its log shows two `gated` lines, one for the deployment URL and one for `ADMIN_PRODUCTION_URL`.
+
+> **Superseded by #7:** the protection step, which runs before the install, lists every project domain. The last step prints one `gated` line per distinct URL: the deployment URL, `ADMIN_PRODUCTION_URL` and each listed domain. Any other result fails the run.
 
 - [ ] **Step 5: Independent check from this machine**
 

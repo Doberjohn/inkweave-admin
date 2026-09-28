@@ -61,33 +61,33 @@ async function vercelGet(pathname, params, token) {
   return response.json();
 }
 
-async function main() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
-  if (missing.length > 0) {
-    console.error(`missing environment: ${missing.join(', ')}`);
-    process.exitCode = 2;
-    return;
+const failure = (exitCode, error) => ({exitCode, urls: [], error});
+
+/**
+ * The whole check except printing. `get(pathname, params, token)` resolves to the
+ * Vercel API's JSON. URLs come back only when the project uses All Deployments;
+ * every failure is a non-zero exit code with no URLs, never a skipped check.
+ */
+export async function run(env, get) {
+  const missing = REQUIRED_ENV.filter((name) => !env[name]);
+  if (missing.length > 0) return failure(2, `missing environment: ${missing.join(', ')}`);
+  const {VERCEL_TOKEN: token, VERCEL_ORG_ID: teamId, VERCEL_PROJECT_ID: projectId} = env;
+  try {
+    const projectPath = `/v9/projects/${encodeURIComponent(projectId)}`;
+    const problem = protectionProblem(await get(projectPath, {teamId}, token));
+    if (problem) return failure(1, problem);
+    const domains = await listDomains((until) =>
+      get(`${projectPath}/domains`, {teamId, limit: PAGE_SIZE, until}, token),
+    );
+    return {exitCode: 0, urls: domains.map((domain) => `https://${domain.name}`), error: null};
+  } catch (error) {
+    return failure(1, error.cause?.message ?? error.message);
   }
-  const {VERCEL_TOKEN: token, VERCEL_ORG_ID: teamId, VERCEL_PROJECT_ID: projectId} = process.env;
-  const projectPath = `/v9/projects/${encodeURIComponent(projectId)}`;
-  const problem = protectionProblem(await vercelGet(projectPath, {teamId}, token));
-  if (problem) {
-    console.error(problem);
-    process.exitCode = 1;
-    return;
-  }
-  const domains = await listDomains((until) =>
-    vercelGet(`${projectPath}/domains`, {teamId, limit: PAGE_SIZE, until}, token),
-  );
-  for (const domain of domains) console.log(`https://${domain.name}`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    await main();
-  } catch (error) {
-    // An API or network failure must fail the deploy, not skip the check.
-    console.error(`vercel-project-urls: ${error.cause?.message ?? error.message}`);
-    process.exitCode = 1;
-  }
+  const {exitCode, urls, error} = await run(process.env, vercelGet);
+  for (const url of urls) console.log(url);
+  if (error) console.error(`vercel-project-urls: ${error}`);
+  process.exitCode = exitCode;
 }
