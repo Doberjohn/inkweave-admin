@@ -31,13 +31,16 @@ export function protectionProblem(project) {
  */
 export async function listDomains(getPage) {
   const domains = [];
+  // A cursor seen before means the pages cycle; failing beats hanging the deploy.
+  const seen = new Set();
   let until;
   for (;;) {
     const page = await getPage(until);
     domains.push(...page.domains);
     const next = page.pagination?.next ?? null;
     if (next === null) return domains;
-    if (next === until) throw new Error(`domain pagination did not advance past ${until}`);
+    if (seen.has(next)) throw new Error(`domain pagination repeated cursor ${next}`);
+    seen.add(next);
     until = next;
   }
 }

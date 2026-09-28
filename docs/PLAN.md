@@ -85,7 +85,7 @@ inkweave-admin/
 │   ├── shell/                admin layout and tool nav (no public nav, no Vercel Analytics)
 │   └── tools/                reveal, image, tuning, analytics, banner
 ├── scripts/                  reveal-sync, analytics precomputes, export-banner, plus repo checks
-│                             (check-shared-deps, assert-login-gate)
+│                             (check-shared-deps, assert-login-gate, vercel-project-urls)
 ├── .claude/                  CLAUDE.md, fetch-reveals skill, hooks: git-write-protection,
 │                             branch-verification, upstream-readonly
 ├── .github/
@@ -93,7 +93,7 @@ inkweave-admin/
 │   └── dependabot.yml        weekly gitsubmodule bumps only (npm versions follow the app via parity)
 ├── docs/PLAN.md              this spec and the implementation plan
 ├── forwarded-paths.json      the app paths forwarded to inkweave.ink (proxy + rewrites)
-└── vercel.json               rewrites to inkweave.ink, site-wide noindex
+└── vercel.json               rewrites to inkweave.ink, site-wide noindex, Git-triggered deploys off
 ```
 
 The relative submodule URL `../inkweave.git` resolves against the admin remote: to `git@github-personal:Doberjohn/inkweave.git` locally and to `https://github.com/Doberjohn/inkweave.git` in Actions, so neither side hardcodes the other's host.
@@ -510,7 +510,7 @@ The owner approved these departures while P1 was implemented. The task text belo
   - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
   - `check:deps --fix` no longer lists a dependency twice.
 
-  The suite now has 35 tests, including the 6 from #7, not the 15 Task 1.14 expects.
+  The suite now has 38 tests, including the 9 from #7, not the 15 Task 1.14 expects.
 
 ### Files created in P1
 
@@ -523,7 +523,7 @@ The owner approved these departures while P1 was implemented. The task text belo
 | `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json` | Compiler options identical to the app's, so bridged files compile the same way |
 | `vite.config.ts` | Same React Compiler setup as the app; dev port 5180; dev proxy built from `forwarded-paths.json`; Vitest config |
 | `forwarded-paths.json` | Single list of app paths forwarded to `https://inkweave.ink` (D5) |
-| `vercel.json` | Rewrites for those paths, SPA fallback, site-wide noindex |
+| `vercel.json` | Rewrites for those paths, SPA fallback, site-wide noindex; Git-triggered deploys off (#7) |
 | `index.html`, `src/main.tsx` | Entry point |
 | `src/app-bridge.ts` | The only module importing from `upstream/` |
 | `src/shell/tools.ts`, `src/shell/ToolIndex.tsx` (+ test) | Landing page listing the five tools |
@@ -531,11 +531,12 @@ The owner approved these departures while P1 was implemented. The task text belo
 | `eslint.config.js` | App lint rules, the app's design-token plugin, and the bridge boundary rule |
 | `scripts/check-shared-deps.mjs` (+ test) | Version parity with the pinned app, with `--fix` |
 | `scripts/assert-login-gate.mjs` (+ test) | Fails a deploy if any admin URL answers an anonymous request |
-| `scripts/bridge-boundary.test.mjs`, `scripts/forwarded-paths.test.mjs` | Guards on the lint boundary and on vercel.json / proxy sync |
+| `scripts/vercel-project-urls.mjs` (+ test) | Refuses a deploy unless the project uses All Deployments; lists every project domain for the login-gate check (#7) |
+| `scripts/bridge-boundary.test.mjs`, `scripts/forwarded-paths.test.mjs`, `scripts/vercel-config.test.mjs` | Guards on the lint boundary, on vercel.json / proxy sync, and on Git-triggered deploys staying off (#7) |
 | `.husky/pre-commit`, `.husky/pre-push` | Lint + tests on commit; parity + typecheck on push |
 | `.claude/settings.json`, `.claude/hooks/*.sh` | Git safety, branch check, read-only `upstream/` |
 | `CLAUDE.md` | Rules and environment for admin sessions |
-| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI, deploy plus login-gate assertion, weekly pin bumps |
+| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI, deploy plus protection check and login-gate assertion, weekly pin bumps |
 
 ### Task 1.1: Clone and bootstrap commit
 

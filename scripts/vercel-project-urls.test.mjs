@@ -16,6 +16,11 @@ describe('protectionProblem', () => {
   it('rejects a project with protection turned off', () => {
     expect(protectionProblem({ssoProtection: null})).toMatch(/"off", not All Deployments/);
   });
+
+  it('rejects a response without a protection setting', () => {
+    expect(protectionProblem({})).toMatch(/"off", not All Deployments/);
+    expect(protectionProblem(undefined)).toMatch(/"off", not All Deployments/);
+  });
 });
 
 describe('listDomains', () => {
@@ -33,8 +38,18 @@ describe('listDomains', () => {
     expect(requested).toEqual([undefined, 1700]);
   });
 
+  it('stops after one page when the response has no pagination', async () => {
+    const domains = await listDomains(async () => ({domains: [{name: 'inkweave-admin.vercel.app'}]}));
+    expect(domains.map((domain) => domain.name)).toEqual(['inkweave-admin.vercel.app']);
+  });
+
   it('fails instead of looping when a page repeats its cursor', async () => {
     const repeating = async () => ({domains: [], pagination: {next: 1700}});
-    await expect(listDomains(repeating)).rejects.toThrow('did not advance past 1700');
+    await expect(listDomains(repeating)).rejects.toThrow('repeated cursor 1700');
+  });
+
+  it('fails instead of looping when pages cycle between cursors', async () => {
+    const cycling = async (until) => ({domains: [], pagination: {next: until === 1700 ? 1701 : 1700}});
+    await expect(listDomains(cycling)).rejects.toThrow('repeated cursor 1700');
   });
 });
