@@ -13,12 +13,14 @@ FILE_PATH=$(echo "$INPUT" | node -e "
   });
 ")
 FILE_PATH=$(echo "$FILE_PATH" | sed 's|\\|/|g')
+# Windows paths are case-insensitive, so SRC/Main.TSX must match like src/main.tsx.
+LOWER_PATH=$(echo "$FILE_PATH" | tr '[:upper:]' '[:lower:]')
 
-case "$FILE_PATH" in
+case "$LOWER_PATH" in
   */upstream/*) exit 0 ;;
 esac
 
-if ! echo "$FILE_PATH" | grep -qE "/(src|scripts)/.*\.(ts|tsx|js|jsx|mjs|json|css)$"; then
+if ! echo "$LOWER_PATH" | grep -qE "/(src|scripts)/.*\.(ts|tsx|js|jsx|mjs|json|css)$"; then
   exit 0
 fi
 

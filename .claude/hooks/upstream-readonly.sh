@@ -34,7 +34,8 @@ FILE_PATH=$(echo "$INPUT" | node -e "
     try { console.log(JSON.parse(d).tool_input?.file_path || ''); } catch { console.log(''); }
   });
 ")
-FILE_PATH=$(echo "$FILE_PATH" | sed 's|\\|/|g')
+# Windows paths are case-insensitive, so Upstream/Inkweave/... must match too.
+FILE_PATH=$(echo "$FILE_PATH" | sed 's|\\|/|g' | tr '[:upper:]' '[:lower:]')
 
 case "$FILE_PATH" in
   */upstream/inkweave/*|upstream/inkweave/*)
@@ -356,7 +357,16 @@ const LITERAL = {commit: /git commit( |$|")/m, push: /git push( |$|")/m};
 // The command string a nested shell runs, if this is one (bash -c, powershell -Command, cmd /c, iex).
 function nestedShell(prog, args) {
   const name = prog.replace(/\.exe$/, '');
-  if ((name === 'bash' || name === 'sh') && args[0] === '-c' && args[1]) return {src: args[1], ps: false};
+  if (name === 'bash' || name === 'sh') {
+    // -c alone or among other short flags (-lc, -ec, -l -c); -o/-O/--rcfile take a value.
+    let k = 0;
+    let command = false;
+    while (k < args.length && /^[-+]/.test(args[k])) {
+      if (/^-[A-Za-z]*c[A-Za-z]*$/.test(args[k])) command = true;
+      k += /^([-+][oO]|--rcfile|--init-file)$/.test(args[k]) ? 2 : 1;
+    }
+    if (command && args[k]) return {src: args[k], ps: false};
+  }
   if (name === 'powershell' || name === 'pwsh') {
     const at = args.findIndex((a) => /^-(c|command)$/i.test(a));
     if (at >= 0 && args[at + 1]) return {src: args.slice(at + 1).join(' '), ps: true};
@@ -369,6 +379,7 @@ function nestedShell(prog, args) {
 function analyze(cmds, startDir, insideAll) {
   let cwd = startDir;
   const stack = [];
+  const shellVars = {}; // variables set on their own (`X=1`, `export X=1`) earlier in the command
   for (const {words, redirects, piped, ps} of cmds) {
     for (const {op, target} of redirects) {
       const file = target.replace(/^&/, ''); // bash `>&file` sends both streams to a file
@@ -380,9 +391,20 @@ function analyze(cmds, startDir, insideAll) {
       }
     }
     const w = words.slice();
-    while (w.length && (WRAPPERS.has(w[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) w.shift();
-    if (!w.length) continue;
+    const assigned = {};
+    while (w.length && (WRAPPERS.has(w[0]) || w[0] === 'export' || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) {
+      const a = /^([A-Za-z_][A-Za-z0-9_]*)=([\s\S]*)$/.exec(w.shift());
+      if (a) assigned[a[1]] = a[2];
+    }
+    if (!w.length) {
+      Object.assign(shellVars, assigned);
+      continue;
+    }
     const prog = slash(w.shift()).toLowerCase();
+    if (prog === 'unset') {
+      for (const name of w) delete shellVars[name];
+      continue;
+    }
     if (CD.has(prog) || PUSHD.has(prog)) {
       const target = w.find((a) => !a.startsWith('-'));
       if (PUSHD.has(prog)) stack.push(cwd);
@@ -402,6 +424,11 @@ function analyze(cmds, startDir, insideAll) {
 
     let dir = cwd;
     let inside = insideAll;
+    // GIT_DIR / GIT_WORK_TREE, set for this git or earlier in the command, choose the repository too.
+    for (const name of ['GIT_DIR', 'GIT_WORK_TREE']) {
+      const value = assigned[name] ?? shellVars[name];
+      if (value && inUpstream(resolveDir(cwd, value))) inside = true;
+    }
     let i = 0;
     while (i < w.length && w[i].startsWith('-')) {
       const eq = w[i].indexOf('=');
