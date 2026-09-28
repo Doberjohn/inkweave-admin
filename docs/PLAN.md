@@ -2101,6 +2101,8 @@ Expected: `gated ... -> 302 https://vercel.com/sso-api?...`
 2. Use the per-deployment URL until the owner picks a fix. Candidates: the `all` protection mode (plan-dependent) or a different host.
 3. Record the finding on `#ADM_P1`.
 
+> **Superseded by #7:** this happened on the first deploy. The fix isn't preview-only deploys: set Deployment Protection back to **All Deployments** (Project → Security → Deployment Protection; free on every plan since 2026-09-09), then rerun the command above against `ADMIN_PRODUCTION_URL`. The deploy workflow now refuses to ship under any other mode.
+
 - [ ] **Step 6: Owner's eye**
 
 The owner opens `ADMIN_PRODUCTION_URL` while logged in to Vercel and sees the tool index. It should look as it did at `localhost:5180`, with fonts loading through the rewrite. "Open current page" on Reveal publisher should open `inkweave.ink/admin/reveal`.
