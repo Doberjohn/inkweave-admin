@@ -26,6 +26,9 @@ export function runHook(hook, payload, env = {}) {
     env: {...process.env, CLAUDE_PROJECT_DIR: PROJECT, ...env},
     encoding: 'utf8',
   });
+  // Without an exit status, say why instead of reporting a bare null.
+  if (result.error) return {code: null, err: `bash did not start: ${result.error.message}`};
+  if (result.signal) return {code: null, err: `hook killed by ${result.signal}`};
   return {code: result.status, err: (result.stderr || '').trim().split('\n')[0]};
 }
 
@@ -229,31 +232,40 @@ function branchCases(repos) {
   ];
 }
 
-function main() {
-  const repos = {};
+// Each repository is recorded as soon as its directory exists, so the caller's
+// cleanup also covers a setup that fails halfway.
+function makeRepos(repos) {
   for (const branch of ['main', 'feature/1-probe']) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-hooks-'));
+    repos[branch] = dir;
     execFileSync('git', ['init', '-q', '-b', branch, dir]);
     fs.mkdirSync(path.join(dir, 'src'));
-    repos[branch] = dir;
   }
-  const all = [
-    ...cases.map(([hook, payload, want, label]) => ({hook, payload, env: {}, want, label})),
-    ...branchCases(repos).map(([{payload, env}, want, label]) => ({hook: 'branch-verification.sh', payload, env, want, label})),
-  ];
-  let failures = 0;
+}
+
+/** Runs one case, and prints it when the exit code is wrong. */
+function passes({hook, payload, env, want, label}) {
+  const got = runHook(hook, payload, env);
+  if (got.code === want) return true;
+  console.log(`FAIL ${hook}: ${label}\n     expected exit ${want}, got ${got.code}${got.err ? ` (${got.err})` : ''}`);
+  return false;
+}
+
+function main() {
+  const repos = {};
   try {
-    for (const {hook, payload, env, want, label} of all) {
-      const got = runHook(hook, payload, env);
-      if (got.code === want) continue;
-      failures++;
-      console.log(`FAIL ${hook}: ${label}\n     expected exit ${want}, got ${got.code}${got.err ? ` (${got.err})` : ''}`);
-    }
+    makeRepos(repos);
+    const all = [
+      ...cases.map(([hook, payload, want, label]) => ({hook, payload, env: {}, want, label})),
+      ...branchCases(repos).map(([{payload, env}, want, label]) => ({hook: 'branch-verification.sh', payload, env, want, label})),
+    ];
+    let failures = 0;
+    for (const check of all) if (!passes(check)) failures++;
+    console.log(`${all.length - failures}/${all.length} hook cases passed`);
+    return failures ? 1 : 0;
   } finally {
     for (const dir of Object.values(repos)) fs.rmSync(dir, {recursive: true, force: true});
   }
-  console.log(`${all.length - failures}/${all.length} hook cases passed`);
-  return failures ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
