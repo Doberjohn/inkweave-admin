@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-write-protection.sh\""},
+          {"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/upstream-readonly.sh\""}
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/branch-verification.sh\""},
+          {"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/upstream-readonly.sh\""}
+        ]
+      }
+    ]
+  }
+}
