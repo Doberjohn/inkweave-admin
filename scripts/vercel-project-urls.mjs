@@ -37,7 +37,10 @@ export async function listDomains(getPage) {
   for (;;) {
     const page = await getPage(until);
     domains.push(...page.domains);
-    const next = page.pagination?.next ?? null;
+    // The API always sends pagination.next, and null marks the last page. A page
+    // without it can't be trusted, so fail instead of checking fewer domains.
+    const next = page.pagination?.next;
+    if (next === undefined) throw new Error('domains response has no pagination.next');
     if (next === null) return domains;
     if (seen.has(next)) throw new Error(`domain pagination repeated cursor ${next}`);
     seen.add(next);

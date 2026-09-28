@@ -40,9 +40,9 @@ describe('listDomains', () => {
     expect(requested).toEqual([undefined, 1700]);
   });
 
-  it('stops after one page when the response has no pagination', async () => {
-    const domains = await listDomains(async () => ({domains: [{name: 'inkweave-admin.vercel.app'}]}));
-    expect(domains.map((domain) => domain.name)).toEqual(['inkweave-admin.vercel.app']);
+  it('fails instead of stopping early when a page has no pagination.next', async () => {
+    const malformed = async () => ({domains: [{name: 'inkweave-admin.vercel.app'}]});
+    await expect(listDomains(malformed)).rejects.toThrow('no pagination.next');
   });
 
   it('fails instead of looping when a page repeats its cursor', async () => {
