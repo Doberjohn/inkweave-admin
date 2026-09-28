@@ -9,6 +9,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Nothing here writes to GitHub, and checkout authenticates with APP_REPO_TOKEN,
+# so the workflow's own GITHUB_TOKEN only needs to read.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-admin
   cancel-in-progress: false

@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+# Nothing here writes to GitHub, and checkout authenticates with APP_REPO_TOKEN,
+# so the workflow's own GITHUB_TOKEN only needs to read.
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
