@@ -479,6 +479,28 @@ P4 later starts with `git switch -c feature/APP_P4-remove-admin origin/master` a
 
 ## Phase P1: admin repo scaffold (`ADMIN`)
 
+### P1 as built (2026-09-28)
+
+The owner approved these departures while P1 was implemented. The task text below is unchanged; where the two differ, this list and the code win.
+
+- **Task 1.3, `test:run`:** `pnpm build:engine && vitest run`, not `vitest run`. The bridge reaches the engine at runtime (`CtaButton` → `shared/hooks` → `features/cards/loader.ts`), so without it the tests and the pre-commit hook fail on a fresh clone.
+- **Task 1.6, boundary test timeout:** `describe(..., {timeout: 60_000}, ...)`. The first lint loads typescript-eslint and the React Compiler plugin: 3.5-4.7 s warm and 45 s cold on Windows, past Vitest's 5 s default.
+- **Task 1.8, shell git guard:** `upstream-readonly.sh` also runs on shell commands, with the matcher `Bash|PowerShell`. `git-write-protection.sh` stays a verbatim copy of the app's, but it matches only the literal `git commit` / `git push`, so `git -C upstream/inkweave ...`, `git -c k=v commit` and every PowerShell call went unguarded. Git writes inside `upstream/` are now blocked outright; `git submodule update --remote` and option-prefixed commits and pushes need `USER_APPROVED=1`. PowerShell cannot carry that prefix, so commits and pushes go through the Bash tool.
+- **Task 1.8, probes:** the branch check was probed on a temporary local `master` branch. `main` has no `.claude/` files until this phase merges, so `git switch main` would have removed the hook scripts first. The hooks took effect without a session restart.
+- **Task 1.9, `CLAUDE.md`:** five short additions that document the items above: the engine build before `pnpm dev`, what `test:run` does, the approval prefix for pin bumps, commits through the Bash tool, and the shell guard.
+- **Tasks 1.10 and 1.12, workflow hardening:** `pnpm/action-setup` is pinned to `0977fd99725f1db4007ccb2928dbb4e90d06cc86` (v6.0.10, the commit `@v6` pointed at), and `actions/checkout` sets `persist-credentials: false`. A security review flagged the movable third-party tag and the token left in `.git/config` for later steps, dependency install scripts included. The checkout step still fetches the private submodule.
+- **Task 1.11, Vercel project:** created with `ssoProtection: all_except_custom_domains` in the same call, so it never had the default mode. It had no domain before its first deploy, so `ADMIN_PRODUCTION_URL` holds the predicted alias `https://inkweave-admin-johnfanidis-projects.vercel.app`; the deploy's gate step fails closed if the real alias differs. The claude.ai Vercel connector cannot read the new project (get returns 404, a repeat create returns 409), so the protection is confirmed by the gate step and in the dashboard.
+- **Task 1.13, Dependabot:** also updates `github-actions` weekly, as the app does, so the pinned SHA and the `actions/*` tags stay current.
+- **Review fixes on PR #5:** `branch-verification.sh` clears inherited repository variables (`unset $(git rev-parse --local-env-vars)`) before reading the branch. `upstream-readonly.sh` also blocks shell redirections whose target is inside `upstream/` (other file-writing commands stay out of scope), and it strips only a heredoc's body, so commands after the terminator are still checked. The command substitutions in an unquoted heredoc's body are kept, because bash runs them; `#` comments are ignored. Delimiters are read as whole words (`END.txt`), and substitutions are found with bash's quoting rules, nested ones included. Both workflows declare `permissions: contents: read`. The bridge boundary covers every source file except `eslint.config.js`, including literal dynamic `import()` through `no-restricted-syntax`; that rule repeats the memo ban, because flat config replaces a rule's options per file instead of merging them. Later reviews (cubic, then CodeRabbit again) prompted more fixes:
+  - the login-gate check accepts only the exact `vercel.com/sso-api` endpoint, times out each request after 30 s, and still reports every URL when one can't be fetched;
+  - PowerShell `$(...)` subexpressions, nested ones included, go through the same quote-aware scan as bash;
+  - both hooks match paths case-insensitively;
+  - the upstream guard also follows `GIT_DIR`/`GIT_WORK_TREE` assignments and `bash -lc`;
+  - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
+  - `check:deps --fix` no longer lists a dependency twice.
+
+  The suite has 26 tests, not the 15 Task 1.14 expects.
+
 ### Files created in P1
 
 | Path | Responsibility |

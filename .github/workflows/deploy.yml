@@ -1,0 +1,65 @@
+# Admin deploy (docs/PLAN.md, D4). Vercel cannot clone the private submodule,
+# so the build runs here and ships with `vercel deploy --prebuilt`, mirroring
+# the app's own deploy workflow. The last step fails the run if any admin URL
+# answers an anonymous request: Vercel login is the whole security model.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nothing here writes to GitHub, and checkout authenticates with APP_REPO_TOKEN,
+# so the workflow's own GITHUB_TOKEN only needs to read.
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+# Pinned for the same reason as the app's deploy.yml: unpinned `npx vercel`
+# can straddle two CLI versions inside one job.
+env:
+  VERCEL_CLI_VERSION: '60.0.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          token: ${{ secrets.APP_REPO_TOKEN }}
+          # Submodules are fetched inside this step; don't leave the token in
+          # .git/config for later steps (dependency install scripts included).
+          persist-credentials: false
+
+      # Third-party action pinned to a commit; bump the SHA and comment together.
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull Vercel production settings
+        run: npx "vercel@${VERCEL_CLI_VERSION:?}" pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: npx "vercel@${VERCEL_CLI_VERSION:?}" build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt output to production
+        id: deploy
+        run: |
+          url=$(npx "vercel@${VERCEL_CLI_VERSION:?}" deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Assert every admin URL is behind Vercel login
+        run: node scripts/assert-login-gate.mjs "${{ steps.deploy.outputs.url }}" "${{ vars.ADMIN_PRODUCTION_URL }}"

@@ -1,0 +1,24 @@
+version: 2
+registries:
+  app-repo:
+    type: git
+    url: https://github.com
+    username: x-access-token
+    password: ${{secrets.APP_REPO_TOKEN}}
+updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    registries:
+      - app-repo
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+  # Keeps the SHA-pinned third-party action and the actions/* tags current;
+  # Dependabot rewrites a pinned SHA and its version comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
