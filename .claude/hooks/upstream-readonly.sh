@@ -14,6 +14,9 @@
 #               pushd earlier in the command, the shell's current directory, or
 #               `git submodule foreach`. Read-only subcommands (status, log,
 #               diff, show, ...) pass.
+#   hard block  a shell redirection (`>`, `>>`, `&>`, ...) whose target is inside
+#               upstream/. Only redirections are checked: other file-writing
+#               commands (cp, tee, Set-Content, ...) are not analyzable in general.
 #   soft block  (USER_APPROVED=1 bypass, as in git-write-protection.sh)
 #               `git submodule update --remote`, which moves the pin, and a
 #               commit or push the literal match misses (`git -c k=v commit`,
@@ -40,8 +43,9 @@ case "$FILE_PATH" in
     ;;
 esac
 
-# Shell tool calls: analyze the command's git invocations. The analyzer is plain
-# JavaScript in a quoted heredoc, so nothing in it is shell-expanded.
+# Shell tool calls: analyze the command's git invocations and redirections. The
+# analyzer is plain JavaScript in a quoted heredoc, so nothing in it is
+# shell-expanded.
 printf '%s' "$INPUT" | node -e "$(cat <<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
@@ -84,29 +88,40 @@ function inUpstream(dir) {
   return d.startsWith(projectDir + '/upstream/');
 }
 
-// --- Shell words: quotes, escapes, separators; heredocs are data -------------
+// --- Shell words: quotes, escapes, separators, redirections -----------------
 // Bash escapes with a backslash; PowerShell with a backtick, where backslashes
-// are literal path separators and '' / "" double a quote.
+// are literal path separators and '' / "" double a quote. Heredoc bodies are
+// data (a `<<<` herestring is not a heredoc).
 const stripDocs = (s, ps) =>
   ps
     ? s.replace(/@(['"])\r?\n[\s\S]*?\r?\n\1@/g, ' ')
-    : s.replace(/<<-?[ \t]*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?[\s\S]*/, ' ');
+    : s.replace(/(?<!<)<<-?[ \t]*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?[\s\S]*/, ' ');
 
+// Each command is {words, redirects: [{op, target}], piped}. A redirection's
+// target is the word after its operator; stream duplicates (2>&1, >&-) name no file.
 function splitCommands(src, ps) {
   const cmds = [];
   let words = [];
+  let redirects = [];
   let word = '';
   let has = false;
   let quote = null;
+  let redirect = null;
   const endWord = () => {
-    if (has) words.push(word);
+    if (has) {
+      if (redirect) redirects.push({op: redirect, target: word});
+      else words.push(word);
+      redirect = null;
+    }
     word = '';
     has = false;
   };
   const endCmd = (piped) => {
     endWord();
-    if (words.length) cmds.push({words, piped});
+    redirect = null;
+    if (words.length || redirects.length) cmds.push({words, redirects, piped});
     words = [];
+    redirects = [];
   };
   const separators = ps ? ';\n(){}' : ';\n()`';
   for (let i = 0; i < src.length; i++) {
@@ -132,12 +147,21 @@ function splitCommands(src, ps) {
       has = true;
     } else if (c === ' ' || c === '\t' || c === '\r') {
       endWord();
+    } else if (c === '>' || (c === '<' && !ps) || (c === '&' && src[i + 1] === '>')) {
+      // A digit word (or PowerShell's `*`) right before the operator is its stream number.
+      if (has && (/^\d+$/.test(word) || (ps && word === '*'))) {
+        word = '';
+        has = false;
+      } else endWord();
+      const m = /^(&>>?|>\||>>?|<<<|<<|<>|<)(&(\d+|-))?/.exec(src.slice(i));
+      i += m[0].length - 1;
+      if (!m[2]) redirect = m[1];
     } else if (c === '|') {
       if (src[i + 1] === '|') {
         i++;
         endCmd(false);
       } else endCmd(true);
-    } else if (c === '&' && !/[<>]/.test(src[i - 1] || '') && src[i + 1] !== '>') {
+    } else if (c === '&' && !/[<>]/.test(src[i - 1] || '')) {
       if (src[i + 1] === '&') i++;
       endCmd(false);
     } else if (separators.includes(c)) {
@@ -159,17 +183,6 @@ function parse(src, ps) {
   return [...splitCommands(s, ps), ...subs.flatMap((sub) => splitCommands(sub, ps))].map((c) => ({...c, ps}));
 }
 
-// Redirections (2>/dev/null, 2>$null, >out.txt, 2>&1) are not arguments.
-function dropRedirections(args) {
-  const out = [];
-  for (let i = 0; i < args.length; i++) {
-    const m = /^\d*(>>?|<|>&|&>)(.*)$/.exec(args[i]);
-    if (!m) out.push(args[i]);
-    else if (m[2] === '') i++;
-  }
-  return out;
-}
-
 // --- Git invocations ----------------------------------------------------------
 const WRAPPERS = new Set(['env', 'command', 'builtin', 'exec', 'time', 'nohup', '{', '}', '!', 'if', 'then', 'else', 'elif', 'do', 'while', 'until']);
 const CD = new Set(['cd', 'chdir', 'sl', 'set-location']);
@@ -183,6 +196,9 @@ const READ_ONLY = new Set([
   'help', 'version',
 ]);
 const LISTING_BRANCH_ARGS = new Set(['--show-current', '-a', '--all', '-r', '--remotes', '-l', '--list', '-v', '-vv', '--verbose']);
+// Redirections that create or change a file, and targets that are not files.
+const WRITE_OPS = new Set(['>', '>>', '>|', '&>', '&>>', '<>']);
+const NULL_DEVICES = new Set(['/dev/null', '$null', 'nul']);
 
 function readOnly(verb, args) {
   if (READ_ONLY.has(verb)) return true;
@@ -219,7 +235,16 @@ function nestedShell(prog, args) {
 function analyze(cmds, startDir, insideAll) {
   let cwd = startDir;
   const stack = [];
-  for (const {words, piped, ps} of cmds) {
+  for (const {words, redirects, piped, ps} of cmds) {
+    for (const {op, target} of redirects) {
+      const file = target.replace(/^&/, ''); // bash `>&file` sends both streams to a file
+      if (WRITE_OPS.has(op) && file && !NULL_DEVICES.has(file.toLowerCase()) && inUpstream(resolveDir(cwd, file))) {
+        block(
+          `Blocked: a shell redirection would write ${file} inside upstream/inkweave, the pinned app submodule, which is read-only here. ` +
+            'Change the app in Doberjohn/inkweave, then bump the pin.',
+        );
+      }
+    }
     const w = words.slice();
     while (w.length && (WRAPPERS.has(w[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) w.shift();
     if (!w.length) continue;
@@ -254,13 +279,14 @@ function analyze(cmds, startDir, insideAll) {
       i++;
     }
     const verb = w[i];
-    const args = dropRedirections(w.slice(i + 1));
+    const args = w.slice(i + 1);
     if (!verb) continue;
     if (inUpstream(dir)) inside = true;
 
     if (verb === 'submodule' && args[0] === 'foreach') {
+      // foreach runs its command inside the submodule, upstream/inkweave.
       const inner = args.slice(1).filter((a) => !['--recursive', '--quiet', '-q'].includes(a));
-      analyze(parse(inner.join(' '), ps), dir, true);
+      analyze(parse(inner.join(' '), ps), resolveDir(dir, 'upstream/inkweave'), true);
       continue;
     }
     if (inside && !readOnly(verb, args)) {
