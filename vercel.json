@@ -3,6 +3,7 @@
   "framework": "vite",
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
+  "git": {"deploymentEnabled": false},
   "rewrites": [
     {"source": "/data/:path*", "destination": "https://inkweave.ink/data/:path*"},
     {"source": "/card-images/:path*", "destination": "https://inkweave.ink/card-images/:path*"},

@@ -499,6 +499,9 @@ The owner approved these departures while P1 was implemented. The task text belo
   - The run still passed. Its gate step checked only the deployment URL and the predicted alias, and Standard does gate those generated URLs.
   - The same day, the owner switched the project to All Deployments, and `ADMIN_PRODUCTION_URL` became `https://inkweave-admin.vercel.app`.
   - `deploy.yml` gained two checks through `scripts/vercel-project-urls.mjs`: it refuses to deploy unless the project uses All Deployments, and the gate step also covers every domain the Vercel API lists for the project.
+  - The same day, the project also became connected to this repo through Vercel's Git integration. It was first seen on `bb6dd96`.
+  - Vercel's own builds of `main` and of PR #8 failed within seconds. Had they worked, they would have skipped both checks.
+  - The connection is removed in the dashboard. As a backstop, `vercel.json` sets `git.deploymentEnabled: false`, and `scripts/vercel-config.test.mjs` pins it.
 - **Review fixes on PR #5:** `branch-verification.sh` clears inherited repository variables (`unset $(git rev-parse --local-env-vars)`) before reading the branch. `upstream-readonly.sh` also blocks shell redirections whose target is inside `upstream/` (other file-writing commands stay out of scope), and it strips only a heredoc's body, so commands after the terminator are still checked. The command substitutions in an unquoted heredoc's body are kept, because bash runs them; `#` comments are ignored. Delimiters are read as whole words (`END.txt`), and substitutions are found with bash's quoting rules, nested ones included. Both workflows declare `permissions: contents: read`. The bridge boundary covers every source file except `eslint.config.js`, including literal dynamic `import()` through `no-restricted-syntax`; that rule repeats the memo ban, because flat config replaces a rule's options per file instead of merging them. Later reviews (cubic, then CodeRabbit again) prompted more fixes:
   - the login-gate check accepts only the exact `vercel.com/sso-api` endpoint, times out each request after 30 s, and still reports every URL when one can't be fetched;
   - PowerShell `$(...)` subexpressions, nested ones included, go through the same quote-aware scan as bash;
@@ -507,7 +510,7 @@ The owner approved these departures while P1 was implemented. The task text belo
   - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
   - `check:deps --fix` no longer lists a dependency twice.
 
-  The suite now has 34 tests, including the 5 from #7, not the 15 Task 1.14 expects.
+  The suite now has 35 tests, including the 6 from #7, not the 15 Task 1.14 expects.
 
 ### Files created in P1
 
