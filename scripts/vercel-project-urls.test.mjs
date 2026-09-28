@@ -1,8 +1,8 @@
 // @vitest-environment node
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {describe, expect, it} from 'vitest';
-import {listDomains, protectionProblem, run} from './vercel-project-urls.mjs';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {listDomains, main, protectionProblem, run} from './vercel-project-urls.mjs';
 
 describe('protectionProblem', () => {
   it('accepts All Deployments', () => {
@@ -56,26 +56,42 @@ describe('listDomains', () => {
   });
 });
 
+const env = {VERCEL_TOKEN: 'token', VERCEL_ORG_ID: 'team_x', VERCEL_PROJECT_ID: 'prj_x'};
+const onePage = [{domains: [{name: 'inkweave-admin.vercel.app'}], pagination: {next: null}}];
+
+// Serves the project, then `domainPages` in order, and records every call.
+const fakeApi = ({deploymentType = 'all', error, domainPages = onePage} = {}) => {
+  const requested = [];
+  const pages = [...domainPages];
+  const get = async (pathname, params, token) => {
+    requested.push({pathname, params, token});
+    if (error) throw new Error(error);
+    return pathname.endsWith('/domains') ? pages.shift() : {ssoProtection: {deploymentType}};
+  };
+  return {get, requested};
+};
+
 // deploy.yml trusts the exit code and prints whatever URLs come back, so every
 // failure must be non-zero with no URLs.
 describe('run', () => {
-  const env = {VERCEL_TOKEN: 'token', VERCEL_ORG_ID: 'team_x', VERCEL_PROJECT_ID: 'prj_x'};
-  const fakeApi = ({deploymentType = 'all', error} = {}) => {
-    const requested = [];
-    const get = async (pathname) => {
-      requested.push(pathname);
-      if (error) throw new Error(error);
-      if (pathname.endsWith('/domains')) {
-        return {domains: [{name: 'inkweave-admin.vercel.app'}], pagination: {next: null}};
-      }
-      return {ssoProtection: {deploymentType}};
-    };
-    return {get, requested};
-  };
-
   it('lists every domain when the project uses All Deployments', async () => {
     const {get} = fakeApi();
     expect(await run(env, get)).toEqual({exitCode: 0, urls: ['https://inkweave-admin.vercel.app'], error: null});
+  });
+
+  it('passes the team, page size, cursor and token to every API call', async () => {
+    const {get, requested} = fakeApi({
+      domainPages: [
+        {domains: [{name: 'inkweave-admin.vercel.app'}], pagination: {next: 1700}},
+        {domains: [{name: 'admin.example.com'}], pagination: {next: null}},
+      ],
+    });
+    expect((await run(env, get)).urls).toEqual(['https://inkweave-admin.vercel.app', 'https://admin.example.com']);
+    expect(requested).toEqual([
+      {pathname: '/v9/projects/prj_x', params: {teamId: 'team_x'}, token: 'token'},
+      {pathname: '/v9/projects/prj_x/domains', params: {teamId: 'team_x', limit: 100, until: undefined}, token: 'token'},
+      {pathname: '/v9/projects/prj_x/domains', params: {teamId: 'team_x', limit: 100, until: 1700}, token: 'token'},
+    ]);
   });
 
   it('exits 2 without calling the API when the environment is incomplete', async () => {
@@ -91,12 +107,41 @@ describe('run', () => {
   it('exits 1 without asking for domains when protection is not All Deployments', async () => {
     const {get, requested} = fakeApi({deploymentType: 'all_except_custom_domains'});
     expect(await run(env, get)).toMatchObject({exitCode: 1, urls: []});
-    expect(requested).toEqual(['/v9/projects/prj_x']);
+    expect(requested.map((call) => call.pathname)).toEqual(['/v9/projects/prj_x']);
   });
 
   it('exits 1 with no URLs when the API fails', async () => {
     const {get} = fakeApi({error: 'GET /v9/projects/prj_x -> 403 Not authorized'});
     expect(await run(env, get)).toEqual({exitCode: 1, urls: [], error: 'GET /v9/projects/prj_x -> 403 Not authorized'});
+  });
+});
+
+// deploy.yml reads stdout line by line into the URL list the gate checks.
+describe('main', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('prints one URL per line on stdout and nothing on stderr', async () => {
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const {get} = fakeApi({
+      domainPages: [
+        {domains: [{name: 'inkweave-admin.vercel.app'}, {name: 'admin.example.com'}], pagination: {next: null}},
+      ],
+    });
+    expect(await main(env, get)).toBe(0);
+    expect(stdout.mock.calls).toEqual([['https://inkweave-admin.vercel.app'], ['https://admin.example.com']]);
+    expect(stderr).not.toHaveBeenCalled();
+  });
+
+  it('prints nothing on stdout when the check fails', async () => {
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const {get} = fakeApi({deploymentType: 'all_except_custom_domains'});
+    expect(await main(env, get)).toBe(1);
+    expect(stdout).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalledTimes(1);
   });
 });
 

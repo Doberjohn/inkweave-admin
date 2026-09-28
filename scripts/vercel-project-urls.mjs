@@ -85,9 +85,17 @@ export async function run(env, get) {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const {exitCode, urls, error} = await run(process.env, vercelGet);
+/**
+ * Prints each URL on its own stdout line, which deploy.yml reads, and any error
+ * on stderr. Returns the exit code.
+ */
+export async function main(env, get) {
+  const {exitCode, urls, error} = await run(env, get);
   for (const url of urls) console.log(url);
   if (error) console.error(`vercel-project-urls: ${error}`);
-  process.exitCode = exitCode;
+  return exitCode;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  process.exitCode = await main(process.env, vercelGet);
 }

@@ -510,7 +510,7 @@ The owner approved these departures while P1 was implemented. The task text belo
   - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
   - `check:deps --fix` no longer lists a dependency twice.
 
-  The suite now has 43 tests, including the 14 from #7, not the 15 Task 1.14 expects.
+  The suite now has 46 tests, including the 17 from #7, not the 15 Task 1.14 expects.
 
 ### Files created in P1
 
