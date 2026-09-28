@@ -1,7 +1,8 @@
 # Admin deploy (docs/PLAN.md, D4). Vercel cannot clone the private submodule,
 # so the build runs here and ships with `vercel deploy --prebuilt`, mirroring
-# the app's own deploy workflow. The last step fails the run if any admin URL
-# answers an anonymous request: Vercel login is the whole security model.
+# the app's own deploy workflow. Vercel login is the whole security model, so
+# nothing ships unless the project uses All Deployments protection, and the last
+# step fails the run if any admin URL answers an anonymous request.
 name: Deploy
 
 on:
@@ -46,6 +47,14 @@ jobs:
           node-version-file: '.nvmrc'
           cache: pnpm
 
+      # Standard Protection leaves production domains such as inkweave-admin.vercel.app
+      # public, so the job stops here, before install and build, unless the project
+      # uses All Deployments. The script needs only Node and the Vercel secrets.
+      - name: Refuse to deploy unless every URL needs Vercel login
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/vercel-project-urls.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -61,5 +70,14 @@ jobs:
           url=$(npx "vercel@${VERCEL_CLI_VERSION:?}" deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
+      # The domain list is read after the deploy: a project's first production
+      # deploy is what gives it the <project>.vercel.app domain.
       - name: Assert every admin URL is behind Vercel login
-        run: node scripts/assert-login-gate.mjs "${{ steps.deploy.outputs.url }}" "${{ vars.ADMIN_PRODUCTION_URL }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          ADMIN_PRODUCTION_URL: ${{ vars.ADMIN_PRODUCTION_URL }}
+        run: |
+          node scripts/vercel-project-urls.mjs > "$RUNNER_TEMP/project-urls.txt"
+          mapfile -t project_urls < "$RUNNER_TEMP/project-urls.txt"
+          node scripts/assert-login-gate.mjs "$DEPLOY_URL" "$ADMIN_PRODUCTION_URL" "${project_urls[@]}"

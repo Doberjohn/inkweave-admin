@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Admin's security model is Vercel login in front of every URL (docs/PLAN.md, D4).
-// The deploy workflow runs this against the new deployment and the production
-// alias: an anonymous request must be redirected to Vercel login, or the run fails.
+// The deploy workflow runs this against the new deployment, ADMIN_PRODUCTION_URL
+// and every project domain (scripts/vercel-project-urls.mjs): an anonymous request
+// must be redirected to Vercel login, or the run fails.
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -29,7 +30,8 @@ async function main(urls) {
     return;
   }
   let failed = false;
-  for (const url of urls) {
+  // ADMIN_PRODUCTION_URL is usually one of the project's domains too; check it once.
+  for (const url of new Set(urls)) {
     // A URL that can't be checked (empty, unreachable, TLS error) fails the gate,
     // and the remaining URLs are still reported.
     let response;

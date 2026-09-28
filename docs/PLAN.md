@@ -64,7 +64,7 @@ Move every admin page and all administration work out of the app repo into the p
 | D1 | Boundary | Separate private repo | Tidiness driver: the app repo holds only the product, which rules out an `apps/admin` workspace in the app repo |
 | D2 | Scope | **Move:** the 4 admin tools, both analytics pipelines, reveal ingestion, the banner generator. **Stay:** rule miner, set graduation, IndexNow ping, `scripts/convert-preview-images.mjs`, `.github/workflows/convert-reveal-images.yml`, the two preview hooks. **Delete:** `scripts/download-preview-images.mjs` (nothing calls it) | Owner's scope answer. What stays is engine development, app-data upkeep or part of the app deploy |
 | D3 | Code sharing | The app repo as a git submodule at `upstream/inkweave`, pinned to a commit. Admin imports app code only through `src/app-bridge.ts` | No publishing, one source of truth, and breakage only happens at pin bumps, in admin CI |
-| D4 | Hosting | New Vercel project `inkweave-admin`, no custom domain, Standard Protection. Built in GitHub Actions and shipped with `vercel deploy --prebuilt` | Standard Protection sends every `*.vercel.app` URL to Vercel login (verified on the app project: 302 to `vercel.com/sso-api`), so admin needs no auth code. Actions also carries the analytics secrets and schedule |
+| D4 | Hosting | New Vercel project `inkweave-admin`, no custom domain, Deployment Protection set to **All Deployments**. Built in GitHub Actions and shipped with `vercel deploy --prebuilt` | All Deployments sends every URL to Vercel login (302 to `vercel.com/sso-api`), production domains included, so admin needs no auth code. The original choice, Standard Protection, leaves production domains public: after the first deploy, `inkweave-admin.vercel.app` served admin to anonymous visitors (#7). Actions also carries the analytics secrets and schedule |
 | D5 | Reading app data | Vercel rewrites (and a Vite dev proxy) forward the app's static paths to `https://inkweave.ink`: `/data/*`, `/card-images/*`, `/card-images-preview/*` and `/fonts/*` to start, with more added as ported tools need them. The single list is `forwarded-paths.json`. Reads that must match `master` go through the GitHub API | The browser sees one origin, so the app's loader, images and `@font-face` rules run unchanged, and the app needs no CORS change |
 | D6 | Writing app data | Unchanged Git Data API commits to the app's `master`; the target branch becomes a setting | Keeps tool behavior; allows rehearsals on a throwaway branch |
 | D7 | Reveal ingestion output | A PR in the app repo, created through the GitHub API with the owner's `gh` login | App CI and preview deploys still check each batch, and admin sessions never touch the app's working tree |
@@ -85,7 +85,7 @@ inkweave-admin/
 │   ├── shell/                admin layout and tool nav (no public nav, no Vercel Analytics)
 │   └── tools/                reveal, image, tuning, analytics, banner
 ├── scripts/                  reveal-sync, analytics precomputes, export-banner, plus repo checks
-│                             (check-shared-deps, assert-login-gate)
+│                             (check-shared-deps, assert-login-gate, vercel-project-urls)
 ├── .claude/                  CLAUDE.md, fetch-reveals skill, hooks: git-write-protection,
 │                             branch-verification, upstream-readonly
 ├── .github/
@@ -93,7 +93,7 @@ inkweave-admin/
 │   └── dependabot.yml        weekly gitsubmodule bumps only (npm versions follow the app via parity)
 ├── docs/PLAN.md              this spec and the implementation plan
 ├── forwarded-paths.json      the app paths forwarded to inkweave.ink (proxy + rewrites)
-└── vercel.json               rewrites to inkweave.ink, site-wide noindex
+└── vercel.json               rewrites to inkweave.ink, site-wide noindex, Git-triggered deploys off
 ```
 
 The relative submodule URL `../inkweave.git` resolves against the admin remote: to `git@github-personal:Doberjohn/inkweave.git` locally and to `https://github.com/Doberjohn/inkweave.git` in Actions, so neither side hardcodes the other's host.
@@ -111,12 +111,13 @@ The relative submodule URL `../inkweave.git` resolves against the admin remote: 
 
 ### 4.3 Hosting and access
 
-- **Project:** `inkweave-admin` on the owner's Vercel account, with Standard Protection (the default) and no custom domain. Only a logged-in owner can open any of its URLs.
+- **Project:** `inkweave-admin` on the owner's Vercel account, with All Deployments protection and no custom domain. Only a logged-in owner can open any of its URLs. Standard Protection isn't enough, because it leaves production domains public, `inkweave-admin.vercel.app` included.
 - **`deploy.yml`:**
   - Runs on push to `main`, nightly (the analytics refresh) and by manual dispatch.
   - Checks out with submodules, using a token that can read the app repo.
   - Builds, then runs `vercel build --prod` and `vercel deploy --prebuilt --prod`.
-  - Ends by asserting that the new deployment and the production alias both redirect anonymous requests to Vercel login (`scripts/assert-login-gate.mjs`), and fails the run otherwise.
+  - Refuses to deploy unless the project uses All Deployments (`scripts/vercel-project-urls.mjs`).
+  - Ends by asserting that the new deployment, the production URL and every domain the Vercel API lists for the project redirect anonymous requests to Vercel login (`scripts/assert-login-gate.mjs`), and fails the run otherwise.
 - **The GitHub PAT** is entered only on the admin origin. Browser storage is per-origin, so nothing carries over from `inkweave.ink`.
 - **`vercel.json`** sets `X-Robots-Tag: noindex` site-wide.
 
@@ -165,7 +166,8 @@ In P5, whichever of these are set get removed from the app's Vercel env: `SUPABA
   - the `github-personal` SSH alias;
   - never install the Vercel CLI locally;
   - commit and push only with explicit approval;
-  - never add a custom domain to the admin Vercel project.
+  - never add a custom domain to the admin Vercel project;
+  - keep its Deployment Protection on All Deployments.
 
 ## 5. Phases
 
@@ -249,7 +251,7 @@ In P5, whichever of these are set get removed from the app's Vercel env: `SUPABA
 |---|---|
 | A pin bump breaks admin | Bridge-only imports; the Dependabot PR and its CI run surface the break before merge |
 | Third-party versions drift between app and admin | A CI step in admin compares every dependency that admin and `upstream/inkweave/apps/web/package.json` both declare, and fails on a version mismatch. So a pin bump that moves React, the router or Radix fails until admin matches |
-| The admin deploy loses its login gate (for example, a custom domain added later, or a protection mode that leaves the production alias public) | The admin project copies the app project's protection mode (proven to gate `*.vercel.app` aliases). Every deploy runs `scripts/assert-login-gate.mjs` against the new deployment and the production alias and fails if either answers an anonymous request. Admin `CLAUDE.md` forbids custom domains |
+| The admin deploy loses its login gate (for example, a custom domain added later, or a protection mode that leaves the production alias public) | The admin project uses All Deployments, and every deploy refuses to ship under any other mode. After shipping, `scripts/assert-login-gate.mjs` checks the new deployment, the production URL and every project domain listed by the Vercel API, and the run fails if any of them answers an anonymous request. Admin `CLAUDE.md` forbids custom domains. The first plan copied the app's Standard Protection, which left `inkweave-admin.vercel.app` public (#7) |
 | Analytics goes stale | Nightly run plus manual dispatch |
 | The reveal preview uses the pinned engine rather than production's | It is a preview only, so publishes are unaffected; bump the pin after engine changes |
 | Two writers to the app's `master` (the tools and the convert bot) | Unchanged from today; `commitFiles` updates the ref without force, so a moved ref fails the publish instead of overwriting |
@@ -273,7 +275,7 @@ In P5, whichever of these are set get removed from the app's Vercel env: `SUPABA
 
 **Architecture:**
 - `inkweave-admin` is a Vite + React SPA that pins the app repo as a git submodule at `upstream/inkweave`. It imports app code only through `src/app-bridge.ts`.
-- It is built in GitHub Actions and deployed with `vercel deploy --prebuilt` to a Vercel project that has no custom domain. Standard Protection therefore puts every URL behind Vercel login.
+- It is built in GitHub Actions and deployed with `vercel deploy --prebuilt` to a Vercel project that has no custom domain. All Deployments protection puts every URL behind Vercel login.
 - The app repo only loses code.
 
 **Tech Stack:** pnpm 9 workspaces, Node 24, Vite 8 (Rolldown) + `@vitejs/plugin-react` 6 + React Compiler via `@rolldown/plugin-babel`, React 19, TypeScript 6, Vitest 4 + Testing Library, ESLint 10 flat config, Husky 9, GitHub Actions, Vercel CLI 60.0.0.
@@ -489,8 +491,17 @@ The owner approved these departures while P1 was implemented. The task text belo
 - **Task 1.8, probes:** the branch check was probed on a temporary local `master` branch. `main` has no `.claude/` files until this phase merges, so `git switch main` would have removed the hook scripts first. The hooks took effect without a session restart.
 - **Task 1.9, `CLAUDE.md`:** five short additions that document the items above: the engine build before `pnpm dev`, what `test:run` does, the approval prefix for pin bumps, commits through the Bash tool, and the shell guard.
 - **Tasks 1.10 and 1.12, workflow hardening:** `pnpm/action-setup` is pinned to `0977fd99725f1db4007ccb2928dbb4e90d06cc86` (v6.0.10, the commit `@v6` pointed at), and `actions/checkout` sets `persist-credentials: false`. A security review flagged the movable third-party tag and the token left in `.git/config` for later steps, dependency install scripts included. The checkout step still fetches the private submodule.
-- **Task 1.11, Vercel project:** created with `ssoProtection: all_except_custom_domains` in the same call, so it never had the default mode. It had no domain before its first deploy, so `ADMIN_PRODUCTION_URL` holds the predicted alias `https://inkweave-admin-johnfanidis-projects.vercel.app`; the deploy's gate step fails closed if the real alias differs. The claude.ai Vercel connector cannot read the new project (get returns 404, a repeat create returns 409), so the protection is confirmed by the gate step and in the dashboard.
+- **Task 1.11, Vercel project:** created with `ssoProtection: all_except_custom_domains` (Standard Protection) in the same call. That mode left the production domain public; see the Task 1.14 entry. `VERCEL_TOKEN` needs team scope (All Projects), because the CLI accepts project-only tokens only for `vercel deploy`: with one, `vercel pull` fails with "Could not retrieve Project Settings". The owner reused the app deploy's All Projects token, so the token is rotated in both repos together. The claude.ai Vercel connector cannot read the new project: get returns 404, and a repeat create returns 409.
 - **Task 1.13, Dependabot:** also updates `github-actions` weekly, as the app does, so the pinned SHA and the `actions/*` tags stay current.
+- **Task 1.14, first deploy (#7):**
+  - Vercel gave the project `inkweave-admin.vercel.app` as its production domain, not the predicted `inkweave-admin-johnfanidis-projects.vercel.app`.
+  - Standard Protection leaves production domains public, so that domain served admin to anonymous visitors.
+  - The run still passed. Its gate step checked only the deployment URL and the predicted alias, and Standard does gate those generated URLs.
+  - The same day, the owner switched the project to All Deployments, and `ADMIN_PRODUCTION_URL` became `https://inkweave-admin.vercel.app`.
+  - `deploy.yml` gained two checks through `scripts/vercel-project-urls.mjs`: it refuses to deploy unless the project uses All Deployments, and the gate step also covers every domain the Vercel API lists for the project.
+  - The same day, the project also became connected to this repo through Vercel's Git integration. It was first seen on `bb6dd96`.
+  - Vercel's own builds of `main` and of PR #8 failed within seconds. Had they worked, they would have skipped both checks.
+  - The connection is removed in the dashboard. As a backstop, `vercel.json` sets `git.deploymentEnabled: false`, and `scripts/vercel-config.test.mjs` pins it.
 - **Review fixes on PR #5:** `branch-verification.sh` clears inherited repository variables (`unset $(git rev-parse --local-env-vars)`) before reading the branch. `upstream-readonly.sh` also blocks shell redirections whose target is inside `upstream/` (other file-writing commands stay out of scope), and it strips only a heredoc's body, so commands after the terminator are still checked. The command substitutions in an unquoted heredoc's body are kept, because bash runs them; `#` comments are ignored. Delimiters are read as whole words (`END.txt`), and substitutions are found with bash's quoting rules, nested ones included. Both workflows declare `permissions: contents: read`. The bridge boundary covers every source file except `eslint.config.js`, including literal dynamic `import()` through `no-restricted-syntax`; that rule repeats the memo ban, because flat config replaces a rule's options per file instead of merging them. Later reviews (cubic, then CodeRabbit again) prompted more fixes:
   - the login-gate check accepts only the exact `vercel.com/sso-api` endpoint, times out each request after 30 s, and still reports every URL when one can't be fetched;
   - PowerShell `$(...)` subexpressions, nested ones included, go through the same quote-aware scan as bash;
@@ -499,7 +510,7 @@ The owner approved these departures while P1 was implemented. The task text belo
   - the boundary also catches template-literal `import()`, `require()` and the bare `upstream` root;
   - `check:deps --fix` no longer lists a dependency twice.
 
-  The suite has 26 tests, not the 15 Task 1.14 expects.
+  The suite now has 46 tests, including the 17 from #7, not the 15 Task 1.14 expects.
 
 ### Files created in P1
 
@@ -512,7 +523,7 @@ The owner approved these departures while P1 was implemented. The task text belo
 | `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json` | Compiler options identical to the app's, so bridged files compile the same way |
 | `vite.config.ts` | Same React Compiler setup as the app; dev port 5180; dev proxy built from `forwarded-paths.json`; Vitest config |
 | `forwarded-paths.json` | Single list of app paths forwarded to `https://inkweave.ink` (D5) |
-| `vercel.json` | Rewrites for those paths, SPA fallback, site-wide noindex |
+| `vercel.json` | Rewrites for those paths, SPA fallback, site-wide noindex; Git-triggered deploys off (#7) |
 | `index.html`, `src/main.tsx` | Entry point |
 | `src/app-bridge.ts` | The only module importing from `upstream/` |
 | `src/shell/tools.ts`, `src/shell/ToolIndex.tsx` (+ test) | Landing page listing the five tools |
@@ -520,11 +531,12 @@ The owner approved these departures while P1 was implemented. The task text belo
 | `eslint.config.js` | App lint rules, the app's design-token plugin, and the bridge boundary rule |
 | `scripts/check-shared-deps.mjs` (+ test) | Version parity with the pinned app, with `--fix` |
 | `scripts/assert-login-gate.mjs` (+ test) | Fails a deploy if any admin URL answers an anonymous request |
-| `scripts/bridge-boundary.test.mjs`, `scripts/forwarded-paths.test.mjs` | Guards on the lint boundary and on vercel.json / proxy sync |
+| `scripts/vercel-project-urls.mjs` (+ test) | Refuses a deploy unless the project uses All Deployments; lists every project domain for the login-gate check (#7) |
+| `scripts/bridge-boundary.test.mjs`, `scripts/forwarded-paths.test.mjs`, `scripts/vercel-config.test.mjs` | Guards on the lint boundary, on vercel.json / proxy sync, and on Git-triggered deploys staying off (#7) |
 | `.husky/pre-commit`, `.husky/pre-push` | Lint + tests on commit; parity + typecheck on push |
 | `.claude/settings.json`, `.claude/hooks/*.sh` | Git safety, branch check, read-only `upstream/` |
 | `CLAUDE.md` | Rules and environment for admin sessions |
-| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI, deploy plus login-gate assertion, weekly pin bumps |
+| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI, deploy plus protection check and login-gate assertion, weekly pin bumps |
 
 ### Task 1.1: Clone and bootstrap commit
 
@@ -1685,6 +1697,8 @@ Afterwards run `git switch feature/ADM_P1-scaffold`, and make sure no probe edit
 
 - [ ] **Step 1: Write `CLAUDE.md`**
 
+> **Superseded by #7:** the custom-domain bullet below says Standard Protection gates every `*.vercel.app` URL. It doesn't: production domains stay public, `inkweave-admin.vercel.app` included. Take the "Hosting and security" section from the repo's `CLAUDE.md` instead. It covers All Deployments, the pre-deploy protection check, the team-scoped `VERCEL_TOKEN` and the Git backstop.
+
 ````markdown
 # inkweave-admin
 
@@ -1808,6 +1822,8 @@ Use `create_project` with name `inkweave-admin` and framework Vite, and **no Git
 - whether `ssoProtection` is set.
 
 - [ ] **Step 2: [confirm] Copy the app project's protection mode**
+
+> **Superseded by #7:** set `ssoProtection.deploymentType` to `all` (All Deployments) instead of copying the app's mode, and never use the fallback in item 3. The app's `all_except_custom_domains` and the fallback's `prod_deployment_urls_and_all_previews` both leave production domains public. `deploy.yml` now refuses to deploy under any mode but `all`.
 
 The app project `inkweave` uses `ssoProtection.deploymentType = "all_except_custom_domains"`. On 2026-09-25 that mode was verified to send its production `*.vercel.app` alias to Vercel login (302). The current API also names a `prod_deployment_urls_and_all_previews` mode, which may leave the production alias public, so don't rely on the new project's default.
 
@@ -2070,6 +2086,8 @@ gh run list --repo Doberjohn/inkweave-admin --workflow deploy.yml --limit 1
 
 Expected: `completed success`. Its log shows two `gated` lines, one for the deployment URL and one for `ADMIN_PRODUCTION_URL`.
 
+> **Superseded by #7:** the protection step, which runs before the install, lists every project domain. The last step prints one `gated` line per distinct URL: the deployment URL, `ADMIN_PRODUCTION_URL` and each listed domain. Any other result fails the run.
+
 - [ ] **Step 5: Independent check from this machine**
 
 ```bash
@@ -2082,6 +2100,8 @@ Expected: `gated ... -> 302 https://vercel.com/sso-api?...`
 1. Change `deploy.yml` to deploy without `--prod` (preview deployments are gated under every protection mode).
 2. Use the per-deployment URL until the owner picks a fix. Candidates: the `all` protection mode (plan-dependent) or a different host.
 3. Record the finding on `#ADM_P1`.
+
+> **Superseded by #7:** this happened on the first deploy. The fix isn't preview-only deploys: set Deployment Protection back to **All Deployments** (Project → Security → Deployment Protection; free on every plan since 2026-09-09), then rerun the command above against `ADMIN_PRODUCTION_URL`. The deploy workflow now refuses to ship under any other mode.
 
 - [ ] **Step 6: Owner's eye**
 

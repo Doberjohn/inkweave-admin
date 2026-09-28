@@ -32,9 +32,11 @@ Dependabot opens these PRs weekly. CI on them is the bridge's contract test.
 
 ## Hosting and security (non-negotiable)
 
-- The Vercel project `inkweave-admin` is deployed only by `.github/workflows/deploy.yml` (`vercel deploy --prebuilt`). **Never install or run the Vercel CLI locally** (a cold install crashed this machine twice).
-- **Never add a custom domain.** Standard Protection gates only `*.vercel.app` URLs, so a custom domain would make admin public. Every deploy runs `scripts/assert-login-gate.mjs` and fails if a URL answers an anonymous request.
+- The Vercel project `inkweave-admin` is deployed only by `.github/workflows/deploy.yml` (`vercel deploy --prebuilt`). It has no Git connection. If one is added again, `vercel.json` still keeps Git-triggered deployments off (`git.deploymentEnabled: false`). **Never install or run the Vercel CLI locally** (a cold install crashed this machine twice).
+- **Deployment Protection stays on All Deployments.** Standard Protection leaves production domains public, `inkweave-admin.vercel.app` included (#7). Every deploy refuses to ship unless the project uses All Deployments (`scripts/vercel-project-urls.mjs`). It then fails if the new deployment, `ADMIN_PRODUCTION_URL` or any of the project's domains answers an anonymous request (`scripts/assert-login-gate.mjs`).
+- **Never add a custom domain.** Admin doesn't need one, and every production domain would become public if protection ever dropped back to Standard.
 - Secrets live in GitHub Actions secrets (plus Dependabot secrets for `APP_REPO_TOKEN`). The owner sets token values; never type a token.
+- `VERCEL_TOKEN` has team scope (All Projects) and is shared with the app repo's deploy, because `vercel pull` rejects project-only tokens. Rotate it in both repos together.
 - `forwarded-paths.json` is the single list of app paths forwarded to inkweave.ink. The Vite proxy reads it; `vercel.json` must match, and a test enforces that.
 - Admin's own generated data lives under `/admin-data/`, never `/data/`, which is forwarded to the app.
 
