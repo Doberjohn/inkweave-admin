@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {ESLint} from 'eslint';
-import {describe, expect, it} from 'vitest';
+import {beforeAll, describe, expect, it} from 'vitest';
 
 const LEAK =
   "import {COLORS} from '../../upstream/inkweave/apps/web/src/shared/constants';\nexport const accent = COLORS.primary;\n";
@@ -14,8 +14,10 @@ const ROOT_LEAK = "import app from '../../upstream';\nexport default app;\n";
 const DYNAMIC_ROOT_LEAK = "export const load = () => import('../../upstream');\n";
 const MEMO = "import {useMemo} from 'react';\nexport const useDouble = (n: number) => useMemo(() => n * 2, [n]);\n";
 
+let eslint;
+
 async function lint(filePath, code = LEAK) {
-  const [result] = await new ESLint().lintText(code, {filePath});
+  const [result] = await eslint.lintText(code, {filePath});
   return result.messages;
 }
 
@@ -31,9 +33,15 @@ async function expectAllowed(filePath, code, ruleId) {
   expect(messages.map((message) => message.ruleId)).not.toContain(ruleId);
 }
 
-// The first lint loads typescript-eslint and the React Compiler plugin (Babel):
-// ~3.5-4.7s warm and 45s cold on Windows, past Vitest's 5s default.
-describe('the app-bridge boundary', {timeout: 60_000}, () => {
+describe('the app-bridge boundary', () => {
+  // The first lint loads typescript-eslint and the React Compiler plugin (Babel):
+  // 23s here, 45s cold on Windows, 75s under load. The warm-up pays for it once,
+  // with its own budget; the cases then take milliseconds.
+  beforeAll(async () => {
+    eslint = new ESLint();
+    await lint('src/shell/Warmup.ts', 'export const warm = 1;\n');
+  }, 180_000);
+
   it('rejects an upstream import outside the bridge', async () => {
     expect(await ruleIds('src/shell/Leak.ts')).toContain('no-restricted-imports');
   });
