@@ -5,7 +5,7 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 ## How this repo relates to the app
 
 - `upstream/inkweave` is the app repo as a git submodule, **pinned** to one commit and **read-only here** (a hook blocks edits). App changes go through the app repo; admin then bumps the pin. Never run `pnpm install` inside `upstream/`: a second `node_modules` there would give bridged files a second React.
-- `src/app-bridge.ts` is the **only** file that may import from `upstream/` (lint-enforced). Add re-exports there; never deep-import app files anywhere else.
+- `src/app-bridge.ts` is the **only** source file that may import from `upstream/` (lint-enforced; the one exception is `eslint.config.js`, which loads the app's design-token plugin). Add re-exports there; never deep-import app files anywhere else.
 - Admin writes into the app repo **only through the GitHub API**: the tools commit to `master`, and reveal ingestion opens PRs. Never write into a local app checkout.
 - The engine (`inkweave-synergy-engine`) is a pnpm workspace package built from the submodule (`pnpm build:engine`). `typecheck`, `build` and `test:run` build it themselves; run it once before `pnpm dev` on a fresh clone or after a pin bump.
 - Admin declares the app's full runtime dependency set at the app's exact versions. `pnpm check:deps` verifies this, and `pnpm check:deps --fix` aligns it.
