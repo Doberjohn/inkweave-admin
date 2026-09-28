@@ -10,6 +10,18 @@ import tseslint from 'typescript-eslint';
 // ledger lists app paths only, so every admin file gets the full rules.
 import {inkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
 
+// Same ban as the app (#291): the React Compiler memoizes automatically.
+const MEMO_BAN = [
+  {selector: "CallExpression[callee.name='useMemo']", message: 'Avoid useMemo: the React Compiler auto-memoizes.'},
+  {selector: "CallExpression[callee.name='useCallback']", message: 'Avoid useCallback: the React Compiler auto-memoizes.'},
+];
+// D3 for dynamic imports, which no-restricted-imports does not see. esquery
+// regexes cannot contain a literal `/`, hence /.
+const UPSTREAM_DYNAMIC_IMPORT = {
+  selector: 'ImportExpression[source.value=/(^|\\u002F)upstream\\u002F/]',
+  message: 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).',
+};
+
 export default tseslint.config(
   {ignores: ['dist', 'coverage', 'upstream']},
   {
@@ -27,12 +39,7 @@ export default tseslint.config(
       ...jsxA11y.flatConfigs.recommended.rules,
       'react-refresh/only-export-components': ['warn', {allowConstantExport: true}],
       'react-compiler/react-compiler': 'error',
-      // Same ban as the app (#291): the React Compiler memoizes automatically.
-      'no-restricted-syntax': [
-        'error',
-        {selector: "CallExpression[callee.name='useMemo']", message: 'Avoid useMemo: the React Compiler auto-memoizes.'},
-        {selector: "CallExpression[callee.name='useCallback']", message: 'Avoid useCallback: the React Compiler auto-memoizes.'},
-      ],
+      'no-restricted-syntax': ['error', ...MEMO_BAN],
     },
   },
   {
@@ -69,6 +76,9 @@ export default tseslint.config(
           ],
         },
       ],
+      // Flat config replaces a rule's options per file instead of merging them,
+      // so this repeats the memo ban for the TypeScript files it also covers.
+      'no-restricted-syntax': ['error', ...MEMO_BAN, UPSTREAM_DYNAMIC_IMPORT],
     },
   },
   {
