@@ -101,20 +101,22 @@ function inUpstream(dir) {
 // and a `#` comment is not shell text. An unquoted delimiter (`<<EOF`, not
 // `<<'EOF'`) makes bash expand the body, so its command substitutions are kept.
 
-// Command substitutions in a string: $(...) with nesting, and `...`. Skips `\$(`
-// and $(( arithmetic.
-function substitutions(text) {
+// Command substitutions in a string. Bash: $(...) with nesting and `...`, skipping
+// `\$(` and $(( arithmetic. PowerShell: $(...) subexpressions, where the escape
+// is a backtick and $((...)) is code, not arithmetic.
+function substitutions(text, ps = false) {
+  const escape = ps ? '`' : '\\';
   const found = [];
   for (let i = 0; i < text.length; i++) {
-    if (text[i] === '\\') {
+    if (text[i] === escape) {
       i++;
-    } else if (text[i] === '`') {
+    } else if (!ps && text[i] === '`') {
       const end = text.indexOf('`', i + 1);
       if (end === -1) break;
       found.push(text.slice(i, end + 1));
       i = end;
-    } else if (text[i] === '$' && text[i + 1] === '(' && text[i + 2] !== '(') {
-      const end = substitutionEnd(text, i);
+    } else if (text[i] === '$' && text[i + 1] === '(' && (ps || text[i + 2] !== '(')) {
+      const end = substitutionEnd(text, i, escape);
       found.push(text.slice(i, end + 1));
       i = end;
     }
@@ -122,13 +124,13 @@ function substitutions(text) {
   return found;
 }
 
-// Index of the `)` closing the $( at `start`, following bash quoting inside it:
-// parentheses in '...' or "..." do not count, a nested $( within "..." does.
-function substitutionEnd(text, start) {
+// Index of the `)` closing the $( at `start`, following the shell's quoting inside
+// it: parentheses in '...' or "..." do not count, a nested $( within "..." does.
+function substitutionEnd(text, start, escape) {
   let depth = 0;
   for (let i = start + 1; i < text.length; i++) {
     const c = text[i];
-    if (c === '\\') {
+    if (c === escape) {
       i++;
     } else if (c === "'") {
       const end = text.indexOf("'", i + 1);
@@ -136,8 +138,8 @@ function substitutionEnd(text, start) {
       i = end;
     } else if (c === '"') {
       for (i++; i < text.length && text[i] !== '"'; i++) {
-        if (text[i] === '\\') i++;
-        else if (text[i] === '$' && text[i + 1] === '(') i = substitutionEnd(text, i);
+        if (text[i] === escape) i++;
+        else if (text[i] === '$' && text[i + 1] === '(') i = substitutionEnd(text, i, escape);
       }
     } else if (c === '(') {
       depth++;
@@ -150,10 +152,10 @@ function substitutionEnd(text, start) {
 
 // The commands inside every substitution, nested ones included: the tokenizer
 // keeps a "$(...)" in double quotes as a single word.
-function nestedSubstitutions(text) {
-  return substitutions(text).flatMap((sub) => {
+function nestedSubstitutions(text, ps = false) {
+  return substitutions(text, ps).flatMap((sub) => {
     const inner = sub.startsWith('$(') ? sub.slice(2, -1) : sub.slice(1, -1);
-    return [inner, ...nestedSubstitutions(inner)];
+    return [inner, ...nestedSubstitutions(inner, ps)];
   });
 }
 
@@ -314,7 +316,7 @@ function splitCommands(src, ps) {
 // Top-level commands plus the insides of $(...) (and bash `...`), which may sit in quotes.
 function parse(src, ps) {
   const s = stripDocs(src, ps);
-  const subs = ps ? [...s.matchAll(/\$\(([^()]*)\)/g)].map((m) => m[1]) : nestedSubstitutions(s);
+  const subs = nestedSubstitutions(s, ps);
   return [...splitCommands(s, ps), ...subs.flatMap((sub) => splitCommands(sub, ps))].map((c) => ({...c, ps}));
 }
 
