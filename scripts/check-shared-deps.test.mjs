@@ -39,6 +39,14 @@ describe('compareDeps', () => {
 });
 
 describe('alignDeps', () => {
+  it('moves an app runtime dependency out of devDependencies instead of listing it twice', () => {
+    const admin = {dependencies: {react: '^19.3.0'}, devDependencies: {'react-dom': '^19.2.0', husky: '^9.1.7'}};
+    expect(alignDeps(admin, app)).toEqual({
+      dependencies: {react: '^19.3.0', 'react-dom': '^19.3.0'},
+      devDependencies: {husky: '^9.1.7'},
+    });
+  });
+
   it('adds missing runtime dependencies and copies app specifiers onto shared packages', () => {
     const admin = {dependencies: {react: '^19.2.0'}, devDependencies: {vite: '^8.2.0', husky: '^9.1.7'}};
     expect(alignDeps(admin, app)).toEqual({

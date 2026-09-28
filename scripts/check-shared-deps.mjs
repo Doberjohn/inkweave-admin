@@ -36,10 +36,12 @@ export function alignDeps(admin, app) {
     Object.fromEntries(Object.entries(deps).map(([name, range]) => [name, appAll[name] ?? range]));
   const adminRuntime = admin.dependencies ?? {};
   const missing = Object.entries(app.dependencies ?? {}).filter(([name]) => !(name in adminRuntime));
-  return {
-    dependencies: {...align(adminRuntime), ...Object.fromEntries(missing)},
-    devDependencies: align(admin.devDependencies),
-  };
+  const dependencies = {...align(adminRuntime), ...Object.fromEntries(missing)};
+  // A runtime dependency admin had declared as a dev dependency moves, rather than being listed twice.
+  const devDependencies = Object.fromEntries(
+    Object.entries(align(admin.devDependencies)).filter(([name]) => !(name in dependencies)),
+  );
+  return {dependencies, devDependencies};
 }
 
 function main() {
