@@ -96,7 +96,36 @@ function inUpstream(dir) {
 // before parsing: only the body, through its terminator line, so the commands
 // after it are still analyzed. A bash `<<WORD` counts when it sits in shell text,
 // which includes the inside of $(...) within double quotes (the usual
-// `git commit -m "$(cat <<'EOF' ...)"`); `<<<` is a herestring, not a heredoc.
+// `git commit -m "$(cat <<'EOF' ...)"`); `<<<` is a herestring, not a heredoc,
+// and a `#` comment is not shell text. An unquoted delimiter (`<<EOF`, not
+// `<<'EOF'`) makes bash expand the body, so its command substitutions are kept.
+
+// Command substitutions in a string: $(...) with nesting, and `...`. Skips `\$(`
+// and $(( arithmetic.
+function substitutions(text) {
+  const found = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '\\') {
+      i++;
+    } else if (text[i] === '`') {
+      const end = text.indexOf('`', i + 1);
+      if (end === -1) break;
+      found.push(text.slice(i, end + 1));
+      i = end;
+    } else if (text[i] === '$' && text[i + 1] === '(' && text[i + 2] !== '(') {
+      let depth = 0;
+      let j = i + 1;
+      for (; j < text.length; j++) {
+        if (text[j] === '(') depth++;
+        else if (text[j] === ')' && --depth === 0) break;
+      }
+      found.push(text.slice(i, j + 1));
+      i = j;
+    }
+  }
+  return found;
+}
+
 function stripDocs(src, ps) {
   if (ps) return src.replace(/@(['"])\r?\n[\s\S]*?\r?\n\1@/g, ' ');
   let out = '';
@@ -110,13 +139,15 @@ function stripDocs(src, ps) {
       out += c;
       i++;
       while (pending.length) {
-        const {word, dash} = pending.shift();
+        const {word, dash, quoted} = pending.shift();
         while (i < src.length) {
           const nl = src.indexOf('\n', i);
-          let line = src.slice(i, nl === -1 ? src.length : nl).replace(/\r$/, '');
+          const raw = src.slice(i, nl === -1 ? src.length : nl);
+          let line = raw.replace(/\r$/, '');
           if (dash) line = line.replace(/^\t+/, '');
           i = nl === -1 ? src.length : nl + 1;
           if (line === word) break;
+          if (!quoted) for (const sub of substitutions(raw)) out += sub + '\n';
         }
       }
       continue;
@@ -144,14 +175,20 @@ function stripDocs(src, ps) {
       i++;
       continue;
     }
+    if (c === '#' && (i === 0 || /[\s;&|()]/.test(src[i - 1]))) {
+      // A comment runs to the end of the line, and bash ignores all of it.
+      const nl = src.indexOf('\n', i);
+      i = nl === -1 ? src.length : nl;
+      continue;
+    }
     if (c === "'") ctx.push('sq');
     else if (c === '"') ctx.push('dq');
     else if (c === '(') ctx.push('sh');
     else if (c === ')' && ctx.length > 1) ctx.pop();
     else if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<' && src[i - 1] !== '<') {
-      const m = /^<<(-?)[ \t]*(['"]?)\\?([A-Za-z_][A-Za-z0-9_]*)\2/.exec(src.slice(i));
+      const m = /^<<(-?)[ \t]*(['"]?)(\\?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(src.slice(i));
       if (m) {
-        pending.push({word: m[3], dash: m[1] === '-'});
+        pending.push({word: m[4], dash: m[1] === '-', quoted: Boolean(m[2] || m[3])});
         out += m[0];
         i += m[0].length;
         continue;
