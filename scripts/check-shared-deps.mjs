@@ -15,18 +15,15 @@ const allDeps = (pkg) => ({...pkg.dependencies, ...pkg.devDependencies});
 
 /** Human-readable problems; an empty array means admin and the app agree. */
 export function compareDeps(admin, app) {
-  const problems = [];
   const adminRuntime = admin.dependencies ?? {};
-  for (const [name, range] of Object.entries(app.dependencies ?? {})) {
-    if (!(name in adminRuntime)) problems.push(`missing runtime dependency ${name}@${range}`);
-  }
   const appAll = allDeps(app);
-  for (const [name, range] of Object.entries(allDeps(admin))) {
-    if (name in appAll && appAll[name] !== range) {
-      problems.push(`version mismatch ${name}: admin ${range}, app ${appAll[name]}`);
-    }
-  }
-  return problems;
+  const missing = Object.entries(app.dependencies ?? {})
+    .filter(([name]) => !(name in adminRuntime))
+    .map(([name, range]) => `missing runtime dependency ${name}@${range}`);
+  const mismatched = Object.entries(allDeps(admin))
+    .filter(([name, range]) => name in appAll && appAll[name] !== range)
+    .map(([name, range]) => `version mismatch ${name}: admin ${range}, app ${appAll[name]}`);
+  return [...missing, ...mismatched];
 }
 
 /** Admin's dependency maps with every problem compareDeps reports fixed. */

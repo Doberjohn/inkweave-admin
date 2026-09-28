@@ -7,10 +7,11 @@ import {fileURLToPath} from 'node:url';
 
 const LOGIN_ORIGIN = 'https://vercel.com';
 const LOGIN_PATH = '/sso-api';
+const LOGIN_REDIRECTS = new Set([302, 307]);
 
 /** True when an anonymous response is Vercel's login redirect: exactly vercel.com/sso-api. */
 export function isLoginGate(status, location) {
-  if ((status !== 302 && status !== 307) || typeof location !== 'string') return false;
+  if (!LOGIN_REDIRECTS.has(status) || typeof location !== 'string') return false;
   try {
     const target = new URL(location);
     return target.origin === LOGIN_ORIGIN && target.pathname === LOGIN_PATH;
