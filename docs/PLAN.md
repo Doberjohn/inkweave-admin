@@ -85,7 +85,7 @@ inkweave-admin/
 │   ├── shell/                admin layout and tool nav (no public nav, no Vercel Analytics)
 │   └── tools/                reveal, image, tuning, analytics, banner
 ├── scripts/                  reveal-sync, analytics precomputes, export-banner, plus repo checks
-│                             (check-shared-deps, assert-login-gate, vercel-project-urls)
+│                             (check-shared-deps, assert-login-gate, vercel-project-urls, check-hooks)
 ├── .claude/                  CLAUDE.md, fetch-reveals skill, hooks: git-write-protection,
 │                             branch-verification, upstream-readonly
 ├── .github/
@@ -486,8 +486,8 @@ P4 later starts with `git switch -c feature/APP_P4-remove-admin origin/master` a
 The owner approved these departures while P1 was implemented. The task text below is unchanged; where the two differ, this list and the code win.
 
 - **Task 1.3, `test:run`:** `pnpm build:engine && vitest run`, not `vitest run`. The bridge reaches the engine at runtime (`CtaButton` → `shared/hooks` → `features/cards/loader.ts`), so without it the tests and the pre-commit hook fail on a fresh clone.
-- **Task 1.6, boundary test timeout:** `describe(..., {timeout: 60_000}, ...)`. The first lint loads typescript-eslint and the React Compiler plugin: 3.5-4.7 s warm and 45 s cold on Windows, past Vitest's 5 s default.
-- **Task 1.8, shell git guard:** `upstream-readonly.sh` also runs on shell commands, with the matcher `Bash|PowerShell`. `git-write-protection.sh` stays a verbatim copy of the app's, but it matches only the literal `git commit` / `git push`, so `git -C upstream/inkweave ...`, `git -c k=v commit` and every PowerShell call went unguarded. Git writes inside `upstream/` are now blocked outright; `git submodule update --remote` and option-prefixed commits and pushes need `USER_APPROVED=1`. PowerShell cannot carry that prefix, so commits and pushes go through the Bash tool.
+- **Task 1.6, boundary test timeout:** the first lint loads typescript-eslint and the React Compiler plugin: 23-45 s cold on Windows, past Vitest's 5 s default. P1 gave the whole describe a 60 s timeout, which a 75 s cold start under load still broke once. Since #9, one ESLint instance is warmed up in `beforeAll` with its own 180 s budget, and the cases keep the default timeout; each takes milliseconds.
+- **Task 1.8, shell git guard:** `upstream-readonly.sh` also runs on shell commands, with the matcher `Bash|PowerShell`. `git-write-protection.sh` stays a verbatim copy of the app's, but it matches only the literal `git commit` / `git push`, so `git -C upstream/inkweave ...`, `git -c k=v commit` and every PowerShell call went unguarded. Git writes inside `upstream/` are now blocked outright; `git submodule update --remote` and option-prefixed commits and pushes need `USER_APPROVED=1`. PowerShell cannot carry that prefix, so commits and pushes go through the Bash tool. #9 then made the parser follow single quotes (a `'$(...)'` is text), bash `$'...'` strings, PowerShell comments and expandable `@"..."@` here-strings. The hooks' case table became `scripts/check-hooks.mjs`, which CI runs as `pnpm check:hooks`.
 - **Task 1.8, probes:** the branch check was probed on a temporary local `master` branch. `main` has no `.claude/` files until this phase merges, so `git switch main` would have removed the hook scripts first. The hooks took effect without a session restart.
 - **Task 1.9, `CLAUDE.md`:** five short additions that document the items above: the engine build before `pnpm dev`, what `test:run` does, the approval prefix for pin bumps, commits through the Bash tool, and the shell guard.
 - **Tasks 1.10 and 1.12, workflow hardening:** `pnpm/action-setup` is pinned to `0977fd99725f1db4007ccb2928dbb4e90d06cc86` (v6.0.10, the commit `@v6` pointed at), and `actions/checkout` sets `persist-credentials: false`. A security review flagged the movable third-party tag and the token left in `.git/config` for later steps, dependency install scripts included. The checkout step still fetches the private submodule.
@@ -532,11 +532,12 @@ The owner approved these departures while P1 was implemented. The task text belo
 | `scripts/check-shared-deps.mjs` (+ test) | Version parity with the pinned app, with `--fix` |
 | `scripts/assert-login-gate.mjs` (+ test) | Fails a deploy if any admin URL answers an anonymous request |
 | `scripts/vercel-project-urls.mjs` (+ test) | Refuses a deploy unless the project uses All Deployments; lists every project domain for the login-gate check (#7) |
+| `scripts/check-hooks.mjs` | The `.claude/hooks` case table: runs each hook on a set of tool calls and checks the exit codes. CI only (#9) |
 | `scripts/bridge-boundary.test.mjs`, `scripts/forwarded-paths.test.mjs`, `scripts/vercel-config.test.mjs` | Guards on the lint boundary, on vercel.json / proxy sync, and on Git-triggered deploys staying off (#7) |
 | `.husky/pre-commit`, `.husky/pre-push` | Lint + tests on commit; parity + typecheck on push |
 | `.claude/settings.json`, `.claude/hooks/*.sh` | Git safety, branch check, read-only `upstream/` |
 | `CLAUDE.md` | Rules and environment for admin sessions |
-| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI, deploy plus protection check and login-gate assertion, weekly pin bumps |
+| `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/dependabot.yml` | CI (with the hook case table), deploy plus protection check and login-gate assertion, weekly pin bumps |
 
 ### Task 1.1: Clone and bootstrap commit
 
