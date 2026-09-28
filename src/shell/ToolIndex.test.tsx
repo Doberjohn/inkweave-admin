@@ -4,6 +4,10 @@ import {ToolIndex} from './ToolIndex';
 import {ADMIN_TOOLS} from './tools';
 
 describe('ToolIndex', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('lists every admin tool by name', () => {
     render(<ToolIndex />);
     for (const tool of ADMIN_TOOLS) {
@@ -16,11 +20,10 @@ describe('ToolIndex', () => {
     render(<ToolIndex />);
     await userEvent.click(screen.getByRole('button', {name: 'Open Reveal publisher'}));
     expect(open).toHaveBeenCalledWith('https://inkweave.ink/admin/reveal', '_blank', 'noopener');
-    open.mockRestore();
   });
 
-  it('disables a tool that only runs locally', () => {
+  it('disables a tool that only runs locally, and names it that way', () => {
     render(<ToolIndex />);
-    expect(screen.getByRole('button', {name: 'Open Banner generator'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Banner generator, runs locally'})).toBeDisabled();
   });
 });

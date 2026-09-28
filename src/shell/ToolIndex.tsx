@@ -11,7 +11,7 @@ function ToolCard({tool}: {tool: AdminTool}) {
       <p style={{margin: 0, fontSize: FONT_SIZES.lg, color: COLORS.textMuted}}>{tool.purpose}</p>
       <CtaButton
         variant="neutral"
-        aria-label={`Open ${tool.name}`}
+        aria-label={currentUrl ? `Open ${tool.name}` : `${tool.name}, runs locally`}
         disabled={currentUrl === null}
         onClick={() => {
           if (currentUrl) window.open(currentUrl, '_blank', 'noopener');
