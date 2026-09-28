@@ -8,6 +8,8 @@ import {fileURLToPath} from 'node:url';
 const LOGIN_ORIGIN = 'https://vercel.com';
 const LOGIN_PATH = '/sso-api';
 const LOGIN_REDIRECTS = new Set([302, 307]);
+// Per request: an unresponsive URL fails the check instead of stalling the deploy job.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** True when an anonymous response is Vercel's login redirect: exactly vercel.com/sso-api. */
 export function isLoginGate(status, location) {
@@ -32,7 +34,7 @@ async function main(urls) {
     // and the remaining URLs are still reported.
     let response;
     try {
-      response = await fetch(url, {redirect: 'manual'});
+      response = await fetch(url, {redirect: 'manual', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)});
     } catch (error) {
       console.log(`ERROR   ${url || '(empty URL)'} -> ${error.cause?.message ?? error.message}`);
       failed = true;
