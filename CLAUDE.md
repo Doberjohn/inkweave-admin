@@ -10,6 +10,12 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 - The engine (`inkweave-synergy-engine`) is a pnpm workspace package built from the submodule (`pnpm build:engine`). `typecheck`, `build` and `test:run` build it themselves; run it once before `pnpm dev` on a fresh clone or after a pin bump.
 - Admin declares the app's full runtime dependency set at the app's exact versions. `pnpm check:deps` verifies this, and `pnpm check:deps --fix` aligns it.
 
+## The tools
+
+- `src/tools/{reveal,image,tuning,analytics,banner}` hold the tools, `src/github/` the GitHub read/write layer, and `src/shell/` the layout every route renders in. How they were ported: [docs/plans/P2-port-tools.md](docs/plans/P2-port-tools.md).
+- The reveal, image and tuning tools read from and commit to `Doberjohn/inkweave` on `VITE_ADMIN_TARGET_BRANCH`, which defaults to `master`. To rehearse writes, create a throwaway branch in the app repo and set the variable in `.env.local`. The shell header always names the branch.
+- Admin files pass the app's design-token rules in full. The one exception is `src/tools/banner/SynergyBanner.tsx` (three rules, in `eslint.config.js`), and like the app's ledger it only shrinks. Buttons come from the app's kit through the bridge (`CtaButton`, `LinkButton`).
+
 ## Commands
 
 ```bash
@@ -20,6 +26,8 @@ pnpm lint
 pnpm test             # vitest watch; pnpm test:run for one pass (builds the engine first)
 pnpm check:deps       # dependency parity with the pinned app
 pnpm check:hooks      # the .claude/hooks case table (CI runs it; minutes on Windows)
+pnpm storybook        # http://localhost:6007, the tools' stories
+pnpm banner <cardId>  # export a Synergy Spotlight banner (docs/BANNER.md)
 ```
 
 ## Updating the app pin

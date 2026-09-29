@@ -3862,3 +3862,37 @@ function main() {
 
 main();
 ```
+
+---
+
+## P2 as built (2026-09-29)
+
+The owner approved these departures while P2 was implemented. The task text above is unchanged; where the two differ, this list and the code win.
+
+- **Task 4, the Storybook proxy:**
+  - Storybook's Vite builder replaces the project's whole `server` block. That drops the dev proxy, so in stories the app's fonts returned 404.
+  - `.storybook/main.ts` puts `vite.config.ts`'s proxy back in `viteFinal`.
+  - It imports `'../vite.config.ts'` with the extension, because Storybook 10 loads `main.ts` as native ESM.
+- **After Task 6, the dependency scan (`a9f6df8`):**
+  - Vite's dependency scan crawled every HTML file under the root, `upstream/inkweave/apps/web/index.html` included. That file imports dev-only packages admin doesn't install (`react-grab`), so the scan failed and pre-bundling was skipped.
+  - As a result, the first page load reloaded itself once per dependency Vite found.
+  - `vite.config.ts` now sets `optimizeDeps.entries: ['index.html']`.
+- **Task 10, the banner export:**
+  - Playwright 1.63's browsers were already in the per-user cache from the app's E2E setup, so the Chromium download didn't happen.
+  - sharp resolved to 0.35.5, within `^0.35.4`.
+- **Task 11, CodeScene (`a439342`):**
+  - Task 5's `ghFetch` helper was a ninth argument-taking function in `githubCommit.ts`. That tipped the module over CodeScene's "String Heavy Function Arguments" and "Primitive Obsession" thresholds: it scored 9.38, while the app's file scores 10.0.
+  - `ghJson` is back to the app's code, and `readRepoFile` makes its own raw fetch. So Task 5's diff still shows `ghFetch`, but the code no longer has it.
+  - The branch then passed CodeScene with no findings.
+  - The local CodeScene MCP is 1.1.3, older than what the PR's check runs.
+- **Task 12, the rehearsal:**
+  - The image publish came less than a minute after the reveal, and failed with 422 "Update is not a fast forward".
+  - GitHub marks API responses `Cache-Control: private, max-age=60`, and `fetch()` served the branch-ref read from the browser cache. The new commit was built on the tip from before the reveal, and the no-force ref update refused it, as designed.
+  - Every GitHub request now uses `cache: 'no-store'` (`f7b8b92`), with two new tests and one new assertion.
+  - The rehearsal then finished. Four commits landed on `admin-verify` in one line (reveal, tuning, image, tuning), each touching only its expected files. The last two were 51 s apart, the case that failed before the fix.
+  - `master` gained no commits during the rehearsal; it had moved earlier through the owner's own merges (#632, #637, #644).
+  - No app workflow ran, and the branch was deleted.
+  - The rehearsal started Vercel preview builds of the app, for the branch creation and each of the four commits.
+  - The app's copies of the tools have the same latent bug until P4 deletes them.
+- **Tests:** 158, not 156, because of the cache fix's two tests.
+- **Dev server:** a cold `pnpm dev` start takes about 20 s to render the first page on this machine, because it transforms hundreds of bridged app modules on first load.

@@ -2122,6 +2122,8 @@ Each phase gets its own detailed plan (writing-plans) when it starts, built from
 
 ### P2: Port the tools (admin repo, `#ADM_P2`)
 
+Detailed plan and as-built notes: [docs/plans/P2-port-tools.md](plans/P2-port-tools.md).
+
 **Routing and shell**
 - Add `react-router-dom` routes: `/` (tool index), `/reveal`, `/image`, `/tuning`, `/analytics`, `/banner/:cardId`.
 - Build an `AdminShell` layout with tool navigation and no public nav, Vercel Analytics or Speed Insights.
