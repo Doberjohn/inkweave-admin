@@ -152,12 +152,17 @@ function substitutions(text, ps = false, literal = false) {
   return found;
 }
 
-// Index of the `)` closing the $( at `start`, following the shell's quoting inside
-// it: parentheses in '...' or "..." do not count, a nested $( within "..." does.
+// Index of the `)` closing the $( at `start`.
 function substitutionEnd(text, start, escape) {
+  return parenEnd(text, start + 1, escape);
+}
+
+// Index of the `)` matching the `(` at `open`, following the shell's quoting inside
+// it: parentheses in '...' or "..." do not count, a nested $( within "..." does.
+function parenEnd(text, open, escape) {
   const ps = escape === '`';
   let depth = 0;
-  for (let i = start + 1; i < text.length; i++) {
+  for (let i = open; i < text.length; i++) {
     const c = text[i];
     if (c === escape) {
       i++;
@@ -179,13 +184,17 @@ function substitutionEnd(text, start, escape) {
   return text.length - 1;
 }
 
-// The commands inside every substitution, nested ones included: the tokenizer
-// keeps a "$(...)" in double quotes as a single word.
-function nestedSubstitutions(text, ps = false) {
-  return substitutions(text, ps).flatMap((sub) => {
-    const inner = sub.startsWith('$(') ? sub.slice(2, -1) : sub.slice(1, -1);
-    return [inner, ...nestedSubstitutions(inner, ps)];
-  });
+// The command substitution starting at `i`, or '' if none does: $(...) (but not
+// bash's $((...)) arithmetic) and bash's `...`.
+function substitutionAt(src, i, ps) {
+  if (src.startsWith('$(', i) && (ps || src[i + 2] !== '(')) {
+    return src.slice(i, substitutionEnd(src, i, ps ? '`' : '\\') + 1);
+  }
+  if (!ps && src[i] === '`') {
+    const end = src.indexOf('`', i + 1);
+    return src.slice(i, end === -1 ? src.length : end + 1);
+  }
+  return '';
 }
 
 // A PowerShell here-string is data, but an expandable @"..."@ runs its $(...)
@@ -327,17 +336,26 @@ function stripDocs(src, ps) {
   return out;
 }
 
-// Each command is {words, redirects: [{op, target}], piped}. A redirection's
-// target is the word after its operator; stream duplicates (2>&1, >&-) name no file.
+// Each command is {words, redirects: [{op, target}], piped, subs, group}. A
+// redirection's target is the word after its operator; stream duplicates (2>&1,
+// >&-) name no file. `subs` lists the command substitutions in its words, quoted or
+// not, which also stay in those words; `group` is the inside of a bash ( ... ).
 function splitCommands(src, ps) {
   const cmds = [];
   let words = [];
   let redirects = [];
+  let subs = [];
+  let group = null;
   let word = '';
   let has = false;
   let quote = null;
   let ansi = false; // the open ' is bash's $'...', which takes backslash escapes
   let redirect = null;
+  const addSub = (sub) => {
+    subs.push(sub);
+    word += sub;
+    has = true;
+  };
   const endWord = () => {
     if (has) {
       if (redirect) redirects.push({op: redirect, target: word});
@@ -350,13 +368,22 @@ function splitCommands(src, ps) {
   const endCmd = (piped) => {
     endWord();
     redirect = null;
-    if (words.length || redirects.length) cmds.push({words, redirects, piped});
+    if (words.length || redirects.length || group !== null) cmds.push({words, redirects, piped, subs, group});
     words = [];
     redirects = [];
+    subs = [];
+    group = null;
   };
-  const separators = ps ? ';\n(){}' : ';\n()`';
+  const separators = ps ? ';\n(){}' : ';\n()';
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
+    // $(...) and bash `...` run in double quotes too; '...' and $'...' stay text.
+    const sub = quote === "'" ? '' : substitutionAt(src, i, ps);
+    if (sub) {
+      addSub(sub);
+      i += sub.length - 1;
+      continue;
+    }
     if (quote) {
       if (ansi && c === '\\' && i + 1 < src.length) {
         word += src[++i];
@@ -403,6 +430,11 @@ function splitCommands(src, ps) {
     } else if (c === '&' && !/[<>]/.test(src[i - 1] || '')) {
       if (src[i + 1] === '&') i++;
       endCmd(false);
+    } else if (!ps && c === '(' && !has && !words.length && src[i + 1] !== '(') {
+      // A bash ( ... ) at the start of a command is a subshell.
+      const end = parenEnd(src, i, '\\');
+      group = src.slice(i + 1, end);
+      i = end;
     } else if (separators.includes(c)) {
       endCmd(false);
     } else {
@@ -414,11 +446,8 @@ function splitCommands(src, ps) {
   return cmds;
 }
 
-// Top-level commands plus the insides of $(...) (and bash `...`), which may sit in quotes.
 function parse(src, ps) {
-  const s = stripDocs(src, ps);
-  const subs = nestedSubstitutions(s, ps);
-  return [...splitCommands(s, ps), ...subs.flatMap((sub) => splitCommands(sub, ps))].map((c) => ({...c, ps}));
+  return splitCommands(stripDocs(src, ps), ps).map((c) => ({...c, ps}));
 }
 
 // --- Git invocations ----------------------------------------------------------
@@ -479,19 +508,32 @@ function nestedShell(prog, args) {
   return null;
 }
 
-function analyze(cmds, startDir, insideAll) {
-  let cwd = startDir;
-  const stack = [];
-  const shellVars = {}; // variables set on their own (`X=1`, `export X=1`) earlier in the command
-  for (const {words, redirects, piped, ps} of cmds) {
+// Where commands run: the working directory, the pushd stack, and the variables set
+// on their own (`X=1`, `export X=1`) earlier in the command. A subshell gets a copy.
+const newState = (cwd) => ({cwd, stack: [], vars: {}});
+const fork = (state) => ({cwd: state.cwd, stack: [...state.stack], vars: {...state.vars}});
+
+function analyze(cmds, state, insideAll) {
+  for (const {words, redirects, piped, ps, subs, group} of cmds) {
+    // A command's substitutions run before it, from where it runs. Bash gives each
+    // one a subshell, so a cd inside stays inside; PowerShell runs $(...) in the
+    // current scope, so a Set-Location inside carries on.
+    for (const sub of subs) {
+      const inner = sub.startsWith('$(') ? sub.slice(2, -1) : sub.slice(1, -1);
+      analyze(parse(inner, ps), ps ? state : fork(state), insideAll);
+    }
     for (const {op, target} of redirects) {
       const file = target.replace(/^&/, ''); // bash `>&file` sends both streams to a file
-      if (WRITE_OPS.has(op) && file && !NULL_DEVICES.has(file.toLowerCase()) && inUpstream(resolveDir(cwd, file))) {
+      if (WRITE_OPS.has(op) && file && !NULL_DEVICES.has(file.toLowerCase()) && inUpstream(resolveDir(state.cwd, file))) {
         block(
           `Blocked: a shell redirection would write ${file} inside upstream/inkweave, the pinned app submodule, which is read-only here. ` +
             'Change the app in Doberjohn/inkweave, then bump the pin.',
         );
       }
+    }
+    if (group !== null) {
+      analyze(parse(group, ps), fork(state), insideAll);
+      continue;
     }
     const w = words.slice();
     const assigned = {};
@@ -500,37 +542,37 @@ function analyze(cmds, startDir, insideAll) {
       if (a) assigned[a[1]] = a[2];
     }
     if (!w.length) {
-      Object.assign(shellVars, assigned);
+      Object.assign(state.vars, assigned);
       continue;
     }
     const prog = slash(w.shift()).toLowerCase();
     if (prog === 'unset') {
-      for (const name of w) delete shellVars[name];
+      for (const name of w) delete state.vars[name];
       continue;
     }
     if (CD.has(prog) || PUSHD.has(prog)) {
       const target = w.find((a) => !a.startsWith('-'));
-      if (PUSHD.has(prog)) stack.push(cwd);
-      if (target) cwd = resolveDir(cwd, target);
+      if (PUSHD.has(prog)) state.stack.push(state.cwd);
+      if (target) state.cwd = resolveDir(state.cwd, target);
       continue;
     }
     if (POPD.has(prog)) {
-      if (stack.length) cwd = stack.pop();
+      if (state.stack.length) state.cwd = state.stack.pop();
       continue;
     }
     const nested = nestedShell(prog.split('/').pop(), w);
     if (nested) {
-      analyze(parse(nested.src, nested.ps), cwd, insideAll);
+      analyze(parse(nested.src, nested.ps), fork(state), insideAll);
       continue;
     }
     if (!/(^|\/)git(\.exe)?$/.test(prog)) continue;
 
-    let dir = cwd;
+    let dir = state.cwd;
     let inside = insideAll;
     // GIT_DIR / GIT_WORK_TREE, set for this git or earlier in the command, choose the repository too.
     for (const name of ['GIT_DIR', 'GIT_WORK_TREE']) {
-      const value = assigned[name] ?? shellVars[name];
-      if (value && inUpstream(resolveDir(cwd, value))) inside = true;
+      const value = assigned[name] ?? state.vars[name];
+      if (value && inUpstream(resolveDir(state.cwd, value))) inside = true;
     }
     let i = 0;
     while (i < w.length && w[i].startsWith('-')) {
@@ -550,7 +592,7 @@ function analyze(cmds, startDir, insideAll) {
     if (verb === 'submodule' && args[0] === 'foreach') {
       // foreach runs its command inside the submodule, upstream/inkweave.
       const inner = args.slice(1).filter((a) => !['--recursive', '--quiet', '-q'].includes(a));
-      analyze(parse(inner.join(' '), ps), resolveDir(dir, 'upstream/inkweave'), true);
+      analyze(parse(inner.join(' '), ps), newState(resolveDir(dir, 'upstream/inkweave')), true);
       continue;
     }
     if (inside && !readOnly(verb, args)) {
@@ -574,7 +616,7 @@ function analyze(cmds, startDir, insideAll) {
   }
 }
 
-analyze(parse(command, powershell), input.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd(), false);
+analyze(parse(command, powershell), newState(input.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd()), false);
 process.exit(0);
 JS
 )"
