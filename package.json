@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
-    "@sentry/react": "^10.75.1",
-    "@supabase/supabase-js": "^2.116.0",
+    "@sentry/react": "^11.0.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "inkweave-synergy-engine": "workspace:*",
@@ -29,7 +29,7 @@
     "react-dom": "^19.3.0",
     "react-loading-skeleton": "^3.5.0",
     "react-router-dom": "^7.18.4",
-    "react-virtuoso": "^4.18.14"
+    "react-virtuoso": "^4.18.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -52,14 +52,14 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "husky": "^9.1.7",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.1.1",
     "playwright": "^1.63.0",
     "sharp": "^0.35.4",
     "storybook": "^10.6.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^8.3.0",
-    "vitest": "~4.1.10"
+    "vite": "^8.3.1",
+    "vitest": "~5.0.2"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
