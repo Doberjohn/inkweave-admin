@@ -1,5 +1,5 @@
 import type {Ink, CardType, LorcanaJSONCard} from 'inkweave-synergy-engine';
-import {REVEAL_SET_CODE, REVEAL_ID_BASE} from './constants';
+import {REVEAL_SET_CODE, REVEAL_ID_BASE, STAT_FIELDS} from './constants';
 
 export interface RevealCardForm {
   collectorNumber: string;
@@ -76,17 +76,13 @@ function describe(form: RevealCardForm, version: string): Partial<LorcanaJSONCar
   return out;
 }
 
-/** Numeric stat fields, each omitted when blank. */
+/** The stats the card's type prints (STAT_FIELDS), each omitted when blank. */
 function stats(form: RevealCardForm): Partial<LorcanaJSONCard> {
   const out: Partial<LorcanaJSONCard> = {};
-  const strength = parseIntOrUndef(form.strength);
-  const willpower = parseIntOrUndef(form.willpower);
-  const lore = parseIntOrUndef(form.lore);
-  const moveCost = parseIntOrUndef(form.moveCost);
-  if (strength !== undefined) out.strength = strength;
-  if (willpower !== undefined) out.willpower = willpower;
-  if (lore !== undefined) out.lore = lore;
-  if (moveCost !== undefined) out.moveCost = moveCost;
+  for (const field of STAT_FIELDS[form.type] ?? []) {
+    const value = parseIntOrUndef(form[field]);
+    if (value !== undefined) out[field] = value;
+  }
   return out;
 }
 

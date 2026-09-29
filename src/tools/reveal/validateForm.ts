@@ -1,10 +1,9 @@
 import type {Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from './buildPreviewCard';
 import {ALL_INKS, inkBlock} from '../../app-bridge';
-import {CARD_TYPES, REVEAL_ID_BASE} from './constants';
+import {CARD_TYPES, REVEAL_ID_BASE, STAT_FIELDS, STAT_LABELS} from './constants';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
-const CHARACTER_STATS = ['strength', 'willpower', 'lore'] as const;
 
 export interface ValidationResult {
   ok: boolean;
@@ -13,12 +12,10 @@ export interface ValidationResult {
 
 type Errors = Record<string, string>;
 
-/** Parse a trimmed integer field, or null when blank / not a number. */
+/** Parse a trimmed whole number, or null when blank or anything else ("1.5", "3foo"). */
 function intField(value: string): number | null {
   const t = value.trim();
-  if (t === '') return null;
-  const n = Number.parseInt(t, 10);
-  return Number.isNaN(n) ? null : n;
+  return /^-?\d+$/.test(t) ? Number(t) : null;
 }
 
 function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {
@@ -62,12 +59,13 @@ function checkInkBlock(form: RevealCardForm, errors: Errors): void {
   errors.ink = `#${collector} is in the ${owner} block (${first}-${last}), not ${form.ink}`;
 }
 
-/** strength / willpower / lore are required (non-negative ints) only for Characters. */
-function checkCharacterStats(form: RevealCardForm, errors: Errors): void {
-  if (form.type !== 'Character') return;
-  for (const field of CHARACTER_STATS) {
+/** The stats the card's type prints (STAT_FIELDS) are required non-negative ints. */
+function checkStats(form: RevealCardForm, errors: Errors): void {
+  for (const field of STAT_FIELDS[form.type] ?? []) {
     const value = intField(form[field]);
-    if (value === null || value < 0) errors[field] = `Enter ${field} for a character`;
+    if (value === null || value < 0) {
+      errors[field] = `Enter ${STAT_LABELS[field].toLowerCase()} for a ${form.type.toLowerCase()}`;
+    }
   }
 }
 
@@ -77,7 +75,7 @@ function checkImage(imageName: string | null, errors: Errors): void {
     return;
   }
   const ext = imageName.split('.').pop()?.toLowerCase() ?? '';
-  if (!VALID_EXT.has(ext)) errors.image = 'Image must be jpg, png, or webp';
+  if (!VALID_EXT.has(ext)) errors.image = 'Image must be jpg, jpeg, png, or webp';
 }
 
 /**
@@ -94,7 +92,7 @@ export function validateRevealCardForm(
   checkIdentity(form, existingIds, errors);
   checkCostAndInk(form, errors);
   checkInkBlock(form, errors);
-  checkCharacterStats(form, errors);
+  checkStats(form, errors);
   checkImage(imageName, errors);
   return {ok: Object.keys(errors).length === 0, errors};
 }

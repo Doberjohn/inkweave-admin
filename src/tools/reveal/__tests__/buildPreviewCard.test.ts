@@ -40,6 +40,17 @@ describe('parseKeyword', () => {
   });
 });
 
+describe('buildPreviewCard stats', () => {
+  it("keeps only the stats the card's type prints, whatever the hidden fields still hold", () => {
+    const item = buildPreviewCard(form({type: 'Item', moveCost: '2'}));
+    expect([item.strength, item.willpower, item.lore, item.moveCost]).toEqual([undefined, undefined, undefined, undefined]);
+
+    const location = buildPreviewCard(form({type: 'Location', moveCost: '2', willpower: '7', lore: '1'}));
+    expect(location).toMatchObject({moveCost: 2, willpower: 7, lore: 1});
+    expect(location.strength).toBeUndefined();
+  });
+});
+
 describe('buildPreviewCard', () => {
   it('derives id, fullName, color, sections and keyword abilities', () => {
     const card = buildPreviewCard(form());

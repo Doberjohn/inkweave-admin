@@ -79,6 +79,23 @@ describe('validateRevealCardForm', () => {
     expect(item.ok).toBe(true);
   });
 
+  it('requires move cost, willpower and lore for locations', () => {
+    const blank = validateRevealCardForm(form({type: 'Location', willpower: '', lore: ''}), NO_IDS, 'x.png');
+    expect(blank.errors).toMatchObject({
+      moveCost: 'Enter move cost for a location',
+      willpower: 'Enter willpower for a location',
+      lore: 'Enter lore for a location',
+    });
+    expect(blank.errors.strength).toBeUndefined();
+    const negative = validateRevealCardForm(form({type: 'Location', moveCost: '-1', lore: '0'}), NO_IDS, 'x.png');
+    expect(Object.keys(negative.errors)).toEqual(['moveCost']);
+  });
+
+  it('rejects a number that is not whole, instead of truncating it', () => {
+    const r = validateRevealCardForm(form({cost: '1.5', strength: '3foo', collectorNumber: `${RUBY_NUMBER}x`}), NO_IDS, 'x.png');
+    expect(Object.keys(r.errors).sort()).toEqual(['collectorNumber', 'cost', 'strength']);
+  });
+
   it('requires an image with a valid extension', () => {
     expect(validateRevealCardForm(form(), NO_IDS, null).errors.image).toBeDefined();
     expect(validateRevealCardForm(form(), NO_IDS, 'mei.gif').errors.image).toBeDefined();
