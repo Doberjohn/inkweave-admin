@@ -14,6 +14,7 @@
     "test:run": "pnpm build:engine && vitest run",
     "check:deps": "node scripts/check-shared-deps.mjs",
     "check:hooks": "node scripts/check-hooks.mjs",
+    "storybook": "storybook dev -p 6007",
     "prepare": "husky"
   },
   "dependencies": {
@@ -32,6 +33,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@rolldown/plugin-babel": "^0.2.4",
+    "@storybook/addon-a11y": "^10.6.0",
+    "@storybook/addon-docs": "^10.6.0",
+    "@storybook/react-vite": "^10.6.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
@@ -48,6 +52,7 @@
     "globals": "^17.12.0",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "storybook": "^10.6.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
     "vite": "^8.3.0",
