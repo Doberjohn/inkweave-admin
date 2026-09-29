@@ -59,7 +59,11 @@ export async function validateToken(token: string): Promise<TokenInfo> {
   }
 }
 
-async function ghFetch(token: string, path: string, init?: RequestInit): Promise<Response> {
+async function ghJson<T = Record<string, unknown>>(
+  token: string,
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: {...authHeaders(token), ...(init?.headers ?? {})},
@@ -68,15 +72,6 @@ async function ghFetch(token: string, path: string, init?: RequestInit): Promise
     const body = await res.text();
     throw new Error(`GitHub ${res.status} on ${path}: ${body.slice(0, 200)}`);
   }
-  return res;
-}
-
-async function ghJson<T = Record<string, unknown>>(
-  token: string,
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  const res = await ghFetch(token, path, init);
   return res.json() as Promise<T>;
 }
 
@@ -86,11 +81,11 @@ async function ghJson<T = Record<string, unknown>>(
  * and stops at 1 MB (docs/PLAN.md, 4.4).
  */
 export async function readRepoFile(token: string, path: string): Promise<string> {
-  const res = await ghFetch(
-    token,
-    `/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(targetBranch())}`,
-    {headers: {Accept: 'application/vnd.github.raw+json'}},
+  const res = await fetch(
+    `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(targetBranch())}`,
+    {headers: {...authHeaders(token), Accept: 'application/vnd.github.raw+json'}},
   );
+  if (!res.ok) throw new Error(`GitHub ${res.status} on ${path}: ${(await res.text()).slice(0, 200)}`);
   return res.text();
 }
 
