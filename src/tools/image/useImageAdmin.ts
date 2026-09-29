@@ -1,21 +1,12 @@
 import {useState} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
+import {useImageUpload} from '../../components/useImageUpload';
 import {useGithubToken} from '../../github/useGithubToken';
 import {commitCardImage, type ImageAdminCard} from './githubClient';
 import type {CommitResult} from '../../github/githubCommit';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
-
-/** Read an uploaded image File as a base64 data URL (preview + GitHub blob). */
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function extOf(name: string): string {
   return (name.split('.').pop() ?? '').toLowerCase();
@@ -68,13 +59,14 @@ export function useImageAdmin(): ImageAdminController {
   const {token, setToken, clearToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [selectedCard, setSelectedCard] = useState<LorcanaCard | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
+  // The chosen file and its bytes, kept in step (useImageUpload).
+  const upload = useImageUpload();
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<CommitResult | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
 
-  const imageName = imageFile?.name ?? null;
+  const imageFile = upload.file;
+  const newImageUrl = upload.dataUrl;
   const publishPayload = toPublishPayload({token, selectedCard, imageFile, newImageUrl});
   const canPublish = publishPayload !== null;
 
@@ -82,15 +74,9 @@ export function useImageAdmin(): ImageAdminController {
     setSelectedCard(card);
     // Clear any image staged for the previously selected card, so you can never
     // publish card A's upload against card B's id after switching cards.
-    setImageFile(null);
-    setNewImageUrl(null);
+    void upload.choose(null);
     setResult(null);
     setPublishError(null);
-  }
-
-  async function onImageChange(file: File | null) {
-    setImageFile(file);
-    setNewImageUrl(file ? await readAsDataUrl(file) : null);
   }
 
   async function publish() {
@@ -101,8 +87,7 @@ export function useImageAdmin(): ImageAdminController {
       const res = await commitCardImage(publishPayload);
       setResult(res);
       setSelectedCard(null);
-      setImageFile(null);
-      setNewImageUrl(null);
+      void upload.choose(null);
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : 'Publish failed');
     } finally {
@@ -117,13 +102,14 @@ export function useImageAdmin(): ImageAdminController {
     cards,
     selectedCard,
     selectCard,
-    imageName,
+    imageName: imageFile?.name ?? null,
     newImageUrl,
-    onImageChange,
+    onImageChange: upload.choose,
     canPublish,
     publishing,
     result,
-    publishError,
+    // A file that can't be read is why Publish stays off; say so where errors show.
+    publishError: publishError ?? upload.error,
     publish,
   };
 }

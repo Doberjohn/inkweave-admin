@@ -6,6 +6,7 @@ import {
   type SynergyGroup,
 } from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
+import {useImageUpload} from '../../components/useImageUpload';
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
 import {validateRevealCardForm, type ValidationResult} from './validateForm';
 import {commitNewCard} from './githubClient';
@@ -30,16 +31,6 @@ const EMPTY_FORM: RevealCardForm = {
   keywords: '',
   fullText: '',
 };
-
-/** Read an uploaded image File as a base64 data URL (for preview + GitHub blob). */
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 /** Build the live preview card from form values; null until ink/type are valid. */
 function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {
@@ -98,8 +89,10 @@ export function useRevealAdmin(): RevealAdminController {
   const {token, setToken, clearToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  // The chosen file and its bytes, kept in step (useImageUpload).
+  const upload = useImageUpload();
+  const imageFile = upload.file;
+  const imageDataUrl = upload.dataUrl;
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{commitUrl: string} | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -115,11 +108,6 @@ export function useRevealAdmin(): RevealAdminController {
     setForm((f) => ({...f, ...patch}));
   }
 
-  async function onImageChange(file: File | null) {
-    setImageFile(file);
-    setImageDataUrl(file ? await readAsDataUrl(file) : null);
-  }
-
   async function publish() {
     if (!token) return;
     if (!imageFile) return;
@@ -127,14 +115,15 @@ export function useRevealAdmin(): RevealAdminController {
     if (!validation.ok) return;
     setPublishing(true);
     setPublishError(null);
+    // The last publish's banner would otherwise stand beside this attempt's outcome.
+    setResult(null);
     try {
       const card = buildPreviewCard(form);
       const ext = (imageFile.name.split('.').pop() ?? 'png').toLowerCase();
       const res = await commitNewCard({token, card, imageBase64: imageDataUrl, imageExt: ext});
       setResult(res);
       setForm(EMPTY_FORM);
-      setImageFile(null);
-      setImageDataUrl(null);
+      void upload.choose(null);
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : 'Publish failed');
     } finally {
@@ -154,8 +143,9 @@ export function useRevealAdmin(): RevealAdminController {
     canPublish,
     publishing,
     result,
-    publishError,
-    onImageChange,
+    // A file that can't be read is why Publish stays off; say so where errors show.
+    publishError: publishError ?? upload.error,
+    onImageChange: upload.choose,
     publish,
   };
 }

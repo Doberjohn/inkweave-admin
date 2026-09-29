@@ -1,4 +1,5 @@
-import {COLORS, EMPTY_BOX, FONT_SIZES, RADIUS} from '../app-bridge';
+import {COLORS, EMPTY_BOX, FONT_SIZES, GOLD_GLOW, RADIUS} from '../app-bridge';
+import {useHiddenFileInput} from './useHiddenFileInput';
 
 interface ImageUploadTileProps {
   /** Preview URL for the chosen image (data URL), or null when none chosen. */
@@ -12,25 +13,11 @@ interface ImageUploadTileProps {
 
 const ACCEPT_DEFAULT = 'image/jpeg,image/png,image/webp';
 
-// Visually hidden but still focusable (so keyboard users can tab to it and open
-// the picker with Space/Enter). display:none would drop it from the tab order and
-// some browsers refuse to trigger a display:none file input via label click.
-const srOnlyInput = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
-
 /**
  * A clickable image drop-tile: the whole box is a <label> wrapping a hidden file
  * input, so clicking (or keyboard-activating) it opens the native picker. Shows
- * the chosen image as a thumbnail, or a "click to choose" prompt when empty.
+ * the chosen image as a thumbnail, or a "click to choose" prompt when empty. The
+ * tile carries the kit's focus ring while its input has focus.
  */
 export function ImageUploadTile({
   imageUrl,
@@ -39,6 +26,7 @@ export function ImageUploadTile({
   width = 160,
   height = 223,
 }: ImageUploadTileProps) {
+  const {focused, inputProps} = useHiddenFileInput(onImageChange);
   return (
     <label
       style={{
@@ -51,14 +39,9 @@ export function ImageUploadTile({
         fontSize: FONT_SIZES.xs,
         cursor: 'pointer',
         overflow: 'hidden',
+        boxShadow: focused ? GOLD_GLOW.focusRing : undefined,
       }}>
-      <input
-        type="file"
-        accept={accept}
-        aria-label="Choose image"
-        onChange={(e) => onImageChange(e.target.files?.[0] ?? null)}
-        style={srOnlyInput}
-      />
+      <input {...inputProps} accept={accept} aria-label="Choose image" />
       {imageUrl ? (
         <img
           src={imageUrl}

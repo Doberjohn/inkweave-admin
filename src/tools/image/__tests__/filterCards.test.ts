@@ -21,8 +21,8 @@ describe('filterCards', () => {
   });
 
   it('returns the first `limit` cards when the query is blank', () => {
-    const cards = [card({id: '1'}), card({id: '2'})];
-    expect(filterCards(cards, '  ', 40)).toHaveLength(2);
+    const cards = Array.from({length: 50}, (_, i) => card({id: String(i)}));
+    expect(filterCards(cards, '  ', 40).map((c) => c.id)).toEqual(cards.slice(0, 40).map((c) => c.id));
   });
 
   it('caps results at `limit`', () => {
