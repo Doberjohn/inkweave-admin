@@ -12,10 +12,14 @@ export interface ValidationResult {
 
 type Errors = Record<string, string>;
 
-/** Parse a trimmed whole number, or null when blank or anything else ("1.5", "3foo"). */
+/**
+ * Parse a trimmed whole number, or null when blank or anything else ("1.5",
+ * "3foo", or digits past what a JavaScript number holds exactly).
+ */
 function intField(value: string): number | null {
   const t = value.trim();
-  return /^-?\d+$/.test(t) ? Number(t) : null;
+  const n = Number(t);
+  return /^-?\d+$/.test(t) && Number.isSafeInteger(n) ? n : null;
 }
 
 function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {

@@ -96,6 +96,11 @@ describe('validateRevealCardForm', () => {
     expect(Object.keys(r.errors).sort()).toEqual(['collectorNumber', 'cost', 'strength']);
   });
 
+  it('rejects a number too long to hold exactly', () => {
+    const r = validateRevealCardForm(form({cost: '99999999999999999999', lore: '9'.repeat(400)}), NO_IDS, 'x.png');
+    expect(Object.keys(r.errors).sort()).toEqual(['cost', 'lore']);
+  });
+
   it('requires an image with a valid extension', () => {
     expect(validateRevealCardForm(form(), NO_IDS, null).errors.image).toBeDefined();
     expect(validateRevealCardForm(form(), NO_IDS, 'mei.gif').errors.image).toBeDefined();
