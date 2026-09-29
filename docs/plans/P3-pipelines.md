@@ -44,16 +44,16 @@ Measured on 2026-09-29:
 - The app's own deploy of the same pieces: checkout 2 s, engine build about 1 s (tsup, ESM 0.3 s and DTS 0.7 s), and `precompute-synergies` 6.9 s.
 
 The analytics steps also run:
-- an engine-only install: the engine's own dev dependencies, from the pnpm store that `setup-node` restores, about 15 to 30 s;
+- an install of the app's workspace, with no install scripts. pnpm 9 ignored `--filter inkweave-synergy-engine` here and installed all 876 packages, so the step installs the workspace without the filter. A dry run on 2026-09-29 took 57 s on Windows with a warm store, and a Linux runner links faster.
 - the two precomputes, about 15 to 30 s. Supabase reads paginate at 1,000 rows, and the Web Analytics API takes one count query, one trend query and one query per breakdown for each event.
 
-That adds about 1 to 1.5 min, so a deploy run takes about 2.5 min.
+That adds about 1.5 to 2 min, so a deploy run takes about 3 min.
 
 | Trigger | Runs a month | Minutes a month |
 |---|---|---|
-| Nightly cron | 30 | ~75 |
-| Merges to `main` | ~10 | ~25 |
-| **Deploy total** | | **~100** |
+| Nightly cron | 30 | ~90 |
+| Merges to `main` | ~10 | ~30 |
+| **Deploy total** | | **~120** |
 
 While the repo is public, standard-runner minutes are free. Once it's private, they count against the budget the two repos share, where the app's CI (about 10 min a run) is the main consumer.
 
@@ -628,10 +628,12 @@ jobs:
           token: ${{ secrets.APP_REPO_TOKEN }}
           persist-credentials: false
 
-      # Only the engine package: precompute-synergies needs nothing else.
+      # precompute-synergies needs only the built engine, and that build needs no
+      # install scripts, so none run: faster, and no third-party postinstall runs
+      # in the deploy job.
       - name: Build the app's engine and synergy data
         run: |
-          pnpm --dir app-master install --frozen-lockfile --filter inkweave-synergy-engine
+          pnpm --dir app-master install --frozen-lockfile --ignore-scripts
           pnpm --dir app-master --filter inkweave-synergy-engine build
           node app-master/scripts/precompute-synergies.mjs
 
@@ -746,6 +748,14 @@ Expected: CI (build-and-test) passes. CI doesn't run the deploy workflow, so the
 A `⚠` line from the Web Analytics precompute means the token, the project id or the team assumption from Task 5 is wrong. Fix the secret, then run `gh workflow run deploy.yml --repo Doberjohn/inkweave-admin`.
 - [ ] **Step 2: [owner] The tool.** The owner opens `/analytics` on the deployed admin. Calibration, Activity and Web Analytics show real data.
 - [ ] **Step 3: The schedule.** The next day, `gh run list --repo Doberjohn/inkweave-admin --workflow deploy.yml --event schedule --limit 1` shows a successful run.
+
+### P3a as built (2026-09-29)
+
+- **The install.** The app-master install runs without `--filter` and with `--ignore-scripts`. pnpm 9 installed the whole workspace even with the filter. Skipping install scripts saves time, and no third-party postinstall (Sentry's CLI download, husky) runs in the deploy job. The engine build needs none of them.
+- **The local checks, before any secret existed:**
+  - Both scripts' empty paths wrote their files with the expected keys.
+  - The Web Analytics script's failure path: a dummy token drew a 403, and the script wrote the empty file and exited 0.
+  - A dry run against a shallow clone of the app's `master` (`76d13bc`): the workflow's install, engine build and `precompute-synergies` (22,503 pairs), then the vote script with a dummy Supabase URL. It read every synergy file, the rule roster and the card names, and stopped at the `pair_scores` fetch, exiting 1 without writing anything.
 
 ---
 
