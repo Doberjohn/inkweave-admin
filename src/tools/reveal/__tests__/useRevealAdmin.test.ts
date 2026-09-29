@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
 import {DeferredReader} from '../../../test/DeferredReader';
+import {pngDataUrl, pngFile} from '../../../test/images';
 import {inkBlock} from '../../../app-bridge';
 import {useRevealAdmin} from '../useRevealAdmin';
 
@@ -13,7 +14,7 @@ vi.mock('../../../app-bridge', async (importOriginal) => ({
   useCardDataContext: () => ({cards: []}),
 }));
 
-const image = (name: string) => new File(['x'], name, {type: 'image/png'});
+const image = pngFile;
 
 // A complete character, numbered inside Ruby's block for the current season.
 const VALID_FORM = {
@@ -57,6 +58,6 @@ describe('useRevealAdmin', () => {
 
     await DeferredReader.finish(1);
     await DeferredReader.finish(0);
-    expect(result.current.previewCard?.imageUrl).toBe('data:b.webp');
+    expect(result.current.previewCard?.imageUrl).toBe(pngDataUrl('b.webp'));
   });
 });

@@ -1,4 +1,5 @@
 import {act} from '@testing-library/react';
+import {pngDataUrl} from './images';
 
 /**
  * A FileReader stand-in whose reads finish only when a test says so, for
@@ -28,7 +29,7 @@ export class DeferredReader {
   }
 
   finish() {
-    this.result = `data:${this.file?.name}`;
+    this.result = pngDataUrl(this.file?.name ?? '');
     this.onload?.();
   }
 

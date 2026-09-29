@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
 import {useImageUpload} from '../../components/useImageUpload';
@@ -59,6 +59,9 @@ export function useImageAdmin(): ImageAdminController {
   const {token, setToken, clearToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [selectedCard, setSelectedCard] = useState<LorcanaCard | null>(null);
+  // The card on screen. A publish that finishes after the operator moved on
+  // clears only what it published, never a card or image picked meanwhile.
+  const shownCardId = useRef<string | null>(null);
   // The chosen file and its bytes, kept in step (useImageUpload).
   const upload = useImageUpload();
   const [publishing, setPublishing] = useState(false);
@@ -71,6 +74,7 @@ export function useImageAdmin(): ImageAdminController {
   const canPublish = publishPayload !== null;
 
   function selectCard(card: LorcanaCard) {
+    shownCardId.current = card.id;
     setSelectedCard(card);
     // Clear any image staged for the previously selected card, so you can never
     // publish card A's upload against card B's id after switching cards.
@@ -80,14 +84,16 @@ export function useImageAdmin(): ImageAdminController {
   }
 
   async function publish() {
-    if (!publishPayload) return;
+    if (!publishPayload || !imageFile) return;
     setPublishing(true);
     setPublishError(null);
     try {
       const res = await commitCardImage(publishPayload);
       setResult(res);
-      setSelectedCard(null);
-      void upload.choose(null);
+      if (shownCardId.current === publishPayload.card.id && upload.clearIf(imageFile)) {
+        shownCardId.current = null;
+        setSelectedCard(null);
+      }
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : 'Publish failed');
     } finally {
