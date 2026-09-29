@@ -353,8 +353,9 @@ It is the app's script with four changes:
  *
  * A web-analytics tab is not worth a failed deploy: without the token or project
  * id, or when the API fails, this writes the empty-but-valid file and exits 0.
- * Workflow logs are public while the repo is, so it logs the file it wrote,
- * never event counts.
+ * It exits 1 only when it cannot write that file. Workflow logs are public while
+ * the repo is, so it logs the file it wrote and, on an API failure, the endpoint
+ * and HTTP status: never event counts or response bodies.
  *
  * Docs: https://vercel.com/docs/analytics/web-analytics-api
  */
@@ -386,18 +387,22 @@ function writeArtifact(obj) {
   console.log(`  wrote public/admin-data/${OUT_NAME}`);
 }
 
-/** One authenticated GET against the Web Analytics Query API; returns the `data` field. */
+/**
+ * One authenticated GET against the Web Analytics Query API; returns the `data` field.
+ * Its errors name the endpoint and HTTP status only: the workflow logs them, and a
+ * response body can hold event data.
+ */
 async function vercelQuery(endpoint, params, {token, projectId, teamId}) {
   const search = new URLSearchParams({projectId, ...params});
   if (teamId) search.set('teamId', teamId);
   const res = await fetch(`${API_BASE}/${endpoint}?${search}`, {
     headers: {Authorization: `Bearer ${token}`},
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Vercel API ${endpoint} ${res.status}: ${detail.slice(0, 300)}`);
-  }
-  const body = await res.json();
+  if (!res.ok) throw new Error(`Vercel API ${endpoint} ${res.status}`);
+  // JSON.parse quotes the text around a syntax error, so its message is replaced too.
+  const body = await res.json().catch(() => {
+    throw new Error(`Vercel API ${endpoint} ${res.status}: the response could not be read as JSON`);
+  });
   return body.data;
 }
 
@@ -452,13 +457,15 @@ async function main() {
 }
 
 main().catch((err) => {
-  // A web-analytics tab must never break a deploy. Log loudly, write the empty
-  // file so the tab shows its no-data state, and exit 0.
+  // An API failure must not break a deploy: log it, write the empty file so the
+  // tab shows its no-data state, and exit 0. If even that write fails, exit 1, so
+  // no deploy ships without the file.
   console.warn(`  ⚠ Vercel-analytics precompute failed; writing the empty file: ${err.message}`);
   try {
     writeArtifact(emptyVercelAnalytics());
   } catch (writeErr) {
     console.warn(`  ⚠ Could not write the empty file: ${writeErr.message}`);
+    process.exitCode = 1;
   }
 });
 ```
