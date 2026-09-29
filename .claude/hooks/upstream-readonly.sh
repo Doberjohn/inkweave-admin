@@ -194,6 +194,10 @@ function backtickEnd(text, start) {
   return -1;
 }
 
+// The command a bash `...` runs: bash drops the backslash before $, ` and \ first,
+// so `echo \`cmd\`` runs cmd in a nested substitution.
+const backtickBody = (body) => body.replace(/\\([$`\\])/g, '$1');
+
 // The command substitution starting at `i`, or '' if none does: $(...) (but not
 // bash's $((...)) arithmetic) and bash's `...`.
 function substitutionAt(src, i, ps) {
@@ -430,9 +434,10 @@ function splitCommands(src, ps) {
       i++;
     } else if (arithmetic >= 0) {
       // Bash arithmetic is no subshell, and a > in it is a comparison, but the
-      // substitutions inside it still run.
+      // substitutions inside it still run. It expands as if double-quoted, so a
+      // '...' there does not stop them: scan with quotes as plain text.
       const text = src.slice(i, arithmetic + 1);
-      subs.push(...substitutions(text));
+      subs.push(...substitutions(text, false, true));
       word += text;
       has = true;
       i = arithmetic;
@@ -551,7 +556,7 @@ function analyze(cmds, state, insideAll) {
     // one a subshell, so a cd inside stays inside; PowerShell runs $(...) in the
     // current scope, so a Set-Location inside carries on.
     for (const sub of subs) {
-      const inner = sub.startsWith('$(') ? sub.slice(2, -1) : sub.slice(1, -1);
+      const inner = sub.startsWith('$(') ? sub.slice(2, -1) : backtickBody(sub.slice(1, -1));
       analyze(parse(inner, ps), ps ? state : fork(state), insideAll);
     }
     for (const {op, target} of redirects) {

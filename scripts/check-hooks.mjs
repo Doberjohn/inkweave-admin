@@ -230,6 +230,11 @@ export const cases = [
   ['upstream-readonly.sh', bash('cd upstream/inkweave; echo $(( $(git reset --hard | wc -l) + 1 ))'), 2, '$(...) inside $((...)) runs'],
   ['upstream-readonly.sh', bash("GIT_DIR=upstream/inkweave/.git bash -c 'git reset --hard'"), 2, 'GIT_DIR=upstream bash -c reaches the child'],
   ['upstream-readonly.sh', bash("env GIT_DIR=upstream/inkweave/.git bash -c 'git reset --hard'"), 2, 'env GIT_DIR=upstream bash -c reaches the child'],
+  ['upstream-readonly.sh', bash('echo `echo \\`git -C upstream/inkweave reset --hard\\``'), 2, '\\`...\\` inside `...` is a nested substitution'],
+  ['upstream-readonly.sh', bash('echo `echo \\$(git -C upstream/inkweave reset --hard)`'), 2, '\\$( inside `...` is a substitution'],
+  ['upstream-readonly.sh', bash('echo `echo \\`date\\``'), 0, 'harmless nested `...`'],
+  ['upstream-readonly.sh', bash("echo $(( '$(git -C upstream/inkweave reset --hard)' ))"), 2, "quotes in $((...)) don't stop a substitution"],
+  ['upstream-readonly.sh', bash("(( '$(git -C upstream/inkweave reset --hard)' ))"), 2, "quotes in (( ... )) don't stop a substitution"],
   // git-write-protection (verbatim app copy)
   ['git-write-protection.sh', pwsh("git commit -m 'x'"), 2, 'PS commit (prefix impossible there)'],
   ['git-write-protection.sh', bash('git commit --allow-empty -m probe'), 2, 'unapproved commit'],
