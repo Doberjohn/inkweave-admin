@@ -219,6 +219,11 @@ export const cases = [
   ['upstream-readonly.sh', bash('echo $((1 + 2)); git -C upstream/inkweave reset --hard'), 2, '$((...)) arithmetic, then a write'],
   ['upstream-readonly.sh', pwsh('Write-Output "$(Set-Location upstream/inkweave; git reset --hard)"; Set-Location C:\\'), 2, 'PS $(Set-Location upstream; write) before a later Set-Location'],
   ['upstream-readonly.sh', pwsh('Write-Output "$(Set-Location upstream/inkweave)"; git reset --hard'), 2, 'PS Set-Location inside $(...) carries on'],
+  ['upstream-readonly.sh', bash('cd upstream/inkweave; if (cd /tmp); then git reset --hard; fi'), 2, 'if ( ... ) is a subshell too'],
+  ['upstream-readonly.sh', bash('cd upstream/inkweave; ! (cd /tmp); git reset --hard'), 2, '! ( ... ) is a subshell too'],
+  ['upstream-readonly.sh', bash('cd upstream/inkweave; while (cd /tmp); do git reset --hard; done'), 2, 'while ( ... ) is a subshell too'],
+  ['upstream-readonly.sh', bash('cd upstream/inkweave; { (cd /tmp); git reset --hard; }'), 2, '{ ( ... ); } keeps the group in its subshell'],
+  ['upstream-readonly.sh', bash('if (cd upstream/inkweave && git reset --hard); then :; fi'), 2, 'write inside if ( ... ) in upstream'],
   // git-write-protection (verbatim app copy)
   ['git-write-protection.sh', pwsh("git commit -m 'x'"), 2, 'PS commit (prefix impossible there)'],
   ['git-write-protection.sh', bash('git commit --allow-empty -m probe'), 2, 'unapproved commit'],

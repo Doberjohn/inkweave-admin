@@ -336,6 +336,10 @@ function stripDocs(src, ps) {
   return out;
 }
 
+// Reserved words after which a bash ( still starts a command, and so a subshell:
+// `if (...)`, `while (...)`, `! (...)`, `{ (...); }`.
+const SUBSHELL_LEADS = new Set(['!', '{', 'if', 'then', 'else', 'elif', 'while', 'until', 'do', 'time']);
+
 // Each command is {words, redirects: [{op, target}], piped, subs, group}. A
 // redirection's target is the word after its operator; stream duplicates (2>&1,
 // >&-) name no file. `subs` lists the command substitutions in its words, quoted or
@@ -430,8 +434,8 @@ function splitCommands(src, ps) {
     } else if (c === '&' && !/[<>]/.test(src[i - 1] || '')) {
       if (src[i + 1] === '&') i++;
       endCmd(false);
-    } else if (!ps && c === '(' && !has && !words.length && src[i + 1] !== '(') {
-      // A bash ( ... ) at the start of a command is a subshell.
+    } else if (!ps && c === '(' && !has && words.every((w) => SUBSHELL_LEADS.has(w)) && src[i + 1] !== '(') {
+      // A bash ( ... ) that starts a command, alone or after if/while/!/{..., is a subshell.
       const end = parenEnd(src, i, '\\');
       group = src.slice(i + 1, end);
       i = end;
