@@ -18,7 +18,7 @@ function LiveTuningEditor({token}: {token: string}) {
       </div>
     );
   }
-  return <TuningEditor token={token} config={tuning.config} />;
+  return <TuningEditor token={token} config={tuning.config} onPublished={tuning.reload} />;
 }
 
 export function TuningPage() {

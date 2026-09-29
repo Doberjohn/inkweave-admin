@@ -7,9 +7,15 @@ export type LiveTuning =
   | {status: 'ready'; config: TuningConfig}
   | {status: 'error'; error: string};
 
-/** Reads tuning.json from the target branch once per token. */
-export function useLiveTuning(token: string): LiveTuning {
+/**
+ * Reads tuning.json from the target branch, once per token and again on each
+ * `reload()` (after a publish, so the next edits start from what was
+ * published). A reload keeps the current values on screen until the new ones
+ * arrive.
+ */
+export function useLiveTuning(token: string): LiveTuning & {reload: () => void} {
   const [state, setState] = useState<LiveTuning>({status: 'loading'});
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,7 +30,7 @@ export function useLiveTuning(token: string): LiveTuning {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, version]);
 
-  return state;
+  return {...state, reload: () => setVersion((v) => v + 1)};
 }

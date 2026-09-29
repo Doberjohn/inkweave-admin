@@ -53,6 +53,9 @@ export function useTuningAdmin(token: string): UseTuningAdminResult {
 
   function stageEdit(args: StageArgs) {
     const edit = toPendingEdit(args);
+    // New work makes the last publish's outcome stale.
+    setResult(null);
+    setError(null);
     setPending((prev) => {
       const withoutExisting = prev.filter((e) => e.pathKey !== edit.pathKey);
       // No-op guard: editing back to the original value clears any pending edit.
@@ -74,13 +77,16 @@ export function useTuningAdmin(token: string): UseTuningAdminResult {
     setPublishing(true);
     setError(null);
     try {
-      const validEdits = pending.filter((edit) => edit.valid);
+      const sent = pending.filter((edit) => edit.valid);
       const res = await commitTuning({
         token,
-        edits: validEdits.map(({path, value}) => ({path, value})),
+        // Text is trimmed here, not as it is typed: the fields show the staged
+        // text, so trimming that would swallow a space before the next word.
+        edits: sent.map(({path, value}) => ({path, value: typeof value === 'string' ? value.trim() : value})),
       });
       setResult(res);
-      setPending([]);
+      // Only what was published: an edit staged while the request ran stays pending.
+      setPending((prev) => prev.filter((edit) => !sent.includes(edit)));
       return res;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Publish failed';

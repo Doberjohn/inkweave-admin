@@ -27,11 +27,11 @@ type Story = StoryObj<typeof TierRow>;
 export const TextAndScore: Story = {};
 
 export const TextOnly: Story = {
-  args: {label: 'Tagline', showScore: false, score: undefined},
+  args: {label: 'Tagline', showScore: false, score: ''},
 };
 
 export const ScoreOnly: Story = {
-  args: {label: 'score · density', showText: false, text: undefined},
+  args: {label: 'score · density', showText: false, text: ''},
 };
 
 export const WithErrors: Story = {

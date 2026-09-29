@@ -2,8 +2,10 @@ import {COLORS, SPACING, FONT_SIZES, RADIUS} from '../../../app-bridge';
 
 interface TierRowProps {
   label: string;
-  text?: string;
-  score?: number;
+  /** What the text field shows: the pending edit, else the saved value. */
+  text: string;
+  /** What the score field shows: the pending edit, else the saved value. */
+  score: number | string;
   showText: boolean;
   showScore: boolean;
   textError?: string;
@@ -30,10 +32,11 @@ const fieldStyle = {
 const errorStyle = {color: COLORS.error, fontSize: FONT_SIZES.xs, marginTop: 4};
 
 /**
- * Presentational, UNCONTROLLED editor row for a single tuning value.
- * Uses `defaultValue` so the parent hook never has to feed values back on
- * re-render; each keystroke fires `onTextChange` / `onScoreChange` with the
- * raw string for the hook to validate and stage.
+ * Presentational, controlled editor row for a single tuning value. The parent
+ * passes the value to show (a pending edit, else the saved value), so a row
+ * reused for another rule, or a reverted edit, never keeps stale text. Each
+ * keystroke fires `onTextChange` / `onScoreChange` with the raw string for the
+ * hook to validate and stage.
  */
 export function TierRow({
   label,
@@ -54,7 +57,7 @@ export function TierRow({
           <textarea
             aria-label={`${label} text`}
             style={{...fieldStyle, width: '100%', padding: '8px 10px', minHeight: 60}}
-            defaultValue={text}
+            value={text}
             onChange={(e) => onTextChange(e.target.value)}
           />
           {textError && <div style={errorStyle}>{textError}</div>}
@@ -69,7 +72,7 @@ export function TierRow({
             max={10}
             step={1}
             style={{...fieldStyle, width: 80, padding: '6px 8px', marginTop: showText ? SPACING.xs : 0}}
-            defaultValue={score}
+            value={score}
             onChange={(e) => onScoreChange(e.target.value)}
           />
           {scoreError && <div style={errorStyle}>{scoreError}</div>}

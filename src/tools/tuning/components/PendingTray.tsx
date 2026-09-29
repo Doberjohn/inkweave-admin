@@ -1,5 +1,6 @@
 import type {PendingEdit} from '../useTuningAdmin';
 import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton, LinkButton} from '../../../app-bridge';
+import {goLiveNote} from '../../../github/goLiveNote';
 
 interface PendingTrayProps {
   pending: PendingEdit[];
@@ -84,16 +85,18 @@ export function PendingTray({
       )}
 
       {error && (
-        <div style={{color: COLORS.error, fontSize: FONT_SIZES.sm, marginTop: SPACING.sm}}>{error}</div>
+        <div role="alert" style={{color: COLORS.error, fontSize: FONT_SIZES.sm, marginTop: SPACING.sm}}>
+          {error}
+        </div>
       )}
 
       {result && (
-        <div style={{color: COLORS.success, fontSize: FONT_SIZES.sm, marginTop: SPACING.sm}}>
+        <div role="status" style={{color: COLORS.success, fontSize: FONT_SIZES.sm, marginTop: SPACING.sm}}>
           Published.{' '}
           <a href={result.commitUrl} target="_blank" rel="noreferrer" style={{color: COLORS.primary}}>
             View commit
           </a>
-          . Changes go live on the next Vercel redeploy.
+          . {goLiveNote('Changes go live on the next Vercel redeploy.')}
         </div>
       )}
 
