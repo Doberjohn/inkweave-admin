@@ -23,6 +23,8 @@ const DSF = 3; // deviceScaleFactor -> 1200x1240 stage renders at 3600x3720
 const FB_EDGE = 2048; // Facebook resizes photos longer than this on either side
 // allCards.json comes through the dev server's forward to inkweave.ink.
 const REQUEST_TIMEOUT_MS = 60_000;
+// How long a page's fonts and art may take once the stage is up.
+const ART_TIMEOUT_MS = 60_000;
 // What capturePages names its files; staleExports only ever lists these.
 const GENERATED = /-page-\d+(\.png|-fb2048\.jpg)$/;
 
@@ -125,30 +127,43 @@ function stopServer() {
  * In the page: waits for fonts and the stage's art, hides floating overlays, and
  * returns the art that failed to load. A failed <img> still counts as complete,
  * so each is decoded and checked, and CSS backgrounds (the "+N" card back) are
- * probed separately.
+ * probed separately. A stalled request would hold page.evaluate open forever,
+ * so the wait rejects after `timeoutMs`.
  */
-async function prepareStage() {
-  await document.fonts.ready;
-  for (const el of document.querySelectorAll('body *')) {
-    if (getComputedStyle(el).position === 'fixed' && !el.closest('.banner-stage')) {
-      el.style.setProperty('display', 'none', 'important');
-    }
+async function prepareStage(timeoutMs) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`fonts or art still loading after ${timeoutMs / 1000} s`)), timeoutMs);
+  });
+  try {
+    return await Promise.race([loadStage(), deadline]);
+  } finally {
+    clearTimeout(timer);
   }
-  const stage = document.querySelector('.banner-stage');
-  const images = [...stage.querySelectorAll('img')];
-  await Promise.all(images.map((img) => img.decode().catch(() => undefined)));
-  const failed = images.filter((img) => img.naturalWidth === 0).map((img) => img.getAttribute('src') ?? '(no src)');
-  const backgrounds = [...stage.querySelectorAll('*')]
-    .map((el) => /url\("?([^")]+)"?\)/.exec(getComputedStyle(el).backgroundImage)?.[1])
-    .filter(Boolean);
-  await Promise.all(
-    [...new Set(backgrounds)].map((src) => {
-      const probe = new Image();
-      probe.src = src;
-      return probe.decode().catch(() => failed.push(src));
-    }),
-  );
-  return failed;
+
+  async function loadStage() {
+    await document.fonts.ready;
+    for (const el of document.querySelectorAll('body *')) {
+      if (getComputedStyle(el).position === 'fixed' && !el.closest('.banner-stage')) {
+        el.style.setProperty('display', 'none', 'important');
+      }
+    }
+    const stage = document.querySelector('.banner-stage');
+    const images = [...stage.querySelectorAll('img')];
+    await Promise.all(images.map((img) => img.decode().catch(() => undefined)));
+    const failed = images.filter((img) => img.naturalWidth === 0).map((img) => img.getAttribute('src') ?? '(no src)');
+    const backgrounds = [...stage.querySelectorAll('*')]
+      .map((el) => /url\("?([^")]+)"?\)/.exec(getComputedStyle(el).backgroundImage)?.[1])
+      .filter(Boolean);
+    await Promise.all(
+      [...new Set(backgrounds)].map((src) => {
+        const probe = new Image();
+        probe.src = src;
+        return probe.decode().catch(() => failed.push(src));
+      }),
+    );
+    return failed;
+  }
 }
 
 /** Open one carousel page and wait until it is ready to capture; throws when it can't be. */
@@ -158,7 +173,9 @@ async function openPage(page, cardId, p) {
   await page.waitForSelector('.banner-stage, [role="alert"]', {timeout: 45000});
   const alert = await page.$('[role="alert"]');
   if (alert) throw new Error(`${url}: ${await alert.innerText()}`);
-  const failed = await page.evaluate(prepareStage);
+  const failed = await page.evaluate(prepareStage, ART_TIMEOUT_MS).catch((e) => {
+    throw new Error(`${url}: ${e.message}`, {cause: e});
+  });
   if (failed.length) throw new Error(`${url}: art did not load: ${failed.join(', ')}`);
   await page.waitForTimeout(500);
 }
