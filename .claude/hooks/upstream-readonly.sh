@@ -139,7 +139,7 @@ function substitutions(text, ps = false, literal = false) {
     } else if (quoting && !ps && text.startsWith("$'", i)) {
       i = quoteEnd(text, i + 1, {ansi: true});
     } else if (!ps && text[i] === '`') {
-      const end = text.indexOf('`', i + 1);
+      const end = backtickEnd(text, i);
       if (end === -1) break;
       found.push(text.slice(i, end + 1));
       i = end;
@@ -184,6 +184,16 @@ function parenEnd(text, open, escape) {
   return text.length - 1;
 }
 
+// Index of the ` closing the bash `...` that opens at `start` (a \` inside is
+// escaped), or -1 if it is never closed.
+function backtickEnd(text, start) {
+  for (let i = start + 1; i < text.length; i++) {
+    if (text[i] === '\\') i++;
+    else if (text[i] === '`') return i;
+  }
+  return -1;
+}
+
 // The command substitution starting at `i`, or '' if none does: $(...) (but not
 // bash's $((...)) arithmetic) and bash's `...`.
 function substitutionAt(src, i, ps) {
@@ -191,10 +201,18 @@ function substitutionAt(src, i, ps) {
     return src.slice(i, substitutionEnd(src, i, ps ? '`' : '\\') + 1);
   }
   if (!ps && src[i] === '`') {
-    const end = src.indexOf('`', i + 1);
+    const end = backtickEnd(src, i);
     return src.slice(i, end === -1 ? src.length : end + 1);
   }
   return '';
+}
+
+// Index of the last `)` of the bash arithmetic starting at `i`: $((...)) anywhere,
+// or a (( ... )) command. -1 if none starts there.
+function arithmeticEnd(src, i, commandStart) {
+  if (src.startsWith('$((', i)) return parenEnd(src, i + 1, '\\');
+  if (commandStart && src.startsWith('((', i)) return parenEnd(src, i, '\\');
+  return -1;
 }
 
 // A PowerShell here-string is data, but an expandable @"..."@ runs its $(...)
@@ -403,11 +421,21 @@ function splitCommands(src, ps) {
       }
       continue;
     }
+    const commandStart = !has && words.every((w) => SUBSHELL_LEADS.has(w));
+    const arithmetic = ps ? -1 : arithmeticEnd(src, i, commandStart);
     if (!ps && c === '$' && src[i + 1] === "'") {
       quote = "'";
       ansi = true;
       has = true;
       i++;
+    } else if (arithmetic >= 0) {
+      // Bash arithmetic is no subshell, and a > in it is a comparison, but the
+      // substitutions inside it still run.
+      const text = src.slice(i, arithmetic + 1);
+      subs.push(...substitutions(text));
+      word += text;
+      has = true;
+      i = arithmetic;
     } else if (c === "'" || c === '"') {
       quote = c;
       ansi = false;
@@ -434,7 +462,7 @@ function splitCommands(src, ps) {
     } else if (c === '&' && !/[<>]/.test(src[i - 1] || '')) {
       if (src[i + 1] === '&') i++;
       endCmd(false);
-    } else if (!ps && c === '(' && !has && words.every((w) => SUBSHELL_LEADS.has(w)) && src[i + 1] !== '(') {
+    } else if (!ps && c === '(' && commandStart) {
       // A bash ( ... ) that starts a command, alone or after if/while/!/{..., is a subshell.
       const end = parenEnd(src, i, '\\');
       group = src.slice(i + 1, end);
@@ -566,7 +594,12 @@ function analyze(cmds, state, insideAll) {
     }
     const nested = nestedShell(prog.split('/').pop(), w);
     if (nested) {
-      analyze(parse(nested.src, nested.ps), fork(state), insideAll);
+      // The child also sees this command's own assignments (`GIT_DIR=x bash -c ...`).
+      // Every variable counts as possibly exported: a plain X=1 updates an X the
+      // environment already exported, and the hook cannot see that environment.
+      const child = fork(state);
+      Object.assign(child.vars, assigned);
+      analyze(parse(nested.src, nested.ps), child, insideAll);
       continue;
     }
     if (!/(^|\/)git(\.exe)?$/.test(prog)) continue;
