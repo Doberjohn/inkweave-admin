@@ -379,6 +379,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'public/admin-data');
 const OUT_NAME = 'vercel-analytics.json';
 const API_BASE = 'https://api.vercel.com/v1/query/web-analytics';
+// Each request's deadline, body included. Fetch has no overall one, so a stalled
+// request would hold the deploy instead of failing into the empty file.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Write the admin-data file, naming it (never its contents) in the log. */
 function writeArtifact(obj) {
@@ -397,6 +400,7 @@ async function vercelQuery(endpoint, params, {token, projectId, teamId}) {
   if (teamId) search.set('teamId', teamId);
   const res = await fetch(`${API_BASE}/${endpoint}?${search}`, {
     headers: {Authorization: `Bearer ${token}`},
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Vercel API ${endpoint} ${res.status}`);
   // JSON.parse quotes the text around a syntax error, so its message is replaced too.
