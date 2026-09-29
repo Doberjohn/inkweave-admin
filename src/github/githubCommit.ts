@@ -149,10 +149,19 @@ export async function commitFiles(opts: {
     {method: 'POST', body: JSON.stringify({message, tree: tree.sha, parents: [baseCommitSha]})},
   );
 
-  await ghJson(token, `/repos/${OWNER}/${REPO}/git/refs/heads/${branch}`, {
-    method: 'PATCH',
-    body: JSON.stringify({sha: commit.sha}),
-  });
+  try {
+    await ghJson(token, `/repos/${OWNER}/${REPO}/git/refs/heads/${branch}`, {
+      method: 'PATCH',
+      body: JSON.stringify({sha: commit.sha}),
+    });
+  } catch (e) {
+    // Someone else committed after this read the branch. The ref did not move,
+    // so nothing was published, and a retry builds on their commit.
+    if (e instanceof Error && /not a fast forward/i.test(e.message)) {
+      throw new Error(`${branch} changed while publishing, so nothing was published. Publish again.`, {cause: e});
+    }
+    throw e;
+  }
 
   return {commitUrl: commit.html_url};
 }

@@ -154,6 +154,18 @@ describe('commitFiles', () => {
     expect(modes).toEqual(Array(6).fill('no-store'));
   });
 
+  it('says the branch moved when GitHub refuses the ref update as not a fast forward', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) =>
+      init?.method === 'PATCH'
+        ? new Response(JSON.stringify({message: 'Update is not a fast forward'}), {status: 422})
+        : gitStub(String(url)),
+    );
+
+    await expect(
+      commitFiles({token: 'tok', message: 'test commit', files: [{path: 'a.txt', contentBase64: 'Zm9v'}]}),
+    ).rejects.toThrow('master changed while publishing, so nothing was published. Publish again.');
+  });
+
   // A read-modify-write must build on the commit it read: if the branch moves
   // meanwhile, the non-force ref update fails instead of undoing the other change.
   it('derives the files from the commit it builds on', async () => {
