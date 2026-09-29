@@ -1,6 +1,10 @@
 const OWNER = 'Doberjohn';
 const REPO = 'inkweave';
 const API = 'https://api.github.com';
+// GitHub marks API responses cacheable for 60 s, and fetch() honours that. Every
+// request here skips the browser cache: a publish must see the branch as it is
+// now, or its ref update fails as "not a fast forward".
+const FRESH = {cache: 'no-store'} as const;
 
 /**
  * The app branch the tools read from and commit to (docs/PLAN.md, D6). Set
@@ -48,7 +52,7 @@ export interface TokenInfo {
 
 export async function validateToken(token: string): Promise<TokenInfo> {
   try {
-    const res = await fetch(`${API}/repos/${OWNER}/${REPO}`, {headers: authHeaders(token)});
+    const res = await fetch(`${API}/repos/${OWNER}/${REPO}`, {...FRESH, headers: authHeaders(token)});
     if (res.status === 401) return {ok: false, canPush: false, error: 'Invalid or expired token'};
     if (!res.ok) return {ok: false, canPush: false, error: `GitHub error ${res.status}`};
     const data = (await res.json()) as {permissions?: {push?: boolean}};
@@ -66,6 +70,7 @@ async function ghJson<T = Record<string, unknown>>(
 ): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
+    ...FRESH,
     headers: {...authHeaders(token), ...(init?.headers ?? {})},
   });
   if (!res.ok) {
@@ -83,7 +88,7 @@ async function ghJson<T = Record<string, unknown>>(
 export async function readRepoFile(token: string, path: string): Promise<string> {
   const res = await fetch(
     `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(targetBranch())}`,
-    {headers: {...authHeaders(token), Accept: 'application/vnd.github.raw+json'}},
+    {...FRESH, headers: {...authHeaders(token), Accept: 'application/vnd.github.raw+json'}},
   );
   if (!res.ok) throw new Error(`GitHub ${res.status} on ${path}: ${(await res.text()).slice(0, 200)}`);
   return res.text();

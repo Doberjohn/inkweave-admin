@@ -29,6 +29,14 @@ describe('validateToken', () => {
     expect(r.canPush).toBe(false);
     expect(r.error).toMatch(/write/i);
   });
+
+  it('asks GitHub, not the browser cache', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({permissions: {push: true}}), {status: 200}),
+    );
+    await validateToken('tok');
+    expect(fetchMock.mock.calls[0][1]?.cache).toBe('no-store');
+  });
 });
 
 describe('targetBranch', () => {
@@ -53,6 +61,7 @@ describe('readRepoFile', () => {
       'https://api.github.com/repos/Doberjohn/inkweave/contents/apps/web/public/data/previewCards.json?ref=admin-verify',
     );
     expect(new Headers(init?.headers).get('Accept')).toBe('application/vnd.github.raw+json');
+    expect(init?.cache).toBe('no-store');
   });
 
   it('throws with the status when the read fails', async () => {
@@ -116,5 +125,20 @@ describe('commitFiles', () => {
     expect(calls).toContain('GET https://api.github.com/repos/Doberjohn/inkweave/git/ref/heads/admin-verify');
     expect(calls).toContain('PATCH https://api.github.com/repos/Doberjohn/inkweave/git/refs/heads/admin-verify');
     expect(calls.join('\n')).not.toContain('master');
+  });
+
+  // GitHub marks API responses cacheable for 60 s. A publish right after another
+  // one read a cached branch tip, built on it, and its ref update failed as "not
+  // a fast forward" (the P2 rehearsal).
+  it('bypasses the browser cache, so a publish right after another builds on the new tip', async () => {
+    const modes: (RequestCache | undefined)[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      modes.push(init?.cache);
+      return gitStub(String(url));
+    });
+
+    await commitFiles({token: 'tok', message: 'test commit', files: [{path: 'a.txt', contentBase64: 'Zm9v'}]});
+
+    expect(modes).toEqual(Array(6).fill('no-store'));
   });
 });
