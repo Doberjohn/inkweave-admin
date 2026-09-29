@@ -183,6 +183,7 @@ function BannerRow({group, cardId, fullImage}: {group: SynergyGroup; cardId: str
   const picks = CARD_PICKS[cardId]?.[group.groupKey];
   const cardIds = picks ?? [...group.synergies].sort((a, b) => b.score - a.score).slice(0, CARDS_PER_ROW).map((s) => String(s.card.id));
   const remaining = group.synergies.length - cardIds.length;
+  const names = new Map(group.synergies.map((s) => [String(s.card.id), s.card.fullName]));
   const blurb = CARD_BLURBS[cardId]?.[group.groupKey] ?? BANNER_BLURBS[group.groupKey] ?? group.tagline;
   const highlight = CARD_BLURB_HIGHLIGHTS[cardId]?.[group.groupKey];
 
@@ -194,7 +195,7 @@ function BannerRow({group, cardId, fullImage}: {group: SynergyGroup; cardId: str
           <img
             key={id}
             src={fullImage(id)}
-            alt=""
+            alt={names.get(id) ?? ''}
             style={{width: CARD_W, height: CARD_H, objectFit: 'cover', objectPosition: 'top', borderRadius: 9, flexShrink: 0, boxShadow: `0 8px 22px ${blackRgba(0.55)}, 0 0 12px ${hexRgba(COLORS.primary500, 0.1)}, 0 0 0 1px ${blackRgba(0.35)}`}}
           />
         ))}
