@@ -37,5 +37,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // upstream/ holds the app's own test suite; it must never run here.
     exclude: ['**/node_modules/**', 'upstream/**', 'dist/**'],
+    // A rehearsal sets VITE_ADMIN_TARGET_BRANCH in .env.local, which Vitest also
+    // loads. Pin it empty (master) here; tests that need a branch stub it.
+    env: {VITE_ADMIN_TARGET_BRANCH: ''},
   },
 });

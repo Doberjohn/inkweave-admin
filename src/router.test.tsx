@@ -15,6 +15,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('admin routes', () => {
@@ -34,5 +35,16 @@ describe('admin routes', () => {
     for (const tool of ADMIN_TOOLS) {
       expect(within(nav).getByRole('link', {name: tool.name})).toHaveAttribute('href', tool.path);
     }
+  });
+
+  it('names the branch the tools write to', () => {
+    renderAt('/');
+    expect(screen.getByText('master')).toBeInTheDocument();
+  });
+
+  it('names a rehearsal branch when one is set', () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
+    renderAt('/');
+    expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 });

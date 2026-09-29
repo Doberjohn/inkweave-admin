@@ -1,6 +1,7 @@
 import {NavLink, Outlet} from 'react-router-dom';
 import {SkeletonTheme} from 'react-loading-skeleton';
 import {CardDataProvider, COLORS, FONTS, FONT_SIZES, SPACING} from '../app-bridge';
+import {targetBranch} from '../github/githubCommit';
 import {ADMIN_TOOLS} from './tools';
 
 function navLinkStyle({isActive}: {isActive: boolean}) {
@@ -13,9 +14,9 @@ function navLinkStyle({isActive}: {isActive: boolean}) {
 }
 
 /**
- * The layout every admin route renders in: tool navigation and the app's card
- * data. Unlike the public app's layout it has no public nav, Vercel Analytics or
- * Speed Insights (docs/PLAN.md, 4.1).
+ * The layout every admin route renders in: tool navigation, the app branch the
+ * tools write to, and the app's card data. Unlike the public app's layout it has
+ * no public nav, Vercel Analytics or Speed Insights (docs/PLAN.md, 4.1).
  */
 export function AdminShell() {
   return (
@@ -43,6 +44,9 @@ export function AdminShell() {
                 </NavLink>
               ))}
             </nav>
+            <p style={{margin: 0, fontSize: FONT_SIZES.sm, color: COLORS.textMuted}}>
+              Writes go to Doberjohn/inkweave <code style={{color: COLORS.primary}}>{targetBranch()}</code>
+            </p>
           </header>
           <Outlet />
         </div>
