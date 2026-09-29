@@ -19,6 +19,7 @@ pnpm typecheck        # engine + tsc -b (includes every bridged app module)
 pnpm lint
 pnpm test             # vitest watch; pnpm test:run for one pass (builds the engine first)
 pnpm check:deps       # dependency parity with the pinned app
+pnpm check:hooks      # the .claude/hooks case table (CI runs it; minutes on Windows)
 ```
 
 ## Updating the app pin
@@ -50,4 +51,4 @@ Dependabot opens these PRs weekly. CI on them is the bridge's contract test.
 
 - Branches are `feature/<issue>-<desc>` or `fix/<issue>-<desc>`. Commit messages are semantic and include the issue reference.
 - Commit and push only after the owner explicitly approves, with `USER_APPROVED=1` as the literal first characters of the command. Never pipe a commit or a push. Run them with the Bash tool: the hooks also watch PowerShell, which cannot carry the prefix, so a commit or push there is always blocked.
-- Gates: `.husky` runs lint and tests on commit, and dependency parity plus typecheck on push. `.claude/hooks` provides git safety, the branch check and read-only `upstream/` (file edits, and git writes run there from Bash or PowerShell).
+- Gates: `.husky` runs lint and tests on commit, and dependency parity plus typecheck on push. `.claude/hooks` provides git safety, the branch check and read-only `upstream/` (file edits, and git writes run there from Bash or PowerShell). When you change a hook, add cases to `scripts/check-hooks.mjs` and run `pnpm check:hooks`.

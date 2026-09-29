@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:run": "pnpm build:engine && vitest run",
     "check:deps": "node scripts/check-shared-deps.mjs",
+    "check:hooks": "node scripts/check-hooks.mjs",
     "prepare": "husky"
   },
   "dependencies": {

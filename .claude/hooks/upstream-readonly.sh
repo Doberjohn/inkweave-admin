@@ -91,7 +91,8 @@ function inUpstream(dir) {
 
 // --- Shell words: quotes, escapes, separators, redirections -----------------
 // Bash escapes with a backslash; PowerShell with a backtick, where backslashes
-// are literal path separators and '' / "" double a quote.
+// are literal path separators and '' / "" double a quote. Bash's $'...' takes
+// backslash escapes, so its \' does not end it.
 //
 // Heredoc bodies and PowerShell here-strings are data, so they are removed
 // before parsing: only the body, through its terminator line, so the commands
@@ -99,17 +100,44 @@ function inUpstream(dir) {
 // which includes the inside of $(...) within double quotes (the usual
 // `git commit -m "$(cat <<'EOF' ...)"`); `<<<` is a herestring, not a heredoc,
 // and a `#` comment is not shell text. An unquoted delimiter (`<<EOF`, not
-// `<<'EOF'`) makes bash expand the body, so its command substitutions are kept.
+// `<<'EOF'`) makes bash expand the body, so its command substitutions are kept,
+// and so are those of an expandable PowerShell here-string (@"..."@).
+// Comments are dropped in both shells, following quotes, so an apostrophe in one
+// cannot open a quote that hides the commands after it.
+
+// Index of the ' closing the quote that opens at `start`: bash '...' has no
+// escapes, bash $'...' takes backslash escapes, and PowerShell doubles it ('').
+function quoteEnd(text, start, {ansi = false, ps = false} = {}) {
+  for (let i = start + 1; i < text.length; i++) {
+    if (ansi && text[i] === '\\') {
+      i++;
+    } else if (text[i] === "'") {
+      if (!(ps && text[i + 1] === "'")) return i;
+      i++;
+    }
+  }
+  return text.length;
+}
 
 // Command substitutions in a string. Bash: $(...) with nesting and `...`, skipping
 // `\$(` and $(( arithmetic. PowerShell: $(...) subexpressions, where the escape
-// is a backtick and $((...)) is code, not arithmetic.
-function substitutions(text, ps = false) {
+// is a backtick and $((...)) is code, not arithmetic. Single-quoted text (and
+// bash's $'...') is literal and skipped, except in a heredoc or here-string body
+// (`literal`), where quote characters are plain text.
+function substitutions(text, ps = false, literal = false) {
   const escape = ps ? '`' : '\\';
   const found = [];
+  let dq = false; // inside "...", where a ' is plain text
   for (let i = 0; i < text.length; i++) {
+    const quoting = !literal && !dq; // a ' here opens a literal span
     if (text[i] === escape) {
       i++;
+    } else if (!literal && text[i] === '"') {
+      dq = !dq;
+    } else if (quoting && text[i] === "'") {
+      i = quoteEnd(text, i, {ps});
+    } else if (quoting && !ps && text.startsWith("$'", i)) {
+      i = quoteEnd(text, i + 1, {ansi: true});
     } else if (!ps && text[i] === '`') {
       const end = text.indexOf('`', i + 1);
       if (end === -1) break;
@@ -127,15 +155,16 @@ function substitutions(text, ps = false) {
 // Index of the `)` closing the $( at `start`, following the shell's quoting inside
 // it: parentheses in '...' or "..." do not count, a nested $( within "..." does.
 function substitutionEnd(text, start, escape) {
+  const ps = escape === '`';
   let depth = 0;
   for (let i = start + 1; i < text.length; i++) {
     const c = text[i];
     if (c === escape) {
       i++;
     } else if (c === "'") {
-      const end = text.indexOf("'", i + 1);
-      if (end === -1) break;
-      i = end;
+      i = quoteEnd(text, i, {ps});
+    } else if (!ps && text.startsWith("$'", i)) {
+      i = quoteEnd(text, i + 1, {ansi: true});
     } else if (c === '"') {
       for (i++; i < text.length && text[i] !== '"'; i++) {
         if (text[i] === escape) i++;
@@ -159,10 +188,59 @@ function nestedSubstitutions(text, ps = false) {
   });
 }
 
-function stripDocs(src, ps) {
-  if (ps) return src.replace(/@(['"])\r?\n[\s\S]*?\r?\n\1@/g, ' ');
+// A PowerShell here-string is data, but an expandable @"..."@ runs its $(...)
+// subexpressions, so those are kept, as for an unquoted bash heredoc.
+function hereString(_, quote, body) {
+  return quote === '"' ? ` ${substitutions(body, true, true).join('\n')}\n` : ' ';
+}
+
+// Index of the " closing the PowerShell string that opens at `start`: `" and ""
+// are quote characters, and a $(...) inside may hold quotes of its own.
+function psStringEnd(text, start) {
+  for (let i = start + 1; i < text.length; i++) {
+    if (text[i] === '`') {
+      i++;
+    } else if (text.startsWith('$(', i)) {
+      i = substitutionEnd(text, i, '`');
+    } else if (text[i] === '"') {
+      if (text[i + 1] !== '"') return i;
+      i++;
+    }
+  }
+  return text.length;
+}
+
+// PowerShell comments: a # that starts a word runs to the end of the line, and
+// <# ... #> is a block. Strings and escapes are copied whole, so a # or ' inside
+// one stays text, as PowerShell reads it.
+function stripPsComments(src) {
   let out = '';
-  const ctx = ['sh']; // sh = shell text, sq = '...', dq = "..."
+  let i = 0;
+  while (i < src.length) {
+    const wordStart = i === 0 || /[\s;&|(){}]/.test(src[i - 1]);
+    if (wordStart && src.startsWith('<#', i)) {
+      const end = src.indexOf('#>', i + 2);
+      i = end === -1 ? src.length : end + 2;
+      out += ' ';
+    } else if (wordStart && src[i] === '#') {
+      const nl = src.indexOf('\n', i);
+      i = nl === -1 ? src.length : nl;
+    } else {
+      let end = i;
+      if (src[i] === "'") end = quoteEnd(src, i, {ps: true});
+      else if (src[i] === '"') end = psStringEnd(src, i);
+      else if (src[i] === '`') end = i + 1;
+      out += src.slice(i, end + 1);
+      i = end + 1;
+    }
+  }
+  return out;
+}
+
+function stripDocs(src, ps) {
+  if (ps) return stripPsComments(src.replace(/@(['"])\r?\n([\s\S]*?)\r?\n\1@/g, hereString));
+  let out = '';
+  const ctx = ['sh']; // sh = shell text, sq = '...', ansi = $'...', dq = "..."
   const pending = []; // heredocs opened on the current line, in order
   let i = 0;
   while (i < src.length) {
@@ -180,7 +258,7 @@ function stripDocs(src, ps) {
           if (dash) line = line.replace(/^\t+/, '');
           i = nl === -1 ? src.length : nl + 1;
           if (line === word) break;
-          if (!quoted) for (const sub of substitutions(raw)) out += sub + '\n';
+          if (!quoted) for (const sub of substitutions(raw, false, true)) out += sub + '\n';
         }
       }
       continue;
@@ -189,6 +267,14 @@ function stripDocs(src, ps) {
       if (c === "'") ctx.pop();
       out += c;
       i++;
+      continue;
+    }
+    if (top === 'ansi') {
+      // $'...' takes backslash escapes, so \' does not end it.
+      const n = c === '\\' ? 2 : 1;
+      if (c === "'") ctx.pop();
+      out += src.slice(i, i + n);
+      i += n;
       continue;
     }
     if (c === '\\') {
@@ -212,6 +298,12 @@ function stripDocs(src, ps) {
       // A comment runs to the end of the line, and bash ignores all of it.
       const nl = src.indexOf('\n', i);
       i = nl === -1 ? src.length : nl;
+      continue;
+    }
+    if (c === '$' && src[i + 1] === "'") {
+      ctx.push('ansi');
+      out += "$'";
+      i += 2;
       continue;
     }
     if (c === "'") ctx.push('sq');
@@ -244,6 +336,7 @@ function splitCommands(src, ps) {
   let word = '';
   let has = false;
   let quote = null;
+  let ansi = false; // the open ' is bash's $'...', which takes backslash escapes
   let redirect = null;
   const endWord = () => {
     if (has) {
@@ -265,7 +358,9 @@ function splitCommands(src, ps) {
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (quote) {
-      if (c === quote) {
+      if (ansi && c === '\\' && i + 1 < src.length) {
+        word += src[++i];
+      } else if (c === quote) {
         if (ps && src[i + 1] === quote) word += src[++i];
         else quote = null;
       } else if (quote === '"' && ps && c === '`' && i + 1 < src.length) {
@@ -277,8 +372,14 @@ function splitCommands(src, ps) {
       }
       continue;
     }
-    if (c === "'" || c === '"') {
+    if (!ps && c === '$' && src[i + 1] === "'") {
+      quote = "'";
+      ansi = true;
+      has = true;
+      i++;
+    } else if (c === "'" || c === '"') {
       quote = c;
+      ansi = false;
       has = true;
     } else if (c === (ps ? '`' : '\\')) {
       if (i + 1 < src.length) word += src[++i];
