@@ -1,7 +1,7 @@
 import {act, renderHook} from '@testing-library/react';
 import {DeferredReader} from '../test/DeferredReader';
-import {pngDataUrl, pngFile} from '../test/images';
-import {isAcceptedImage, useImageUpload} from './useImageUpload';
+import {imageDataUrl, pngFile} from '../test/images';
+import {imageProblem, useImageUpload} from './useImageUpload';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -15,14 +15,14 @@ describe('useImageUpload', () => {
     const {result} = renderHook(() => useImageUpload());
     act(() => void result.current.choose(pngFile('a.png')));
     await DeferredReader.finish(0);
-    expect(result.current.dataUrl).toBe(pngDataUrl('a.png'));
+    expect(result.current.dataUrl).toBe(imageDataUrl('a.png'));
 
     act(() => void result.current.choose(pngFile('b.png')));
     expect(result.current.file?.name).toBe('b.png');
     expect(result.current.dataUrl).toBeNull();
 
     await DeferredReader.finish(1);
-    expect(result.current.dataUrl).toBe(pngDataUrl('b.png'));
+    expect(result.current.dataUrl).toBe(imageDataUrl('b.png'));
   });
 
   it('discards a read that finishes after a newer choice', async () => {
@@ -33,7 +33,7 @@ describe('useImageUpload', () => {
     await DeferredReader.finish(1);
     await DeferredReader.finish(0);
     expect(result.current.file?.name).toBe('b.png');
-    expect(result.current.dataUrl).toBe(pngDataUrl('b.png'));
+    expect(result.current.dataUrl).toBe(imageDataUrl('b.png'));
   });
 
   it('clearing the choice also drops a read still in flight', async () => {
@@ -83,20 +83,38 @@ describe('useImageUpload with real reads', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.dataUrl).toMatch(/^data:image\/png;base64,/);
   });
+
+  it("refuses an image whose name claims another format, since it's committed under that name", async () => {
+    const {result} = renderHook(() => useImageUpload());
+    await act(async () => {
+      await result.current.choose(pngFile('card.webp'));
+    });
+    expect(result.current.dataUrl).toBeNull();
+    expect(result.current.error).toBe('card.webp holds a PNG image; rename it to end in .png.');
+  });
 });
 
-describe('isAcceptedImage', () => {
+describe('imageProblem', () => {
   const dataUrl = (bytes: string) => `data:application/octet-stream;base64,${btoa(bytes)}`;
+  const JPEG = dataUrl('\xFF\xD8\xFF\xE0\x00\x10JFIF');
+  const PNG = dataUrl('\x89PNG\r\n\x1A\n\x00\x00\x00\x0D');
+  const WEBP = dataUrl('RIFF\x24\x00\x00\x00WEBPVP8 ');
 
-  it('knows JPEG, PNG and WebP by their first bytes', () => {
-    expect(isAcceptedImage(dataUrl('\xFF\xD8\xFF\xE0\x00\x10JFIF'))).toBe(true);
-    expect(isAcceptedImage(dataUrl('\x89PNG\r\n\x1A\n\x00\x00\x00\x0D'))).toBe(true);
-    expect(isAcceptedImage(dataUrl('RIFF\x24\x00\x00\x00WEBPVP8 '))).toBe(true);
+  it('passes JPEG, PNG and WebP bytes under a matching name, jpg and jpeg alike', () => {
+    expect(imageProblem('a.jpg', JPEG)).toBeNull();
+    expect(imageProblem('a.JPEG', JPEG)).toBeNull();
+    expect(imageProblem('a.png', PNG)).toBeNull();
+    expect(imageProblem('a.webp', WEBP)).toBeNull();
+  });
+
+  it('names the format when the extension claims another', () => {
+    expect(imageProblem('a.png', JPEG)).toBe('a.png holds a JPEG image; rename it to end in .jpg.');
+    expect(imageProblem('a.jpg', WEBP)).toBe('a.jpg holds a WebP image; rename it to end in .webp.');
   });
 
   it('refuses other bytes, and anything that is not base64', () => {
-    expect(isAcceptedImage(dataUrl('GIF89a\x01\x00\x01\x00'))).toBe(false);
-    expect(isAcceptedImage(dataUrl('RIFF\x24\x00\x00\x00WAVEfmt '))).toBe(false);
-    expect(isAcceptedImage('data:a.png')).toBe(false);
+    expect(imageProblem('a.png', dataUrl('GIF89a\x01\x00\x01\x00'))).toBe('a.png is not a JPEG, PNG or WebP image.');
+    expect(imageProblem('a.webp', dataUrl('RIFF\x24\x00\x00\x00WAVEfmt '))).toBe('a.webp is not a JPEG, PNG or WebP image.');
+    expect(imageProblem('a.png', 'data:a.png')).toBe('a.png is not a JPEG, PNG or WebP image.');
   });
 });

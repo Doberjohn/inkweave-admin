@@ -2,7 +2,7 @@ import {afterEach, describe, it, expect, vi} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {DeferredReader} from '../../../test/DeferredReader';
-import {pngDataUrl, pngFile} from '../../../test/images';
+import {imageDataUrl, pngFile} from '../../../test/images';
 
 // The hook pulls a token + card list from context; stub both so the hook can run
 // in isolation. The token is present so canPublish hinges on card + image only.
@@ -78,7 +78,7 @@ describe('useImageAdmin', () => {
     act(() => void result.current.onImageChange(image('b.webp')));
     expect(result.current.canPublish).toBe(false);
     await DeferredReader.finish(1);
-    expect(result.current.newImageUrl).toBe(pngDataUrl('b.webp'));
+    expect(result.current.newImageUrl).toBe(imageDataUrl('b.webp'));
   });
 
   it('clears the published card and image once the commit lands', async () => {

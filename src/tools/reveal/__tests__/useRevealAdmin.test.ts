@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
 import {DeferredReader} from '../../../test/DeferredReader';
-import {pngDataUrl, pngFile} from '../../../test/images';
+import {imageDataUrl, pngFile} from '../../../test/images';
 import {inkBlock} from '../../../app-bridge';
 import {useRevealAdmin} from '../useRevealAdmin';
 
@@ -58,6 +58,6 @@ describe('useRevealAdmin', () => {
 
     await DeferredReader.finish(1);
     await DeferredReader.finish(0);
-    expect(result.current.previewCard?.imageUrl).toBe(pngDataUrl('b.webp'));
+    expect(result.current.previewCard?.imageUrl).toBe(imageDataUrl('b.webp'));
   });
 });
