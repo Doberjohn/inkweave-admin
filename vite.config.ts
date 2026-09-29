@@ -22,6 +22,13 @@ export default defineConfig({
     // stray second copy (e.g. if someone installs inside upstream/).
     dedupe: ['react', 'react-dom', 'react-router-dom'],
   },
+  optimizeDeps: {
+    // Scan admin's own entry only. By default Vite crawls every HTML file under
+    // the root, upstream/ included, and the app's index.html imports dev-only
+    // packages admin doesn't install; the failed scan then skips pre-bundling,
+    // so the first page load reloads itself once per newly found dependency.
+    entries: ['index.html'],
+  },
   server: {
     // Outside the app's 5173-5175 range, so neither repo's tooling attaches to the other's server.
     port: 5180,
@@ -37,5 +44,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // upstream/ holds the app's own test suite; it must never run here.
     exclude: ['**/node_modules/**', 'upstream/**', 'dist/**'],
+    // A rehearsal sets VITE_ADMIN_TARGET_BRANCH in .env.local, which Vitest also
+    // loads. Pin it empty (master) here; tests that need a branch stub it.
+    env: {VITE_ADMIN_TARGET_BRANCH: ''},
   },
 });

@@ -33,15 +33,15 @@ async function expectAllowed(filePath, code, ruleId) {
   expect(messages.map((message) => message.ruleId)).not.toContain(ruleId);
 }
 
-describe('the app-bridge boundary', () => {
-  // The first lint loads typescript-eslint and the React Compiler plugin (Babel):
-  // 23s here, 45s cold on Windows, 75s under load. The warm-up pays for it once,
-  // with its own budget; the cases then take milliseconds.
-  beforeAll(async () => {
-    eslint = new ESLint();
-    await lint('src/shell/Warmup.ts', 'export const warm = 1;\n');
-  }, 180_000);
+// The first lint loads typescript-eslint and the React Compiler plugin (Babel):
+// 23s here, 45s cold on Windows, 75s under load. The warm-up pays for it once,
+// with its own budget; the cases then take milliseconds.
+beforeAll(async () => {
+  eslint = new ESLint();
+  await lint('src/shell/Warmup.ts', 'export const warm = 1;\n');
+}, 180_000);
 
+describe('the app-bridge boundary', () => {
   it('rejects an upstream import outside the bridge', async () => {
     expect(await ruleIds('src/shell/Leak.ts')).toContain('no-restricted-imports');
   });
@@ -84,5 +84,25 @@ describe('the app-bridge boundary', () => {
 
   it('keeps the useMemo ban on files the boundary covers', async () => {
     expect(await ruleIds('src/shell/Memo.ts', MEMO)).toContain('no-restricted-syntax');
+  });
+});
+
+// The literals SynergyBanner keeps (eslint.config.js): an off-token color, a 15px
+// size and a 9px radius. RAW_HEX is a rule the exception does not cover.
+const BANNER_ART = "export const art = {color: 'rgba(43, 127, 255, 0.22)', fontSize: 15, borderRadius: 9};\n";
+const RAW_HEX = "export const ink = '#123456';\n";
+const BANNER_RULES = ['inkweave/no-raw-rgba', 'inkweave/no-raw-font-size', 'inkweave/no-raw-radius'];
+
+describe('the design-token exception', () => {
+  it.each(BANNER_RULES)('lets SynergyBanner.tsx through %s', async (rule) => {
+    await expectAllowed('src/tools/banner/SynergyBanner.tsx', BANNER_ART, rule);
+  });
+
+  it.each(BANNER_RULES)('holds every other file to %s', async (rule) => {
+    expect(await ruleIds('src/tools/banner/BannerPage.tsx', BANNER_ART)).toContain(rule);
+  });
+
+  it('holds SynergyBanner.tsx to the rest of the design-token rules', async () => {
+    expect(await ruleIds('src/tools/banner/SynergyBanner.tsx', RAW_HEX)).toContain('inkweave/no-raw-hex-colors');
   });
 });

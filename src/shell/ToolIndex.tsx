@@ -1,28 +1,23 @@
+import {useNavigate} from 'react-router-dom';
 import {CAP_LABEL, COLORS, CtaButton, FONTS, FONT_SIZES, SPACING, SURFACE_CARD} from '../app-bridge';
 import {ADMIN_TOOLS, type AdminTool} from './tools';
 
 function ToolCard({tool}: {tool: AdminTool}) {
-  const {currentUrl} = tool;
+  const navigate = useNavigate();
   return (
     <li style={{...SURFACE_CARD, display: 'flex', flexDirection: 'column', gap: SPACING.sm}}>
       <h2 style={{margin: 0, fontFamily: FONTS.hero, fontSize: FONT_SIZES.xxl, color: COLORS.text}}>
         {tool.name}
       </h2>
       <p style={{margin: 0, fontSize: FONT_SIZES.lg, color: COLORS.textMuted}}>{tool.purpose}</p>
-      <CtaButton
-        variant="neutral"
-        aria-label={currentUrl ? `Open ${tool.name}` : `${tool.name}, runs locally`}
-        disabled={currentUrl === null}
-        onClick={() => {
-          if (currentUrl) window.open(currentUrl, '_blank', 'noopener');
-        }}>
-        {currentUrl ? 'Open current page' : 'Runs locally'}
+      <CtaButton variant="neutral" aria-label={`Open ${tool.name}`} onClick={() => navigate(tool.path)}>
+        Open
       </CtaButton>
     </li>
   );
 }
 
-/** Admin landing page: every tool, and where it runs until P2 moves it here. */
+/** Admin landing page: every tool, one click away. */
 export function ToolIndex() {
   return (
     <main

@@ -2,8 +2,18 @@ export interface AdminTool {
   id: 'reveal' | 'image' | 'tuning' | 'analytics' | 'banner';
   name: string;
   purpose: string;
-  /** Where the tool runs until P2 ports it here; null when it only runs locally today. */
-  currentUrl: string | null;
+  /** The tool's route in admin (docs/PLAN.md, D10). */
+  path: string;
+}
+
+/**
+ * Whether `pathname` is one of the tool's pages. A tool owns every route under
+ * the first segment of its path, so the banner tool (/banner/2983) owns
+ * /banner/<any card>.
+ */
+export function isToolRoute(tool: AdminTool, pathname: string): boolean {
+  const section = `/${tool.path.split('/')[1]}`;
+  return pathname === section || pathname.startsWith(`${section}/`);
 }
 
 export const ADMIN_TOOLS: readonly AdminTool[] = [
@@ -11,30 +21,31 @@ export const ADMIN_TOOLS: readonly AdminTool[] = [
     id: 'reveal',
     name: 'Reveal publisher',
     purpose: 'Add a newly revealed card to the preview set.',
-    currentUrl: 'https://inkweave.ink/admin/reveal',
+    path: '/reveal',
   },
   {
     id: 'image',
     name: 'Card images',
     purpose: "Replace an existing card's image.",
-    currentUrl: 'https://inkweave.ink/admin/image',
+    path: '/image',
   },
   {
     id: 'tuning',
     name: 'Engine tuning',
     purpose: 'Edit playstyle copy and the Shift and Ramp scores.',
-    currentUrl: 'https://inkweave.ink/admin/tuning',
+    path: '/tuning',
   },
   {
     id: 'analytics',
     name: 'Analytics',
     purpose: 'Vote calibration, activity and web analytics.',
-    currentUrl: 'https://inkweave.ink/admin/analytics',
+    path: '/analytics',
   },
   {
     id: 'banner',
     name: 'Banner generator',
-    purpose: 'Render Synergy Spotlight banners. Runs locally with pnpm banner in the app repo for now.',
-    currentUrl: null,
+    purpose: 'Render a Synergy Spotlight banner at /banner/<cardId>; pnpm banner <cardId> exports it.',
+    // Pocahontas - Guiding the Tribe, the card the banner was designed around.
+    path: '/banner/2983',
   },
 ];

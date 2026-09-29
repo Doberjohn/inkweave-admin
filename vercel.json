@@ -9,6 +9,8 @@
     {"source": "/card-images/:path*", "destination": "https://inkweave.ink/card-images/:path*"},
     {"source": "/card-images-preview/:path*", "destination": "https://inkweave.ink/card-images-preview/:path*"},
     {"source": "/fonts/:path*", "destination": "https://inkweave.ink/fonts/:path*"},
+    {"source": "/art/sets/:path*", "destination": "https://inkweave.ink/art/sets/:path*"},
+    {"source": "/brand/:path*", "destination": "https://inkweave.ink/brand/:path*"},
     {"source": "/(.*)", "destination": "/index.html"}
   ],
   "headers": [

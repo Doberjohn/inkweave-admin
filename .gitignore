@@ -5,3 +5,5 @@ coverage/
 .env
 .env.local
 *.log
+# pnpm banner output (docs/BANNER.md)
+reports/
