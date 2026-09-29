@@ -1,5 +1,6 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
-import {validateToken, utf8ToBase64, base64ToUtf8, commitFiles, readRepoFile, targetBranch} from './githubCommit';
+import {base64ToUtf8} from '../test/base64';
+import {validateToken, utf8ToBase64, commitFiles, readRepoFile, targetBranch} from './githubCommit';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -28,6 +29,11 @@ describe('validateToken', () => {
     const r = await validateToken('tok');
     expect(r.canPush).toBe(false);
     expect(r.error).toMatch(/write/i);
+  });
+
+  it('reports an invalid token', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', {status: 401}));
+    expect(await validateToken('bad')).toEqual({ok: false, canPush: false, error: 'Invalid or expired token'});
   });
 
   it('asks GitHub, not the browser cache', async () => {
@@ -62,6 +68,12 @@ describe('readRepoFile', () => {
     );
     expect(new Headers(init?.headers).get('Accept')).toBe('application/vnd.github.raw+json');
     expect(init?.cache).toBe('no-store');
+  });
+
+  it('reads at a given commit when asked', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    await readRepoFile('tok', 'a.json', 'abc123');
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.github.com/repos/Doberjohn/inkweave/contents/a.json?ref=abc123');
   });
 
   it('throws with the status when the read fails', async () => {
@@ -140,5 +152,28 @@ describe('commitFiles', () => {
     await commitFiles({token: 'tok', message: 'test commit', files: [{path: 'a.txt', contentBase64: 'Zm9v'}]});
 
     expect(modes).toEqual(Array(6).fill('no-store'));
+  });
+
+  // A read-modify-write must build on the commit it read: if the branch moves
+  // meanwhile, the non-force ref update fails instead of undoing the other change.
+  it('derives the files from the commit it builds on', async () => {
+    const bodies: unknown[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      if (init?.body) bodies.push(JSON.parse(init.body as string));
+      return gitStub(String(url));
+    });
+    const readFrom: string[] = [];
+
+    await commitFiles({
+      token: 'tok',
+      message: 'test commit',
+      files: async (baseCommitSha) => {
+        readFrom.push(baseCommitSha);
+        return [{path: 'a.txt', contentBase64: 'Zm9v'}];
+      },
+    });
+
+    expect(readFrom).toEqual(['basecommit']);
+    expect(bodies).toContainEqual({message: 'test commit', tree: 'newtree', parents: ['basecommit']});
   });
 });

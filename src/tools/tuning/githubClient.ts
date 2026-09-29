@@ -31,28 +31,47 @@ export function applyTuningEdits(text: string, edits: TuningEdit[]): string {
   return JSON.stringify(obj, null, 2) + '\n';
 }
 
+const isObject = (value: unknown) => typeof value === 'object' && value !== null;
+
+// The parts of tuning.json the editor walks. The file is also edited by hand,
+// so a read checks them rather than trusting the TuningConfig cast.
+const REQUIRED_PARTS: [string, (config: TuningConfig) => unknown][] = [
+  ['playstyles', (c) => c.playstyles],
+  ['directRules', (c) => c.directRules],
+  ['ruleTexts.shift-targets', (c) => c.ruleTexts?.['shift-targets']],
+  ['ruleTexts.ramp.scores', (c) => c.ruleTexts?.ramp?.scores],
+  ['ruleTexts.ramp.templates', (c) => c.ruleTexts?.ramp?.templates],
+];
+
 /**
  * The live tuning.json on the target branch. The tool edits what the engine
  * reads now, not the copy bundled into admin's build (docs/PLAN.md, 4.4).
  */
 export async function readTuning(token: string): Promise<TuningConfig> {
-  return JSON.parse(await readRepoFile(token, TUNING_PATH)) as TuningConfig;
+  const parsed: unknown = JSON.parse(await readRepoFile(token, TUNING_PATH));
+  if (!isObject(parsed)) throw new Error('tuning.json is not a JSON object');
+  const config = parsed as TuningConfig;
+  const missing = REQUIRED_PARTS.filter(([, part]) => !isObject(part(config))).map(([name]) => name);
+  if (missing.length > 0) throw new Error(`tuning.json is missing ${missing.join(', ')}`);
+  return config;
 }
 
 /**
- * Reads the live tuning.json from the target branch, applies the edits, and
- * commits the result back to it in one atomic commit.
+ * Applies the edits to tuning.json as it is at the commit this one builds on,
+ * in one atomic commit on the target branch. If the branch moves meanwhile, the
+ * commit is refused instead of undoing the other change.
  */
 export async function commitTuning(opts: {
   token: string;
   edits: TuningEdit[];
 }): Promise<CommitResult> {
   const {token, edits} = opts;
-  const current = await readRepoFile(token, TUNING_PATH);
-  const next = applyTuningEdits(current, edits);
   return commitFiles({
     token,
     message: 'chore(engine): tune scoring copy + scores',
-    files: [{path: TUNING_PATH, contentBase64: utf8ToBase64(next)}],
+    files: async (baseCommitSha) => {
+      const current = await readRepoFile(token, TUNING_PATH, baseCommitSha);
+      return [{path: TUNING_PATH, contentBase64: utf8ToBase64(applyTuningEdits(current, edits))}];
+    },
   });
 }

@@ -8,22 +8,14 @@ import {
   type CommitResult,
 } from '../../github/githubCommit';
 
-// Re-export shared helpers so existing importers keep their import site.
-export {
-  validateToken,
-  utf8ToBase64,
-  base64ToUtf8,
-  type TokenInfo,
-  type CommitResult,
-} from '../../github/githubCommit';
-
 const PREVIEW_PATH = 'apps/web/public/data/previewCards.json';
 const RAW_DIR = 'apps/web/public/card-images-raw';
 
 /**
- * One atomic commit on master adding the card to previewCards.json and its raw
- * image to card-images-raw/. Re-reads the live file for an authoritative
- * duplicate-id check before committing.
+ * One atomic commit on the target branch adding the card to previewCards.json
+ * and its raw image to card-images-raw/. The file is read, and the duplicate-id
+ * check made, at the commit this one builds on: if the branch moves meanwhile,
+ * the commit is refused instead of dropping another reveal.
  *
  * The committed raw is a transient CI input, not a permanent artifact: the
  * convert-reveal-images GitHub Action converts it to AVIFs under
@@ -38,19 +30,19 @@ export async function commitNewCard(opts: {
   const {token, card, imageExt} = opts;
   const imageContent = stripDataUrl(opts.imageBase64);
 
-  const currentText = await readRepoFile(token, PREVIEW_PATH);
-  const parsed = JSON.parse(currentText) as {cards: {id: number}[]};
-  if (parsed.cards.some((c) => c.id === card.id)) {
-    throw new Error(`Card id ${card.id} already exists in previewCards.json`);
-  }
-  const newText = insertCardIntoPreviewJson(currentText, card);
-
   return commitFiles({
     token,
     message: `feat(reveals): add ${card.fullName} (${card.setCode}${card.number})`,
-    files: [
-      {path: PREVIEW_PATH, contentBase64: utf8ToBase64(newText)},
-      {path: `${RAW_DIR}/${card.id}.${imageExt}`, contentBase64: imageContent},
-    ],
+    files: async (baseCommitSha) => {
+      const currentText = await readRepoFile(token, PREVIEW_PATH, baseCommitSha);
+      const parsed = JSON.parse(currentText) as {cards: {id: number}[]};
+      if (parsed.cards.some((c) => c.id === card.id)) {
+        throw new Error(`Card id ${card.id} already exists in previewCards.json`);
+      }
+      return [
+        {path: PREVIEW_PATH, contentBase64: utf8ToBase64(insertCardIntoPreviewJson(currentText, card))},
+        {path: `${RAW_DIR}/${card.id}.${imageExt}`, contentBase64: imageContent},
+      ];
+    },
   });
 }

@@ -36,7 +36,8 @@ describe('commitCardImage', () => {
     });
 
     expect(res.commitUrl).toBe('https://gh/commit/c1');
-    const tree = bodies.find((b) => b && (b as {tree?: unknown}).tree) as {tree: {path: string}[]};
+    // The trees POST is the body whose `tree` is a list; the commit POST names a tree sha.
+    const tree = bodies.find((b) => Array.isArray((b as {tree?: unknown}).tree)) as {tree: {path: string}[]};
     expect(tree.tree).toHaveLength(1);
     expect(tree.tree[0].path).toBe('apps/web/public/card-images-raw/5001.png');
     expect(JSON.stringify(bodies)).not.toContain('previewCards.json');

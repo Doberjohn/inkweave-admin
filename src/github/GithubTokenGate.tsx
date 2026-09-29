@@ -44,7 +44,9 @@ export function GithubTokenGate({title, onSave}: GithubTokenGateProps) {
         }}
       />
       {error && (
-        <div style={{color: COLORS.error, fontSize: FONT_SIZES.sm, marginTop: SPACING.xs}}>{error}</div>
+        <div role="alert" style={{color: COLORS.error, fontSize: FONT_SIZES.sm, marginTop: SPACING.xs}}>
+          {error}
+        </div>
       )}
       <CtaButton onClick={check} disabled={busy || !value.trim()} style={{marginTop: SPACING.sm}}>
         {busy ? 'Checking…' : 'Save token'}

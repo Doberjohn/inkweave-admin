@@ -1,5 +1,6 @@
 import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton} from '../../app-bridge';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
+import {goLiveNote} from '../../github/goLiveNote';
 import {useImageAdmin, CardImagePicker, UploadColumn} from './index';
 
 export function ImagePage() {
@@ -30,8 +31,8 @@ export function ImagePage() {
             background: COLORS.surfaceAlt,
             borderRadius: RADIUS.sm,
           }}>
-          Committed. The new image goes live after the convert workflow runs and Vercel redeploys
-          (~a few minutes).{' '}
+          Committed.{' '}
+          {goLiveNote('The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).')}{' '}
           <a
             href={ctrl.result.commitUrl}
             target="_blank"

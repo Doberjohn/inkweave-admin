@@ -23,19 +23,13 @@ function authHeaders(token: string): HeadersInit {
   };
 }
 
-// btoa/atob operate on Latin-1, so card text (e.g. the ⬡ glyph) must round-trip
-// through a UTF-8 byte encoder or it corrupts. Exported for direct testing.
+// btoa operates on Latin-1, so card text (e.g. the ⬡ glyph) must go through a
+// UTF-8 byte encoder first or it corrupts. Exported for direct testing.
 export function utf8ToBase64(str: string): string {
   const bytes = new TextEncoder().encode(str);
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary);
-}
-
-export function base64ToUtf8(b64: string): string {
-  const binary = atob(b64.replace(/\n/g, ''));
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
 }
 
 /** Strip a `data:...;base64,` prefix, leaving raw base64. */
@@ -81,13 +75,14 @@ async function ghJson<T = Record<string, unknown>>(
 }
 
 /**
- * Read a repo file's UTF-8 text from the target branch. The raw media type
- * returns the file as-is, up to 100 MB; the default JSON form base64-encodes it
- * and stops at 1 MB (docs/PLAN.md, 4.4).
+ * Read a repo file's UTF-8 text from the target branch, or from `ref` (a commit
+ * or branch) when given. The raw media type returns the file as-is, up to
+ * 100 MB; the default JSON form base64-encodes it and stops at 1 MB
+ * (docs/PLAN.md, 4.4).
  */
-export async function readRepoFile(token: string, path: string): Promise<string> {
+export async function readRepoFile(token: string, path: string, ref = targetBranch()): Promise<string> {
   const res = await fetch(
-    `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(targetBranch())}`,
+    `${API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(ref)}`,
     {...FRESH, headers: {...authHeaders(token), Accept: 'application/vnd.github.raw+json'}},
   );
   if (!res.ok) throw new Error(`GitHub ${res.status} on ${path}: ${(await res.text()).slice(0, 200)}`);
@@ -108,15 +103,19 @@ export interface CommitResult {
 /**
  * One atomic commit on the target branch writing an arbitrary set of files.
  * Reads the branch tip, creates a blob per file, builds a tree on the base
- * commit's tree, commits, and fast-forwards the ref. Callers prepare the file
- * list (including any read-modify-write of existing files) beforehand.
+ * commit's tree, commits, and fast-forwards the ref.
+ *
+ * For a read-modify-write, pass `files` as a function: it gets the base commit's
+ * sha and reads what it edits at that commit (readRepoFile's `ref`). If the
+ * branch moves meanwhile, the non-force ref update fails instead of silently
+ * undoing the other change.
  */
 export async function commitFiles(opts: {
   token: string;
   message: string;
-  files: CommitFile[];
+  files: CommitFile[] | ((baseCommitSha: string) => Promise<CommitFile[]>);
 }): Promise<CommitResult> {
-  const {token, message, files} = opts;
+  const {token, message} = opts;
   const branch = targetBranch();
 
   const ref = await ghJson<{object: {sha: string}}>(
@@ -124,6 +123,7 @@ export async function commitFiles(opts: {
     `/repos/${OWNER}/${REPO}/git/ref/heads/${branch}`,
   );
   const baseCommitSha = ref.object.sha;
+  const files = typeof opts.files === 'function' ? await opts.files(baseCommitSha) : opts.files;
   const baseCommit = await ghJson<{tree: {sha: string}}>(
     token,
     `/repos/${OWNER}/${REPO}/git/commits/${baseCommitSha}`,

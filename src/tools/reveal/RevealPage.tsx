@@ -1,6 +1,7 @@
 import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton} from '../../app-bridge';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
 import {targetBranch} from '../../github/githubCommit';
+import {goLiveNote} from '../../github/goLiveNote';
 import {
   useRevealAdmin,
   RevealAdminForm,
@@ -36,7 +37,7 @@ export function RevealPage() {
             background: COLORS.surfaceAlt,
             borderRadius: RADIUS.sm,
           }}>
-          Committed. Vercel is deploying (~2-3 min).{' '}
+          Committed. {goLiveNote('Vercel is deploying (~2-3 min).')}{' '}
           <a
             href={ctrl.result.commitUrl}
             target="_blank"
