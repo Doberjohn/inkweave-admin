@@ -47,4 +47,9 @@ describe('admin routes', () => {
     renderAt('/');
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
+
+  it.each([['/reveal', 'Reveal admin']])('asks for a GitHub token before %s', (path, title) => {
+    renderAt(path);
+    expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+  });
 });
