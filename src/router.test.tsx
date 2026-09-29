@@ -56,4 +56,9 @@ describe('admin routes', () => {
     renderAt(path);
     expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
   });
+
+  it('opens analytics at /analytics', () => {
+    renderAt('/analytics');
+    expect(screen.getByRole('heading', {level: 1, name: 'Engine Calibration'})).toBeInTheDocument();
+  });
 });

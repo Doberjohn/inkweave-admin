@@ -2,6 +2,7 @@ import {createBrowserRouter, type RouteObject} from 'react-router-dom';
 import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
 import {ToolIndex} from './shell/ToolIndex';
+import {AnalyticsPage} from './tools/analytics/AnalyticsPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
 import {TuningPage} from './tools/tuning/TuningPage';
@@ -15,6 +16,7 @@ export const routes: RouteObject[] = [
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},
       {path: 'tuning', element: <TuningPage />},
+      {path: 'analytics', element: <AnalyticsPage />},
       {path: '*', element: <NotFound />},
     ],
   },
