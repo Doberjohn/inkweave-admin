@@ -1,6 +1,6 @@
 # Admin Tuning Editor — engine copy + scores — Design
 
-> Moved from the app repo (`docs/superpowers/specs/2026-07-07-admin-tuning-editor-design.md` at `e70249be`) when P2 ported the tool; P4 deletes the original. Paths below are the app's, from before the move. The tool now reads `tuning.json` live from the target branch instead of the bundled copy.
+> Moved from the app repo (`docs/superpowers/specs/2026-07-07-admin-tuning-editor-design.md` at `e70249be`) when P2 ported the tool; P4 deletes the original. Paths below are the app's, from before the move, so they are plain text rather than links. The tool now reads `tuning.json` live instead of the bundled copy, and it reads and commits on the target branch (`VITE_ADMIN_TARGET_BRANCH`, default `master`): where this design says `master`, read the target branch.
 
 **Issue**: TBD (to be drafted via `/draft-issue` after spec approval)
 **Date**: 2026-07-07
@@ -117,7 +117,7 @@ of it surfaces in the editor UI.
 ### Where the texts live today, and why a build step is involved
 
 The texts + scores are currently **code literals inside the scoring functions** — e.g. Shift's
-wide-gap case in [`rules.ts`](../../../packages/synergy-engine/src/engine/rules.ts) literally
+wide-gap case in `packages/synergy-engine/src/engine/rules.ts` literally
 returns `{score: 5, reason: "Wide 3-turn gap. Playable but slow to set up."}`. The engine runs
 these functions over every card pair **at build time** and bakes the results into
 `apps/web/public/data/synergies/{cardId}.json` (git-ignored, regenerated on every deploy). So an
@@ -199,7 +199,7 @@ number is computed as `base.score + 1`), which the editor renders with the score
 ### Engine refactor (behavior-identical)
 
 - **tsconfig**: add `"resolveJsonModule": true` to
-  [`packages/synergy-engine/tsconfig.json`](../../../packages/synergy-engine/tsconfig.json) (one
+  `packages/synergy-engine/tsconfig.json` (one
   line; tsup already bundles JSON via esbuild).
 - **`playstyles.ts`**: build the playstyle array from `TUNING.playstyles`; keep
   `getAllPlaystyles()` / `getPlaystyleById()` signatures unchanged.
@@ -217,7 +217,7 @@ proof the extraction (and the Ramp fold) changed nothing.
 
 ### Admin route wiring
 
-- Route in [`router.tsx`](../../../apps/web/src/router.tsx) wrapped in `SuspenseWrapper` (no
+- Route in `apps/web/src/router.tsx` wrapped in `SuspenseWrapper` (no
   `AdminGate` in v1 — matches `/admin/reveal` and `/admin/image`; a `VITE_SHOW_ADMIN_TUNING` gate
   is a cheap optional add).
 - Feature dir `apps/web/src/features/tuning-admin/` (page, `useTuningAdmin` hook, `githubClient.ts`
