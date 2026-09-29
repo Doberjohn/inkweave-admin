@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {CAP_LABEL_XS, COLORS, FONTS, FONT_SIZES, LETTER_SPACING, LinkButton, RADIUS, SPACING} from '../../app-bridge';
+import {gapColor} from './gapColor';
 import type {RuleStat} from './voteAnalyticsTypes';
 
 interface RuleCalibrationTableProps {
@@ -14,14 +15,6 @@ const LOW_N = 10;
 const GAP_FULL_SCALE = 2.5;
 
 type SortKey = 'gap' | 'votes';
-
-/** Signed gap value, colored + tabular. */
-function gapColor(meanGap: number | null): string {
-  if (meanGap == null) return COLORS.textMuted;
-  if (meanGap < 0) return COLORS.error;
-  if (meanGap > 0) return COLORS.success;
-  return COLORS.textMuted;
-}
 
 function formatGap(meanGap: number | null): string {
   if (meanGap == null) return '—';

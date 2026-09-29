@@ -35,3 +35,12 @@ export function groupVotesByDay(votes: VoteLogRow[]): DayGroup[] {
     }))
     .sort((x, y) => (x.day < y.day ? 1 : x.day > y.day ? -1 : 0));
 }
+
+/** The newest vote's day (`YYYY-MM-DD`), whatever order the log is in; undefined for an empty log. */
+export function latestVoteDay(votes: VoteLogRow[]): string | undefined {
+  let latest: VoteLogRow | undefined;
+  for (const row of votes) {
+    if (!latest || Date.parse(row.ts) > Date.parse(latest.ts)) latest = row;
+  }
+  return latest?.ts.slice(0, 10);
+}

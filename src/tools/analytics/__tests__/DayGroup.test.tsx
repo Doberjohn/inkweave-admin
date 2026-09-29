@@ -30,4 +30,14 @@ describe('DayGroup', () => {
     expect(header).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('cell', {name: 'Elsa × Anna'})).toBeInTheDocument();
   });
+
+  it('lists a busy day in part, then every vote on request', async () => {
+    const votes = Array.from({length: 61}, () => VOTE);
+    render(<DayGroup group={{day: '2026-07-01', count: 61, voters: 1, votes}} maxCount={61} defaultOpen />);
+    expect(screen.getAllByRole('cell', {name: 'Elsa × Anna'})).toHaveLength(60);
+
+    await userEvent.click(screen.getByRole('button', {name: 'Show 1 more this day'}));
+    expect(screen.getAllByRole('cell', {name: 'Elsa × Anna'})).toHaveLength(61);
+    expect(screen.queryByRole('button', {name: /more this day/})).not.toBeInTheDocument();
+  });
 });

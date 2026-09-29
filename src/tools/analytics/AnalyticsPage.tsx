@@ -17,7 +17,7 @@ const EMPTY_VOTE_LOG: VoteLog = {generatedAt: '', votes: [], voterCount: 0};
 export function AnalyticsPage() {
   const {data: analytics, loading, error} = useVoteAnalytics();
   const {data: voteLog} = useVoteLog();
-  const {data: vercelAnalytics} = useVercelAnalytics();
+  const {data: vercelAnalytics, error: vercelError} = useVercelAnalytics();
 
   return (
     <main
@@ -79,6 +79,7 @@ export function AnalyticsPage() {
           analytics={analytics}
           voteLog={voteLog ?? EMPTY_VOTE_LOG}
           vercelAnalytics={vercelAnalytics}
+          vercelError={vercelError}
         />
       )}
     </main>

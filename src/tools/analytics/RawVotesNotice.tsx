@@ -13,9 +13,9 @@ export function RawVotesNotice() {
         fontSize: FONT_SIZES.base,
         color: COLORS.textMuted,
       }}>
-      Weekly activity, dimension participation, and voter counts need raw votes. Set{' '}
-      <code style={{color: COLORS.primary}}>SUPABASE_SERVICE_ROLE_KEY</code> in the build env and re-run{' '}
-      <code style={{color: COLORS.primary}}>pnpm precompute-vote-analytics</code> to enable them.
+      Weekly activity, dimension participation, and voter counts need raw votes. Set the{' '}
+      <code style={{color: COLORS.primary}}>SUPABASE_SERVICE_ROLE_KEY</code> Actions secret, then re-run admin&apos;s
+      Deploy workflow to enable them.
     </section>
   );
 }

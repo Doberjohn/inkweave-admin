@@ -1,4 +1,5 @@
 import {COLORS, CtaButton, FONTS, FONT_SIZES, RADIUS, SPACING, TRUNCATE} from '../../app-bridge';
+import {gapColor} from './gapColor';
 import type {PairStat} from './voteAnalyticsTypes';
 
 interface PairListProps {
@@ -41,7 +42,7 @@ export function PairList({pairs, selectedPair, onSelectPair}: PairListProps) {
                 <span style={{color: COLORS.textDim}}> × </span>
                 {pair.bName}
               </span>
-              <span style={{fontSize: FONT_SIZES.md, color: COLORS.error, fontVariantNumeric: 'tabular-nums'}}>
+              <span style={{fontSize: FONT_SIZES.md, color: gapColor(pair.gap), fontVariantNumeric: 'tabular-nums'}}>
                 {pair.engineScore} → {pair.communityScore}
               </span>
               <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim, fontVariantNumeric: 'tabular-nums'}}>

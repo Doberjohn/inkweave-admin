@@ -149,27 +149,36 @@ function NoVercelDataNotice() {
         fontSize: FONT_SIZES.base,
         color: COLORS.textMuted,
       }}>
-      Web Analytics needs a Vercel access token at build time. Set{' '}
+      Web Analytics needs a Vercel access token when admin&apos;s Deploy workflow generates this data. Set the{' '}
       <code style={{color: COLORS.primary}}>VERCEL_ANALYTICS_TOKEN</code> and{' '}
-      <code style={{color: COLORS.primary}}>VERCEL_PROJECT_ID</code> in the build env and re-run{' '}
-      <code style={{color: COLORS.primary}}>pnpm precompute-vercel-analytics</code> to populate this tab.
+      <code style={{color: COLORS.primary}}>ANALYTICS_VERCEL_PROJECT_ID</code> (the app&apos;s project) Actions
+      secrets, then re-run the Deploy workflow to populate this tab.
     </section>
   );
 }
 
 interface WebAnalyticsViewProps {
   analytics: VercelAnalytics | null;
+  /** Why the artifact could not be fetched (e.g. not generated yet); takes precedence over loading. */
+  error?: Error | null;
 }
 
 /**
  * The Web Analytics tab: a master-detail read of Vercel Web Analytics custom events.
  * The left rail lists events by volume; the right panel focuses one event's total,
  * daily trend, and eventData breakdowns. Data arrives via props (fetched by the page)
- * so Storybook renders it from fixtures. `null` = artifact still loading.
+ * so Storybook renders it from fixtures. `null` with no `error` = artifact still loading.
  */
-export function WebAnalyticsView({analytics}: WebAnalyticsViewProps) {
+export function WebAnalyticsView({analytics, error}: WebAnalyticsViewProps) {
   const [selectedName, setSelectedName] = useState<string | null>(null);
 
+  if (error) {
+    return (
+      <p role="alert" style={{color: COLORS.textMuted}}>
+        Could not load Web Analytics ({error.message}).
+      </p>
+    );
+  }
   if (!analytics) return <p style={{color: COLORS.textMuted}}>Loading Web Analytics...</p>;
   if (!analytics.hasVercelData) return <NoVercelDataNotice />;
 

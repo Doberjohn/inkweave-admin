@@ -8,6 +8,12 @@ interface ActivityViewProps {
   voteLog: VoteLog;
 }
 
+/** Why there is nothing to list: no raw votes at all, or none from the chosen voter. */
+function emptyMessage(totalVotes: number, voter: number | null): string {
+  if (totalVotes > 0 && voter !== null) return `No votes from voter ${voter} in this log.`;
+  return "No raw votes yet. Set the SUPABASE_SERVICE_ROLE_KEY Actions secret, then re-run admin's Deploy workflow.";
+}
+
 /**
  * Activity tab: the raw vote log rendered day by day. A voter filter narrows
  * the log to a single voter token before grouping; each day is a collapsible
@@ -60,7 +66,7 @@ export function ActivityView({voteLog}: ActivityViewProps) {
         </select>
       </div>
 
-      {voteLog.votes.length === 0 ? (
+      {days.length === 0 ? (
         <div
           style={{
             padding: SPACING.md,
@@ -70,7 +76,7 @@ export function ActivityView({voteLog}: ActivityViewProps) {
             fontSize: FONT_SIZES.base,
             color: COLORS.textMuted,
           }}>
-          No raw votes yet - set the service-role key and regenerate the artifact
+          {emptyMessage(voteLog.votes.length, voterFilter)}
         </div>
       ) : (
         <div>

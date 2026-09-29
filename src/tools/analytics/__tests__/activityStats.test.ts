@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {groupVotesByDay} from '../activityStats';
+import {groupVotesByDay, latestVoteDay} from '../activityStats';
 import type {VoteLogRow} from '../voteLogTypes';
 
 function row(overrides: Partial<VoteLogRow> & Pick<VoteLogRow, 'ts' | 'voter'>): VoteLogRow {
@@ -52,5 +52,20 @@ describe('groupVotesByDay', () => {
 
   it('returns [] for empty input', () => {
     expect(groupVotesByDay([])).toEqual([]);
+  });
+});
+
+describe('latestVoteDay', () => {
+  it('finds the newest vote whatever order the log is in', () => {
+    const votes = [
+      row({ts: '2026-07-02T12:00:00Z', voter: 1}),
+      row({ts: '2026-07-03T10:00:00Z', voter: 2}),
+      row({ts: '2026-07-01T09:00:00Z', voter: 3}),
+    ];
+    expect(latestVoteDay(votes)).toBe('2026-07-03');
+  });
+
+  it('returns undefined for an empty log', () => {
+    expect(latestVoteDay([])).toBeUndefined();
   });
 });

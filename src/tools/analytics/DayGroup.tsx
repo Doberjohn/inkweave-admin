@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {COLORS, CtaButton, FONTS, FONT_SIZES, RADIUS, SPACING, TRUNCATE} from '../../app-bridge';
+import {COLORS, CtaButton, FONTS, FONT_SIZES, LinkButton, RADIUS, SPACING, TRUNCATE} from '../../app-bridge';
 import type {DayGroup as DayGroupData} from './activityStats';
 
 interface DayGroupProps {
@@ -33,8 +33,10 @@ function scoreColor(score: number | null): string {
 /** A collapsible day of raw votes: header bar + (when open) a per-vote table. */
 export function DayGroup({group, maxCount, defaultOpen = false}: DayGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
+  // A busy day lists its first MAX_ROWS votes until asked for the rest.
+  const [showAll, setShowAll] = useState(false);
   const barPct = maxCount > 0 ? (group.count / maxCount) * 100 : 0;
-  const shownVotes = group.votes.slice(0, MAX_ROWS);
+  const shownVotes = showAll ? group.votes : group.votes.slice(0, MAX_ROWS);
   const overflow = group.count - shownVotes.length;
 
   return (
@@ -137,9 +139,9 @@ export function DayGroup({group, maxCount, defaultOpen = false}: DayGroupProps) 
             </tbody>
           </table>
           {overflow > 0 && (
-            <div style={{padding: `${SPACING.sm}px`, fontSize: FONT_SIZES.md, color: COLORS.textDim}}>
-              + {overflow} more this day
-            </div>
+            <LinkButton type="button" tone="muted" size="sm" onClick={() => setShowAll(true)} style={{margin: SPACING.sm}}>
+              Show {overflow} more this day
+            </LinkButton>
           )}
         </div>
       )}

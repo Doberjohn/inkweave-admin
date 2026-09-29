@@ -24,4 +24,10 @@ describe('WebAnalyticsView', () => {
     expect(screen.getByRole('button', {name: /Searches/})).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', {name: /Votes submitted/})).toHaveAttribute('aria-current', 'false');
   });
+
+  it('says why when the data could not be loaded, instead of loading forever', () => {
+    render(<WebAnalyticsView analytics={null} error={new Error('vercel-analytics.json has not been generated yet')} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('vercel-analytics.json has not been generated yet');
+    expect(screen.queryByText('Loading Web Analytics...')).not.toBeInTheDocument();
+  });
 });

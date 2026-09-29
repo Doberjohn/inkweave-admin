@@ -4,6 +4,8 @@ import {biasCopy} from './biasCopy';
 interface VerdictHeroProps {
   meanGap: number | null;
   accuracySentiment: number | null;
+  /** Narrow container: the accuracy column moves under the verdict. */
+  stacked?: boolean;
 }
 
 /** Within this magnitude the engine reads as well-calibrated; a small lean is noted in the read line, not the headline. */
@@ -18,11 +20,12 @@ interface Verdict {
 }
 
 /**
- * A single band drives the whole hero so the verb, number, dot, and read line
- * never contradict each other. Within +/-CALIBRATION_BAND the engine is
- * "well-calibrated" (green verb, neutral-toned number/dot); beyond it the verb,
- * number, and dot all take the over-rates (error) or under-rates (success)
- * color together.
+ * One band drives the verb, number, and dot, so they never contradict each
+ * other. Within +/-CALIBRATION_BAND the engine is "well-calibrated" (green verb,
+ * neutral-toned number/dot); beyond it the verb, number, and dot all take the
+ * over-rates (error) or under-rates (success) color together. The read line
+ * (biasCopy) is finer on purpose: it names a lean from +/-0.25, so a -0.3 gap
+ * reads "well-calibrated" with the lean noted underneath (the SlightLean story).
  */
 function verdictFor(meanGap: number | null): Verdict {
   if (meanGap == null) return {word: 'not enough data', wordColor: COLORS.textMuted, numberColor: COLORS.textMuted};
@@ -34,24 +37,71 @@ function verdictFor(meanGap: number | null): Verdict {
 }
 
 /**
+ * The diverging over/under scale. The dot marks meanGap, clamped to
+ * +/-SCALE_CLAMP points, and is left out when there is no gap to mark.
+ */
+function GapScale({meanGap, color}: {meanGap: number | null; color: string}) {
+  const clamped = meanGap == null ? null : Math.max(-SCALE_CLAMP, Math.min(SCALE_CLAMP, meanGap));
+  return (
+    <div style={{display: 'flex', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.section}}>
+      <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>over-rates</span>
+      <div style={{position: 'relative', flex: 1, height: 4, background: COLORS.surface, borderRadius: RADIUS.xs}}>
+        <div style={{position: 'absolute', left: '50%', top: -3, width: 1, height: 10, background: COLORS.textDim}} />
+        {clamped != null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${50 + (clamped / SCALE_CLAMP) * 50}%`,
+              top: -3,
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: color,
+              transform: 'translateX(-50%)',
+            }}
+          />
+        )}
+      </div>
+      <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>under-rates</span>
+    </div>
+  );
+}
+
+/** Accuracy sentiment: a side column, or a row under the verdict when the hero is stacked. */
+function AccuracyColumn({accuracySentiment, stacked}: {accuracySentiment: number | null; stacked: boolean}) {
+  const divider = `1px solid ${COLORS.surfaceBorder}`;
+  const frame = stacked
+    ? {borderTop: divider, paddingTop: SPACING.lg}
+    : {width: 150, borderLeft: divider, paddingLeft: SPACING.lg};
+  return (
+    <div style={frame}>
+      <div style={{...CAP_LABEL_XS, fontWeight: 400}}>
+        Accuracy sentiment
+      </div>
+      <div style={{fontSize: FONT_SIZES.xxxl, fontWeight: 700, margin: '4px 0 2px', fontFamily: FONTS.body}}>
+        {accuracySentiment == null ? '—' : (accuracySentiment > 0 ? '+' : '') + accuracySentiment.toFixed(2)}
+      </div>
+      <div style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>thumbs: too-low vs too-high</div>
+    </div>
+  );
+}
+
+/**
  * Calibration-tab hero: a serif verdict headline, the big meanGap number, a
  * plain-English read, a diverging over/under scale, and an accuracy-sentiment
- * side column. Admin-scale display sizes (30px headline, 44px number) are
- * deliberate exceptions to the public type scale.
+ * side column (stacked under the verdict in a narrow container). Admin-scale
+ * display sizes (30px headline, 44px number) are deliberate exceptions to the
+ * public type scale.
  */
-export function VerdictHero({meanGap, accuracySentiment}: VerdictHeroProps) {
+export function VerdictHero({meanGap, accuracySentiment, stacked = false}: VerdictHeroProps) {
   const verdict = verdictFor(meanGap);
   const {read} = biasCopy(meanGap);
-
-  // Position the dot on the diverging scale; clamp to +/- SCALE_CLAMP points.
-  const clamped = Math.max(-SCALE_CLAMP, Math.min(SCALE_CLAMP, meanGap ?? 0));
-  const dotLeft = 50 + (clamped / SCALE_CLAMP) * 50;
-  const dotColor = verdict.numberColor;
 
   return (
     <section
       style={{
         display: 'flex',
+        flexDirection: stacked ? 'column' : 'row',
         gap: SPACING.lg,
         background: COLORS.surfaceAlt,
         border: `1px solid ${COLORS.surfaceBorder}`,
@@ -78,35 +128,9 @@ export function VerdictHero({meanGap, accuracySentiment}: VerdictHeroProps) {
           {meanGap == null ? '—' : meanGap.toFixed(2)}
         </div>
         <div style={{fontSize: FONT_SIZES.base, color: COLORS.gray700, maxWidth: 380}}>{read}</div>
-        <div style={{display: 'flex', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.section}}>
-          <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>over-rates</span>
-          <div style={{position: 'relative', flex: 1, height: 4, background: COLORS.surface, borderRadius: RADIUS.xs}}>
-            <div style={{position: 'absolute', left: '50%', top: -3, width: 1, height: 10, background: COLORS.textDim}} />
-            <div
-              style={{
-                position: 'absolute',
-                left: `${dotLeft}%`,
-                top: -3,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: dotColor,
-                transform: 'translateX(-50%)',
-              }}
-            />
-          </div>
-          <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>under-rates</span>
-        </div>
+        <GapScale meanGap={meanGap} color={verdict.numberColor} />
       </div>
-      <div style={{width: 150, borderLeft: `1px solid ${COLORS.surfaceBorder}`, paddingLeft: SPACING.lg}}>
-        <div style={{...CAP_LABEL_XS, fontWeight: 400}}>
-          Accuracy sentiment
-        </div>
-        <div style={{fontSize: FONT_SIZES.xxxl, fontWeight: 700, margin: '4px 0 2px', fontFamily: FONTS.body}}>
-          {accuracySentiment == null ? '—' : (accuracySentiment > 0 ? '+' : '') + accuracySentiment.toFixed(2)}
-        </div>
-        <div style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>thumbs: too-low vs too-high</div>
-      </div>
+      <AccuracyColumn accuracySentiment={accuracySentiment} stacked={stacked} />
     </section>
   );
 }

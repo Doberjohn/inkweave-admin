@@ -19,6 +19,8 @@ interface DashboardProps {
   analytics: VoteAnalytics;
   voteLog: VoteLog;
   vercelAnalytics: VercelAnalytics | null;
+  /** Why vercel-analytics.json could not be fetched, if it could not. */
+  vercelError?: Error | null;
 }
 
 /**
@@ -31,7 +33,7 @@ interface DashboardProps {
  * export only the zero-prop page component, satisfying router.tsx's
  * lazyWithRetry module-type constraint.
  */
-export function AdminAnalyticsDashboard({analytics, voteLog, vercelAnalytics}: DashboardProps) {
+export function AdminAnalyticsDashboard({analytics, voteLog, vercelAnalytics, vercelError}: DashboardProps) {
   const [active, setActive] = useState<AdminTab>('calibration');
 
   return (
@@ -44,7 +46,7 @@ export function AdminAnalyticsDashboard({analytics, voteLog, vercelAnalytics}: D
       ) : active === 'activity' ? (
         <ActivityView voteLog={voteLog} />
       ) : (
-        <WebAnalyticsView analytics={vercelAnalytics} />
+        <WebAnalyticsView analytics={vercelAnalytics} error={vercelError} />
       )}
     </>
   );

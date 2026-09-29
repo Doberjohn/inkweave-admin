@@ -2,6 +2,7 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import {AdminAnalyticsDashboard} from './AdminAnalyticsDashboard';
 import type {PairStat, RuleStat, VoteAnalytics} from './voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from './voteLogTypes';
+import type {VercelAnalytics} from './vercelAnalyticsTypes';
 
 const meta: Meta<typeof AdminAnalyticsDashboard> = {
   title: 'Pages/AdminAnalyticsPage',
@@ -78,12 +79,12 @@ const ANALYTICS: VoteAnalytics = {
     accuracySentiment: 0.03,
     engineSilentPairs: 196,
     weekly: [
-      {week: '2026-W20', votes: 180, meanGap: -0.41},
-      {week: '2026-W21', votes: 260, meanGap: -0.35},
-      {week: '2026-W22', votes: 315, meanGap: -0.28},
-      {week: '2026-W23', votes: 402, meanGap: -0.31},
-      {week: '2026-W24', votes: 388, meanGap: -0.22},
-      {week: '2026-W25', votes: 509, meanGap: -0.3},
+      {week: '2026-05-11', votes: 180, meanGap: -0.41},
+      {week: '2026-05-18', votes: 260, meanGap: -0.35},
+      {week: '2026-05-25', votes: 315, meanGap: -0.28},
+      {week: '2026-06-01', votes: 402, meanGap: -0.31},
+      {week: '2026-06-08', votes: 388, meanGap: -0.22},
+      {week: '2026-06-15', votes: 509, meanGap: -0.3},
     ],
     dimensionFill: {score: 2054, accuracy: 1610, isReal: 1204, wouldPlay: 980, difficulty: 742},
   },
@@ -101,5 +102,34 @@ const NO_RAW: VoteAnalytics = {
 
 const EMPTY_LOG: VoteLog = {generatedAt: '2026-06-30T00:00:00Z', votes: [], voterCount: 0};
 
-export const Default: Story = {args: {analytics: ANALYTICS, voteLog: VOTE_LOG}};
-export const NoRawVotes: Story = {args: {analytics: NO_RAW, voteLog: EMPTY_LOG}};
+// A small Web Analytics artifact, so all three tabs show data (WebAnalyticsView has the full stories).
+const VERCEL: VercelAnalytics = {
+  generatedAt: '2026-06-30T00:00:00Z',
+  hasVercelData: true,
+  reportingWindow: {since: '2026-06-01', until: '2026-06-30'},
+  events: [
+    {
+      name: 'vote_submitted',
+      label: 'Votes submitted',
+      total: 2054,
+      visitors: 612,
+      trend: Array.from({length: 30}, (_, i) => ({date: `2026-06-${String(i + 1).padStart(2, '0')}`, count: 50 + ((i * 7) % 23)})),
+      breakdowns: [
+        {
+          prop: 'voteType',
+          label: 'By vote type',
+          rows: [
+            {value: 'quick', count: 1410, visitors: 530},
+            {value: 'detailed', count: 644, visitors: 201},
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// The artifact a build without the Vercel token writes: the tab says what to set.
+const NO_VERCEL: VercelAnalytics = {...VERCEL, hasVercelData: false, reportingWindow: null, events: []};
+
+export const Default: Story = {args: {analytics: ANALYTICS, voteLog: VOTE_LOG, vercelAnalytics: VERCEL}};
+export const NoRawVotes: Story = {args: {analytics: NO_RAW, voteLog: EMPTY_LOG, vercelAnalytics: NO_VERCEL}};

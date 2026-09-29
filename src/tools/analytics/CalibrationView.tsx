@@ -8,6 +8,7 @@ import {VoteDetailTable} from './VoteDetailTable';
 import {WeeklyActivityChart} from './WeeklyActivityChart';
 import {DimensionParticipation} from './DimensionParticipation';
 import {RawVotesNotice} from './RawVotesNotice';
+import {latestVoteDay} from './activityStats';
 import type {GlobalStats, PairStat, RuleStat, VoteAnalytics} from './voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from './voteLogTypes';
 
@@ -100,9 +101,10 @@ export function CalibrationView({analytics, voteLog}: CalibrationViewProps) {
   const width = useContainerWidth(containerRef);
   const stacked = width > 0 && width < STACK_WIDTH;
 
-  // Selecting a rule scopes the pair list to that rule and clears any prior pair.
+  // Selecting a rule scopes the pair list to that rule and clears any prior pair;
+  // selecting it again returns to all pairs.
   const handleSelectRule = (ruleId: string) => {
-    setSelectedRuleId(ruleId);
+    setSelectedRuleId((current) => (current === ruleId ? null : ruleId));
     setSelectedPair(null);
   };
 
@@ -115,7 +117,7 @@ export function CalibrationView({analytics, voteLog}: CalibrationViewProps) {
 
   return (
     <div ref={containerRef}>
-      <VerdictHero meanGap={g.meanGap} accuracySentiment={g.accuracySentiment} />
+      <VerdictHero meanGap={g.meanGap} accuracySentiment={g.accuracySentiment} stacked={stacked} />
 
       <StatStrip g={g} hasRawVotes={analytics.hasRawVotes} />
 
@@ -142,7 +144,7 @@ export function CalibrationView({analytics, voteLog}: CalibrationViewProps) {
       <SecondaryStrip
         g={g}
         hasRawVotes={analytics.hasRawVotes}
-        latestDate={voteLog.votes[0]?.ts?.slice(0, 10)}
+        latestDate={latestVoteDay(voteLog.votes)}
         stacked={stacked}
       />
     </div>

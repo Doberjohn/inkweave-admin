@@ -1,4 +1,5 @@
 export interface WeeklyPoint {
+  /** The week's UTC Monday as YYYY-MM-DD (isoWeekStart in the precompute), not an ISO week label. */
   week: string;
   votes: number;
   meanGap: number | null;

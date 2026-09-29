@@ -40,7 +40,8 @@ function trend(base: number): TrendPoint[] {
 const populated: VercelAnalytics = {
   generatedAt: '2026-07-03T12:00:00.000Z',
   hasVercelData: true,
-  reportingWindow: {since: '2026-06-03', until: '2026-07-03'},
+  // The window the trend() points fill.
+  reportingWindow: {since: '2026-06-01', until: '2026-06-30'},
   events: [
     {
       name: 'reveal_card_click',
