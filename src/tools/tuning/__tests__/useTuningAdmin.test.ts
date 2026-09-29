@@ -52,7 +52,10 @@ describe('useTuningAdmin', () => {
     await act(async () => {
       await result.current.publish();
     });
-    expect(commitTuning).toHaveBeenLastCalledWith({token: 'tok', edits: [{path: ['playstyles', 'ramp', 'name'], value: 'Big Ramp'}]});
+    expect(commitTuning).toHaveBeenLastCalledWith({
+      token: 'tok',
+      edits: [{path: ['playstyles', 'ramp', 'name'], value: 'Big Ramp', expected: 'Ramp'}],
+    });
   });
 
   it("drops the last publish's outcome once new work is staged", async () => {

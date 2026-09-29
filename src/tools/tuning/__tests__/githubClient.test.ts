@@ -13,7 +13,7 @@ describe('applyTuningEdits', () => {
       2,
     );
     const after = applyTuningEdits(before, [
-      {path: ['ruleTexts', 'shift-targets', 'curve.gap3', 'score'], value: 6},
+      {path: ['ruleTexts', 'shift-targets', 'curve.gap3', 'score'], value: 6, expected: 5},
     ]);
     const parsed = JSON.parse(after);
     expect(parsed.ruleTexts['shift-targets']['curve.gap3']).toEqual({score: 6, text: 'Wide'});
@@ -23,11 +23,19 @@ describe('applyTuningEdits', () => {
   it('applies multiple edits and ends with a trailing newline', () => {
     const before = JSON.stringify({playstyles: {ramp: {name: 'Ramp', tagline: 'x'}}}, null, 2);
     const after = applyTuningEdits(before, [
-      {path: ['playstyles', 'ramp', 'name'], value: 'Ramp!'},
-      {path: ['playstyles', 'ramp', 'tagline'], value: 'faster'},
+      {path: ['playstyles', 'ramp', 'name'], value: 'Ramp!', expected: 'Ramp'},
+      {path: ['playstyles', 'ramp', 'tagline'], value: 'faster', expected: 'x'},
     ]);
     expect(after.endsWith('\n')).toBe(true);
     expect(JSON.parse(after).playstyles.ramp).toEqual({name: 'Ramp!', tagline: 'faster'});
+  });
+
+  // Another operator (or tab) published 7 after this editor loaded 5.
+  it('refuses an edit whose value changed since the editor loaded it', () => {
+    const before = JSON.stringify({ruleTexts: {ramp: {scores: {density: 7}}}}, null, 2);
+    expect(() =>
+      applyTuningEdits(before, [{path: ['ruleTexts', 'ramp', 'scores', 'density'], value: 6, expected: 5}]),
+    ).toThrow('ruleTexts.ramp.scores.density changed since the editor loaded it (now 7). Reload the page and make the edit again.');
   });
 });
 
@@ -62,7 +70,7 @@ describe('commitTuning', () => {
       return github(String(url));
     });
 
-    await commitTuning({token: 'tok', edits: [{path: ['playstyles', 'ramp', 'name'], value: 'Ramp!'}]});
+    await commitTuning({token: 'tok', edits: [{path: ['playstyles', 'ramp', 'name'], value: 'Ramp!', expected: 'Ramp'}]});
 
     expect(calls.find((c) => c.url.includes('/contents/'))?.url).toContain('?ref=base1');
     const blob = calls.find((c) => c.url.endsWith('/git/blobs'));

@@ -11,22 +11,38 @@ const TUNING_PATH = 'packages/synergy-engine/src/data/tuning.json';
 export interface TuningEdit {
   path: (string | number)[];
   value: string | number;
+  /** The value the editor showed. The edit is refused if tuning.json no longer holds it. */
+  expected: string | number;
+}
+
+type JsonObject = Record<string | number, unknown>;
+
+/** The object holding the value at `path`. */
+function parentOf(obj: JsonObject, path: (string | number)[]): JsonObject {
+  let node = obj;
+  for (const key of path.slice(0, -1)) node = node[key] as JsonObject;
+  return node;
 }
 
 /**
  * Pure JSON edit: applies a list of path/value edits to the parsed tuning
  * document and re-serializes it. Sibling fields at each edited node are left
- * untouched. Kept side-effect-free so it can be unit tested without network
- * access; `commitTuning` below is the network-touching wrapper.
+ * untouched. An edit whose value changed since the editor loaded it is refused:
+ * writing it would silently undo that other change. Kept side-effect-free so it
+ * can be unit tested without network access; `commitTuning` below is the
+ * network-touching wrapper.
  */
 export function applyTuningEdits(text: string, edits: TuningEdit[]): string {
-  const obj = JSON.parse(text) as Record<string, unknown>;
-  for (const {path, value} of edits) {
-    let node = obj as Record<string, unknown>;
-    for (const key of path.slice(0, -1)) {
-      node = node[key] as Record<string, unknown>;
+  const obj = JSON.parse(text) as JsonObject;
+  for (const {path, value, expected} of edits) {
+    const node = parentOf(obj, path);
+    const key = path[path.length - 1];
+    if (node[key] !== expected) {
+      throw new Error(
+        `${path.join('.')} changed since the editor loaded it (now ${JSON.stringify(node[key])}). Reload the page and make the edit again.`,
+      );
     }
-    node[path[path.length - 1]] = value;
+    node[key] = value;
   }
   return JSON.stringify(obj, null, 2) + '\n';
 }

@@ -82,7 +82,12 @@ export function useTuningAdmin(token: string): UseTuningAdminResult {
         token,
         // Text is trimmed here, not as it is typed: the fields show the staged
         // text, so trimming that would swallow a space before the next word.
-        edits: sent.map(({path, value}) => ({path, value: typeof value === 'string' ? value.trim() : value})),
+        // `expected` lets the commit refuse a value someone changed meanwhile.
+        edits: sent.map(({path, value, oldValue}) => ({
+          path,
+          value: typeof value === 'string' ? value.trim() : value,
+          expected: oldValue,
+        })),
       });
       setResult(res);
       // Only what was published: an edit staged while the request ran stays pending.
