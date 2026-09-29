@@ -37,6 +37,13 @@ describe('admin routes', () => {
     }
   });
 
+  it("marks a tool's link current on any of its pages", () => {
+    renderAt('/banner/1970');
+    const nav = screen.getByRole('navigation', {name: 'Admin tools'});
+    expect(within(nav).getByRole('link', {name: 'Banner generator'})).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', {name: 'Analytics'})).not.toHaveAttribute('aria-current');
+  });
+
   it('names the branch the tools write to', () => {
     renderAt('/');
     expect(screen.getByText('master')).toBeInTheDocument();

@@ -6,6 +6,16 @@ export interface AdminTool {
   path: string;
 }
 
+/**
+ * Whether `pathname` is one of the tool's pages. A tool owns every route under
+ * the first segment of its path, so the banner tool (/banner/2983) owns
+ * /banner/<any card>.
+ */
+export function isToolRoute(tool: AdminTool, pathname: string): boolean {
+  const section = `/${tool.path.split('/')[1]}`;
+  return pathname === section || pathname.startsWith(`${section}/`);
+}
+
 export const ADMIN_TOOLS: readonly AdminTool[] = [
   {
     id: 'reveal',

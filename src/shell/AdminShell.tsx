@@ -1,8 +1,8 @@
-import {NavLink, Outlet} from 'react-router-dom';
+import {Link, NavLink, Outlet, useLocation} from 'react-router-dom';
 import {SkeletonTheme} from 'react-loading-skeleton';
 import {CardDataProvider, COLORS, FONTS, FONT_SIZES, SPACING} from '../app-bridge';
 import {targetBranch} from '../github/githubCommit';
-import {ADMIN_TOOLS} from './tools';
+import {ADMIN_TOOLS, isToolRoute} from './tools';
 
 function navLinkStyle({isActive}: {isActive: boolean}) {
   return {
@@ -19,6 +19,7 @@ function navLinkStyle({isActive}: {isActive: boolean}) {
  * no public nav, Vercel Analytics or Speed Insights (docs/PLAN.md, 4.1).
  */
 export function AdminShell() {
+  const {pathname} = useLocation();
   return (
     // The app mounts one SkeletonTheme for all of its skeletons (AppLayout.tsx); admin does the same here.
     <SkeletonTheme baseColor={COLORS.surfaceAlt} highlightColor={COLORS.surfaceHover}>
@@ -38,11 +39,15 @@ export function AdminShell() {
               <NavLink to="/" end style={navLinkStyle}>
                 Tools
               </NavLink>
-              {ADMIN_TOOLS.map((tool) => (
-                <NavLink key={tool.id} to={tool.path} style={navLinkStyle}>
-                  {tool.name}
-                </NavLink>
-              ))}
+              {/* A tool's link stays current on all of its pages (isToolRoute), not just its own path. */}
+              {ADMIN_TOOLS.map((tool) => {
+                const active = isToolRoute(tool, pathname);
+                return (
+                  <Link key={tool.id} to={tool.path} aria-current={active ? 'page' : undefined} style={navLinkStyle({isActive: active})}>
+                    {tool.name}
+                  </Link>
+                );
+              })}
             </nav>
             <p style={{margin: 0, fontSize: FONT_SIZES.sm, color: COLORS.textMuted}}>
               Writes go to Doberjohn/inkweave <code style={{color: COLORS.primary}}>{targetBranch()}</code>
