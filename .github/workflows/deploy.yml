@@ -8,6 +8,9 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # The analytics refresh (docs/PLAN.md, D8; docs/plans/P3-pipelines.md, P3-3).
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 # Nothing here writes to GitHub, and checkout authenticates with APP_REPO_TOKEN,
@@ -58,6 +61,44 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Analytics (docs/PLAN.md, D8). Calibration compares votes with the scores
+      # production serves, so the engine and synergy data come from the app's
+      # current master, not the pinned submodule. Every run needs this, push
+      # included: the files ship inside the deployment, under /admin-data/.
+      - name: Check out the app's master for analytics
+        uses: actions/checkout@v7
+        with:
+          repository: Doberjohn/inkweave
+          ref: master
+          path: app-master
+          token: ${{ secrets.APP_REPO_TOKEN }}
+          persist-credentials: false
+
+      # precompute-synergies needs only the built engine, and that build needs no
+      # install scripts, so none run: faster, and no third-party postinstall runs
+      # in the deploy job.
+      - name: Build the app's engine and synergy data
+        run: |
+          pnpm --dir app-master install --frozen-lockfile --ignore-scripts
+          pnpm --dir app-master --filter inkweave-synergy-engine build
+          node app-master/scripts/precompute-synergies.mjs
+
+      # The secrets reach only this step. Its log names the files it writes,
+      # never their numbers: workflow logs are public while the repo is.
+      - name: Precompute analytics into public/admin-data/
+        env:
+          APP_DIR: app-master
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VERCEL_ANALYTICS_TOKEN: ${{ secrets.VERCEL_ANALYTICS_TOKEN }}
+          ANALYTICS_VERCEL_PROJECT_ID: ${{ secrets.ANALYTICS_VERCEL_PROJECT_ID }}
+          # The app's Vercel project lives in admin's team.
+          ANALYTICS_VERCEL_TEAM_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          node scripts/precompute-vote-analytics.mjs
+          node scripts/precompute-vercel-analytics.mjs
+
       - name: Pull Vercel production settings
         run: npx "vercel@${VERCEL_CLI_VERSION:?}" pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
@@ -71,7 +112,8 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       # The domain list is read after the deploy: a project's first production
-      # deploy is what gives it the <project>.vercel.app domain.
+      # deploy is what gives it the <project>.vercel.app domain. The vote log is
+      # the most sensitive file admin serves, so it is asserted by name too.
       - name: Assert every admin URL is behind Vercel login
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -80,4 +122,4 @@ jobs:
         run: |
           node scripts/vercel-project-urls.mjs > "$RUNNER_TEMP/project-urls.txt"
           mapfile -t project_urls < "$RUNNER_TEMP/project-urls.txt"
-          node scripts/assert-login-gate.mjs "$DEPLOY_URL" "$ADMIN_PRODUCTION_URL" "${project_urls[@]}"
+          node scripts/assert-login-gate.mjs "$DEPLOY_URL" "$ADMIN_PRODUCTION_URL" "$ADMIN_PRODUCTION_URL/admin-data/vote-log.json" "${project_urls[@]}"

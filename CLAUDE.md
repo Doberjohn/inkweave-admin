@@ -16,6 +16,12 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 - The reveal, image and tuning tools commit to `Doberjohn/inkweave` on `VITE_ADMIN_TARGET_BRANCH`, which defaults to `master`. Reveal and tuning also read the files they edit (`previewCards.json`, `tuning.json`) from that branch; card lists come from `inkweave.ink` through the forwarded `/data/`. To rehearse writes, create a throwaway branch in the app repo and set the variable in `.env.local` (`.env.example` has the line). The shell header always names the branch.
 - Admin files pass the app's design-token rules in full. The one exception is `src/tools/banner/SynergyBanner.tsx` (three rules, in `eslint.config.js`), and like the app's ledger it only shrinks. Buttons come from the app's kit through the bridge (`CtaButton`, `LinkButton`).
 
+## Pipelines
+
+- **Analytics.** The Deploy workflow runs nightly (04:00 UTC), on every push to `main`, and on demand (`gh workflow run deploy.yml --repo Doberjohn/inkweave-admin`). It checks out the app's `master` into `app-master/`, builds that engine and its synergy data, and runs `scripts/precompute-{vote,vercel}-analytics.mjs`. Those write `public/admin-data/`, which ships inside the login-gated deployment. `app-master/` and `public/admin-data/` are git-ignored; locally the analytics tool shows its "not generated" state. How it was built: [docs/plans/P3-pipelines.md](docs/plans/P3-pipelines.md).
+- **Secrets.** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VERCEL_ANALYTICS_TOKEN` and `ANALYTICS_VERCEL_PROJECT_ID` (the app's Vercel project: in the workflow, `VERCEL_PROJECT_ID` names admin's own). The owner sets them.
+- **Logs.** The precomputes log the files they write, never vote, voter or event counts: a public repo's workflow logs are public.
+
 ## Commands
 
 ```bash

@@ -7,3 +7,6 @@ coverage/
 *.log
 # pnpm banner output (docs/BANNER.md)
 reports/
+# P3 analytics: the app checkout the deploy builds from, and the files it writes
+app-master/
+public/admin-data/
