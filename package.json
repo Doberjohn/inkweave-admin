@@ -15,6 +15,7 @@
     "check:deps": "node scripts/check-shared-deps.mjs",
     "check:hooks": "node scripts/check-hooks.mjs",
     "storybook": "storybook dev -p 6007",
+    "banner": "node scripts/export-banner.mjs",
     "prepare": "husky"
   },
   "dependencies": {
@@ -52,6 +53,8 @@
     "globals": "^17.12.0",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "playwright": "^1.63.0",
+    "sharp": "^0.35.4",
     "storybook": "^10.6.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",

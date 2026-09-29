@@ -61,4 +61,9 @@ describe('admin routes', () => {
     renderAt('/analytics');
     expect(screen.getByRole('heading', {level: 1, name: 'Engine Calibration'})).toBeInTheDocument();
   });
+
+  it('opens a card banner at /banner/:cardId', () => {
+    renderAt('/banner/2983');
+    expect(screen.getByText('Loading banner…')).toBeInTheDocument();
+  });
 });
