@@ -29,7 +29,7 @@ const UPSTREAM_LOADS = [
 ].map((selector) => ({selector, message: BRIDGE_MESSAGE}));
 
 export default tseslint.config(
-  {ignores: ['dist', 'coverage', 'upstream', 'app-master']},
+  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

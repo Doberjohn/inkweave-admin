@@ -2153,6 +2153,11 @@ Detailed plan and as-built notes: [docs/plans/P2-port-tools.md](plans/P2-port-to
 
 Detailed plan and as-built notes: [docs/plans/P3-pipelines.md](plans/P3-pipelines.md).
 
+**Status:** built in three PRs: Doberjohn/inkweave-admin#15 (analytics), #16 (the pin bump), and the reveal-ingestion PR that closes #3. Reveal ingestion as built departs from the bullets below in three ways:
+- admin alone owns `state.json` and commits it straight to `main` (plan decisions P3-5 and P3-6);
+- the converter runs from a scratch copy, because it writes beside itself;
+- the reveal publisher first gained the app's house style (Doberjohn/inkweave#635).
+
 **Analytics**
 - Add a `schedule` trigger (nightly) to `deploy.yml`.
 - Before `vercel build`, check out the app's current `master` into `app-master/` with `APP_REPO_TOKEN`, separately from the pin. Build its engine, run `precompute-synergies`, then the two analytics precomputes (ported from the app repo into `scripts/`), writing into `public/admin-data/`.

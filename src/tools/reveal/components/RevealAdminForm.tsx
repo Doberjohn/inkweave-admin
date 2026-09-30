@@ -1,5 +1,5 @@
-import type {ChangeEvent} from 'react';
-import type {Ink} from 'inkweave-synergy-engine';
+import type {ChangeEvent, FocusEvent} from 'react';
+import {canonicalizeCardFullText, type Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from '../buildPreviewCard';
 import {ALL_INKS, COLORS, SPACING, FONT_SIZES, RADIUS} from '../../../app-bridge';
 import {CARD_TYPES, RARITIES, FEATURED_FRANCHISE_HINT, STAT_FIELDS, STAT_LABELS} from '../constants';
@@ -64,6 +64,15 @@ export function RevealAdminForm({form, errors, onChange}: RevealAdminFormProps) 
     onChange({[name]: e.target.value} as Partial<RevealCardForm>);
   const control = (name: string) => controlProps(name, errors);
   const statFields = STAT_FIELDS[form.type] ?? [];
+
+  // Show the house-style rewrite (#635) when the owner moves on within the page. Not when the
+  // window or tab loses focus (alt-tab to copy the next ability): the field is still the active
+  // element then, and trimming its trailing newline would glue the next paste onto this line.
+  const canonicalizeOnLeave = (e: FocusEvent<HTMLTextAreaElement>) => {
+    const field = e.currentTarget;
+    if (field.ownerDocument.activeElement === field) return;
+    onChange({fullText: canonicalizeCardFullText(field.value)});
+  };
 
   return (
     <div>
@@ -134,7 +143,13 @@ export function RevealAdminForm({form, errors, onChange}: RevealAdminFormProps) 
         <textarea {...control('keywords')} style={{...fieldStyle, minHeight: 60}} value={form.keywords} onChange={text('keywords')} />
       </Field>
       <Field label="Full card text (one ability per line)" name="fullText" errors={errors}>
-        <textarea {...control('fullText')} style={{...fieldStyle, minHeight: 100}} value={form.fullText} onChange={text('fullText')} />
+        <textarea
+          {...control('fullText')}
+          style={{...fieldStyle, minHeight: 100}}
+          value={form.fullText}
+          onChange={text('fullText')}
+          onBlur={canonicalizeOnLeave}
+        />
       </Field>
     </div>
   );

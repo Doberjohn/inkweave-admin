@@ -1,0 +1,28 @@
+/**
+ * What a run starts from (docs/plans/P3-pipelines.md, Task 16): no reveal PR still open,
+ * then the app's previewCards.json and admin's state.json, read through gh with their blob
+ * shas. This replaces the app's checks on a local checkout (a clean tree on a fresh branch).
+ */
+import {UsageError} from './cli.mjs';
+import {ADMIN_REPO, APP_BASE, APP_REPO, PR_PREFIX, STATE_BRANCH, openPullsFrom, readFile} from './github.mjs';
+import {PREVIEW_REL, STATE_REL} from './runstore.mjs';
+
+/** One reveal PR at a time: a second would fight the first over previewCards.json. */
+export function assertNoOpenRevealPr() {
+  const open = openPullsFrom(APP_REPO, PR_PREFIX);
+  if (open.length) {
+    throw new UsageError(
+      `a reveal PR is still open (${open.map((pr) => pr.url).join(', ')}). Merge or close it first; closing one unmerged also means reverting its state commit (docs/REVEAL_RUNBOOK.md).`,
+    );
+  }
+}
+
+/** The app's preview data and admin's state, each with the blob sha it was read at. */
+export function readBase() {
+  return {
+    appBase: APP_BASE,
+    stateBranch: STATE_BRANCH,
+    preview: readFile(APP_REPO, PREVIEW_REL, APP_BASE),
+    state: readFile(ADMIN_REPO, STATE_REL, STATE_BRANCH),
+  };
+}
