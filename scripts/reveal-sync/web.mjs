@@ -1,30 +1,33 @@
 /**
- * Load the web app's TypeScript from Node.
+ * Load admin's TypeScript from Node: the season through the app bridge (src/app-bridge.ts,
+ * the one module that reaches the pinned app), and the write chain the reveal publisher uses
+ * (src/tools/reveal/). Vite's `runnerImport` transforms them the way the dev server does, so
+ * nothing is duplicated, and a season rotation reaches the skill with a pin bump.
  *
- * The season (set code, name, size, ink blocks) and the write chain all live in apps/web as
- * TypeScript. Rather than duplicate them, this loads them through Vite's `runnerImport`,
- * the same transform pipeline the app itself uses, resolved from apps/web so no new root
- * dependency is needed. The skill therefore follows a season rotation automatically: change
- * revealSet.ts and every run after that targets the new set.
+ * The bridge imports the app's CSS, and Vite's CSS plugins only work inside a running dev
+ * server ("Cannot read properties of undefined (reading 'get')"). No stylesheet matters
+ * here, so each resolves to an empty module before those plugins see it.
  */
 import path from 'node:path';
-import {createRequire} from 'node:module';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const WEB = path.join(ROOT, 'apps/web');
 
-let runnerImport;
+const EMPTY_STYLE = '\0reveal-sync:empty-style';
+const NO_CSS = {
+  name: 'reveal-sync:no-css',
+  enforce: 'pre',
+  resolveId: (id) => (/\.css(\?|$)/.test(id) ? EMPTY_STYLE : null),
+  load: (id) => (id === EMPTY_STYLE ? 'export default ""' : null),
+};
 
-async function importWeb(relative) {
-  if (!runnerImport) {
-    const vite = createRequire(path.join(WEB, 'package.json')).resolve('vite');
-    ({runnerImport} = await import(pathToFileURL(vite).href));
-  }
-  const {module} = await runnerImport(path.join(WEB, relative), {
-    root: WEB,
+async function importTs(relative) {
+  const {runnerImport} = await import('vite');
+  const {module} = await runnerImport(path.join(ROOT, relative), {
+    root: ROOT,
     configFile: false,
     logLevel: 'error',
+    plugins: [NO_CSS],
   });
   return module;
 }
@@ -39,30 +42,29 @@ export function siteSetSlug(setName) {
     .replace(/^-|-$/g, '');
 }
 
-/** The season this run targets, read from revealSet.ts and theme.ts. */
+/** The season this run targets, as the pinned app defines it. */
 export async function loadSeason() {
-  const reveal = await importWeb('src/shared/constants/revealSet.ts');
-  const theme = await importWeb('src/shared/constants/theme.ts');
-  const setName = theme.SET_NAMES[reveal.REVEAL_SET_CODE];
-  if (!setName) throw new Error(`SET_NAMES has no entry for set ${reveal.REVEAL_SET_CODE}`);
+  const app = await importTs('src/app-bridge.ts');
+  const setName = app.SET_NAMES[app.REVEAL_SET_CODE];
+  if (!setName) throw new Error(`SET_NAMES has no entry for set ${app.REVEAL_SET_CODE}`);
   return {
-    setCode: reveal.REVEAL_SET_CODE,
-    setNumber: reveal.REVEAL_SET_NUMBER,
+    setCode: app.REVEAL_SET_CODE,
+    setNumber: app.REVEAL_SET_NUMBER,
     setName,
     setSlug: siteSetSlug(setName),
-    setTotal: reveal.SET_TOTAL,
-    idBase: reveal.REVEAL_ID_BASE,
-    inkBlocks: Object.fromEntries(theme.ALL_INKS.map((ink) => [ink, reveal.inkBlock(ink)])),
+    setTotal: app.SET_TOTAL,
+    idBase: app.REVEAL_ID_BASE,
+    inkBlocks: Object.fromEntries(app.ALL_INKS.map((ink) => [ink, app.inkBlock(ink)])),
   };
 }
 
-/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as /admin/reveal uses them. */
+/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as the reveal publisher uses them. */
 export async function loadWriteChain() {
-  const dir = 'src/features/reveal-admin';
+  const dir = 'src/tools/reveal';
   const [validate, build, insert] = await Promise.all([
-    importWeb(`${dir}/validateForm.ts`),
-    importWeb(`${dir}/buildPreviewCard.ts`),
-    importWeb(`${dir}/insertCardIntoPreviewJson.ts`),
+    importTs(`${dir}/validateForm.ts`),
+    importTs(`${dir}/buildPreviewCard.ts`),
+    importTs(`${dir}/insertCardIntoPreviewJson.ts`),
   ]);
   return {
     validateRevealCardForm: validate.validateRevealCardForm,
