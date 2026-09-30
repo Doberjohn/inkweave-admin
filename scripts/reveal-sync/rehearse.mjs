@@ -54,6 +54,9 @@ const run = {
   stateBranch: base.stateBranch,
   baseBlob: base.preview.sha,
   stateBlob: base.state.sha,
+  // A rehearsal never reads the official list; this stand-in lets `run.mjs write` and
+  // `report` open the run like any other.
+  official: {revealed: 0, lastModified: 'not read (rehearsal)'},
   // Every slug the state knows stays "on the site", so the rehearsal retires nothing.
   site: {slugs: [...known, fixture.slug], total: section.indexTotal ?? known.length + 1},
   cards: {
