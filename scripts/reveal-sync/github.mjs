@@ -96,9 +96,13 @@ export function openPullRequest(repo, {head, base, title, body}) {
   return ghApi(`repos/${repo}/pulls`, {method: 'POST', body: {head, base, title, body}}).html_url;
 }
 
-/** The open PRs whose branch starts with `prefix`, as {number, url, branch}. */
+/** The open PRs whose branch starts with `prefix`, as {number, url, branch}, from every page. */
 export function openPullsFrom(repo, prefix) {
-  return ghApi(`repos/${repo}/pulls?state=open&per_page=100`)
-    .filter((pr) => pr.head.ref.startsWith(prefix))
-    .map((pr) => ({number: pr.number, url: pr.html_url, branch: pr.head.ref}));
+  const found = [];
+  for (let page = 1; ; page++) {
+    const batch = ghApi(`repos/${repo}/pulls?state=open&per_page=100&page=${page}`);
+    found.push(...batch.filter((pr) => pr.head.ref.startsWith(prefix)));
+    if (batch.length < 100) break;
+  }
+  return found.map((pr) => ({number: pr.number, url: pr.html_url, branch: pr.head.ref}));
 }

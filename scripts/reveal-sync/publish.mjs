@@ -17,6 +17,7 @@ import {
   createBranch,
   createCommit,
   openPullRequest,
+  openPullsFrom,
   readFile,
 } from './github.mjs';
 import {AVIF_REL, PREVIEW_REL, STATE_REL, outDir, stateFile, writeRun} from './runstore.mjs';
@@ -86,20 +87,28 @@ function publishCards(run) {
     ensureBranch(branchName(run), run.published.commit);
     record(run, {branch: branchName(run)});
   }
+  // An attempt whose answer never arrived may have opened the PR already; GitHub refuses a second.
+  const opened = openPullsFrom(APP_REPO, PR_PREFIX).find(({branch}) => branch === run.published.branch);
   const pr = {head: run.published.branch, base: run.appBase, ...describePr(run)};
-  record(run, {url: openPullRequest(APP_REPO, pr)});
+  record(run, {url: opened?.url ?? openPullRequest(APP_REPO, pr)});
+}
+
+/** Record where the run's state landed, and keep it in run.json. */
+function recordState(run, commit) {
+  run.stateCommit = commit;
+  writeRun(run);
 }
 
 /** The run's state.json, committed straight to STATE_BRANCH (P3-6) unless the run changed nothing. */
 function publishState(run) {
   const bytes = fs.readFileSync(stateFile(run.runId));
-  if (gitBlobSha(bytes) === run.stateBlob) {
-    run.stateCommit = 'unchanged';
-    writeRun(run);
-    return;
-  }
+  const staged = gitBlobSha(bytes);
+  if (staged === run.stateBlob) return recordState(run, 'unchanged');
   const parent = branchTip(ADMIN_REPO, run.stateBranch);
-  if (readFile(ADMIN_REPO, STATE_REL, parent).sha !== run.stateBlob) {
+  const onTip = readFile(ADMIN_REPO, STATE_REL, parent).sha;
+  // An attempt whose answer never arrived may have moved the branch already: the tip holds this state.
+  if (onTip === staged) return recordState(run, parent);
+  if (onTip !== run.stateBlob) {
     throw new UsageError(
       `state.json changed on ${ADMIN_REPO}@${run.stateBranch} since this run started, so this run's state was not committed. It is in ${stateFile(run.runId)}; merge it by hand.`,
     );
@@ -108,8 +117,7 @@ function publishState(run) {
   const files = [{path: STATE_REL, base64: bytes.toString('base64')}];
   const sha = createCommit(ADMIN_REPO, {parent, message: `chore(reveals): record run ${run.runId}${link}`, files});
   advanceBranch(ADMIN_REPO, run.stateBranch, sha);
-  run.stateCommit = sha;
-  writeRun(run);
+  recordState(run, sha);
 }
 
 /** Publish a staged run: the app PR if it wrote cards, then its state. Returns what landed. */

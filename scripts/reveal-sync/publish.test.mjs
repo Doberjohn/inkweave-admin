@@ -12,6 +12,8 @@ const APP = 'repos/Doberjohn/inkweave';
 const ADMIN = 'repos/Doberjohn/inkweave-admin';
 const STATE = '{\n  "sets": {}\n}\n';
 const STATE_SHA = gitBlobSha(Buffer.from(STATE));
+const NEW_STATE = '{\n  "sets": {\n    "14": {}\n  }\n}\n';
+const OPEN_PRS = `GET repos/Doberjohn/inkweave/pulls?state=open&per_page=100&page=1`;
 const PR_URL = 'https://github.com/Doberjohn/inkweave/pull/800';
 const BRANCH = 'reveals/set14-publish-test';
 
@@ -23,6 +25,7 @@ const ANSWERS = {
   [`POST ${APP}/git/trees`]: {sha: 'tree'},
   [`POST ${APP}/git/commits`]: {sha: 'app-commit'},
   [`POST ${APP}/git/refs`]: {ref: `refs/heads/${BRANCH}`},
+  [OPEN_PRS]: [],
   [`POST ${APP}/pulls`]: {html_url: PR_URL},
   [`GET ${ADMIN}/git/ref/heads/main`]: {object: {sha: 'admin-tip'}},
   [`GET ${ADMIN}/contents/scripts/reveal-sync/state.json?ref=admin-tip`]: fileAnswer(STATE, STATE_SHA),
@@ -51,7 +54,7 @@ function stagedRun(overrides = {}) {
     cards: {'test-pup-tiny-troublemaker': {number: 40, id: 14040, title: 'Test Pup - Tiny Troublemaker', status: 'written'}},
     ...overrides,
   };
-  writeBase(run.runId, {previewText: '{}', stateText: '{\n  "sets": {\n    "14": {}\n  }\n}\n'});
+  writeBase(run.runId, {previewText: '{}', stateText: NEW_STATE});
   fs.mkdirSync(path.join(outDir(run.runId), 'avif'), {recursive: true});
   fs.writeFileSync(path.join(outDir(run.runId), 'previewCards.json'), '{"cards":[]}\n');
   for (const name of ['14040.avif', '14040-sm.avif']) fs.writeFileSync(path.join(outDir(run.runId), 'avif', name), name);
@@ -105,6 +108,24 @@ describe('publishRun', () => {
       [`GET ${APP}/git/ref/heads/${BRANCH}`]: {object: {sha: 'app-commit'}},
     });
     expect(publishRun(stagedRun()).url).toBe(PR_URL);
+  });
+
+  // The PR was opened, but the answer never arrived: GitHub would refuse a second one.
+  it('takes a PR an interrupted attempt already opened', () => {
+    const calls = github({[OPEN_PRS]: [{number: 800, html_url: PR_URL, head: {ref: BRANCH}}]});
+    const run = stagedRun({published: {commit: 'app-commit', branch: BRANCH}});
+    expect(publishRun(run).url).toBe(PR_URL);
+    expect(writes(calls).some((call) => call.endsWith('/pulls'))).toBe(false);
+  });
+
+  // The branch moved, but the answer never arrived: the tip already holds this run's state.
+  it('takes a state commit an interrupted attempt already made', () => {
+    const calls = github({
+      [`GET ${ADMIN}/contents/scripts/reveal-sync/state.json?ref=admin-tip`]: fileAnswer(NEW_STATE, gitBlobSha(Buffer.from(NEW_STATE))),
+    });
+    const run = stagedRun({published: {commit: 'app-commit', branch: BRANCH, url: PR_URL}});
+    expect(publishRun(run).stateCommit).toBe('admin-tip');
+    expect(writes(calls).some((call) => call.includes('inkweave-admin'))).toBe(false);
   });
 
   it('publishes nothing when previewCards.json moved on the base', () => {

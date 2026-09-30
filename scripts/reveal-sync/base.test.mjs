@@ -4,7 +4,7 @@ import {assertNoOpenRevealPr, readBase} from './base.mjs';
 import {setGhRunner} from './github.mjs';
 import {fakeGh, fileAnswer, table} from './__fixtures__/gh.mjs';
 
-const OPEN_PRS = 'GET repos/Doberjohn/inkweave/pulls?state=open&per_page=100';
+const OPEN_PRS = 'GET repos/Doberjohn/inkweave/pulls?state=open&per_page=100&page=1';
 
 afterEach(() => setGhRunner());
 

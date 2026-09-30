@@ -67,7 +67,7 @@ describe('github', () => {
     fakeGh(
       table({
         'POST repos/o/r/pulls': {html_url: 'https://github.com/o/r/pull/9'},
-        'GET repos/o/r/pulls?state=open&per_page=100': [
+        'GET repos/o/r/pulls?state=open&per_page=100&page=1': [
           {number: 9, html_url: 'u9', head: {ref: 'reveals/set14-x'}},
           {number: 8, html_url: 'u8', head: {ref: 'feature/1-y'}},
         ],
@@ -75,6 +75,17 @@ describe('github', () => {
     );
     expect(openPullRequest('o/r', {head: 'h', base: 'master', title: 't', body: 'b'})).toBe('https://github.com/o/r/pull/9');
     expect(openPullsFrom('o/r', 'reveals/')).toEqual([{number: 9, url: 'u9', branch: 'reveals/set14-x'}]);
+  });
+
+  it('reads every page of open PRs, so a reveal PR past the first 100 still counts', () => {
+    const others = Array.from({length: 100}, (_, i) => ({number: i + 1, html_url: `u${i + 1}`, head: {ref: `feature/${i + 1}-x`}}));
+    fakeGh(
+      table({
+        'GET repos/o/r/pulls?state=open&per_page=100&page=1': others,
+        'GET repos/o/r/pulls?state=open&per_page=100&page=2': [{number: 101, html_url: 'u101', head: {ref: 'reveals/set14-y'}}],
+      }),
+    );
+    expect(openPullsFrom('o/r', 'reveals/')).toEqual([{number: 101, url: 'u101', branch: 'reveals/set14-y'}]);
   });
 
   it("names the call and gh's own message when a call fails", () => {

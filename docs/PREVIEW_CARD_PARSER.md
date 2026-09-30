@@ -33,6 +33,9 @@ ready-to-paste JSON entry before LorcanaJSON.org publishes the canonical set.
 - `id` is a `setCode`-prefixed composite (`setNum * 1000 + collectorNumber`, e.g.
   Set 13 #1 → `13001`) so it can't collide with the low sequential ids already in
   `allCards.json` (a collision makes the loader silently drop the preview card).
+- A card with no collector number stops with an error: pick a free id in the set's
+  reserved `+900..+999` band (check `previewCards.json`) and pass it as `opts.id`,
+  e.g. `parseLorcanaCard(document, {id: 14901})`. Renumber it once the number is known.
 
 ## The snippet
 
@@ -422,11 +425,14 @@ function deriveCardId(ctx) {
   if (Number.isInteger(number) && number > 0) {
     return set * 1000 + number;
   }
-  // Promo with no collector number: stable hash of the name into a reserved
-  // 900-999 band so it can't collide with numbered cards (1-899) in the set.
-  let h = 0;
-  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return set * 1000 + 900 + (h % 100);
+  // Promo with no collector number: its id comes from the reserved 900-999 band,
+  // which numbered cards (1-899) never use. Only previewCards.json knows which of
+  // those ids are free, and this page cannot read it; a hash of the name into 100
+  // slots could hand two promos one id, and the loader would drop one of them.
+  throw new Error(
+    `deriveCardId: "${name}" has no collector number. Pick a free id in ${set * 1000 + 900}-${set * 1000 + 999} ` +
+      `(check previewCards.json) and pass it: parseLorcanaCard(document, {id: ${set * 1000 + 901}}).`,
+  );
 }
 
 // --- Auto-run when pasted into a browser devtools console on a card page ----------
