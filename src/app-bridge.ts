@@ -38,6 +38,7 @@ export {
   inkBlock,
   whiteRgba,
 } from '../upstream/inkweave/apps/web/src/shared/constants';
+export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
 export {TabList} from '../upstream/inkweave/apps/web/src/shared/components/TabList';

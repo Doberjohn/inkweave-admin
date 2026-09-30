@@ -27,4 +27,10 @@ export default meta;
 type Story = StoryObj<typeof CardPreviewPanel>;
 
 export const WithCard: Story = {args: {card: sample}};
+/** Scan language set to Japanese: the panel the app's "See translation" toggle shows. */
+export const WithTranslation: Story = {
+  args: {
+    card: {...sample, scanLanguage: 'ja', textSections: ['PANDA POWER When you play this character, draw a card.']},
+  },
+};
 export const Empty: Story = {args: {card: null}};

@@ -2,7 +2,15 @@ import type {ChangeEvent, FocusEvent} from 'react';
 import {canonicalizeCardFullText, type Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from '../buildPreviewCard';
 import {ALL_INKS, COLORS, SPACING, FONT_SIZES, RADIUS} from '../../../app-bridge';
-import {CARD_TYPES, RARITIES, FEATURED_FRANCHISE_HINT, STAT_FIELDS, STAT_LABELS} from '../constants';
+import {
+  CARD_TYPES,
+  RARITIES,
+  FEATURED_FRANCHISE_HINT,
+  SCAN_LANGUAGES,
+  STAT_FIELDS,
+  STAT_LABELS,
+  type ScanLanguage,
+} from '../constants';
 
 interface RevealAdminFormProps {
   form: RevealCardForm;
@@ -150,6 +158,17 @@ export function RevealAdminForm({form, errors, onChange}: RevealAdminFormProps) 
           onChange={text('fullText')}
           onBlur={canonicalizeOnLeave}
         />
+      </Field>
+      <Field label={'Scan language (anything but English adds "See translation")'} name="scanLanguage" errors={errors}>
+        <select
+          {...control('scanLanguage')}
+          style={fieldStyle}
+          value={form.scanLanguage}
+          onChange={(e) => onChange({scanLanguage: e.target.value as ScanLanguage})}>
+          {SCAN_LANGUAGES.map(({code, label}) => (
+            <option key={code} value={code}>{label}</option>
+          ))}
+        </select>
       </Field>
     </div>
   );

@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {fireEvent, render, screen} from '@testing-library/react';
 import {RevealAdminForm} from '../components/RevealAdminForm';
 import type {RevealCardForm} from '../buildPreviewCard';
 
@@ -21,6 +21,7 @@ const FORM: RevealCardForm = {
   subtypes: '',
   keywords: '',
   fullText: '',
+  scanLanguage: 'en',
 };
 
 describe('RevealAdminForm', () => {
@@ -46,5 +47,15 @@ describe('RevealAdminForm', () => {
 
     rerender(<RevealAdminForm form={{...FORM, type: 'Item'}} errors={{}} onChange={vi.fn()} />);
     expect(screen.queryByLabelText('Willpower')).toBeNull();
+  });
+
+  it('picks the scan language, English unless changed', () => {
+    const onChange = vi.fn();
+    render(<RevealAdminForm form={FORM} errors={{}} onChange={onChange} />);
+
+    const language = screen.getByLabelText(/^Scan language/);
+    expect(language).toHaveValue('en');
+    fireEvent.change(language, {target: {value: 'ja'}});
+    expect(onChange).toHaveBeenCalledWith({scanLanguage: 'ja'});
   });
 });
