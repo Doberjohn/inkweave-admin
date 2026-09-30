@@ -2207,16 +2207,18 @@ Before P4, Doberjohn/inkweave#667 (#669) taught the engine's house style to writ
 **Status:** done 2026-09-30, and #4 is closed. The owner did the token, secret and dashboard steps. Admin verified the results.
 
 As built, P5 departs from the bullets below in four ways:
-- **One token, not a dedicated tools token.**
-  - The new fine-grained token, `inkweave-admin CI` (expires 2027-09-24), serves the admin tools, `APP_REPO_TOKEN` (Actions and Dependabot), and the owner's local `gh` login and two env vars.
-  - Deploy run 36735057709 verified the secret.
+- **Each consumer has its own credential.**
+  - The admin tools use the fine-grained token `inkweave-admin CI`. It has Contents read/write on `Doberjohn/inkweave` and expires 2027-09-24. Despite its name, it serves only the tools.
+  - `APP_REPO_TOKEN` (Actions and Dependabot) holds a separate token, `inkweave-admin CI read-only`. It has Contents read on both repos and nothing else, because CI and Dependabot only fetch code. Deploy run 36738649910 verified it.
+  - The owner's `gh` uses its own OAuth login (`gh auth login --web`), not a personal token.
   - The old `inkweave-admin tools` token, the one kept in `inkweave.ink`'s storage, is deleted.
 - **The expiry is one year, not 90 days.**
 - **`VERCEL_PROJECT_ID` was also removed from the app's Vercel env.** It was an analytics-only leftover. The deploy workflow's GitHub secret of the same name stays.
 - **`VERCEL_ANALYTICS_WINDOW_DAYS` was never set.**
 
+**Lesson.** The old token had permissions beyond Contents, including pull requests. The rotation deleted it before mapping what else relied on it. For a while one token served everything, and the owner's local `gh` login and env vars broke. Before the next rotation, list each consumer and the permissions it needs, and give each its own credential first.
+
 Follow-ups, not blocking:
-- give CI its own read-only token;
 - move `SENTRY_AUTH_TOKEN` in the app's Vercel env to a Sensitive variable;
 - the Dependabot copy of `APP_REPO_TOKEN` is untested until its next weekly run.
 
