@@ -1,16 +1,7 @@
 /** Small helpers shared by the reveal-sync command line. */
-import {execFileSync} from 'node:child_process';
-import {ROOT} from './web.mjs';
 
 /** A problem the owner can act on: printed as a message rather than a stack trace. */
 export class UsageError extends Error {}
-
-export const git = (...args) =>
-  execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
 
 export const say = (...lines) => console.log(lines.join('\n'));
 

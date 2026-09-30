@@ -5,25 +5,35 @@
  * the vision agents' crops and results never touch the working tree. The page's downloads
  * land in the owner's Downloads folder (REVEAL_SYNC_DOWNLOADS to override) and are moved into
  * the run as soon as they finish.
+ *
+ * A run works from the base `start` read through gh (base.mjs): the app's previewCards.json
+ * and admin's state.json. `write` stages what the run publishes in out/, and publish.mjs
+ * pushes it.
  */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {UsageError} from './cli.mjs';
-import {ROOT} from './web.mjs';
 import {serializeState} from './state.mjs';
 
+/** The app's preview data, as a path in the app repo. */
 export const PREVIEW_REL = 'apps/web/public/data/previewCards.json';
-export const PREVIEW_FILE = path.join(ROOT, PREVIEW_REL);
-export const STATE_FILE = path.join(ROOT, 'scripts/reveal-sync/state.json');
-export const RAW_DIR = path.join(ROOT, 'apps/web/public/card-images-raw');
-export const AVIF_DIR = path.join(ROOT, 'apps/web/public/card-images-preview');
+/** The app folder that holds preview cards' AVIFs. */
+export const AVIF_REL = 'apps/web/public/card-images-preview';
+/** Run-to-run memory, as a path in admin's repo (docs/plans/P3-pipelines.md, P3-5). */
+export const STATE_REL = 'scripts/reveal-sync/state.json';
 
-const RUNS = process.env.REVEAL_SYNC_RUNS ?? path.join(os.tmpdir(), 'inkweave-reveal-sync');
+/** Read on every call, so a test or the rehearsal can point it elsewhere. */
+const runsRoot = () => process.env.REVEAL_SYNC_RUNS ?? path.join(os.tmpdir(), 'inkweave-reveal-sync');
 const DOWNLOADS = process.env.REVEAL_SYNC_DOWNLOADS ?? path.join(os.homedir(), 'Downloads');
 
-export const runDir = (runId) => path.join(RUNS, runId);
+export const runDir = (runId) => path.join(runsRoot(), runId);
 export const cardDir = (runId, slug) => path.join(runDir(runId), 'cards', slug);
+/** What `write` stages for the app PR: previewCards.json and avif/. */
+export const outDir = (runId) => path.join(runDir(runId), 'out');
+/** The run's state.json: the base as `start` read it, then as `write` left it. */
+export const stateFile = (runId) => path.join(runDir(runId), 'state.json');
+const previewFile = (runId) => path.join(runDir(runId), 'preview.json');
 
 /**
  * A blind reader's folder: a random token, holding only its copy of the card image and
@@ -53,18 +63,24 @@ export function writeRun(run) {
 
 export function readRun(runId) {
   const file = path.join(runDir(runId ?? ''), 'run.json');
-  if (!runId || !fs.existsSync(file)) throw new Error(`no run "${runId}" under ${RUNS}`);
+  if (!runId || !fs.existsSync(file)) throw new Error(`no run "${runId}" under ${runsRoot()}`);
   return readJson(file);
 }
 
 const officialFile = (runId) => path.join(runDir(runId), 'official.json');
 const siteFile = (runId, slug) => path.join(cardDir(runId, slug), 'site.json');
 
-/** A file an earlier step of the run wrote. Missing or unreadable, the run cannot go on. */
-function readRunFile(file, what) {
+/** A file an earlier step of the run wrote. Missing, the run cannot go on. */
+function readRunText(file, what) {
   if (!fs.existsSync(file)) throw new UsageError(`${what} is missing (${file}). Start a new run.`);
+  return fs.readFileSync(file, 'utf8');
+}
+
+/** The same, parsed. Not valid JSON, the run cannot go on either. */
+function readRunFile(file, what) {
+  const text = readRunText(file, what);
   try {
-    return readJson(file);
+    return JSON.parse(text);
   } catch (error) {
     throw new UsageError(`${what} is not valid JSON (${file}: ${error.message}). Start a new run.`);
   }
@@ -87,16 +103,20 @@ export function writeSite(runId, slug, site) {
 export const readSite = (runId, slug) =>
   readRunFile(siteFile(runId, slug), `the site record for ${slug}`);
 
-export function readState() {
-  return fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : {sets: {}};
+/** The run's base, as `start` read it: the app's preview data and admin's state. */
+export function writeBase(runId, {previewText, stateText}) {
+  fs.mkdirSync(runDir(runId), {recursive: true});
+  fs.writeFileSync(previewFile(runId), previewText);
+  fs.writeFileSync(stateFile(runId), stateText);
 }
 
-export function writeState(state) {
-  fs.writeFileSync(STATE_FILE, serializeState(state));
-}
+/** The app's previewCards.json, as the run's base holds it. */
+export const readPreviewText = (runId) => readRunText(previewFile(runId), `run ${runId}'s preview data`);
 
-export function readPreviewText() {
-  return fs.readFileSync(PREVIEW_FILE, 'utf8');
+export const readState = (runId) => readRunFile(stateFile(runId), `run ${runId}'s state`);
+
+export function writeState(runId, state) {
+  fs.writeFileSync(stateFile(runId), serializeState(state));
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

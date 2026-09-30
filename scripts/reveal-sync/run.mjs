@@ -4,7 +4,8 @@
  * (.claude/skills/fetch-reveals/SKILL.md) runs them in order and does the browser and vision
  * work in between.
  *
- *   start [--allow-non-master-base]    check the branch, read the official list, open a run
+ *   start                              check no reveal PR is open, read the base and the
+ *                                      official list, open a run
  *   snippet                            print the in-page code to install in the site's tab
  *   candidates <run> [--only a,b]      read the discovered index, list the cards to fetch;
  *                                      --only fetches the named cards whatever their state
@@ -13,19 +14,22 @@
  *   adjudicate <run>                   read the readers' results, decide, list any escalations
  *   resolve <run> <slug> <field>=<v>   record the owner's ruling on a field the readers
  *                                      disputed, or one the two sites disagree on
- *   write <run>                        write verified cards, stage their art, update state
+ *   write <run>                        stage verified cards, their art and the state
  *   report <run>                       print the report
  *
- * It never commits or pushes. `write` leaves changes in the working tree for the owner.
+ * Nothing touches a local app checkout: a run reads its base through gh (base.mjs), and
+ * `write` stages what it publishes in the run dir.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {RulingError, adjudicate} from './adjudicate.mjs';
+import {assertNoOpenRevealPr, readBase} from './base.mjs';
 import {BROWSER_API_VERSION, installSnippet} from './browser.mjs';
-import {UsageError, entries, git, say} from './cli.mjs';
+import {UsageError, entries, say} from './cli.mjs';
 import {SiteRecordError, parseCardLines} from './extract-card.mjs';
 import {RARITIES, existingVerdict, gateCard} from './gates.mjs';
+import {APP_REPO} from './github.mjs';
 import {
   OFFICIAL_IMAGE,
   OfficialListError,
@@ -46,23 +50,23 @@ import {fullName} from './text.mjs';
 import {loadSeason, loadWriteChain} from './web.mjs';
 import {writePhase} from './write.mjs';
 import {
-  PREVIEW_REL,
   cardDir,
   localDate,
   newRunId,
+  outDir,
   readOfficial,
   readPreviewText,
   readRun,
   readSite,
   readState,
   takeDownload,
+  writeBase,
   writeOfficial,
   writeRun,
   writeSite,
 } from './runstore.mjs';
 
 const BATCH_SIZE = 15;
-const PROTECTED_BRANCHES = ['master', 'main'];
 /** The site's rarity facet for the five dataset rarities: "common;legendary;rare;super-rare;uncommon". */
 const RARITY_FACET = RARITIES.map((r) => r.toLowerCase().replace(/ /g, '-'))
   .sort()
@@ -99,35 +103,17 @@ function openRun(runId) {
   return run;
 }
 
-/** This set's cards already in previewCards.json, as {id, number, name}. */
-function presentCards(setCode) {
-  return JSON.parse(readPreviewText())
+/** This set's cards in some preview data, as {id, number, name}. */
+function cardsOfSet(previewText, setCode) {
+  return JSON.parse(previewText)
     .cards.filter((c) => String(c.setCode) === String(setCode))
     .map((c) => ({id: c.id, number: c.number ?? null, name: c.fullName}));
 }
 
+/** This set's cards already in the run's base. */
+const presentCards = (run) => cardsOfSet(readPreviewText(run.runId), run.season.setCode);
+
 /* ------------------------------------------------------------------ start */
-
-function assertCleanBranch() {
-  const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
-  if (PROTECTED_BRANCHES.includes(branch)) {
-    throw new UsageError(`on ${branch}: switch to a fresh branch from origin/master first`);
-  }
-  if (git('status', '--porcelain', '--untracked-files=no')) {
-    throw new UsageError('the working tree has uncommitted changes');
-  }
-  return branch;
-}
-
-function assertFreshBase(args) {
-  git('fetch', '--quiet', 'origin', 'master');
-  if (args.includes('--allow-non-master-base')) return;
-  if (git('rev-parse', 'HEAD') !== git('rev-parse', 'origin/master')) {
-    throw new UsageError(
-      'HEAD is not origin/master: branch from a fresh origin/master (--allow-non-master-base is for testing the skill itself)',
-    );
-  }
-}
 
 /** The official list, or a UsageError that ends the run before it opens: no list, no run. */
 async function loadOfficialList(season) {
@@ -139,13 +125,9 @@ async function loadOfficialList(season) {
   }
 }
 
-async function start(args) {
-  const branch = assertCleanBranch();
-  assertFreshBase(args);
-  const baseBlob = git('rev-parse', `origin/master:${PREVIEW_REL}`);
-  if (git('hash-object', PREVIEW_REL) !== baseBlob) {
-    throw new UsageError('previewCards.json differs from origin/master');
-  }
+async function start() {
+  assertNoOpenRevealPr();
+  const base = readBase();
   const season = await loadSeason();
   const official = await loadOfficialList(season);
   const run = {
@@ -153,18 +135,21 @@ async function start(args) {
     startedAt: new Date().toISOString(),
     today: localDate(),
     season,
-    branch,
-    baseBlob,
+    appBase: base.appBase,
+    stateBranch: base.stateBranch,
+    baseBlob: base.preview.sha,
+    stateBlob: base.state.sha,
     official: officialSummary(official, season.setTotal),
-    audit: leakAudit(presentCards(season.setCode), official),
+    audit: leakAudit(cardsOfSet(base.preview.text, season.setCode), official),
     cards: {},
   };
   writeRun(run);
+  writeBase(run.runId, {previewText: base.preview.text, stateText: base.state.text});
   writeOfficial(run.runId, official);
   const discover = {setSlug: season.setSlug, rarities: RARITY_FACET, runId: run.runId};
   const findings = run.audit.length;
   say(
-    `Run ${run.runId} opened for Set ${season.setCode} (${season.setName}) on ${branch}.`,
+    `Run ${run.runId} opened for Set ${season.setCode} (${season.setName}) against ${APP_REPO}@${run.appBase}.`,
     ...officialLines(run),
     `Leak audit: ${findings} finding${findings === 1 ? '' : 's'}.`,
     ...auditLines(run),
@@ -210,7 +195,7 @@ function waitingRecord(entry) {
  */
 function refreshWaiting(run, section) {
   const numbers = [
-    ...presentCards(run.season.setCode).map((card) => card.number),
+    ...presentCards(run).map((card) => card.number),
     ...run.site.slugs.map((slug) => section.cards[slug]?.number),
     ...Object.values(run.cards).map((card) => card.number),
   ].filter((n) => n != null);
@@ -227,7 +212,7 @@ async function candidates([runId, ...args]) {
       `the site listed no cards for cardset=${run.season.setSlug}; check the set slug`,
     );
   }
-  const section = setSection(readState(), run.season.setCode);
+  const section = setSection(readState(run.runId), run.season.setCode);
   const warning = shrinkWarning(section, index.slugs.length);
   if (warning) say(warning, '');
   const {chosen, absent} = chooseCandidates(index.slugs, section, onlyList(args));
@@ -331,7 +316,7 @@ function assignFirstReaders(run) {
 
 async function ingest([runId]) {
   const run = openRun(runId);
-  const present = presentCards(run.season.setCode);
+  const present = presentCards(run);
   const official = readOfficial(runId);
   run.ingested ??= [];
   const batches = Math.ceil(run.candidates.length / BATCH_SIZE);
@@ -348,7 +333,7 @@ async function ingest([runId]) {
   }
   markUnfetched(run);
   assignFirstReaders(run);
-  refreshWaiting(run, setSection(readState(), run.season.setCode));
+  refreshWaiting(run, setSection(readState(run.runId), run.season.setCode));
   writeRun(run);
   summarize(run);
   printJobs(run);
@@ -465,26 +450,20 @@ async function resolve([runId, slug, assignment = '']) {
 
 async function write([runId]) {
   const run = openRun(runId);
-  const reading = entries(run, 'reading');
-  if (reading.length)
-    throw new UsageError(`${reading.length} card(s) still need readers; run adjudicate first`);
-  assertCleanBranch();
-  const {written, section} = writePhase(run, await loadWriteChain());
-  writeRun(run);
-  say(formatReport(run, section, localDate()), '');
-  say(
-    `Changed: previewCards.json (+${written} cards), card-images-preview/ (their art), scripts/reveal-sync/state.json`,
-    'Next:',
-    '  git status                    review what changed',
-    '  pnpm precompute-synergies     refresh local synergy data (git-ignored; CI builds its own)',
-    '  /commit-and-push              commit and open the PR',
-  );
+  if (!run.staged) {
+    const reading = entries(run, 'reading');
+    if (reading.length) throw new UsageError(`${reading.length} card(s) still need readers; run adjudicate first`);
+    writePhase(run, await loadWriteChain());
+    writeRun(run);
+  }
+  summarize(run);
+  say(`Staged in ${outDir(run.runId)}.`);
 }
 
 /* ----------------------------------------------------------------- output */
 
 function summarize(run) {
-  say(formatReport(run, setSection(readState(), run.season.setCode), localDate()), '');
+  say(formatReport(run, setSection(readState(run.runId), run.season.setCode), localDate()), '');
 }
 
 function printJobs(run) {

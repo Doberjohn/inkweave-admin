@@ -1,29 +1,30 @@
 /**
- * The write phase: everything that changes the working tree, ordered so previewCards.json
- * is never ahead of the art.
+ * The write phase: everything a run publishes, staged in the run dir, ordered so the preview
+ * data is never ahead of the art.
  *
  *   1. every ready card goes through validateRevealCardForm, and is refused if its name is
  *      already in the set's preview data
- *   2. the accepted cards' scans are converted to AVIFs
- *   3. only the cards whose AVIFs now exist are inserted, and previewCards.json is written
- *      once, last; if that fails, the art this run produced is removed again
+ *   2. the accepted cards' scans are converted to AVIFs, unless the app already has their art
+ *   3. only the cards whose art is in place are inserted into the base's previewCards.json
+ *   4. the run's state takes this run's outcomes
  *
- * A card that fails a step becomes a conflict with the reason, and is retried next run.
+ * Nothing leaves the machine here: publish.mjs pushes out/ and the state afterwards. A card
+ * that fails a step becomes a conflict with the reason, and is retried next run.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
 import {toRevealForm} from './adjudicate.mjs';
-import {UsageError, byNumber, entries, git, say} from './cli.mjs';
+import {UsageError, byNumber, entries, say} from './cli.mjs';
+import {VARIANTS, convertScans, removeScratch} from './convert.mjs';
+import {ADMIN_REPO, APP_REPO, listDir, readFile} from './github.mjs';
 import {markVanished, recordOutcome, setSection} from './state.mjs';
 import {comparableName, fullName, unaccentReferences, unaccented} from './text.mjs';
-import {ROOT} from './web.mjs';
 import {
-  AVIF_DIR,
-  PREVIEW_FILE,
+  AVIF_REL,
   PREVIEW_REL,
-  RAW_DIR,
+  STATE_REL,
   cardDir,
+  outDir,
   readPreviewText,
   readState,
   writeState,
@@ -37,23 +38,17 @@ const STATE_STATUS = {
   conflict: 'conflict',
   skipped: 'skipped',
 };
-const VARIANTS = ['', '-sm'];
 
-const avifPath = (id, suffix) => path.join(AVIF_DIR, `${id}${suffix}.avif`);
-/** Production shows a preview image only when both variants exist. */
-const hasArt = (id) => VARIANTS.every((suffix) => fs.existsSync(avifPath(id, suffix)));
-
-/** previewCards.json must be exactly what the run started from, locally and on origin/master. */
-function assertNoRace(run) {
-  git('fetch', '--quiet', 'origin', 'master');
-  if (git('rev-parse', `origin/master:${PREVIEW_REL}`) !== run.baseBlob) {
+/** The app's previewCards.json and admin's state.json must still be what the run started from. */
+export function assertNoRace(run) {
+  if (readFile(APP_REPO, PREVIEW_REL, run.appBase).sha !== run.baseBlob) {
     throw new UsageError(
-      'previewCards.json changed on origin/master since this run started, probably a card published through /admin/reveal. Nothing was written. Start a new run from a fresh origin/master.',
+      `previewCards.json changed on ${APP_REPO}@${run.appBase} since this run started, probably a card published through the reveal publisher. Nothing was written. Start a new run.`,
     );
   }
-  if (git('hash-object', PREVIEW_REL) !== run.baseBlob) {
+  if (readFile(ADMIN_REPO, STATE_REL, run.stateBranch).sha !== run.stateBlob) {
     throw new UsageError(
-      'previewCards.json changed locally since this run started. Nothing was written.',
+      `state.json changed on ${ADMIN_REPO}@${run.stateBranch} since this run started, probably another run. Nothing was written. Start a new run.`,
     );
   }
 }
@@ -106,106 +101,51 @@ function acceptReady(run, chain, previewText) {
   return accepted;
 }
 
-/** Copy each accepted card's scan to card-images-raw/{id}.ext; returns the files placed. */
-function placeRaws(run, accepted) {
-  fs.mkdirSync(RAW_DIR, {recursive: true});
-  const placed = [];
-  for (const {slug, id, image} of accepted) {
-    const target = path.join(RAW_DIR, `${id}${path.extname(image)}`);
-    if (fs.existsSync(target)) continue;
-    fs.copyFileSync(path.join(cardDir(run.runId, slug), image), target);
-    placed.push(target);
-  }
-  return placed;
-}
-
-/** Raw images this run did not place that the converter would still turn into new AVIFs. */
-function warnAboutStrangers(placed) {
-  const ours = new Set(placed.map((file) => path.basename(file)));
-  const strangers = fs
-    .readdirSync(RAW_DIR)
-    .filter((file) => !ours.has(file) && !hasArt(path.parse(file).name));
-  if (strangers.length) {
-    say(
-      `warning: card-images-raw also holds ${strangers.join(', ')} with no AVIFs yet; the converter will convert those too`,
-    );
-  }
-}
-
-function runConverter() {
-  const script = path.join(ROOT, 'scripts/convert-preview-images.mjs');
-  const result = spawnSync(process.execPath, [script], {cwd: ROOT, stdio: 'inherit'});
-  return result.error ? -1 : result.status;
-}
-
-/** Remove AVIFs this run produced for an id; art that existed before the run is never touched. */
-function removeProducedArt(id, hadArt) {
-  if (hadArt.has(id)) return;
-  for (const suffix of VARIANTS) fs.rmSync(avifPath(id, suffix), {force: true});
-}
-
 /**
- * Step 2: convert the accepted cards' scans. The converter skips ids that already have
- * AVIFs, so art uploaded by hand is never replaced. Returns the cards whose art is in place
- * and the ids whose AVIFs this run created.
+ * Step 2: the accepted cards' art. An id that already has both AVIFs in the app keeps them,
+ * never replaced; the rest are converted from their official scans. Returns the cards whose
+ * art is in place and the AVIFs made, as [{name, path}].
  */
 function stageArt(run, accepted) {
-  if (!accepted.length) return {converted: [], produced: []};
-  const hadArt = new Set(accepted.filter((a) => hasArt(a.id)).map((a) => a.id));
-  const placed = placeRaws(run, accepted);
-  try {
-    warnAboutStrangers(placed);
-    const exitCode = runConverter();
-    if (exitCode !== 0)
-      say(`warning: convert-preview-images exited ${exitCode}; checking each card's AVIFs`);
-    for (const failed of accepted.filter((a) => !hasArt(a.id))) {
-      const detail = `no AVIFs after conversion (converter exit ${exitCode})`;
-      Object.assign(run.cards[failed.slug], {status: 'conflict', reason: 'art-failed', detail});
-      removeProducedArt(failed.id, hadArt);
-    }
-    const converted = accepted.filter((a) => hasArt(a.id));
-    return {converted, produced: converted.filter((a) => !hadArt.has(a.id)).map((a) => a.id)};
-  } finally {
-    for (const file of placed) fs.rmSync(file, {force: true});
+  if (!accepted.length) return {converted: [], avifs: []};
+  const inApp = listDir(APP_REPO, AVIF_REL, run.appBase);
+  const hasArt = ({id}) => VARIANTS.every((suffix) => inApp.has(`${id}${suffix}.avif`));
+  const toConvert = accepted.filter((card) => !hasArt(card));
+  const scans = toConvert.map(({id, slug, image}) => ({id, source: path.join(cardDir(run.runId, slug), image)}));
+  const {exitCode, made} = convertScans(run.runId, scans);
+  if (exitCode !== 0) say(`warning: convert-preview-images exited ${exitCode}; checking each card's AVIFs`);
+  const madeIds = new Set(made.map(({id}) => id));
+  for (const failed of toConvert.filter(({id}) => !madeIds.has(id))) {
+    const detail = `no AVIFs after conversion (converter exit ${exitCode})`;
+    Object.assign(run.cards[failed.slug], {status: 'conflict', reason: 'art-failed', detail});
   }
+  return {
+    converted: accepted.filter((card) => hasArt(card) || madeIds.has(card.id)),
+    avifs: made.flatMap(({files}) => files),
+  };
 }
 
-/**
- * Replace a file all at once: write a sibling temp file, then rename it over the original,
- * so a failure part-way (a full disk, a Windows file lock) leaves the original untouched
- * rather than truncated.
- */
-function replaceFile(file, text) {
-  const temp = `${file}.reveal-sync.tmp`;
-  fs.writeFileSync(temp, text);
-  try {
-    fs.renameSync(temp, file);
-  } catch (error) {
-    fs.rmSync(temp, {force: true});
-    throw error;
-  }
-}
-
-/** Step 3: insert the converted cards and write previewCards.json once, or undo the art. */
-function insertCards(run, chain, {converted, produced}, previewText) {
-  if (!converted.length) return;
-  try {
-    let text = previewText;
-    for (const {form} of converted)
-      text = chain.insertCardIntoPreviewJson(text, chain.buildPreviewCard(form));
-    replaceFile(PREVIEW_FILE, text);
-  } catch (error) {
-    for (const id of produced) removeProducedArt(id, new Set());
-    throw new Error(
-      `previewCards.json was not written (${error.message}); the art this run produced was removed`,
-      {cause: error},
-    );
-  }
+/** Step 3: the base's preview data with the converted cards inserted, or null for none. */
+function insertCards(run, chain, {converted}, previewText) {
+  if (!converted.length) return null;
+  let text = previewText;
+  for (const {form} of converted) text = chain.insertCardIntoPreviewJson(text, chain.buildPreviewCard(form));
   for (const {slug, id} of converted) Object.assign(run.cards[slug], {status: 'written', id});
+  return text;
 }
 
+/** out/ holds exactly what the app PR commits: previewCards.json and the new AVIFs. */
+function stageOutputs(runId, text, avifs) {
+  const out = outDir(runId);
+  fs.rmSync(out, {recursive: true, force: true});
+  fs.mkdirSync(path.join(out, 'avif'), {recursive: true});
+  if (text != null) fs.writeFileSync(path.join(out, 'previewCards.json'), text);
+  for (const avif of avifs) fs.copyFileSync(avif.path, path.join(out, 'avif', avif.name));
+}
+
+/** Step 4: this run's outcomes, in the run's copy of state.json. */
 function updateState(run) {
-  const state = readState();
+  const state = readState(run.runId);
   const section = setSection(state, run.season.setCode);
   for (const [slug, card] of Object.entries(run.cards)) {
     const status = STATE_STATUS[card.status];
@@ -214,16 +154,25 @@ function updateState(run) {
   }
   run.retired = markVanished(run.site.slugs, section);
   section.indexTotal = run.site.total;
-  writeState(state);
+  writeState(run.runId, state);
   return section;
 }
 
-/** Write the run's verified cards. Returns how many were written and the updated state section. */
+/**
+ * Stage the run's verified cards and its state. Returns how many cards were written and the
+ * updated state section, and marks the run staged so `write` never stages it twice.
+ */
 export function writePhase(run, chain) {
   assertNoRace(run);
-  const previewText = readPreviewText();
+  const previewText = readPreviewText(run.runId);
   const accepted = acceptReady(run, chain, previewText);
-  const staged = stageArt(run, accepted);
-  insertCards(run, chain, staged, previewText);
-  return {written: staged.converted.length, section: updateState(run)};
+  try {
+    const staged = stageArt(run, accepted);
+    stageOutputs(run.runId, insertCards(run, chain, staged, previewText), staged.avifs);
+    const section = updateState(run);
+    run.staged = true;
+    return {written: staged.converted.length, section};
+  } finally {
+    removeScratch(run.runId);
+  }
 }
