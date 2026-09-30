@@ -10,3 +10,5 @@ reports/
 # P3 analytics: the app checkout the deploy builds from, and the files it writes
 app-master/
 public/admin-data/
+# P3b: the scratch copy of the app's converter a reveal write runs from
+.reveal-sync-convert/
