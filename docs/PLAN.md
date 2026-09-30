@@ -13,7 +13,7 @@
 | P6 | Doberjohn/inkweave#594 |
 
 - **Date:** 2026-09-25
-- **Status:** design approved by the owner (2026-09-25 review)
+- **Status:** design approved by the owner (2026-09-25 review). P0 to P5 are done (2026-09-30), and P6 waits on `deck-builder`. As-built notes: P1 in its phase section, P2 and P3 in their linked plans, and P3 to P5 in "Phases P2 to P6: outline".
 - **Repos:** app `Doberjohn/inkweave` (private); admin `Doberjohn/inkweave-admin` (private, empty at time of writing, default branch will be `main`, SSH remote `git@github-personal:Doberjohn/inkweave-admin.git`)
 - **Next:** implementation plan at `docs/superpowers/plans/2026-09-25-admin-repo-split.md`, then issues, then P0. Each phase gets a detailed plan when it starts; the first plan details P0 and P1 and outlines the rest.
 
@@ -2176,11 +2176,49 @@ Detailed plan and as-built notes: [docs/plans/P3-pipelines.md](plans/P3-pipeline
 
 ### P4: Cutover (app repo, `#APP_P4`)
 
+**Status:** done 2026-09-30.
+- Doberjohn/inkweave#672 merged as `2fe6841e`, and spec section 6.3 was checked in production:
+  - the three analytics files return 404;
+  - the CSP has no `api.github.com`;
+  - `sw.js` precaches no admin chunk;
+  - `/admin/reveal` and `/reveal-admin` show NotFound.
+- The results and sizes are on #593, which is closed along with #656.
+
+As built, P4 departs from the bullets below in five ways:
+- **#656 was folded in.** The `scanLanguage` test dropped its `state.json` cross-check.
+- **`sync-variants` got its own season loader first** (`scripts/lib/season.mjs`), since it imported `loadSeason` from the deleted `reveal-sync`.
+- **Sizes came from size-limit, not `pnpm analyze`.**
+  - User-facing JS went from 363.9 to 360.3 kB gzip.
+  - The Entry chunk's drop, from 117.46 to 88.22 kB, is Rollup regrouping code into a modulepreloaded chunk. First-load JS barely moved: 125.9 to 125.4 kB, in 4 files instead of 7.
+- **The Step 4 grep deliberately keeps a few lines:**
+  - `api.github.com` in two Node scripts;
+  - the dated legal-pages research, where each file got a note;
+  - a Supabase migration comment.
+- **A reveal PR raced the cutover** (Doberjohn/inkweave#665). It updated the app's `state.json` after the port. Admin took that final copy in #18.
+
+Before P4, Doberjohn/inkweave#667 (#669) taught the engine's house style to write an exert cost as ⟳. Admin's pin moved past both in #19 (`5a54ee90`).
+
 - Delete and edit exactly the lists in spec sections 6.1 and 6.2, on a `feature/APP_P4-...` branch in `APP_WT`.
 - Run `pnpm analyze` before and after, and record the change in user-facing JS.
 - Verify spec section 6.3 in production.
 
 ### P5: Security follow-through (`#ADM_P5`)
+
+**Status:** done 2026-09-30, and #4 is closed. The owner did the token, secret and dashboard steps. Admin verified the results.
+
+As built, P5 departs from the bullets below in four ways:
+- **One token, not a dedicated tools token.**
+  - The new fine-grained token, `inkweave-admin CI` (expires 2027-09-24), serves the admin tools, `APP_REPO_TOKEN` (Actions and Dependabot), and the owner's local `gh` login and two env vars.
+  - Deploy run 36735057709 verified the secret.
+  - The old `inkweave-admin tools` token, the one kept in `inkweave.ink`'s storage, is deleted.
+- **The expiry is one year, not 90 days.**
+- **`VERCEL_PROJECT_ID` was also removed from the app's Vercel env.** It was an analytics-only leftover. The deploy workflow's GitHub secret of the same name stays.
+- **`VERCEL_ANALYTICS_WINDOW_DAYS` was never set.**
+
+Follow-ups, not blocking:
+- give CI its own read-only token;
+- move `SENTRY_AUTH_TOKEN` in the app's Vercel env to a Sensitive variable;
+- the Dependabot copy of `APP_REPO_TOKEN` is untested until its next weekly run.
 
 - New fine-grained PAT (Contents read/write on `Doberjohn/inkweave`, with an expiry date) entered on the admin origin; the old PAT revoked in GitHub settings.
 - The `inkweave.reveal-admin.gh-token` entry cleared on `inkweave.ink` in each of the owner's browsers.
