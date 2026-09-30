@@ -5,6 +5,9 @@ on:
     branches: [main]
   push:
     branches: [main]
+    # write commits reveal-sync's state straight to main (docs/plans/P3-pipelines.md, P3-6).
+    # A push that changes only that file needs neither a CI run nor a deploy.
+    paths-ignore: ['scripts/reveal-sync/state.json']
 
 # Nothing here writes to GitHub, and checkout authenticates with APP_REPO_TOKEN,
 # so the workflow's own GITHUB_TOKEN only needs to read.

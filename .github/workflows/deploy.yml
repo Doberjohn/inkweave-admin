@@ -8,6 +8,9 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # write commits reveal-sync's state straight to main (docs/plans/P3-pipelines.md, P3-6).
+    # A push that changes only that file needs neither a CI run nor a deploy.
+    paths-ignore: ['scripts/reveal-sync/state.json']
   # The analytics refresh (docs/PLAN.md, D8; docs/plans/P3-pipelines.md, P3-3).
   schedule:
     - cron: '0 4 * * *'
