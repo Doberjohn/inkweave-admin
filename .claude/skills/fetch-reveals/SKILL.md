@@ -1,13 +1,14 @@
 ---
 name: fetch-reveals
-description: Fetch newly revealed cards for the current reveal season from lorcanaplayer.com, keep only the ones illumineertales.com lists as officially revealed, verify each against a blind read of its official scan, and stage the verified cards into previewCards.json with that scan as their art. Use when the owner says new cards have been revealed, or asks to fetch, sync or update the reveals. Needs the Claude in Chrome extension connected.
-allowed-tools: Read, Write, Agent, Bash(node:*), Bash(git:*), Bash(pnpm:*), mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__javascript_tool
+description: Fetch newly revealed cards for the current reveal season from lorcanaplayer.com, keep only the ones illumineertales.com lists as officially revealed, verify each against a blind read of its official scan, and publish the verified cards, with that scan as their art, as a PR in the app repo. Use when the owner says new cards have been revealed, or asks to fetch, sync or update the reveals. Needs the Claude in Chrome extension connected.
+allowed-tools: Read, Write, Agent, Bash(node:*), Bash(git:*), Bash(pnpm:*), Bash(gh:*), mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__javascript_tool
 ---
 
 # Fetch Reveals
 
-Turns "new cards dropped" into staged, verified card data in one run. The owner reads one
-report and approves the commit. Design and rationale: issues #571 and #574.
+Turns "new cards dropped" into one PR of verified card data in the app repo. The owner reads
+one report and reviews the PR. Design and rationale: Doberjohn/inkweave#571 and
+Doberjohn/inkweave#574 (the pipeline), Doberjohn/inkweave-admin#3 (its move to admin).
 
 **Two sources, each doing what it is good at.** lorcanaplayer.com has every card's text and
 stats, but it also lists leaks: cards that were never officially revealed. illumineertales.com
@@ -20,16 +21,17 @@ art, comes from the official list.
 and automated browsers get 403 on pages and images alike; only the owner's own Chrome gets
 through. So the browser half of this runs through the Claude in Chrome tools, and the rest
 is `node scripts/reveal-sync/run.mjs`, which does everything deterministic and is tested
-(`pnpm test:scripts`). The official list is plain HTTPS: `run.mjs` reads it, and downloads
+(`pnpm test:run`). The official list is plain HTTPS: `run.mjs` reads it, and downloads
 the scans, in Node.
 
-The season (set, size, ink blocks) is read from `apps/web/src/shared/constants/revealSet.ts`,
-so the skill follows a season rotation with no edits.
+The season (set, size, ink blocks) comes from the pinned app through `src/app-bridge.ts`.
+When the app rotates the season, bump the pin (CLAUDE.md, "Updating the app pin") before the
+next run. Nothing here needs editing.
 
 ## Hard rules
 
-- **Never commit or push.** Leave the changes staged in the working tree and hand over to
-  the owner, who runs `/commit-and-push`.
+- **Never commit or push by hand.** `write` opens the reveal PR in the app and commits
+  `state.json` to admin's `main` itself. The owner reviews and merges the PR.
 - **Never write a card the official list does not show as revealed, and never add one by
   hand to get around the gate.** A leak waits, deferred, and is written the day the official
   list shows it. If the official list cannot be read, the run stops; there is no way round it.
@@ -44,33 +46,26 @@ so the skill follows a season rotation with no edits.
   and transcribe the wrong card. Each job's directory is an anonymous folder holding only
   that reader's copy of the image; use it as given.
 
-## Step 0: Preflight and branch
+## Step 0: Preflight
 
 1. `mcp__claude-in-chrome__list_connected_browsers` must show a connected browser. If not,
    stop: the owner needs to open Chrome with the extension.
-2. The working tree must be clean (`git status --porcelain --untracked-files=no` prints
-   nothing). If not, stop and tell the owner; never carry unrelated changes into a data PR.
-3. Branch from a fresh `origin/master`:
-
-   ```bash
-   git fetch origin master
-   git switch -c feature/set<SET>-reveals-<YYYY-MM-DD> origin/master
-   pnpm build:engine
-   ```
-
-   `<SET>` is `REVEAL_SET_CODE` from `revealSet.ts`. If the branch exists, append `-2`.
-   The build is not optional: the house-style rules and the write chain load the engine's
-   build output (#635), and a branch switch never rebuilds it. A stale build fails at import
-   with "does not provide an export named".
+2. `gh auth status` must show the owner logged in to github.com: `start` and `write` read and
+   write both repos through `gh`.
+3. After a pin bump or on a fresh clone, build the engine: `pnpm build:engine`. The house-style
+   rules and the write chain load its build output (Doberjohn/inkweave#635), and a stale build
+   fails at import with "does not provide an export named".
 4. Open the run:
 
    ```bash
    node scripts/reveal-sync/run.mjs start
    ```
 
-   It prints the run id (`RUN` below) and the exact `discover` call for Step 2. It refuses
-   to start on master, on a dirty tree, or off anything but `origin/master`, and records the
-   blob of `previewCards.json` so Step 6 can detect `/admin/reveal` publishing mid-run.
+   It prints the run id (`RUN` below) and the exact `discover` call for Step 2. It refuses to
+   start while a reveal PR is still open in the app repo: merge or close that one first. It
+   reads the app's `previewCards.json` from `master` and admin's `state.json` from `main`, and
+   records both blobs so Step 6 can tell if a card was published through the reveal publisher,
+   or another run finished, in the meantime.
 
    It also reads the official list, keeps it for the whole run (`official.json`), and prints
    how many cards it shows plus a **leak audit**: this set's Inkweave cards that the list does
@@ -260,28 +255,39 @@ words `resolve` takes.
   site shows its number.
 - A card the write chain refuses (`validation-failed`) carries the validator's message as its
   detail, for example `"Strength" is spelled out: use ¤ ("their ¤")` for a glyph word house
-  style cannot place (#635). `resolve` cannot rule on it, and it is retried on every run. Add
-  it by hand in `/admin/reveal`, writing the text the way the detail says.
+  style cannot place (Doberjohn/inkweave#635). `resolve` cannot rule on it, and it is retried
+  on every run. Add it by hand in the reveal publisher
+  (https://inkweave-admin.vercel.app/reveal), writing the text the way the detail says.
 
 Anything unresolved is simply not written, and is retried next run.
 
-## Step 6: Write and hand over
+## Step 6: Write and publish
 
 ```bash
 node scripts/reveal-sync/run.mjs write RUN
-pnpm precompute-synergies
 ```
 
-`write` first re-fetches `origin/master` and aborts, writing nothing, if `previewCards.json`
-changed there since `start`. Then, in an order that never leaves the card data ahead of its
-art: it validates each verified card through the same chain `/admin/reveal` uses
-(`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`), converts the
-accepted cards' scans to the committed AVIFs (never replacing art that already exists),
-and only then inserts the cards whose art converted and writes `previewCards.json` once.
-A card whose art fails becomes a conflict and is retried next run. Last, it updates
-`scripts/reveal-sync/state.json` and prints the final report.
+`write` first checks that the app's `previewCards.json` on `master` and admin's `state.json` on
+`main` are still what `start` read, and aborts, writing nothing, if either changed. Then, in an
+order that never leaves the card data ahead of its art, it:
+- validates each verified card through the same chain the reveal publisher uses
+  (`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`);
+- converts the accepted cards' scans to AVIFs with the app's own converter, never replacing art
+  the app already has;
+- inserts only the cards whose art converted.
 
-**Card names carry no accents** (the owner's rule: "Hector Rivera", "Mama Coco"). lorcanaplayer
+A card whose art fails becomes a conflict and is retried next run. Last, `write` records the
+run's outcomes in its copy of `state.json`.
+
+Then it publishes, with nothing in a local checkout:
+- a `reveals/set<SET>-<RUN>` branch in the app holding `previewCards.json` and the new AVIFs;
+- a PR from it to `master`;
+- a commit of the new `state.json` straight to admin's `main`.
+
+If publishing stops part-way, run `write RUN` again. It resumes where it stopped, and never opens
+a second PR.
+
+**Card names carry no accents** (the owner's rule, Doberjohn/inkweave#582: "Hector Rivera", "Mama Coco"). lorcanaplayer
 and the readers agree on printed accents, so `write` drops them itself: it strips the
 combining marks (NFD, then every `\p{M}`) from each card's name and version, and from every
 "named X" reference in its text, so a Shift line names the card as Inkweave spells it. A
@@ -291,7 +297,9 @@ printed, and so does punctuation such as "…". The report's READY TO WRITE and 
 show each card under the name it is written with; other lists keep lorcanaplayer's spelling. Never strip accents by hand after `write`. A later run still recognises the
 card: existing-card matching and the leak audit ignore accents.
 
-Show the owner the full report, then stop. They review `git status` and run `/commit-and-push`.
+Show the owner the full report and the PR link, then stop. They review the PR and merge it; the
+next run refuses to start while it is open. If they close it unmerged instead, its state commit
+must be reverted (`docs/REVEAL_RUNBOOK.md`).
 
 Besides the card sections, the report ends with two lists the owner should see:
 
@@ -308,21 +316,25 @@ Besides the card sections, the report ends with two lists the owner should see:
 
 The pipeline never writes these, but the owner can have one added by hand: an official reveal
 whose only scan is Japanese, German or Italian, shown with that scan as its art and
-lorcanaplayer's English name and text. Its `state.json` entry carries
-`reason: provisional-translation`, and its card in `previewCards.json` carries
-`scanLanguage` (the scan's two-letter code: `"ja"`, `"de"`, `"it"`), which gives it a
-"See translation" toggle in the card modal and the lightbox. When its English scan is out and
-the card is refreshed to it, delete `scanLanguage`, and leave no `written` state entry for its
-number still marked `provisional-translation`. `reveal-set-integrity.test.ts` fails while the
-two records disagree. `/admin/reveal` has no field for either yet, so a card published there
-with a non-English scan needs both added by hand (Madam Mim 14046 came in that way, German).
+lorcanaplayer's English name and text. Its card in `previewCards.json` carries `scanLanguage`
+(the scan's two-letter code: `"ja"`, `"de"`, `"it"`), which gives it a "See translation" toggle
+in the card modal and the lightbox. When its English scan is out and the card is refreshed to
+it, delete `scanLanguage`.
+
+`scanLanguage` is the mark's only record (`docs/plans/P3-pipelines.md`, P3-5): admin's
+`state.json` needs no `provisional-translation` entry. Until Doberjohn/inkweave#656 lands, the
+app's `reveal-set-integrity.test.ts` still compares the mark with the app's frozen copy of
+`scripts/reveal-sync/state.json`. So a card marked by hand before then also needs that entry
+there. The reveal publisher gets a field for the mark in Doberjohn/inkweave-admin#14.
 
 ## Where things live
 
 | What | Where |
 |---|---|
-| Deterministic pipeline | `scripts/reveal-sync/*.mjs`, tests alongside |
-| Run-to-run memory | `scripts/reveal-sync/state.json` (committed) |
-| One run's files | `%TEMP%/inkweave-reveal-sync/<RUN>/`: `run.json`, `official.json` (the official list as `start` read it), `cards/<slug>/` (site record, official scan), `blind/<token>/` (one per reader) (`REVEAL_SYNC_RUNS` overrides) |
+| Deterministic pipeline | `scripts/reveal-sync/*.mjs`, tests alongside (`pnpm test:run`) |
+| Run-to-run memory | `scripts/reveal-sync/state.json` on admin's `main`, committed by `write`; a run works from its own copy |
+| One run's files | `%TEMP%/inkweave-reveal-sync/<RUN>/`: `run.json`; `preview.json` and `state.json` (the base `start` read, then the state as `write` left it); `official.json` (the official list as `start` read it); `cards/<slug>/` (site record, official scan); `blind/<token>/` (one per reader); `out/` (what the PR commits). `REVEAL_SYNC_RUNS` overrides |
+| GitHub | `gh`, logged in as the owner: `Doberjohn/inkweave` at `master` (`REVEAL_SYNC_APP_BASE` overrides) and `Doberjohn/inkweave-admin` at `main` (`REVEAL_SYNC_STATE_BRANCH` overrides) |
+| Art conversion | the app's `scripts/convert-preview-images.mjs` at the pin, run from a copy in `.reveal-sync-convert/<RUN>/` and removed afterwards |
 | Official list | `https://illumineertales.com/cards.json` (`REVEAL_SYNC_OFFICIAL_ORIGIN` overrides the origin) |
 | Browser downloads | `~/Downloads`, moved into the run as they land (`REVEAL_SYNC_DOWNLOADS` overrides) |
