@@ -840,6 +840,19 @@ Nothing reads or writes a local app checkout any more.
 - **CodeScene.** Every reveal-sync module scores 10.0 at the pin.
 - **Staying in the app until P4.** `scripts/sync-variants.mjs` loads its season through the app's own `reveal-sync/web.mjs`.
 
+**As built (2026-09-30).** Execution added these fixes to the tasks below:
+- **Task 12, the port.** Three fixes to get the copy running:
+  - `text.mjs` imported the engine by its path in the app monorepo (`../../packages/synergy-engine/dist/index.js`). It now imports `inkweave-synergy-engine`, admin's workspace package, which is the same build.
+  - Two tests in `text.test.mjs` read every real card as a corpus. They now read it from the pinned app's data (`upstream/inkweave/apps/web/public/data`), as a file, never an import.
+  - `browser.mjs`'s `/* global */` directive redeclared `fetch`, `Blob` and `URL`, which admin's lint already declares. They were dropped, with no change at runtime.
+- **Task 20, the rehearsal.** A rehearsal run skips the official list, so `openRun` refused it. `rehearse.mjs` now records a stand-in summary, so `run.mjs write` and `report` open it like any run. The rehearsal behaved as planned:
+  - It opened Doberjohn/inkweave#662 from `reveals/set14-20260930-115045` into `reveals-verify`.
+  - The PR held exactly `previewCards.json` (+32 lines, one card) and two AVIFs, at 337×470 and 191×266.
+  - The state commit changed only `state.json` (+5 lines).
+  - Publishing again made no GitHub call, and `start`'s open-PR check saw #662.
+  - Everything was closed and deleted afterwards.
+- **Task 21, the runbook.** It copies the reveal-operations sections (ids, ink blocks, record conventions, variant printings). It links the app doc's Production section and app-side gotchas instead of copying them: those cover the app's own flag, deploy and E2E, and would drift here.
+
 **P3b creates:**
 
 | File | Responsibility |
