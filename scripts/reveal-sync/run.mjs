@@ -14,11 +14,12 @@
  *   adjudicate <run>                   read the readers' results, decide, list any escalations
  *   resolve <run> <slug> <field>=<v>   record the owner's ruling on a field the readers
  *                                      disputed, or one the two sites disagree on
- *   write <run>                        stage verified cards, their art and the state
+ *   write <run>                        stage verified cards, their art and the state, then
+ *                                      open the app PR and commit the state (resumable)
  *   report <run>                       print the report
  *
  * Nothing touches a local app checkout: a run reads its base through gh (base.mjs), and
- * `write` stages what it publishes in the run dir.
+ * `write` publishes through it (publish.mjs).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +30,7 @@ import {BROWSER_API_VERSION, installSnippet} from './browser.mjs';
 import {UsageError, entries, say} from './cli.mjs';
 import {SiteRecordError, parseCardLines} from './extract-card.mjs';
 import {RARITIES, existingVerdict, gateCard} from './gates.mjs';
-import {APP_REPO} from './github.mjs';
+import {ADMIN_REPO, APP_REPO} from './github.mjs';
 import {
   OFFICIAL_IMAGE,
   OfficialListError,
@@ -43,6 +44,7 @@ import {
   officialVerdict,
   waitingForSite,
 } from './official.mjs';
+import {publishRun} from './publish.mjs';
 import {assignReaders, outstandingJobs, readResults} from './readers.mjs';
 import {auditLines, formatReport, officialLines} from './report.mjs';
 import {selectCandidates, setSection, shrinkWarning} from './state.mjs';
@@ -53,7 +55,6 @@ import {
   cardDir,
   localDate,
   newRunId,
-  outDir,
   readOfficial,
   readPreviewText,
   readRun,
@@ -450,14 +451,26 @@ async function resolve([runId, slug, assignment = '']) {
 
 async function write([runId]) {
   const run = openRun(runId);
+  if (run.stateCommit) {
+    return say(`Run ${runId} is already written${run.published?.url ? `: ${run.published.url}` : '.'}`);
+  }
   if (!run.staged) {
     const reading = entries(run, 'reading');
     if (reading.length) throw new UsageError(`${reading.length} card(s) still need readers; run adjudicate first`);
     writePhase(run, await loadWriteChain());
     writeRun(run);
   }
+  const {url, stateCommit} = publishRun(run);
   summarize(run);
-  say(`Staged in ${outDir(run.runId)}.`);
+  say(
+    url ? `Opened ${url}` : 'No card was written, so there is no PR.',
+    stateCommit === 'unchanged'
+      ? 'state.json: unchanged.'
+      : `state.json: committed to ${ADMIN_REPO}@${run.stateBranch} (${stateCommit.slice(0, 7)}).`,
+    'Next:',
+    ...(url ? ['  review the PR and merge it; the next run refuses to start while it is open'] : []),
+    '  git pull in admin brings the committed state.json into your checkout',
+  );
 }
 
 /* ----------------------------------------------------------------- output */
