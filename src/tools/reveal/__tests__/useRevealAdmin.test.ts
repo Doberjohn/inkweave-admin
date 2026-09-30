@@ -50,6 +50,12 @@ describe('useRevealAdmin', () => {
     expect(result.current.canPublish).toBe(true);
   });
 
+  it("previews a card with its scan language, which the engine's transform drops", () => {
+    const {result} = renderHook(() => useRevealAdmin());
+    act(() => result.current.patchForm({...VALID_FORM, scanLanguage: 'ja'}));
+    expect(result.current.previewCard?.scanLanguage).toBe('ja');
+  });
+
   it('keeps the newest image when an older read finishes last', async () => {
     const {result} = renderHook(() => useRevealAdmin());
     act(() => result.current.patchForm(VALID_FORM));

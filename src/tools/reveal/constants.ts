@@ -31,6 +31,20 @@ export const RARITIES: readonly string[] = [
   'Enchanted',
 ];
 
+/**
+ * The language of the card's only official scan. Any but English marks the card
+ * (`scanLanguage`) as shown with that scan and an unofficial English translation;
+ * the app then offers "See translation" (Doberjohn/inkweave-admin#14).
+ */
+export const SCAN_LANGUAGES = [
+  {code: 'en', label: 'English'},
+  {code: 'ja', label: 'Japanese'},
+  {code: 'de', label: 'German'},
+  {code: 'it', label: 'Italian'},
+] as const;
+
+export type ScanLanguage = (typeof SCAN_LANGUAGES)[number]['code'];
+
 /** Shown as a hint under the franchise field; matching one groups the card under that franchise on /reveals. */
 export const FEATURED_FRANCHISE_HINT = 'Coco (exact match groups it; blank = returning)';
 

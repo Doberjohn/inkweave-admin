@@ -4,7 +4,7 @@ import {
   type CardType,
   type LorcanaJSONCard,
 } from 'inkweave-synergy-engine';
-import {REVEAL_SET_CODE, REVEAL_ID_BASE, STAT_FIELDS} from './constants';
+import {REVEAL_SET_CODE, REVEAL_ID_BASE, STAT_FIELDS, type ScanLanguage} from './constants';
 
 export interface RevealCardForm {
   collectorNumber: string;
@@ -24,6 +24,7 @@ export interface RevealCardForm {
   subtypes: string; // comma / newline separated
   keywords: string; // comma / newline separated, each like "Singer 5"
   fullText: string;
+  scanLanguage: ScanLanguage;
 }
 
 function parseIntOrUndef(v: string): number | undefined {
@@ -109,5 +110,8 @@ export function buildPreviewCard(formInput: RevealCardForm): LorcanaJSONCard {
     number: collector,
   };
 
-  return Object.assign(card, describe(formInput, version), stats(formInput));
+  Object.assign(card, describe(formInput, version), stats(formInput));
+  // Last, where the cards marked by hand carry it; absent means the scan is English.
+  if (formInput.scanLanguage !== 'en') card.scanLanguage = formInput.scanLanguage;
+  return card;
 }

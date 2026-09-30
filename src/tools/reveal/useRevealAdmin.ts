@@ -30,13 +30,17 @@ const EMPTY_FORM: RevealCardForm = {
   subtypes: '',
   keywords: '',
   fullText: '',
+  scanLanguage: 'en',
 };
 
 /** Build the live preview card from form values; null until ink/type are valid. */
 function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {
-  const transformed = transformCard(buildPreviewCard(form));
+  const raw = buildPreviewCard(form);
+  const transformed = transformCard(raw);
   if (!transformed) return null;
   if (imageDataUrl) transformed.imageUrl = imageDataUrl;
+  // The engine's transform drops it; the app's loader copies it over the same way.
+  transformed.scanLanguage = raw.scanLanguage;
   return transformed;
 }
 

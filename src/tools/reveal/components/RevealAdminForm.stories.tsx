@@ -22,6 +22,7 @@ const initial: RevealCardForm = {
   subtypes: 'Hero, Red Panda',
   keywords: 'Singer 5',
   fullText: 'PANDA POWER When you play this character, draw a card.',
+  scanLanguage: 'en',
 };
 
 const meta: Meta<typeof RevealAdminForm> = {

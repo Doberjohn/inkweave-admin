@@ -28,6 +28,7 @@ function kitForm(fullText: string): RevealCardForm {
     subtypes: '',
     keywords: '',
     fullText,
+    scanLanguage: 'en',
   };
 }
 

@@ -1,5 +1,14 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CardTile, COLORS, EMPTY_BOX, GOLD_GLOW, SPACING, FONT_SIZES, RADIUS} from '../../../app-bridge';
+import {
+  CardTile,
+  CardTranslationPanel,
+  COLORS,
+  EMPTY_BOX,
+  GOLD_GLOW,
+  SPACING,
+  FONT_SIZES,
+  RADIUS,
+} from '../../../app-bridge';
 import {useHiddenFileInput} from '../../../components/useHiddenFileInput';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp';
@@ -55,6 +64,10 @@ export function CardPreviewPanel({card, onImageChange}: CardPreviewPanelProps) {
           <div style={{color: COLORS.gray600, fontSize: FONT_SIZES.xs, marginTop: 4}}>
             Click the image to change it.
           </div>
+          {/* What the app's "See translation" toggle lays over the scan. */}
+          {card.scanLanguage && (
+            <CardTranslationPanel card={card} size="compact" style={{marginTop: SPACING.sm, borderRadius: RADIUS.md}} />
+          )}
         </div>
       ) : (
         <div style={{color: COLORS.gray600, fontSize: FONT_SIZES.sm}}>

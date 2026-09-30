@@ -21,6 +21,7 @@ function form(overrides: Partial<RevealCardForm> = {}): RevealCardForm {
     subtypes: 'Hero, Red Panda',
     keywords: 'Singer 5\nResist +1',
     fullText: 'PANDA POWER When you play this character, draw a card.',
+    scanLanguage: 'en',
     ...overrides,
   };
 }
@@ -48,6 +49,19 @@ describe('buildPreviewCard stats', () => {
     const location = buildPreviewCard(form({type: 'Location', moveCost: '2', willpower: '7', lore: '1'}));
     expect(location).toMatchObject({moveCost: 2, willpower: 7, lore: 1});
     expect(location.strength).toBeUndefined();
+  });
+});
+
+describe('buildPreviewCard scan language', () => {
+  // Last, as on the cards marked by hand before the form had the field (Doberjohn/inkweave-admin#14).
+  it('marks a card whose only scan is not English, after every other field', () => {
+    const card = buildPreviewCard(form({scanLanguage: 'ja'}));
+    expect(card.scanLanguage).toBe('ja');
+    expect(Object.keys(card).at(-1)).toBe('scanLanguage');
+  });
+
+  it('leaves a card with an English scan unmarked', () => {
+    expect(Object.keys(buildPreviewCard(form()))).not.toContain('scanLanguage');
   });
 });
 

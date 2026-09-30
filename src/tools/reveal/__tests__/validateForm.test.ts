@@ -25,6 +25,7 @@ function form(overrides: Partial<RevealCardForm> = {}): RevealCardForm {
     subtypes: '',
     keywords: '',
     fullText: '',
+    scanLanguage: 'en',
     ...overrides,
   };
 }

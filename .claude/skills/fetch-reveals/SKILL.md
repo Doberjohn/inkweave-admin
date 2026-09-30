@@ -314,18 +314,19 @@ Besides the card sections, the report ends with two lists the owner should see:
 
 ## Cards shown with a non-English scan
 
-The pipeline never writes these, but the owner can have one added by hand: an official reveal
-whose only scan is Japanese, German or Italian, shown with that scan as its art and
-lorcanaplayer's English name and text. Its card in `previewCards.json` carries `scanLanguage`
-(the scan's two-letter code: `"ja"`, `"de"`, `"it"`), which gives it a "See translation" toggle
-in the card modal and the lightbox. When its English scan is out and the card is refreshed to
-it, delete `scanLanguage`.
+The pipeline never writes these, but the owner can add one through admin's reveal publisher: an
+official reveal whose only scan is Japanese, German or Italian, shown with that scan as its art
+and lorcanaplayer's English name and text. The publisher's "Scan language" field writes
+`scanLanguage` on the card in `previewCards.json` (the scan's two-letter code: `"ja"`, `"de"`,
+`"it"`), which gives it a "See translation" toggle in the card modal and the lightbox.
 
-`scanLanguage` is the mark's only record (`docs/plans/P3-pipelines.md`, P3-5): admin's
-`state.json` needs no `provisional-translation` entry. Until Doberjohn/inkweave#656 lands, the
-app's `reveal-set-integrity.test.ts` still compares the mark with the app's frozen copy of
-`scripts/reveal-sync/state.json`. So a card marked by hand before then also needs that entry
-there. The reveal publisher gets a field for the mark in Doberjohn/inkweave-admin#14.
+A later run counts such a card as `known`, whatever its scan, so it never refreshes one. When
+its English scan is out and the card is refreshed to it, delete `scanLanguage` (the publisher
+gets a way to do that in Doberjohn/inkweave-admin#14).
+
+`scanLanguage` is the mark's only record (`docs/plans/P3-pipelines.md`, P3-5): `state.json`
+needs no `provisional-translation` entry, and the app's `reveal-set-integrity.test.ts` checks
+only that the code is valid.
 
 ## Where things live
 
