@@ -3,7 +3,6 @@ import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
 import {ToolIndex} from './shell/ToolIndex';
 import {AnalyticsPage} from './tools/analytics/AnalyticsPage';
-import {BannerPage} from './tools/banner/BannerPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
 import {TuningPage} from './tools/tuning/TuningPage';
@@ -18,7 +17,6 @@ export const routes: RouteObject[] = [
       {path: 'image', element: <ImagePage />},
       {path: 'tuning', element: <TuningPage />},
       {path: 'analytics', element: <AnalyticsPage />},
-      {path: 'banner/:cardId', element: <BannerPage />},
       {path: '*', element: <NotFound />},
     ],
   },

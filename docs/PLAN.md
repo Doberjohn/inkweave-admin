@@ -14,6 +14,7 @@
 
 - **Date:** 2026-09-25
 - **Status:** design approved by the owner (2026-09-25 review). P0 to P5 are done (2026-09-30), and P6 waits on `deck-builder`. As-built notes: P1 in its phase section, P2 and P3 in their linked plans, and P3 to P5 in "Phases P2 to P6: outline".
+- **Banner generator:** removed in the admin redesign ([plans/R-redesign.md](plans/R-redesign.md), Task R1-1), along with the `/banner/:cardId` route, `pnpm banner` and its exporter, `public/art/banner/`, `docs/BANNER.md` and admin's only design-token exception. The banner mentions in this document record the split as it was built.
 - **Repos:** app `Doberjohn/inkweave` (private); admin `Doberjohn/inkweave-admin` (private, empty at time of writing, default branch will be `main`, SSH remote `git@github-personal:Doberjohn/inkweave-admin.git`)
 - **Next:** implementation plan at `docs/superpowers/plans/2026-09-25-admin-repo-split.md`, then issues, then P0. Each phase gets a detailed plan when it starts; the first plan details P0 and P1 and outlines the rest.
 

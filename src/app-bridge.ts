@@ -49,7 +49,6 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
 export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
 export {smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
-export {usePrecomputedSynergies} from '../upstream/inkweave/apps/web/src/features/synergies/hooks/usePrecomputedSynergies';
 // The pinned app's previewCards.json as text. The reveal tool's insert test
 // runs against it, so a pin bump that changes the file's layout fails here.
 export {default as PINNED_PREVIEW_CARDS_JSON} from '../upstream/inkweave/apps/web/public/data/previewCards.json?raw';

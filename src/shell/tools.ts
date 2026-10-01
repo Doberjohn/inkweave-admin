@@ -1,5 +1,5 @@
 export interface AdminTool {
-  id: 'reveal' | 'image' | 'tuning' | 'analytics' | 'banner';
+  id: 'reveal' | 'image' | 'tuning' | 'analytics';
   name: string;
   purpose: string;
   /** The tool's route in admin (docs/PLAN.md, D10). */
@@ -8,8 +8,7 @@ export interface AdminTool {
 
 /**
  * Whether `pathname` is one of the tool's pages. A tool owns every route under
- * the first segment of its path, so the banner tool (/banner/2983) owns
- * /banner/<any card>.
+ * the first segment of its path.
  */
 export function isToolRoute(tool: AdminTool, pathname: string): boolean {
   const section = `/${tool.path.split('/')[1]}`;
@@ -40,12 +39,5 @@ export const ADMIN_TOOLS: readonly AdminTool[] = [
     name: 'Analytics',
     purpose: 'Vote calibration, activity and web analytics.',
     path: '/analytics',
-  },
-  {
-    id: 'banner',
-    name: 'Banner generator',
-    purpose: 'Render a Synergy Spotlight banner at /banner/<cardId>; pnpm banner <cardId> exports it.',
-    // Pocahontas - Guiding the Tribe, the card the banner was designed around.
-    path: '/banner/2983',
   },
 ];

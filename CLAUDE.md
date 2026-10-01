@@ -12,9 +12,9 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 
 ## The tools
 
-- `src/tools/{reveal,image,tuning,analytics,banner}` hold the tools, `src/github/` the GitHub read/write layer, and `src/shell/` the layout every route renders in. How they were ported: [docs/plans/P2-port-tools.md](docs/plans/P2-port-tools.md).
+- `src/tools/{reveal,image,tuning,analytics}` hold the tools, `src/github/` the GitHub read/write layer, and `src/shell/` the layout every route renders in. How they were ported: [docs/plans/P2-port-tools.md](docs/plans/P2-port-tools.md).
 - The reveal, image and tuning tools commit to `Doberjohn/inkweave` on `VITE_ADMIN_TARGET_BRANCH`, which defaults to `master`. Reveal and tuning also read the files they edit (`previewCards.json`, `tuning.json`) from that branch; card lists come from `inkweave.ink` through the forwarded `/data/`. To rehearse writes, create a throwaway branch in the app repo and set the variable in `.env.local` (`.env.example` has the line). The shell header always names the branch.
-- Admin files pass the app's design-token rules in full. The one exception is `src/tools/banner/SynergyBanner.tsx` (three rules, in `eslint.config.js`), and like the app's ledger it only shrinks. Buttons come from the app's kit through the bridge (`CtaButton`, `LinkButton`).
+- Admin files pass the app's design-token rules in full, with no exception in `eslint.config.js`: don't add one. Buttons come from the app's kit through the bridge (`CtaButton`, `LinkButton`).
 
 ## Pipelines
 
@@ -35,7 +35,6 @@ pnpm test             # vitest watch; pnpm test:run for one pass (builds the eng
 pnpm check:deps       # dependency parity with the pinned app
 pnpm check:hooks      # the .claude/hooks case table (CI runs it; minutes on Windows)
 pnpm storybook        # http://localhost:6007, the tools' stories
-pnpm banner <cardId>  # export a Synergy Spotlight banner (docs/BANNER.md)
 ```
 
 ## Updating the app pin

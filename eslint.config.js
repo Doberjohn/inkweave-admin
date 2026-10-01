@@ -7,7 +7,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import tseslint from 'typescript-eslint';
 // The app's design-token rules, loaded from the pinned submodule so admin UI is
 // held to the same design system. The plugin's ledger lists app paths only, so
-// admin files get the full rules; admin's one exception is SynergyBanner, below.
+// admin files get the full rules, with no exception.
 import {inkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
 
 // Same ban as the app (#291): the React Compiler memoizes automatically.
@@ -29,7 +29,9 @@ const UPSTREAM_LOADS = [
 ].map((selector) => ({selector, message: BRIDGE_MESSAGE}));
 
 export default tseslint.config(
-  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
+  // docs/redesign/ is the design handoff. Its support.js is the prototype's
+  // browser runtime, not admin code.
+  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert', 'docs/redesign/']},
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -62,20 +64,6 @@ export default tseslint.config(
       'inkweave/no-backdrop-filter': 'error',
       'inkweave/no-adhoc-buttons': 'error',
       'inkweave/no-unshelled-dialogs': 'error',
-    },
-  },
-  // Admin's only design-token exception, and like the app's ledger it only
-  // shrinks. SynergyBanner renders a fixed-pixel marketing image, and its last
-  // literals have no token: the ethereal blue and purple at their own alphas,
-  // the +N tile's near-black scrim, 15/18/68px type and the 9px card radius.
-  // Converging them would change the published banner (the app's theme.ts
-  // already rules the 68 exempt). Drop a rule here once the file passes it.
-  {
-    files: ['src/tools/banner/SynergyBanner.tsx'],
-    rules: {
-      'inkweave/no-raw-rgba': 'off',
-      'inkweave/no-raw-font-size': 'off',
-      'inkweave/no-raw-radius': 'off',
     },
   },
   // D3: app code enters admin only through src/app-bridge.ts, from any source

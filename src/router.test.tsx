@@ -37,10 +37,10 @@ describe('admin routes', () => {
     }
   });
 
-  it("marks a tool's link current on any of its pages", () => {
-    renderAt('/banner/1970');
+  it("marks the current tool's link", () => {
+    renderAt('/tuning');
     const nav = screen.getByRole('navigation', {name: 'Admin tools'});
-    expect(within(nav).getByRole('link', {name: 'Banner generator'})).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', {name: 'Engine tuning'})).toHaveAttribute('aria-current', 'page');
     expect(within(nav).getByRole('link', {name: 'Analytics'})).not.toHaveAttribute('aria-current');
   });
 
@@ -67,10 +67,5 @@ describe('admin routes', () => {
   it('opens analytics at /analytics', () => {
     renderAt('/analytics');
     expect(screen.getByRole('heading', {level: 1, name: 'Engine Calibration'})).toBeInTheDocument();
-  });
-
-  it('opens a card banner at /banner/:cardId', () => {
-    renderAt('/banner/2983');
-    expect(screen.getByText('Loading banner…')).toBeInTheDocument();
   });
 });

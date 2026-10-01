@@ -119,7 +119,7 @@ export function useRevealAdmin(): RevealAdminController {
     if (!validation.ok) return;
     setPublishing(true);
     setPublishError(null);
-    // The last publish's banner would otherwise stand beside this attempt's outcome.
+    // The last publish's commit notice would otherwise stand beside this attempt's outcome.
     setResult(null);
     try {
       const card = buildPreviewCard(form);
