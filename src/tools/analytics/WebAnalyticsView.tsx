@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {COLORS, EASING, FONT_SIZES, FONTS, INK_COLORS, RADIUS, SPACING, hexRgba} from '../../app-bridge';
+import {Sparkline} from '../../ui/Sparkline';
 import type {Breakdown, VercelAnalytics, VercelEvent} from './vercelAnalyticsTypes';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -55,38 +56,6 @@ const STYLES = `
 @keyframes wa-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 `;
 
-/** Slim line sparkline with a faint area fill; stretches to its container width. */
-function Sparkline({data}: {data: number[]}) {
-  if (data.length < 2) return null;
-  const H = 56;
-  const W = 100;
-  const max = Math.max(1, ...data);
-  const stepX = W / (data.length - 1);
-  const pts = data.map((v, i) => `${(i * stepX).toFixed(2)},${(H - 4 - (v / max) * (H - 8)).toFixed(2)}`);
-  const line = pts.join(' ');
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      width="100%"
-      height={H}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-      style={{display: 'block', marginTop: SPACING.md}}>
-      <polygon points={`0,${H} ${line} ${W},${H}`} fill={hexRgba(COLORS.primary, 0.1)} />
-      <polyline
-        points={line}
-        fill="none"
-        stroke={COLORS.primary}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        opacity={0.7}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
 /** One grouped breakdown: label plus rows whose subtle background fill encodes each value's share. */
 function BreakdownBlock({breakdown}: {breakdown: Breakdown}) {
   const sum = breakdown.rows.reduce((s, r) => s + r.count, 0) || 1;
@@ -125,7 +94,11 @@ function EventDetail({event}: {event: VercelEvent}) {
         <span style={{fontSize: FONT_SIZES.base, color: COLORS.textMuted}}>events</span>
         <span style={{fontSize: FONT_SIZES.base, color: COLORS.textDim}}>· {fmt(event.visitors)} visitors</span>
       </div>
-      {event.trend.length >= 2 && <Sparkline data={event.trend.map((t) => t.count)} />}
+      {event.trend.length >= 2 && (
+        <div style={{marginTop: SPACING.md}}>
+          <Sparkline data={event.trend.map((t) => t.count)} />
+        </div>
+      )}
       {event.breakdowns.length === 0 ? (
         <div style={{fontSize: FONT_SIZES.base, color: COLORS.textDim, marginTop: SPACING.lg}}>
           No property breakdowns configured for this event.

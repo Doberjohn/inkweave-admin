@@ -1,0 +1,46 @@
+import {describe, expect, it} from 'vitest';
+import {render, screen, within} from '@testing-library/react';
+import {SPACING} from '../../app-bridge';
+import {Panel} from '../Panel';
+
+describe('Panel', () => {
+  it('is a region named by its h2 title, with the action in its header', () => {
+    render(
+      <Panel title="Rules to review" action={<a href="/calibration">Open calibration →</a>}>
+        <p>Ramp</p>
+      </Panel>,
+    );
+    const panel = screen.getByRole('region', {name: 'Rules to review'});
+    expect(within(panel).getByRole('heading', {level: 2, name: 'Rules to review'})).toBeInTheDocument();
+    expect(within(panel).getByRole('link', {name: 'Open calibration →'})).toHaveAttribute('href', '/calibration');
+    expect(within(panel).getByText('Ramp')).toBeInTheDocument();
+  });
+
+  it('has no heading and is no landmark without a title', () => {
+    render(
+      <Panel>
+        <p>Body only</p>
+      </Panel>,
+    );
+    expect(screen.getByText('Body only')).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+
+  it('pads its body unless told not to, for flush tables', () => {
+    const {rerender} = render(
+      <Panel title="Vote log">
+        <table />
+      </Panel>,
+    );
+    expect(screen.getByRole('region', {name: 'Vote log'})).toHaveStyle({padding: `${SPACING.xl}px`});
+    expect(screen.getByRole('region', {name: 'Vote log'})).toHaveStyle({backgroundClip: 'padding-box'});
+
+    rerender(
+      <Panel title="Vote log" padded={false}>
+        <table />
+      </Panel>,
+    );
+    expect(screen.getByRole('region', {name: 'Vote log'})).toHaveStyle({padding: '0px'});
+  });
+});
