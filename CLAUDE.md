@@ -13,7 +13,7 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 ## The tools
 
 - `src/tools/{reveal,image,tuning,analytics}` hold the tools, `src/github/` the GitHub read/write layer, and `src/shell/` the layout every route renders in. How they were ported: [docs/plans/P2-port-tools.md](docs/plans/P2-port-tools.md).
-- The reveal, image and tuning tools commit to `Doberjohn/inkweave` on `VITE_ADMIN_TARGET_BRANCH`, which defaults to `master`. Reveal and tuning also read the files they edit (`previewCards.json`, `tuning.json`) from that branch; card lists come from `inkweave.ink` through the forwarded `/data/`. To rehearse writes, create a throwaway branch in the app repo and set the variable in `.env.local` (`.env.example` has the line). The shell header always names the branch.
+- The reveal, image and tuning tools commit to `Doberjohn/inkweave` on `VITE_ADMIN_TARGET_BRANCH`, which defaults to `master`. Reveal and tuning also read the files they edit (`previewCards.json`, `tuning.json`) from that branch; card lists come from `inkweave.ink` through the forwarded `/data/`. To rehearse writes, create a throwaway branch in the app repo and set the variable in `.env.local` (`.env.example` has the line). Every page that writes names the branch in its header (`BranchNotice`); the read-only pages don't.
 - Admin files pass the app's design-token rules in full, with no exception in `eslint.config.js`: don't add one. Buttons come from the app's kit through the bridge (`CtaButton`, `LinkButton`).
 
 ## Pipelines
