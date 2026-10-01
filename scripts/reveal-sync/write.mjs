@@ -135,7 +135,7 @@ function insertCards(run, chain, {converted}, previewText) {
 }
 
 /** out/ holds exactly what the app PR commits: previewCards.json and the new AVIFs. */
-function stageOutputs(runId, text, avifs) {
+export function stageOutputs(runId, text, avifs) {
   const out = outDir(runId);
   fs.rmSync(out, {recursive: true, force: true});
   fs.mkdirSync(path.join(out, 'avif'), {recursive: true});

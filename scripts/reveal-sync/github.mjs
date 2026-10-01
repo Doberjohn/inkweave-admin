@@ -30,16 +30,26 @@ export function setGhRunner(next = gh) {
   runner = next;
 }
 
-/** One REST call. A body goes to gh as JSON on stdin; the answer comes back parsed. */
-export function ghApi(endpoint, {method = 'GET', body} = {}) {
-  const args = [endpoint, '--method', method, ...(body === undefined ? [] : ['--input', '-'])];
-  let out;
+/** One REST call, answered as gh prints it. A body goes to gh as JSON on stdin. */
+function callGh(endpoint, {method = 'GET', body, accept} = {}) {
+  const args = [
+    endpoint,
+    '--method',
+    method,
+    ...(accept === undefined ? [] : ['--header', `Accept: ${accept}`]),
+    ...(body === undefined ? [] : ['--input', '-']),
+  ];
   try {
-    out = runner(args, body === undefined ? undefined : JSON.stringify(body));
+    return runner(args, body === undefined ? undefined : JSON.stringify(body));
   } catch (error) {
     const detail = String(error.stderr || error.message).trim();
     throw new Error(`gh api ${method} ${endpoint}: ${detail}`, {cause: error});
   }
+}
+
+/** One REST call. A body goes to gh as JSON on stdin; the answer comes back parsed. */
+export function ghApi(endpoint, options) {
+  const out = callGh(endpoint, options);
   return out.trim() ? JSON.parse(out) : null;
 }
 
@@ -50,6 +60,11 @@ export function readFile(repo, filePath, ref) {
   const file = ghApi(`repos/${repo}/contents/${filePath}${at(ref)}`);
   if (file.encoding !== 'base64') throw new Error(`${filePath} is over the contents API's 1 MB limit`);
   return {text: Buffer.from(file.content, 'base64').toString('utf8'), sha: file.sha};
+}
+
+/** A file's UTF-8 text at a branch or commit, in the raw media type, which serves files past 1 MB. */
+export function readRaw(repo, filePath, ref) {
+  return callGh(`repos/${repo}/contents/${filePath}${at(ref)}`, {accept: 'application/vnd.github.raw'});
 }
 
 /** The names in a directory at a branch or commit, read as a git tree (no 1,000-entry cap). */
@@ -64,6 +79,17 @@ export function listDir(repo, dirPath, ref) {
 
 /** The commit a branch points at. */
 export const branchTip = (repo, branch) => ghApi(`repos/${repo}/git/ref/heads/${branch}`).object.sha;
+
+/** Whether a branch exists. GitHub's 404 means no; any other failure is thrown. */
+export function branchExists(repo, branch) {
+  try {
+    branchTip(repo, branch);
+    return true;
+  } catch (error) {
+    if (/\(HTTP 404\)/.test(error.message)) return false;
+    throw error;
+  }
+}
 
 /**
  * A commit on `parent` writing `files` ({path, base64}): a blob each, a tree on the parent's

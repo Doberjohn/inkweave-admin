@@ -2,15 +2,17 @@
 import {afterEach, describe, expect, it} from 'vitest';
 import {
   advanceBranch,
+  branchExists,
   createBranch,
   createCommit,
   listDir,
   openPullRequest,
   openPullsFrom,
   readFile,
+  readRaw,
   setGhRunner,
 } from './github.mjs';
-import {fakeGh, fileAnswer, ghError, table} from './__fixtures__/gh.mjs';
+import {fakeGh, fileAnswer, ghError, rawAnswer, table} from './__fixtures__/gh.mjs';
 
 afterEach(() => setGhRunner());
 
@@ -23,6 +25,19 @@ describe('github', () => {
   it('refuses a file too large for the contents API', () => {
     fakeGh(() => ({content: '', encoding: 'none', sha: 'abc'}));
     expect(() => readFile('o/r', 'big.json', 'master')).toThrow(/1 MB/);
+  });
+
+  // GitHub answers a file over 1 MB with no content unless the call asks for the raw media type.
+  it('reads a file over the 1 MB limit as its raw text', () => {
+    const calls = fakeGh(({accept}) =>
+      accept === 'application/vnd.github.raw'
+        ? rawAnswer('{\n  "cards": []\n}\n')
+        : {content: '', encoding: 'none', sha: 'abc'},
+    );
+    expect(readRaw('o/r', 'a/big.json', 'p1')).toBe('{\n  "cards": []\n}\n');
+    expect(calls.map(({method, endpoint}) => `${method} ${endpoint}`)).toEqual([
+      'GET repos/o/r/contents/a/big.json?ref=p1',
+    ]);
   });
 
   it('lists a directory from its git tree, which has no 1,000-entry cap', () => {
@@ -51,6 +66,19 @@ describe('github', () => {
     expect(calls[1].body).toEqual({content: 'YQ==', encoding: 'base64'});
     expect(calls[2].body).toEqual({base_tree: 't0', tree: [{path: 'a.json', mode: '100644', type: 'blob', sha: 'b1'}]});
     expect(calls[3].body).toEqual({message: 'm', tree: 't1', parents: ['p1']});
+  });
+
+  it('tells a missing branch from one that exists, and passes any other failure on', () => {
+    fakeGh(
+      table({
+        'GET repos/o/r/git/ref/heads/reveals/a': {object: {sha: 's1'}},
+        'GET repos/o/r/git/ref/heads/reveals/b': ghError('gh: Not Found (HTTP 404)\n'),
+        'GET repos/o/r/git/ref/heads/reveals/c': ghError('gh: Bad credentials (HTTP 401)\n'),
+      }),
+    );
+    expect(branchExists('o/r', 'reveals/a')).toBe(true);
+    expect(branchExists('o/r', 'reveals/b')).toBe(false);
+    expect(() => branchExists('o/r', 'reveals/c')).toThrow(/HTTP 401/);
   });
 
   it('creates branches and never forces an update', () => {
