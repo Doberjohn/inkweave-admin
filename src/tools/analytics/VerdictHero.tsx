@@ -1,5 +1,6 @@
 import {CAP_LABEL_XS, COLORS, FONTS, FONT_SIZES, LETTER_SPACING, RADIUS, SPACING} from '../../app-bridge';
 import {biasCopy} from './biasCopy';
+import {scalePercent, verdictFor} from './verdict';
 
 interface VerdictHeroProps {
   meanGap: number | null;
@@ -8,50 +9,22 @@ interface VerdictHeroProps {
   stacked?: boolean;
 }
 
-/** Within this magnitude the engine reads as well-calibrated; a small lean is noted in the read line, not the headline. */
-const CALIBRATION_BAND = 0.5;
-/** meanGap is clamped to +/- this before positioning the scale dot. */
-const SCALE_CLAMP = 1.5;
-
-interface Verdict {
-  word: string;
-  wordColor: string;
-  numberColor: string;
-}
-
 /**
- * One band drives the verb, number, and dot, so they never contradict each
- * other. Within +/-CALIBRATION_BAND the engine is "well-calibrated" (green verb,
- * neutral-toned number/dot); beyond it the verb, number, and dot all take the
- * over-rates (error) or under-rates (success) color together. The read line
- * (biasCopy) is finer on purpose: it names a lean from +/-0.25, so a -0.3 gap
- * reads "well-calibrated" with the lean noted underneath (the SlightLean story).
- */
-function verdictFor(meanGap: number | null): Verdict {
-  if (meanGap == null) return {word: 'not enough data', wordColor: COLORS.textMuted, numberColor: COLORS.textMuted};
-  if (Math.abs(meanGap) < CALIBRATION_BAND) {
-    return {word: 'well-calibrated', wordColor: COLORS.success, numberColor: COLORS.textMuted};
-  }
-  const dirColor = meanGap < 0 ? COLORS.error : COLORS.success;
-  return {word: meanGap < 0 ? 'runs generous' : 'runs harsh', wordColor: dirColor, numberColor: dirColor};
-}
-
-/**
- * The diverging over/under scale. The dot marks meanGap, clamped to
- * +/-SCALE_CLAMP points, and is left out when there is no gap to mark.
+ * The diverging over/under scale. The dot marks meanGap (positioned by
+ * scalePercent) and is left out when there is no gap to mark.
  */
 function GapScale({meanGap, color}: {meanGap: number | null; color: string}) {
-  const clamped = meanGap == null ? null : Math.max(-SCALE_CLAMP, Math.min(SCALE_CLAMP, meanGap));
+  const dot = scalePercent(meanGap);
   return (
     <div style={{display: 'flex', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.section}}>
       <span style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>over-rates</span>
       <div style={{position: 'relative', flex: 1, height: 4, background: COLORS.surface, borderRadius: RADIUS.xs}}>
         <div style={{position: 'absolute', left: '50%', top: -3, width: 1, height: 10, background: COLORS.textDim}} />
-        {clamped != null && (
+        {dot != null && (
           <div
             style={{
               position: 'absolute',
-              left: `${50 + (clamped / SCALE_CLAMP) * 50}%`,
+              left: `${dot}%`,
               top: -3,
               width: 10,
               height: 10,
