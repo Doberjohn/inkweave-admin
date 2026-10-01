@@ -32,3 +32,6 @@ export function rangeStartDay(preset: RangePreset, endDay: string, firstDay: str
 export function bucketFor(startDay: string, endDay: string): 'day' | 'week' {
   return daySpan(startDay, endDay) > DAILY_BUCKET_LIMIT ? 'week' : 'day';
 }
+
+// The control is a component, so it lives in RangeControl.tsx; re-exported so `charts/range` serves the contract's whole block (R1-9 imports it from here).
+export {RangeControl} from './RangeControl';

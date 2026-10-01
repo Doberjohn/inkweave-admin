@@ -11,6 +11,11 @@ const INPUT_HEIGHT = 38;
 const SEG_BUTTON_HEIGHT = 32;
 
 const FAST = `.2s ${EASING.snappy}`;
+// Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
+// SVG marks animate alike in every browser. GLIDE moves the cursor, tooltip and
+// mark states; ENTER brings bars, lines and labels in when they mount.
+const GLIDE = `.2s ${EASING.smooth}`;
+const ENTER = `.5s ${EASING.smooth}`;
 const FOCUS_RING = `outline:2px solid ${C.accent};`;
 // Hover rules skip disabled controls. :where() adds no specificity, so the
 // [aria-pressed] rules after them still win.
@@ -84,8 +89,28 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 
 .adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-bar-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
 
+.adm-chart-plot{border-radius:${R.control}px;outline:none;touch-action:pan-y;}
+.adm-chart-plot:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-chart-hit{flex:1 1 0;min-width:0;margin:0;padding:0;border:none;border-radius:${R.control}px;background:transparent;cursor:pointer;transition:background-color ${FAST};}
+.adm-chart-hit:hover${ENABLED}{background:${C.rowHover};}
+.adm-chart-hit[aria-pressed="true"]{background:${C.accentTintSoft};}
+.adm-chart-hit:focus-visible{${FOCUS_RING}outline-offset:-2px;}
+.adm-chart-mark{transition:opacity ${GLIDE},filter ${GLIDE};}
+.adm-chart-mark[data-active="true"]{filter:brightness(1.2);}
+.adm-chart-mark[data-dim="true"]{opacity:.4;}
+.adm-chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:adm-chart-rise ${ENTER} both;}
+.adm-chart-line{stroke-dasharray:1;animation:adm-chart-draw ${ENTER} both;}
+.adm-chart-area,.adm-chart-label{animation:adm-chart-fade ${ENTER} both;}
+.adm-chart-cursor{transition:transform ${GLIDE};}
+.adm-chart-tip{transition:transform ${GLIDE};animation:adm-chart-fade ${GLIDE} both;}
+@keyframes adm-chart-rise{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+@keyframes adm-chart-draw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}
+@keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
+
 @media (prefers-reduced-motion: reduce){
 .adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-bar-btn,.adm-input,.adm-select,.adm-hover-row{transition:none;}
+.adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
+.adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}
 }
 `;
 

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen} from '@testing-library/react';
-import {COLORS, FONT_SIZES, RADIUS} from '../../app-bridge';
+import {COLORS, EASING, FONT_SIZES, RADIUS} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
 import {ADMIN_COLORS} from '../adminTheme';
 
@@ -16,9 +16,28 @@ const CLASSES = [
   'adm-input',
   'adm-select',
   'adm-hover-row',
+  // The chart kit's (R1-3b).
+  'adm-chart-plot',
+  'adm-chart-hit',
+  'adm-chart-mark',
+  'adm-chart-bar',
+  'adm-chart-line',
+  'adm-chart-area',
+  'adm-chart-label',
+  'adm-chart-cursor',
+  'adm-chart-tip',
 ];
-const FOCUSABLE = ['adm-nav-item', 'adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-bar-btn', 'adm-input', 'adm-select'];
-const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-bar-btn'];
+const FOCUSABLE = [
+  'adm-nav-item',
+  'adm-seg-btn',
+  'adm-row-btn',
+  'adm-card-btn',
+  'adm-bar-btn',
+  'adm-input',
+  'adm-select',
+  'adm-chart-hit',
+];
+const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-bar-btn', 'adm-chart-hit'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
 
 function stylesheet(): string {
@@ -93,5 +112,67 @@ describe('AdminStyles', () => {
     );
     const filled = [screen.getByRole('group'), screen.getByRole('button'), screen.getByRole('textbox')];
     for (const el of filled) expect(getComputedStyle(el).backgroundClip, el.className).toBe('padding-box');
+  });
+
+  it('rings a focused chart plot outside it and a focused bar column inside it', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-chart-plot:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
+    // Bar columns sit flush against each other, so their ring stays inside the column.
+    expect(css).toContain(`.adm-chart-hit:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:-2px;}`);
+  });
+
+  it('never dims a bar column, so a focused one keeps its full ring while another is picked', () => {
+    render(
+      <>
+        <AdminStyles />
+        <div>
+          <button type="button" className="adm-chart-hit" aria-pressed="true" aria-label="Sep 29" />
+          <button type="button" className="adm-chart-hit" aria-pressed="false" aria-label="Sep 30" />
+        </div>
+      </>,
+    );
+    expect(getComputedStyle(screen.getByRole('button', {name: 'Sep 30'})).opacity).toBe('1');
+  });
+
+  it('moves chart marks on the smooth curve, through transform and opacity only', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-chart-cursor{transition:transform .2s ${EASING.smooth};}`);
+    expect(css).toContain(`.adm-chart-tip{transition:transform .2s ${EASING.smooth};`);
+    expect(css).toContain('@keyframes adm-chart-rise{from{transform:scaleY(0);}to{transform:scaleY(1);}}');
+    expect(css).toContain('@keyframes adm-chart-draw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}');
+    // No keyframe touches layout, so SVG and HTML marks animate alike.
+    const keyframes = [...css.matchAll(/@keyframes [a-z-]+\{(.*?)\}\}/g)];
+    expect(keyframes).toHaveLength(3);
+    for (const [, body] of keyframes) {
+      for (const [, property] of body.matchAll(/([a-z-]+):/g)) {
+        expect(['transform', 'opacity', 'stroke-dashoffset']).toContain(property);
+      }
+    }
+  });
+
+  it('switches every chart transition and animation off for reduced motion', () => {
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(stylesheet())?.[1] ?? '';
+    for (const name of ['adm-chart-hit', 'adm-chart-mark', 'adm-chart-cursor', 'adm-chart-tip']) {
+      expect(reduced, name).toMatch(new RegExp(`[.]${name}(?![a-z-])[^{]*[{]transition:none;[}]`));
+    }
+    for (const name of ['adm-chart-bar', 'adm-chart-line', 'adm-chart-area', 'adm-chart-label', 'adm-chart-tip']) {
+      expect(reduced, name).toMatch(new RegExp(`[.]${name}(?![a-z-])[^{]*[{]animation:none;[}]`));
+    }
+  });
+
+  it('dims chart marks beside a picked one and brightens the active one', () => {
+    render(
+      <>
+        <AdminStyles />
+        <svg>
+          <g data-testid="dimmed" className="adm-chart-mark" data-dim="true" />
+          <g data-testid="active" className="adm-chart-mark" data-active="true" />
+          <g data-testid="plain" className="adm-chart-mark" />
+        </svg>
+      </>,
+    );
+    expect(getComputedStyle(screen.getByTestId('dimmed')).opacity).toBe('0.4');
+    expect(getComputedStyle(screen.getByTestId('active')).filter).toBe('brightness(1.2)');
+    expect(getComputedStyle(screen.getByTestId('plain')).opacity).toBe('1');
   });
 });

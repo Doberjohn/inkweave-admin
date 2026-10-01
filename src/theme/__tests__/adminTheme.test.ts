@@ -98,6 +98,8 @@ describe('ADMIN_COLORS', () => {
     // sit in a Panel, whose fill is the card over the page. The No score hatch
     // draws muted stripes, with the card showing between them.
     const chartMarks: Record<string, string> = {
+      // The emphasis bar: BarChart's emphasisKey in the accent (R1-3b), the Overview's newest week.
+      'Emphasis bar (accent)': ADMIN_COLORS.accent,
       '7+ (under)': ADMIN_COLORS.under,
       '5–6 (barNeutral)': ADMIN_COLORS.barNeutral,
       '≤4 (over)': ADMIN_COLORS.over,
