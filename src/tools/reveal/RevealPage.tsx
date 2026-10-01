@@ -2,37 +2,23 @@ import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton} from '../../app-bridge';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
 import {targetBranch} from '../../github/githubCommit';
 import {goLiveNote} from '../../github/goLiveNote';
+import {PageLayout} from '../../shell/PageLayout';
 import {
   useRevealAdmin,
   RevealAdminForm,
   CardPreviewPanel,
   SynergyPreviewPanel,
+  type RevealAdminController,
 } from './index';
 
-export function RevealPage() {
-  const ctrl = useRevealAdmin();
-
-  if (!ctrl.token) {
-    return <GithubTokenGate title="Reveal admin" onSave={ctrl.setToken} />;
-  }
-
+/** The commit banner, the form and its previews, once a token is saved. */
+function RevealTool({ctrl}: {ctrl: RevealAdminController}) {
   return (
-    <main style={{maxWidth: 1000, margin: '0 auto', padding: SPACING.lg, color: COLORS.text}}>
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <h1 style={{fontSize: FONT_SIZES.xxl}}>Add a reveal card</h1>
-        <CtaButton
-          variant="neutral"
-          onClick={ctrl.clearToken}
-          style={{minHeight: 0, padding: '6px 10px', fontSize: FONT_SIZES.sm}}>
-          Forget token
-        </CtaButton>
-      </div>
-
+    <>
       {ctrl.result && (
         <div
           role="status"
           style={{
-            margin: `${SPACING.md}px 0`,
             padding: SPACING.md,
             background: COLORS.surfaceAlt,
             borderRadius: RADIUS.sm,
@@ -81,6 +67,20 @@ export function RevealPage() {
           </div>
         </aside>
       </div>
-    </main>
+    </>
+  );
+}
+
+/**
+ * The reveal publisher, inside the page layout that names the branch it writes
+ * to. The sidebar's token box forgets the token; the gate then takes the tool's
+ * place under the same header.
+ */
+export function RevealPage() {
+  const ctrl = useRevealAdmin();
+  return (
+    <PageLayout title="Reveal publisher" subtitle="Add a newly revealed card to the preview set." writes>
+      {ctrl.token ? <RevealTool ctrl={ctrl} /> : <GithubTokenGate onSave={ctrl.setToken} />}
+    </PageLayout>
   );
 }

@@ -105,8 +105,8 @@ function NavItemLink({item, open}: {item: NavItem; open: boolean}) {
 /**
  * The saved token's status and a Forget token control. Token state is shared
  * (useGithubToken), so forgetting it here sends the open page back to its
- * token gate. The write pages keep their own Forget token buttons until they
- * are rebuilt (tuning in R2, reveal and image in R4), and both stay in step.
+ * token gate. It is the only Forget token: the write pages have none of their
+ * own.
  */
 function TokenBox({open, onForget}: {open: boolean; onForget: () => void}) {
   if (!open) {

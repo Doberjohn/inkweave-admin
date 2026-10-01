@@ -1,6 +1,7 @@
-import {render, screen, within} from '@testing-library/react';
+import {act, render, renderHook, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
+import {useGithubToken} from './github/useGithubToken';
 import {routes} from './router';
 import {NAV_ITEMS} from './shell/nav';
 
@@ -19,8 +20,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // The token store is module-level: a case that fails before its Forget-token
+  // click would otherwise hand its token to every later case. Clear it while the
+  // page is still mounted and fetch is still stubbed.
+  const store = renderHook(() => useGithubToken());
+  act(() => store.result.current.clearToken());
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  // The sidebar's collapsed state persists in localStorage.
   localStorage.clear();
 });
 
@@ -66,13 +73,41 @@ describe('admin routes', () => {
     expect(screen.getByRole('link', {name: 'Back to Overview'})).toHaveAttribute('href', '/');
   });
 
-  it.each([
-    ['/reveal', 'Reveal admin'],
-    ['/image', 'Card image admin'],
-    ['/tuning', 'Tuning admin'],
-  ])('asks for a GitHub token before %s', (path, title) => {
+  const WRITE_PAGES: Array<[path: string, title: string]> = [
+    ['/reveal', 'Reveal publisher'],
+    ['/image', 'Card images'],
+    ['/tuning', 'Engine tuning'],
+  ];
+
+  it.each(WRITE_PAGES)('asks for a GitHub token on %s, under the page title', (path, title) => {
     renderAt(path);
     expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
+  });
+
+  // The write pages have no Forget token of their own any more (README section 1).
+  // The sidebar's is the only one, and the shared token state carries it to the page.
+  it.each(WRITE_PAGES)("returns %s to the token gate from the sidebar's Forget token", async (path, title) => {
+    const user = userEvent.setup();
+    const saved = renderHook(() => useGithubToken());
+    act(() => saved.result.current.setToken('tok'));
+    renderAt(path);
+    expect(screen.queryByRole('button', {name: 'Save token'})).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: 'Forget token'}));
+    expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
+  });
+
+  // One main landmark per page, whether the gate or the tool fills the body. The
+  // pages used to bring their own <main>.
+  it.each(WRITE_PAGES)('keeps %s in one main landmark, before and after a token is saved', (path) => {
+    const saved = renderHook(() => useGithubToken());
+    renderAt(path);
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+
+    act(() => saved.result.current.setToken('tok'));
+    expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
   it('keeps the sidebar collapsed across reloads', async () => {

@@ -25,11 +25,11 @@ describe('AdminShell', () => {
     renderShellAt('/tuning');
     const sidebar = within(screen.getByRole('complementary', {name: 'Admin sidebar'}));
     expect(sidebar.getByText('GitHub token saved')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', {name: 'Tuning admin'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Save token'})).not.toBeInTheDocument();
 
     await userEvent.click(sidebar.getByRole('button', {name: 'Forget token'}));
 
-    expect(screen.getByRole('heading', {level: 1, name: 'Tuning admin'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
     expect(sidebar.queryByText('GitHub token saved')).not.toBeInTheDocument();
   });
 });

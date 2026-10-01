@@ -41,7 +41,6 @@ function toPublishPayload(inputs: {
 export interface ImageAdminController {
   token: string | null;
   setToken: (t: string) => void;
-  clearToken: () => void;
   cards: LorcanaCard[];
   selectedCard: LorcanaCard | null;
   selectCard: (card: LorcanaCard) => void;
@@ -56,7 +55,7 @@ export interface ImageAdminController {
 }
 
 export function useImageAdmin(): ImageAdminController {
-  const {token, setToken, clearToken} = useGithubToken();
+  const {token, setToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [selectedCard, setSelectedCard] = useState<LorcanaCard | null>(null);
   // The card on screen. A publish that finishes after the operator moved on
@@ -104,7 +103,6 @@ export function useImageAdmin(): ImageAdminController {
   return {
     token,
     setToken,
-    clearToken,
     cards,
     selectedCard,
     selectCard,
