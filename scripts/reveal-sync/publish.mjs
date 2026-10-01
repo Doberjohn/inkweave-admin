@@ -56,12 +56,20 @@ function appFiles(runId) {
   ];
 }
 
-/** A new branch at `sha`; one an interrupted attempt already made at `sha` counts. */
+/**
+ * A new branch at `sha`; one an interrupted attempt already made at `sha` counts. One at
+ * another commit is the owner's to delete, after which a rerun resumes here.
+ */
 function ensureBranch(branch, sha) {
   try {
     createBranch(APP_REPO, branch, sha);
   } catch (error) {
-    if (!/Reference already exists/.test(error.message) || branchTip(APP_REPO, branch) !== sha) throw error;
+    if (!/Reference already exists/.test(error.message)) throw error;
+    if (branchTip(APP_REPO, branch) !== sha) {
+      throw new UsageError(
+        `${APP_REPO} already has a branch ${branch} at another commit. Delete it, then run this again: it resumes from commit ${sha.slice(0, 7)}.`,
+      );
+    }
   }
 }
 
@@ -71,26 +79,37 @@ function record(run, landed) {
   writeRun(run);
 }
 
-/** The app PR: a commit on the base, a branch at it, then the PR. Resumes from run.published. */
-function publishCards(run) {
+/**
+ * A staged run's app PR: a commit of out/ on the base's tip, a branch at it, then the PR. Each
+ * step goes into run.json as it lands, so a rerun resumes from run.published. Nothing is
+ * written once previewCards.json has moved on the base; `startOver` ends that refusal.
+ * `pr`: {branch, message, title, body}.
+ */
+export function publishAppPr(run, pr, startOver) {
   if (!run.published?.commit) {
     const parent = branchTip(APP_REPO, run.appBase);
     if (readFile(APP_REPO, PREVIEW_REL, parent).sha !== run.baseBlob) {
       throw new UsageError(
-        `previewCards.json changed on ${APP_REPO}@${run.appBase} since this run started. Nothing was published. Start a new run.`,
+        `previewCards.json changed on ${APP_REPO}@${run.appBase} since this run started. Nothing was published. ${startOver}`,
       );
     }
     const files = appFiles(run.runId);
-    record(run, {commit: createCommit(APP_REPO, {parent, message: describePr(run).title, files})});
+    record(run, {commit: createCommit(APP_REPO, {parent, message: pr.message, files})});
   }
   if (!run.published.branch) {
-    ensureBranch(branchName(run), run.published.commit);
-    record(run, {branch: branchName(run)});
+    ensureBranch(pr.branch, run.published.commit);
+    record(run, {branch: pr.branch});
   }
   // An attempt whose answer never arrived may have opened the PR already; GitHub refuses a second.
   const opened = openPullsFrom(APP_REPO, PR_PREFIX).find(({branch}) => branch === run.published.branch);
-  const pr = {head: run.published.branch, base: run.appBase, ...describePr(run)};
-  record(run, {url: opened?.url ?? openPullRequest(APP_REPO, pr)});
+  const request = {head: run.published.branch, base: run.appBase, title: pr.title, body: pr.body};
+  record(run, {url: opened?.url ?? openPullRequest(APP_REPO, request)});
+}
+
+/** The cards' PR, from a reveals/ branch named for the run. */
+function publishCards(run) {
+  const {title, body} = describePr(run);
+  publishAppPr(run, {branch: branchName(run), message: title, title, body}, 'Start a new run.');
 }
 
 /** Record where the run's state landed, and keep it in run.json. */

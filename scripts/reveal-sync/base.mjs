@@ -7,12 +7,15 @@ import {UsageError} from './cli.mjs';
 import {ADMIN_REPO, APP_BASE, APP_REPO, PR_PREFIX, STATE_BRANCH, openPullsFrom, readFile} from './github.mjs';
 import {PREVIEW_REL, STATE_REL} from './runstore.mjs';
 
-/** One reveal PR at a time: a second would fight the first over previewCards.json. */
-export function assertNoOpenRevealPr() {
-  const open = openPullsFrom(APP_REPO, PR_PREFIX);
+/**
+ * One reveal PR at a time: a second would fight the first over previewCards.json. `except`
+ * names a branch whose PR does not count: a resumed publish's own.
+ */
+export function assertNoOpenRevealPr({except} = {}) {
+  const open = openPullsFrom(APP_REPO, PR_PREFIX).filter(({branch}) => branch !== except);
   if (open.length) {
     throw new UsageError(
-      `a reveal PR is still open (${open.map((pr) => pr.url).join(', ')}). Merge or close it first; closing one unmerged also means reverting its state commit (docs/REVEAL_RUNBOOK.md).`,
+      `a reveal PR is still open (${open.map((pr) => pr.url).join(', ')}). Merge or close it first. Closing a /fetch-reveals PR unmerged also means reverting its state commit (docs/REVEAL_RUNBOOK.md); a variants PR has none.`,
     );
   }
 }

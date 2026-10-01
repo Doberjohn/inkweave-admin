@@ -18,6 +18,8 @@ import {serializeState} from './state.mjs';
 
 /** The app's preview data, as a path in the app repo. */
 export const PREVIEW_REL = 'apps/web/public/data/previewCards.json';
+/** The app's canonical card data: over the contents API's 1 MB limit, so read raw. */
+export const ALL_CARDS_REL = 'apps/web/public/data/allCards.json';
 /** The app folder that holds preview cards' AVIFs. */
 export const AVIF_REL = 'apps/web/public/card-images-preview';
 /** Run-to-run memory, as a path in admin's repo (docs/plans/P3-pipelines.md, P3-5). */

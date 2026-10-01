@@ -1,18 +1,38 @@
 /** A fake `gh api` for tests. */
 import {setGhRunner} from '../github.mjs';
 
-/** Install a fake that answers each call from `route` and records it; returns the calls. */
+const RAW = Symbol('raw answer');
+
+/** The media type a call asked for with `--header 'Accept: ...'`, if any. */
+function acceptOf(args) {
+  const at = args.indexOf('--header');
+  return at === -1 ? undefined : args[at + 1].replace(/^Accept:\s*/, '');
+}
+
+/**
+ * Install a fake that answers each call from `route` and records it; returns the calls. Each
+ * call is {endpoint, method, accept, body}.
+ */
 export function fakeGh(route) {
   const calls = [];
   setGhRunner((args, input) => {
-    const call = {endpoint: args[0], method: args[2], body: input === undefined ? undefined : JSON.parse(input)};
+    const call = {
+      endpoint: args[0],
+      method: args[2],
+      accept: acceptOf(args),
+      body: input === undefined ? undefined : JSON.parse(input),
+    };
     calls.push(call);
     const answer = route(call);
     if (answer instanceof Error) throw answer;
+    if (answer?.[RAW] !== undefined) return answer[RAW];
     return answer === undefined ? '' : JSON.stringify(answer);
   });
   return calls;
 }
+
+/** An answer gh prints as it is, as it does a file asked for in the raw media type. */
+export const rawAnswer = (text) => ({[RAW]: text});
 
 /** A route answering `${method} ${endpoint}` from a table; any other call fails the test. */
 export const table = (answers) => (call) => {
