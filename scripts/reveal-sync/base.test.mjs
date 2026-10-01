@@ -21,6 +21,16 @@ describe('the start check', () => {
     expect(assertNoOpenRevealPr).toThrow(/pull\/700\)/);
   });
 
+  it('lets through the PR on the branch it is told is its own, and no other', () => {
+    fakeGh(
+      table({
+        [OPEN_PRS]: [{number: 702, html_url: 'https://github.com/Doberjohn/inkweave/pull/702', head: {ref: 'reveals/set14-variants-215'}}],
+      }),
+    );
+    expect(() => assertNoOpenRevealPr({except: 'reveals/set14-variants-215'})).not.toThrow();
+    expect(() => assertNoOpenRevealPr({except: 'reveals/set14-variants-239'})).toThrow(/pull\/702\)/);
+  });
+
   it('lets a run start when no reveal PR is open', () => {
     fakeGh(table({[OPEN_PRS]: [{number: 701, html_url: 'u', head: {ref: 'feature/1-other'}}]}));
     expect(assertNoOpenRevealPr).not.toThrow();

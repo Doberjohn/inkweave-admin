@@ -52,6 +52,15 @@ describe('planPrintings', () => {
     expect(planPrintings([215, 239], baseWith())).toEqual({printings: [HECTOR_EPIC, TIANA_ENCHANTED], problems: []});
   });
 
+  // The fixtures' printings are an Epic and an Enchanted; Set 14's Iconics are #241 and #242.
+  it('plans an Iconic slot as an Iconic', () => {
+    const iconic = {...SLOT_239, set_number: 241, name: 'Mickey Mouse', subtitle: 'Best in Town', rarity: 'ICONIC'};
+    const mickey = {...TIANA, id: 14023, number: 23, name: 'Mickey Mouse', version: 'Best in Town', fullName: 'Mickey Mouse - Best in Town'};
+    const {printings, problems} = planPrintings([241], baseWith({slots: [iconic], cards: [mickey]}));
+    expect(problems).toEqual([]);
+    expect(printings.map(({number, id, rarity, base}) => [number, id, rarity, base.id])).toEqual([[241, 14241, 'Iconic', 14023]]);
+  });
+
   it('plans each number once, in collector-number order', () => {
     expect(planPrintings([239, 215, 239], baseWith()).printings.map((p) => p.number)).toEqual([215, 239]);
   });

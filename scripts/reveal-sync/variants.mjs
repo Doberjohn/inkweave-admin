@@ -145,12 +145,16 @@ export async function stageVariants(numbers, {season, fetchImpl = fetch}) {
 /* ---------------------------------------------------------------- publish */
 
 /**
- * Before anything lands: no other reveal PR open, and no branch where the PR's goes. Once
- * something has, both may be this run's own, so a resume skips this.
+ * No other reveal PR open, and before anything lands, no branch where the PR's goes. Once
+ * something has, the branch and an open PR on it may be this run's own, so a resume lets
+ * them be.
  */
-function assertClearToPublish(branch) {
-  assertNoOpenRevealPr();
-  if (branchExists(APP_REPO, branch)) throw new UsageError(`${leftOverBranch(branch)} Nothing was published.`);
+function assertClearToPublish(run) {
+  const resuming = Boolean(run.published?.commit);
+  assertNoOpenRevealPr({except: resuming ? run.pr.branch : undefined});
+  if (!resuming && branchExists(APP_REPO, run.pr.branch)) {
+    throw new UsageError(`${leftOverBranch(run.pr.branch)} Nothing was published.`);
+  }
 }
 
 /**
@@ -164,7 +168,7 @@ export function publishVariants(runId) {
     throw new UsageError(`${runId} is not a staged variant run: stage the printings first`);
   }
   if (run.published?.url) return {url: run.published.url, already: true};
-  if (!run.published?.commit) assertClearToPublish(run.pr.branch);
+  assertClearToPublish(run);
   publishAppPr(run, run.pr, 'Stage the printings again.');
   return {url: run.published.url, already: false};
 }

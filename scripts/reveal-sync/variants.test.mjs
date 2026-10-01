@@ -311,6 +311,13 @@ describe('publishVariants', () => {
     expect(writes(calls)).toEqual([`POST ${APP}/git/refs`, `POST ${APP}/pulls`]);
   });
 
+  it("refuses to resume while a reveal PR other than this run's own is open", () => {
+    const calls = fakeGh(table({...PUBLISH_ANSWERS, [OPEN_PRS]: [OWN_PR, OPEN_REVEAL_PR]}));
+    const run = stagedRun({published: {commit: 'app-commit', branch: PR.branch}});
+    expect(() => publishVariants(run.runId)).toThrow(/pull\/700/);
+    expect(writes(calls)).toEqual([]);
+  });
+
   // The PR was opened, but the answer never arrived: it is this run's own open reveal PR.
   it('resumes after the branch and takes the PR an interrupted attempt opened', () => {
     const calls = fakeGh(table({...PUBLISH_ANSWERS, [OPEN_PRS]: [OWN_PR]}));
