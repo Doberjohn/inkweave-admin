@@ -19,6 +19,8 @@ What a run will not write, by design, is in the skill: leaks, non-English cards,
 
 ## Closing a reveal PR unmerged
 
+This is about a `/fetch-reveals` PR. A variants PR (`reveals/set<N>-variants-…`) has no state commit, so closing it needs nothing more; delete its branch, or a later `stage` of the same numbers refuses.
+
 The run's state commit on admin's `main` (`chore(reveals): record run <RUN>`) still marks its cards `written`, so no later run would retry them. Revert it on a `fix/` branch from `main` (`git revert <sha>`), and merge that as a PR. The next run fetches those cards again.
 
 ## One card at a time: the reveal publisher
@@ -34,6 +36,36 @@ Use it for a card the pipeline cannot write: a `validation-failed` card, or a pr
 **Merge the season switch before publishing anything.** The publisher commits to `master`, and the convert workflow only fires there.
 
 A card published while a `/fetch-reveals` run is open makes that run's `write` refuse, writing nothing: start a new run.
+
+## Variant printings from admin
+
+An Epic, Enchanted or Iconic printing goes in its base card's `variants`, never in as a card of its own ([Variant printings](#variant-printings-epic-enchanted-iconic) below). `/fetch-reveals` skips them, and the reveal publisher would add one as a separate card, so admin publishes them with `scripts/reveal-sync/variants.mjs`, in two steps:
+
+```bash
+node scripts/reveal-sync/variants.mjs stage 215 239
+node scripts/reveal-sync/variants.mjs publish <RUN>
+```
+
+Like `/fetch-reveals`, it needs `gh` logged in as the owner and the engine built (`pnpm build:engine`).
+
+1. `stage` takes collector numbers. It reads illumineertales.com's list, and the app's `master` through `gh`. It stages nothing unless every printing passes:
+   - no reveal PR is open;
+   - the list shows the slot as revealed, past the main set, with the rarity EPIC, ENCHANTED or ICONIC and no translation link (an English scan);
+   - exactly one card of the season's set has the printing's name and version, compared without accents (the list's #215 "Héctor Rivera" lands on 14117 "Hector Rivera");
+   - nothing in `previewCards.json` or `allCards.json` uses its id (`REVEAL_ID_BASE + number`), `card-images-preview/` has no AVIF for that id, and the base card has no printing of that rarity.
+
+   Those refusals name every printing that fails, at once. Three later checks also stage nothing when they fail:
+   - the PR's branch must not exist yet (it is named for the numbers alone, so a PR for the same numbers closed unmerged can leave it behind: delete it);
+   - `previewCards.json` must already be laid out as `JSON.stringify(_, null, 2)` writes it, so the new entries are the whole diff;
+   - each official scan must download, then convert with the app's own `convert-preview-images`. The scan itself is used unchanged.
+
+   `stage` then stages the new `previewCards.json` and the AVIFs. It prints the printings, the commit message, the PR and the AVIFs' paths.
+2. The owner looks at the AVIFs and the text, and approves the publish. Then `publish RUN` refuses while another reveal PR is open, if the PR's branch now exists, or if `previewCards.json` moved on `master` since `stage` (stage again). Otherwise it commits on `master`'s tip, creates `reveals/set<N>-variants-<numbers>`, and opens the PR in Doberjohn/inkweave#689's format. If it stops part-way, run it again: it resumes, and never opens a second PR. If another commit took the branch in between, it says so: delete that branch, then run it again.
+
+- It never touches `state.json`: a printing is not a card. So closing its PR unmerged needs no revert, only the branch deleted.
+- Merge the PR before the next `/fetch-reveals` run or `stage`: both refuse while a reveal PR is open.
+- A run lives beside `/fetch-reveals` runs, in `%TEMP%/inkweave-reveal-sync/variants-<stamp>/`: `run.json`, the official scans, and `out/` (what the PR commits).
+- A printing whose only scan is not in English still goes by hand, as Doberjohn/inkweave#680 did with 213's Italian one.
 
 ## Adding cards by hand
 
@@ -53,7 +85,7 @@ A set is numbered ink by ink in `ALL_INKS` order, so the collector number implie
 
 ### Variant printings (Epic, Enchanted, Iconic)
 
-A variant printing is alternate art for a card that is already in, not a card of its own: it goes in the base card's `variants` array, and the app shows it as a `Standard | <Rarity>` switcher (Doberjohn/inkweave#625). Never add one as its own entry. `/fetch-reveals` and the reveal publisher do not handle variants (the fetch pipeline's rarity gate rejects them), so use one of these two paths, both in Doberjohn/inkweave. Both give the variant the id `REVEAL_ID_BASE + collector number` (Iconic #241 is `14241`), so they converge on one id, and `reveal-set-integrity.test.ts` enforces it.
+A variant printing is alternate art for a card that is already in, not a card of its own: it goes in the base card's `variants` array, and the app shows it as a `Standard | <Rarity>` switcher (Doberjohn/inkweave#625). Never add one as its own entry. `/fetch-reveals` and the reveal publisher do not handle variants (the fetch pipeline's rarity gate rejects them). From admin, use `variants.mjs` ([Variant printings from admin](#variant-printings-from-admin)); in Doberjohn/inkweave, use one of these two paths. All three give the variant the id `REVEAL_ID_BASE + collector number` (Iconic #241 is `14241`), so they converge on one id, and `reveal-set-integrity.test.ts` enforces it.
 
 **Official art, once LorcanaJSON lists the variant** (preferred), from the app repo's root:
 
