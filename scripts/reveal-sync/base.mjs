@@ -12,7 +12,7 @@ export function assertNoOpenRevealPr() {
   const open = openPullsFrom(APP_REPO, PR_PREFIX);
   if (open.length) {
     throw new UsageError(
-      `a reveal PR is still open (${open.map((pr) => pr.url).join(', ')}). Merge or close it first; closing one unmerged also means reverting its state commit (docs/REVEAL_RUNBOOK.md).`,
+      `a reveal PR is still open (${open.map((pr) => pr.url).join(', ')}). Merge or close it first. Closing a /fetch-reveals PR unmerged also means reverting its state commit (docs/REVEAL_RUNBOOK.md); a variants PR has none.`,
     );
   }
 }
