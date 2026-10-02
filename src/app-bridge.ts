@@ -40,6 +40,7 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/constants';
 export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
+export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
 export {TabList} from '../upstream/inkweave/apps/web/src/shared/components/TabList';
 export {useContainerWidth} from '../upstream/inkweave/apps/web/src/shared/hooks';
@@ -49,6 +50,15 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
 export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
 export {smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// RaritySymbol draws Common to Legendary; rarityConfigOf maps a card's rarity
+// ("Super Rare") to the same five keys and returns undefined for any other.
+export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
+export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
+// Enchanted, Epic and Iconic are printings RaritySymbol doesn't draw; the app's
+// PrintingPills shows them from these files (?no-inline keeps them out of the JS).
+export {default as enchantedSymbol} from '../upstream/inkweave/apps/web/src/assets/enchanted.webp?no-inline';
+export {default as epicSymbol} from '../upstream/inkweave/apps/web/src/assets/epic.webp?no-inline';
+export {default as iconicSymbol} from '../upstream/inkweave/apps/web/src/assets/iconic.webp?no-inline';
 // The pinned app's previewCards.json as text. The reveal tool's insert test
 // runs against it, so a pin bump that changes the file's layout fails here.
 export {default as PINNED_PREVIEW_CARDS_JSON} from '../upstream/inkweave/apps/web/public/data/previewCards.json?raw';
