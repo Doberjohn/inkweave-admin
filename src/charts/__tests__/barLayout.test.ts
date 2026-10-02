@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {fmtInt} from '../../ui/format';
-import {BAR_Y_AXIS_WIDTH, barLayout, type BarDatum, type BarLayoutOptions} from '../barLayout';
+import {BAR_Y_AXIS_WIDTH, barLayout, barLayoutOptions, type BarDatum, type BarLayoutOptions} from '../barLayout';
 import type {SeriesDef} from '../series';
 
 // jsdom measures no width, so BarChart's own tests all run at the 640px
@@ -129,6 +129,16 @@ describe('barLayout', () => {
     const highest = layout.caps.find((cap) => cap.index === 1)!;
     expect(highest.x).toBe(142);
     expect(highest.y).toBe(layout.barTops[1] - 4);
+  });
+
+  it("fills in BarChart's defaults: a 160px plot, fmtInt values and 'extremes' caps", () => {
+    expect(barLayoutOptions({})).toEqual({height: 160, valueFormat: fmtInt, capLabels: 'extremes', xLabelEvery: undefined, subLabels: false});
+    expect(barLayoutOptions({height: 90, capLabels: 'all', xLabelEvery: 7, subLabel: () => null})).toMatchObject({
+      height: 90,
+      capLabels: 'all',
+      xLabelEvery: 7,
+      subLabels: true,
+    });
   });
 
   it('adds the sub-label band under the x labels only when asked', () => {

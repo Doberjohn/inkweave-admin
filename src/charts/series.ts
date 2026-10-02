@@ -47,6 +47,11 @@ export interface SeriesDef {
 /** A chart's width before it is measured: the first frame, and always in jsdom, which has no ResizeObserver. */
 export const CHART_FALLBACK_WIDTH = 640;
 
+/** The width a chart lays out at: what useContainerWidth measured, or CHART_FALLBACK_WIDTH until it has (0). */
+export function chartWidth(measured: number): number {
+  return measured > 0 ? measured : CHART_FALLBACK_WIDTH;
+}
+
 /** The 2px surface gap between touching fills: stacked segments and adjacent bars (dataviz mark spec). */
 export const SURFACE_GAP = SPACING.xxs;
 

@@ -3,10 +3,10 @@ import {SPACING, useContainerWidth} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {fmtDay, fmtInt} from '../ui/format';
 import {LABEL_SIZE, px} from './axis';
-import {AxisGrid, ChartSvg, EmptyChart} from './ChartSvg';
+import {AxisGrid, ChartPlot, ChartSvg, EmptyChart} from './ChartSvg';
 import {ChartTooltip, type TooltipContent} from './ChartTooltip';
 import {DOT_RADIUS, RING, lineLayout, lonePoints, tooltipY, type LineLayout, type LineSeries, type PlotPoint} from './lineLayout';
-import {CHART_FALLBACK_WIDTH, tooltipText} from './series';
+import {chartWidth, tooltipText} from './series';
 import {useChartCursor} from './useChartCursor';
 
 export type {LinePoint, LineSeries} from './lineLayout';
@@ -29,7 +29,7 @@ interface LineChartProps {
   baseline?: number;
   /** The baseline's label (default: yFormat(baseline)). */
   baselineLabel?: string;
-  /** Shown in place of the plot when no series has a point. */
+  /** Shown in place of the plot when no series has a point (default "No data to chart."). */
   emptyText?: string;
 }
 
@@ -233,11 +233,11 @@ export function LineChart({
   xTicks,
   baseline,
   baselineLabel,
-  emptyText = 'No data to chart.',
+  emptyText,
 }: LineChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const measured = useContainerWidth(wrapRef);
-  const layout = lineLayout(measured > 0 ? measured : CHART_FALLBACK_WIDTH, series, {height, yFormat, xFormat, xTicks, baseline});
+  const layout = lineLayout(chartWidth(measured), series, {height, yFormat, xFormat, xTicks, baseline});
   const cursor = useChartCursor(layout.xs.length);
 
   if (layout.xs.length === 0) {
@@ -252,11 +252,12 @@ export function LineChart({
   const active = cursor.index;
   return (
     <div ref={wrapRef} style={WRAP}>
-      <div
-        className="adm-chart-plot"
-        aria-label={ariaLabel}
-        {...cursor.plotProps((i) => tooltipText(contentAt(i)), layout.xPx)}
-        style={{position: 'relative', height: layout.svgHeight}}>
+      <ChartPlot
+        ariaLabel={ariaLabel}
+        cursor={cursor}
+        valueText={(i) => tooltipText(contentAt(i))}
+        xs={layout.xPx}
+        height={layout.svgHeight}>
         <ChartSvg width={layout.width} height={layout.svgHeight}>
           <AxisGrid ticks={layout.ticks} left={layout.left} right={layout.left + layout.plotWidth} />
           {layout.baseline && (
@@ -283,7 +284,7 @@ export function LineChart({
           y={active == null ? layout.plotBottom : tooltipY(layout, active)}
           bounds={{width: layout.width, height: layout.svgHeight}}
         />
-      </div>
+      </ChartPlot>
     </div>
   );
 }

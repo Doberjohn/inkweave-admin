@@ -1,5 +1,6 @@
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {LABEL_SIZE, TICK_GAP, px, type AxisTick} from './axis';
+import type {ChartCursor} from './useChartCursor';
 
 const SVG_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -59,7 +60,27 @@ export function AxisGrid({ticks, left, right}: {ticks: readonly AxisTick[]; left
   );
 }
 
-/** What a chart shows in place of its plot when it has nothing to draw. */
-export function EmptyChart({text}: {text: string}) {
+/** What a chart shows in place of its plot when it has nothing to draw (default "No data to chart."). */
+export function EmptyChart({text = 'No data to chart.'}: {text?: string}) {
   return <p style={{margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{text}</p>;
+}
+
+interface ChartPlotProps {
+  ariaLabel: string;
+  cursor: ChartCursor;
+  /** The slider's value text at each position: the tooltip's line. */
+  valueText: (i: number) => string;
+  /** Each position's x in px, which the pointer snaps to. */
+  xs: readonly number[];
+  height: number;
+  children: React.ReactNode;
+}
+
+/** A chart's plot as one slider (useChartCursor), named by `ariaLabel`, holding the drawing and its tooltip. */
+export function ChartPlot({ariaLabel, cursor, valueText, xs, height, children}: ChartPlotProps) {
+  return (
+    <div className="adm-chart-plot" aria-label={ariaLabel} {...cursor.plotProps(valueText, xs)} style={{position: 'relative', height}}>
+      {children}
+    </div>
+  );
 }

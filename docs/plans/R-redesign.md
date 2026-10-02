@@ -123,7 +123,7 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 | `src/theme/AdminStyles.tsx` | `AdminStyles` component: the one scoped stylesheet with every `adm-*` class (hover, focus-visible, selected states) |
 | `src/ui/format.ts` | Number, gap and date formatting shared by every page |
 | `src/ui/*.tsx` | Primitives: `Panel`, `KpiCard`, `SegmentedControl`, `MeterBar`, `BiasBar`, `ScorePill`, `RawTag`, `Notice`, `Sparkline` |
-| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis (`axis.ts`, `ChartSvg.tsx`) and take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`) |
+| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis and plot (`axis.ts`, `ChartSvg.tsx`), take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`), and BarChart draws through `BarDrawing.tsx` and `SelectableBars.tsx` |
 | `src/github/useGithubToken.ts` | Shared token state (one store for every component), same API as today |
 | `src/shell/nav.ts` | The sidebar's items, groups and which routes write (replaces `tools.ts`) |
 | `src/shell/Sidebar.tsx` | Sidebar: brand, groups, items, token box, collapse (persisted) |
@@ -349,8 +349,13 @@ These came out of drafting and reconciling the R1 tasks. They add names and rena
 // scale.ts: type Day = string ('YYYY-MM-DD'; a name only), taken by the day functions
 // axis.ts: LABEL_SIZE, TICK_GAP, AxisTick, YAxis, px(n), labelWidth(text), labelX(center, width, chartWidth),
 //          wholeTicks(top, integers), yAxis(values, format, y)   // the y axis both charts share
-// ChartSvg.tsx: ChartSvg({width, height}), AxisGrid({ticks, left, right}), EmptyChart({text})
-// barLayout.ts: barLayout(width, data, series, opts): BarLayout; BarDatum, CapLabels and BAR_Y_AXIS_WIDTH live here
+// ChartSvg.tsx: ChartSvg({width, height}), AxisGrid({ticks, left, right}), EmptyChart({text?}),
+//               ChartPlot({ariaLabel, cursor, valueText, xs, height})   // the slider plot both charts render
+// series.ts: chartWidth(measured)   // the measured width, or CHART_FALLBACK_WIDTH until there is one
+// barLayout.ts: barLayout(width, data, series, opts): BarLayout; barLayoutOptions(sizing) (BarChart's defaults);
+//               BarDatum, BarSizing, CapLabels and BAR_Y_AXIS_WIDTH live here
+// BarChart's parts: BarDrawing.tsx (the drawing and tooltip), SelectableBars.tsx (the bar buttons),
+//               useBarFocus.ts (their roving focus), barPaint.ts (paint, roundedTop, data flags)
 // lineLayout.ts: lineLayout(width, series, opts): LineLayout; lonePoints(row); tooltipY(layout, index); LinePoint, LineSeries
 // R1-2's theme test gains 'Emphasis bar (accent)' at the start of chartMarks
 

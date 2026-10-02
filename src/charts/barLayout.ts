@@ -1,4 +1,5 @@
 import {SPACING} from '../app-bridge';
+import {fmtInt} from '../ui/format';
 import {LABEL_SIZE, labelWidth, labelX, wholeTicks, yAxis, type AxisTick} from './axis';
 import {linear, niceCeiling} from './scale';
 import {SURFACE_GAP, type SeriesDef} from './series';
@@ -77,6 +78,32 @@ export interface BarLayout {
   subLabelY: number;
 }
 
+/** What BarChart's sizing and label props may leave out; barLayoutOptions fills in the defaults. */
+export interface BarSizing {
+  /** Default 160. */
+  height?: number;
+  /** Default fmtInt. */
+  valueFormat?: (n: number) => string;
+  /** Default 'extremes'. */
+  capLabels?: CapLabels;
+  xLabelEvery?: number;
+  /** Only whether there is one matters here: it adds the sub-label band. */
+  subLabel?: unknown;
+}
+
+const DEFAULT_HEIGHT = 160;
+
+/** BarChart's props as layout options: a 160px plot, fmtInt values and 'extremes' cap labels unless they say otherwise. */
+export function barLayoutOptions(sizing: BarSizing): BarLayoutOptions {
+  return {
+    height: sizing.height ?? DEFAULT_HEIGHT,
+    valueFormat: sizing.valueFormat ?? fmtInt,
+    capLabels: sizing.capLabels ?? 'extremes',
+    xLabelEvery: sizing.xLabelEvery,
+    subLabels: sizing.subLabel !== undefined,
+  };
+}
+
 /** The y-axis gutter left of the plot: a five-character tick ("1,200") at 10px plus the 8px gap. Fixed, so a caller can count columns from its frame (R1-8's weeksThatFit); a wider tick label widens it rather than clip. */
 export const BAR_Y_AXIS_WIDTH = SPACING.xxxl + SPACING.sm;
 /** Bars are never thicker than this; a wider slot leaves the rest as air (dataviz mark spec). */
@@ -125,9 +152,30 @@ function overlaps(a: BarCap, b: BarCap): boolean {
   return Math.abs(a.x - b.x) < (a.width + b.width) / 2 + SURFACE_GAP && Math.abs(a.y - b.y) < LABEL_SIZE + SURFACE_GAP;
 }
 
-/** The bar with the highest total, the earlier one on a tie. */
+/** The cap with the highest total, the earlier one on a tie. */
 function highestOf(caps: readonly BarCap[], totals: readonly number[]): BarCap | undefined {
-  return caps.reduce<BarCap | undefined>((best, cap) => (best == null || totals[cap.index] > totals[best.index] ? cap : best), undefined);
+  let best: BarCap | undefined;
+  for (const cap of caps) if (!best || totals[cap.index] > totals[best.index]) best = cap;
+  return best;
+}
+
+/** Whether every label fits its bar's slot, with the surface gap to spare. */
+function allFit(caps: readonly BarCap[], slot: number): boolean {
+  return caps.every((cap) => cap.width + SURFACE_GAP <= slot);
+}
+
+/** Whether the highest bar's label prints beside the last bar's: it is another bar, and the two don't collide. */
+function printsBeside(highest: BarCap, last: BarCap): boolean {
+  return highest !== last && !overlaps(highest, last);
+}
+
+/** The last bar's label and the highest bar's, the highest dropped when it would collide with the last. */
+function extremeCaps(caps: readonly BarCap[], totals: readonly number[]): BarCap[] {
+  const highest = highestOf(caps, totals);
+  if (!highest) return [];
+  const last = caps.find((cap) => cap.index === totals.length - 1);
+  if (!last) return [highest];
+  return printsBeside(highest, last) ? [highest, last] : [last];
 }
 
 /**
@@ -139,11 +187,25 @@ function highestOf(caps: readonly BarCap[], totals: readonly number[]): BarCap |
 function capsFor(mode: CapLabels, caps: readonly BarCap[], totals: readonly number[], slot: number): BarCap[] {
   if (mode === 'none') return [];
   const nonZero = caps.filter((cap) => totals[cap.index] > 0);
-  if (mode === 'all' && nonZero.every((cap) => cap.width + SURFACE_GAP <= slot)) return nonZero;
-  const last = nonZero.find((cap) => cap.index === totals.length - 1);
-  const highest = highestOf(nonZero, totals);
-  if (!last) return highest ? [highest] : [];
-  return highest && highest !== last && !overlaps(highest, last) ? [highest, last] : [last];
+  return mode === 'all' && allFit(nonZero, slot) ? nonZero : extremeCaps(nonZero, totals);
+}
+
+/** Each bar's stack: its share of the plot height, never shorter than the surface gap when it has a total. */
+function stacksFor(
+  data: readonly BarDatum[],
+  series: readonly SeriesDef[],
+  totals: readonly number[],
+  plot: {ceiling: number; baseline: number; height: number},
+): BarSegment[][] {
+  return data.map((d, i) => {
+    const height = totals[i] > 0 ? Math.max(SURFACE_GAP, (totals[i] / plot.ceiling) * plot.height) : 0;
+    return stackOf(d, series, {baseline: plot.baseline, height});
+  });
+}
+
+/** A stack's top: its top segment's, or the baseline for an empty bar. */
+function topOf(stack: readonly BarSegment[], baseline: number): number {
+  return stack.at(-1)?.top ?? baseline;
 }
 
 /** Every bar's total as a cap label, centred over the bar and kept inside the chart. */
@@ -181,11 +243,8 @@ export function barLayout(width: number, data: readonly BarDatum[], series: read
   const plotWidth = Math.max(width - left - RIGHT_PAD, 1);
   const slot = plotWidth / Math.max(data.length, 1);
   const centers = data.map((_, i) => left + slot * (i + 0.5));
-  const stacks = data.map((d, i) => {
-    const height = totals[i] > 0 ? Math.max(SURFACE_GAP, (totals[i] / ceiling) * opts.height) : 0;
-    return stackOf(d, series, {baseline, height});
-  });
-  const barTops = stacks.map((stack) => stack.at(-1)?.top ?? baseline);
+  const stacks = stacksFor(data, series, totals, {ceiling, baseline, height: opts.height});
+  const barTops = stacks.map((stack) => topOf(stack, baseline));
   return {
     width,
     svgHeight: baseline + X_BAND + (opts.subLabels ? SUB_BAND : 0),
