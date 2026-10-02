@@ -54,7 +54,7 @@ Move every admin page and all administration work out of the app repo into the p
 
 ### 2.3 Coupling
 
-- **Admin reads from the app:** design tokens (`shared/constants`), `CtaButton`, `TabList`, `useContainerWidth`, `CardDataContext` and the card loader, `CardTile`, `smallImageUrl`, card types, and the engine (`synergyEngine` and `transformCard` run live in reveal-admin; tuning-admin reads `TUNING`).
+- **Admin reads from the app:** design tokens (`shared/constants`), `CtaButton`, `TabList` (no longer bridged since the redesign's R1), `useContainerWidth`, `CardDataContext` and the card loader, `CardTile`, `smallImageUrl`, card types, and the engine (`synergyEngine` and `transformCard` run live in reveal-admin; tuning-admin reads `TUNING`).
 - **The app reads from admin:** only `apps/web/src/router.tsx`, with one exception: `scripts/reveal-sync/web.mjs` loads reveal-admin's `validateForm`, `buildPreviewCard` and `insertCardIntoPreviewJson`, and `scripts/reveal-sync/write-chain.test.mjs` imports them in CI. They move together.
 - **Admin writes into the app repo:** reveal (`previewCards.json` plus a raw scan), image (a raw scan) and tuning (`packages/synergy-engine/src/data/tuning.json`) commit to `master` through the Git Data API; reveal-sync writes into a local working tree.
 - **Constraints:** the engine (`inkweave-synergy-engine` 0.1.0) was never published (npm 404) and its `dist/` is gitignored. `inkweave.ink` sends no CORS headers. `allCards.json` (1.56 MB) exceeds the GitHub Contents API's JSON limit; the raw media type allows up to 100 MB.
@@ -109,7 +109,7 @@ The relative submodule URL `../inkweave.git` resolves against the admin remote: 
   - declares the app's **full** runtime dependency set, at the app's exact specifiers. The app's index files already reach all of its runtime packages from `CtaButton` alone (197 modules), so a partial list would break on the next import change. `scripts/check-shared-deps.mjs` enforces this in CI and on pre-push, and `--fix` aligns after a pin bump.
 - The web app uses plain relative imports with no path aliases. That is what lets the bridge work without replicating alias config.
 - Admin lint reuses the app's design-token ESLint rules from `upstream/inkweave/apps/web/eslint-rules/`. The admin files' entries in the app's `known-offenders.js` move into an admin-side ledger.
-- `TabList` stays in the app's design system even though admin is its only runtime consumer. Admin imports it through the bridge.
+- `TabList` stays in the app's design system, although admin, its only runtime consumer, stopped using it in the redesign (R1) and no longer bridges it. Whether the app keeps it is the app's call.
 
 ### 4.3 Hosting and access
 

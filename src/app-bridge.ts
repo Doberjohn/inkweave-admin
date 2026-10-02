@@ -14,7 +14,6 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 export {
   ALL_INKS,
-  CAP_LABEL,
   CAP_LABEL_XS,
   COLORS,
   EASING,
@@ -31,7 +30,6 @@ export {
   SET_NAMES,
   SET_TOTAL,
   SPACING,
-  SURFACE_CARD,
   TRUNCATE,
   blackRgba,
   hexRgba,
@@ -42,7 +40,6 @@ export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/com
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
 export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
-export {TabList} from '../upstream/inkweave/apps/web/src/shared/components/TabList';
 export {useContainerWidth} from '../upstream/inkweave/apps/web/src/shared/hooks';
 export {
   CardDataProvider,
