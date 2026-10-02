@@ -2,6 +2,7 @@ import {createBrowserRouter, type RouteObject} from 'react-router-dom';
 import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
 import {AnalyticsPage} from './tools/analytics/AnalyticsPage';
+import {ActivityPage} from './tools/analytics/activity/ActivityPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
@@ -13,6 +14,7 @@ export const routes: RouteObject[] = [
     element: <AdminShell />,
     children: [
       {index: true, element: <OverviewPage />},
+      {path: 'activity', element: <ActivityPage />},
       {path: 'analytics', element: <AnalyticsPage />},
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},

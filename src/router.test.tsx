@@ -125,6 +125,14 @@ describe('admin routes', () => {
     expect(screen.getByRole('button', {name: 'Expand sidebar'})).toHaveAttribute('aria-expanded', 'false');
     expect(sidebarNav().getByRole('link', {name: 'Analytics'})).toHaveAttribute('title', 'Analytics');
   });
+
+  it('opens vote activity at /activity, marked current in the sidebar', () => {
+    renderAt('/activity');
+    expect(screen.getByRole('heading', {name: 'Vote activity'})).toBeInTheDocument();
+    // The file's fetch stub never settles, so the page waits on the vote log.
+    expect(screen.getByText('Loading vote log...')).toBeInTheDocument();
+    expect(sidebarNav().getByRole('link', {name: /Vote activity/})).toHaveAttribute('aria-current', 'page');
+  });
 });
 
 describe('the Overview nav item', () => {
