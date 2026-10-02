@@ -12,7 +12,7 @@ const meta: Meta<typeof Sidebar> = {
   // Full height at the shell's left edge, on the page named by parameters.route.
   decorators: [
     (Story, {parameters}) => (
-      <MemoryRouter initialEntries={[parameters.route ?? '/analytics']}>
+      <MemoryRouter initialEntries={[parameters.route ?? '/calibration']}>
         <div style={{display: 'flex', height: '100vh'}}>
           <Story />
         </div>

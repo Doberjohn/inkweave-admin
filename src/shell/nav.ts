@@ -19,7 +19,8 @@ export interface NavItem {
 /** Every page the sidebar links, in sidebar order within each group. */
 export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'overview', label: 'Overview', mark: 'Ov', path: '/', group: 'main', writes: false},
-  {id: 'analytics', label: 'Analytics', mark: 'An', path: '/analytics', group: 'insights', writes: false},
+  // Read-only in R1. Tuning moves in with R2, which turns writes on (R-4).
+  {id: 'calibration', label: 'Calibration & tuning', mark: 'Ca', path: '/calibration', group: 'insights', writes: false},
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
   {id: 'tuning', label: 'Engine tuning', mark: 'Tu', path: '/tuning', group: 'publish', writes: true},

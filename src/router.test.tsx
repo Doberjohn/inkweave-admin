@@ -1,9 +1,10 @@
-import {act, render, renderHook, screen, within} from '@testing-library/react';
+import {act, render, renderHook, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import {useGithubToken} from './github/useGithubToken';
 import {routes} from './router';
 import {NAV_ITEMS, isWritePath, navItemFor} from './shell/nav';
+import type {VoteAnalytics} from './tools/analytics/voteAnalyticsTypes';
 
 function renderAt(path: string) {
   return render(<RouterProvider router={createMemoryRouter(routes, {initialEntries: [path]})} />);
@@ -45,7 +46,7 @@ describe('admin routes', () => {
   });
 
   it('links every page from the sidebar', () => {
-    renderAt('/analytics');
+    renderAt('/calibration');
     for (const item of NAV_ITEMS) {
       expect(sidebarNav().getByRole('link', {name: item.label})).toHaveAttribute('href', item.path);
     }
@@ -54,7 +55,7 @@ describe('admin routes', () => {
   it("marks only the current page's link", () => {
     renderAt('/tuning');
     expect(sidebarNav().getByRole('link', {name: 'Engine tuning'})).toHaveAttribute('aria-current', 'page');
-    expect(sidebarNav().getByRole('link', {name: 'Analytics'})).not.toHaveAttribute('aria-current');
+    expect(sidebarNav().getByRole('link', {name: 'Calibration & tuning'})).not.toHaveAttribute('aria-current');
   });
 
   it.each(WRITE_PATHS)('names the branch %s writes to', (path) => {
@@ -68,7 +69,7 @@ describe('admin routes', () => {
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 
-  it.each(['/analytics', '/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
+  it.each(['/calibration', '/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
     renderAt(path);
     expect(screen.queryByText('Writes to Doberjohn/inkweave')).not.toBeInTheDocument();
   });
@@ -117,13 +118,13 @@ describe('admin routes', () => {
   });
 
   it('keeps the sidebar collapsed across reloads', async () => {
-    const first = renderAt('/analytics');
+    const first = renderAt('/calibration');
     await userEvent.click(screen.getByRole('button', {name: 'Collapse sidebar'}));
     first.unmount();
 
-    renderAt('/analytics');
+    renderAt('/calibration');
     expect(screen.getByRole('button', {name: 'Expand sidebar'})).toHaveAttribute('aria-expanded', 'false');
-    expect(sidebarNav().getByRole('link', {name: 'Analytics'})).toHaveAttribute('title', 'Analytics');
+    expect(sidebarNav().getByRole('link', {name: 'Calibration & tuning'})).toHaveAttribute('title', 'Calibration & tuning');
   });
 
   it('opens vote activity at /activity, marked current in the sidebar', () => {
@@ -150,5 +151,87 @@ describe('the Overview nav item', () => {
     expect(navItemFor('/')?.id).toBe('overview');
     expect(navItemFor('/no-such-page')).toBeUndefined();
     expect(isWritePath('/')).toBe(false);
+  });
+});
+
+describe('calibration routes', () => {
+  const ANALYTICS: VoteAnalytics = {
+    generatedAt: '2026-06-30T04:12:00Z',
+    hasRawVotes: false,
+    global: {
+      totalVotes: 2054,
+      distinctPairs: 1928,
+      distinctVoters: null,
+      meanGap: -0.3,
+      accuracySentiment: null,
+      engineSilentPairs: 196,
+      weekly: [],
+      dimensionFill: null,
+    },
+    rules: [
+      {
+        ruleId: 'ramp',
+        ruleName: 'Ramp',
+        category: 'playstyle',
+        scoreVotes: 557,
+        pairsVoted: 279,
+        meanGap: -0.57,
+        accuracySentiment: null,
+        pairsCovered: 1671,
+      },
+    ],
+    pairs: [],
+  };
+
+  /** Render the routes at `path` and hand back the router, so a test can read where it ended up. */
+  function routerAt(path: string) {
+    const router = createMemoryRouter(routes, {initialEntries: [path]});
+    render(<RouterProvider router={router} />);
+    return router;
+  }
+
+  beforeEach(() => {
+    // src/test/setup.ts has already emptied the artifact cache (R1-5), and the
+    // file's beforeEach stubbed a fetch that never settles. This one answers
+    // vote-analytics.json and leaves everything else (the card data, the vote
+    // log) pending.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === '/admin-data/vote-analytics.json'
+          ? Promise.resolve(new Response(JSON.stringify(ANALYTICS), {headers: {'content-type': 'application/json'}}))
+          : new Promise<Response>(() => {}),
+      ),
+    );
+  });
+
+  it('redirects the retired /analytics to the Overview', async () => {
+    const router = routerAt('/analytics');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    // Replaced, not pushed: Back doesn't land on the redirect again.
+    expect(router.state.historyAction).toBe('REPLACE');
+  });
+
+  it('opens Calibration & tuning at /calibration, without a branch notice', async () => {
+    routerAt('/calibration');
+    expect(screen.getByRole('heading', {level: 1, name: 'Calibration & tuning'})).toBeInTheDocument();
+    expect(await screen.findByText('All pairs')).toBeInTheDocument();
+    expect(screen.queryByText('Writes to Doberjohn/inkweave')).not.toBeInTheDocument();
+  });
+
+  it('opens with the rule from ?rule= selected', async () => {
+    routerAt('/calibration?rule=ramp');
+    expect(await screen.findByRole('button', {name: /Ramp/})).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('All pairs')).not.toBeInTheDocument();
+  });
+
+  it('clears that selection when the sidebar link drops ?rule=', async () => {
+    const router = routerAt('/calibration?rule=ramp');
+    await screen.findByRole('button', {name: /Ramp/, pressed: true});
+
+    await userEvent.click(screen.getByRole('link', {name: 'Calibration & tuning'}));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(await screen.findByRole('button', {name: /Ramp/, pressed: false})).toBeInTheDocument();
+    expect(screen.getByText('All pairs')).toBeInTheDocument();
   });
 });

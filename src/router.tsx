@@ -1,7 +1,7 @@
-import {createBrowserRouter, type RouteObject} from 'react-router-dom';
+import {createBrowserRouter, Navigate, type RouteObject} from 'react-router-dom';
 import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
-import {AnalyticsPage} from './tools/analytics/AnalyticsPage';
+import {CalibrationPage} from './tools/analytics/CalibrationPage';
 import {ActivityPage} from './tools/analytics/activity/ActivityPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
@@ -17,7 +17,9 @@ export const routes: RouteObject[] = [
       {index: true, element: <OverviewPage />},
       {path: 'activity', element: <ActivityPage />},
       {path: 'web', element: <WebAnalyticsPage />},
-      {path: 'analytics', element: <AnalyticsPage />},
+      {path: 'calibration', element: <CalibrationPage />},
+      // The old analytics page split into the insights pages; a bookmark lands on the Overview (R-10).
+      {path: 'analytics', element: <Navigate to="/" replace />},
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},
       {path: 'tuning', element: <TuningPage />},

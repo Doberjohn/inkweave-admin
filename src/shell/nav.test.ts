@@ -4,7 +4,7 @@ describe('navItemFor', () => {
   it.each([
     ['/reveal', 'reveal'],
     ['/reveal/', 'reveal'],
-    ['/analytics/anything', 'analytics'],
+    ['/calibration/anything', 'calibration'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
@@ -19,7 +19,7 @@ describe('isWritePath', () => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
-  it.each(['/analytics', '/no-such-page'])('%s writes nothing', (pathname) => {
+  it.each(['/calibration', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -29,5 +29,19 @@ describe('NAV_ITEMS', () => {
     expect(new Set(NAV_ITEMS.map((item) => item.id)).size).toBe(NAV_ITEMS.length);
     expect(new Set(NAV_ITEMS.map((item) => item.path)).size).toBe(NAV_ITEMS.length);
     for (const item of NAV_ITEMS) expect(item.mark).toMatch(/^[A-Z][a-z]$/);
+  });
+});
+
+describe('the Calibration & tuning item', () => {
+  it('heads Insights, where the analytics page was', () => {
+    const insights = NAV_ITEMS.filter((item) => item.group === 'insights').map((item) => item.id);
+    expect(insights).toEqual(['calibration', 'activity', 'web']);
+    expect(NAV_ITEMS.some((item) => item.id === 'analytics')).toBe(false);
+  });
+
+  it('owns /calibration, and writes nothing in R1', () => {
+    expect(navItemFor('/calibration')).toMatchObject({id: 'calibration', label: 'Calibration & tuning', mark: 'Ca'});
+    // Tuning moves in, and the page starts writing, in R2 (R-4).
+    expect(isWritePath('/calibration')).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import {Sidebar} from './Sidebar';
 // Pinned here, not imported: renaming the key would silently reset everyone's choice.
 const KEY = 'inkweave-admin.sidebar-open';
 
-function renderSidebar({path = '/analytics', tokenSaved = false, onForgetToken = () => {}} = {}) {
+function renderSidebar({path = '/calibration', tokenSaved = false, onForgetToken = () => {}} = {}) {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Sidebar tokenSaved={tokenSaved} onForgetToken={onForgetToken} />
@@ -29,7 +29,7 @@ describe('Sidebar', () => {
   it('lists the pages under their group labels', () => {
     renderSidebar();
     expect(screen.getByText('Insights')).toBeInTheDocument();
-    expect(hrefs('Insights')).toEqual(['/analytics', '/activity', '/web']);
+    expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web']);
     expect(hrefs('Publish')).toEqual(['/tuning', '/reveal', '/image']);
     // The mark is aria-hidden: the exact name proves it stays out of the link's name.
     expect(nav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('href', '/reveal');
@@ -51,7 +51,7 @@ describe('Sidebar', () => {
 
   it.each([
     ['a page that writes, with no token saved', '/image', false],
-    ['a read-only page, even with a token saved', '/analytics', true],
+    ['a read-only page, even with a token saved', '/calibration', true],
   ])('shows no token box on %s', (_case, path, tokenSaved) => {
     renderSidebar({path, tokenSaved});
     expect(screen.queryByText('GitHub token saved')).not.toBeInTheDocument();
