@@ -16,6 +16,8 @@
 
 **Tracking:** Doberjohn/inkweave-admin#24. Branch: `feature/24-admin-redesign`, one PR per phase.
 
+**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 to R4 are outlined below and detailed when each starts.
+
 ---
 
 ## Decisions (owner, 2026-10-01)
@@ -456,6 +458,11 @@ Each task lives in its own file under [R-redesign/](R-redesign/), in order. Ever
 | R1-11 | [R1-11-calibration-host.md](R-redesign/R1-11-calibration-host.md) | `/calibration` (today's view, `?rule=`), `/analytics` retired |
 | R1-12 | [R1-12-docs-and-check.md](R-redesign/R1-12-docs-and-check.md) | CLAUDE.md and PLAN.md, stories sweep, real-data check, gates, PR |
 
+### R1 as built (2026-10-02)
+
+- **Checked with real data** (Task R1-12): the Overview matches the numbers computed from the data files (the deployed `/analytics` page is behind the login, so it could not be compared), every chart shows its tooltip on hover and from the keyboard and switches to a table of its values, Vote activity draws 30 days with month labels and redraws for 7 and 90 days and All (weekly bars past 90 days), with day selection, Web analytics shows the events by total with ink and rarity icons and a crosshair on the trend, Calibration renders, the write pages show the branch notice and the token gate (the token box is covered by unit tests only, until the owner saves a token), the sidebar's state survives a reload, `/analytics` lands on the Overview, and each analytics file is fetched once per session. The files were exported at 18:53 UTC on 2026-10-01, so the newest day in each daily chart is partial.
+- **Pending with the owner:** the token-saved checks on the write pages (the sidebar's token box, and "Forget token" acting on every page at once), which only the owner can run because only the owner enters a token; and the bridge re-exports R1 left unused (`CAP_LABEL`, `SURFACE_CARD` and `TabList`, Task R1-12 Steps 6 and 7), which stay in `src/app-bridge.ts` until the owner decides.
+- **Departures from the task text:** none.
 
 ---
 
