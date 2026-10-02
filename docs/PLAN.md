@@ -11,9 +11,10 @@
 | P4 | Doberjohn/inkweave#593 |
 | P5 | Doberjohn/inkweave-admin#4 |
 | P6 | Doberjohn/inkweave#594 |
+| R1 to R4 (redesign) | Doberjohn/inkweave-admin#24 |
 
 - **Date:** 2026-09-25
-- **Status:** design approved by the owner (2026-09-25 review). P0 to P5 are done (2026-09-30), and P6 waits on `deck-builder`. As-built notes: P1 in its phase section, P2 and P3 in their linked plans, and P3 to P5 in "Phases P2 to P6: outline".
+- **Status:** design approved by the owner (2026-09-25 review). P0 to P5 are done (2026-09-30), and P6 waits on `deck-builder`. As-built notes: P1 in its phase section, P2 and P3 in their linked plans, and P3 to P5 in "Phases P2 to P6: outline". The admin redesign followed the split, in four phases (R1 to R4); its plan and phase status are in [docs/plans/R-redesign.md](plans/R-redesign.md). It changes the routes, so sections 4.1, 4.4 and 4.6 describe admin as the split built it, and D10 notes the redesign's route changes.
 - **Banner generator:** removed in the admin redesign ([plans/R-redesign.md](plans/R-redesign.md), Task R1-1), along with the `/banner/:cardId` route, `pnpm banner` and its exporter, `public/art/banner/`, `docs/BANNER.md` and admin's only design-token exception. The banner mentions in this document record the split as it was built.
 - **Repos:** app `Doberjohn/inkweave` (private); admin `Doberjohn/inkweave-admin` (private, empty at time of writing, default branch will be `main`, SSH remote `git@github-personal:Doberjohn/inkweave-admin.git`)
 - **Next:** implementation plan at `docs/superpowers/plans/2026-09-25-admin-repo-split.md`, then issues, then P0. Each phase gets a detailed plan when it starts; the first plan details P0 and P1 and outlines the rest.
@@ -71,7 +72,7 @@ Move every admin page and all administration work out of the app repo into the p
 | D7 | Reveal ingestion output | A PR in the app repo, created through the GitHub API with the owner's `gh` login | App CI and preview deploys still check each batch, and admin sessions never touch the app's working tree |
 | D8 | Analytics | A nightly and manual admin workflow step. Engine and synergy data come from a fresh checkout of the app's `master`. JSON is baked into the admin deployment under `/admin-data/` | Calibration compares votes with the scores production serves, and nothing is public |
 | D9 | Stopgap | Remove the two analytics steps from the app's `build:vercel` now | Owner chose to stop the exposure before the split lands |
-| D10 | URLs | Admin paths `/reveal`, `/image`, `/tuning`, `/analytics`, `/banner/:cardId`, with a tool index at `/`. Old `inkweave.ink/admin/*` and `/reveal-admin` URLs fall through to the app's NotFound page, like any unknown route | The whole site is admin. A redirect would advertise the admin URL on the public site |
+| D10 | URLs | Admin paths `/reveal`, `/image`, `/tuning`, `/analytics`, `/banner/:cardId`, with a tool index at `/`. Old `inkweave.ink/admin/*` and `/reveal-admin` URLs fall through to the app's NotFound page, like any unknown route. **The redesign changes these** ([R-10](plans/R-redesign.md)): R1 puts the Overview at `/`, adds `/calibration`, `/activity` and `/web`, redirects `/analytics` to `/` and drops `/banner/:cardId`; R2 redirects `/tuning` to `/calibration`, and R4 redirects `/reveal` and `/image` to `/studio` | The whole site is admin. A redirect would advertise the admin URL on the public site. Redirects inside admin, which is login-gated, don't, so the redesign uses them |
 | D11 | Tracking | Each issue lives in the repo whose code it changes; app-repo milestone "Admin repo split"; the source of truth becomes `docs/PLAN.md` in the admin repo at P1 | `Closes #N` works per repo |
 
 ## 4. Target architecture
