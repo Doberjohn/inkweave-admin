@@ -46,9 +46,15 @@ export function trendSummary(trend: TrendPoint[]): {inWindow: number; dailyAvera
   let peak: TrendPoint | null = null;
   for (const point of trend) {
     inWindow += point.count;
-    if (!peak || point.count > peak.count || (point.count === peak.count && point.date > peak.date)) peak = point;
+    if (!peak || outpeaks(point, peak)) peak = point;
   }
   return {inWindow, dailyAverage: trend.length === 0 ? 0 : inWindow / trend.length, peak};
+}
+
+/** Whether `point` takes the peak from `peak`: a higher count, or the same count on a later day. */
+function outpeaks(point: TrendPoint, peak: TrendPoint): boolean {
+  if (point.count !== peak.count) return point.count > peak.count;
+  return point.date > peak.date;
 }
 
 /** One breakdown row ready to draw. */

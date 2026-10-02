@@ -1,25 +1,15 @@
 import {useRef} from 'react';
 import {SPACING, useContainerWidth} from '../app-bridge';
-import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {ADMIN_COLORS} from '../theme/adminTheme';
 import {fmtDay, fmtInt} from '../ui/format';
+import {LABEL_SIZE, px} from './axis';
+import {AxisGrid, ChartSvg, EmptyChart} from './ChartSvg';
 import {ChartTooltip, type TooltipContent} from './ChartTooltip';
-import {axisTicks, dayIndex, isDay, linear, niceCeiling, textWidth} from './scale';
-import {CHART_FALLBACK_WIDTH, SURFACE_GAP, tooltipText, type SeriesDef} from './series';
+import {DOT_RADIUS, RING, lineLayout, lonePoints, tooltipY, type LineLayout, type LineSeries, type PlotPoint} from './lineLayout';
+import {CHART_FALLBACK_WIDTH, tooltipText} from './series';
 import {useChartCursor} from './useChartCursor';
 
-export interface LinePoint {
-  x: string;
-  /** Null keeps the x on the axis with no value there (a quiet week): the line breaks and the tooltip shows "—". */
-  y: number | null;
-}
-
-export interface LineSeries extends SeriesDef {
-  /**
-   * Days ('YYYY-MM-DD') in any order; any other x in the order to draw it. A
-   * series that skips an x another series has breaks its line there.
-   */
-  points: readonly LinePoint[];
-}
+export type {LinePoint, LineSeries} from './lineLayout';
 
 interface LineChartProps {
   series: readonly LineSeries[];
@@ -44,17 +34,16 @@ interface LineChartProps {
 }
 
 const DEFAULT_HEIGHT = 180;
-const LABEL_SIZE = ADMIN_TYPE.micro;
-/** Room above the plot for the top tick label. */
-const TOP_PAD = SPACING.sm;
-const X_BAND = SPACING.xl;
-const TICK_GAP = SPACING.sm;
-const RIGHT_PAD = SPACING.sm;
-/** Dataviz mark spec: 2px lines, markers of r 4 with a 2px surface ring, area washes at about 10%. */
+const WRAP: React.CSSProperties = {minWidth: 0};
+/** Dataviz mark spec: 2px lines and area washes at about 10%. */
 const LINE_WIDTH = 2;
-const DOT_RADIUS = 4;
-const RING = 2;
 const AREA_OPACITY = 0.1;
+
+/** The chart's formats: y values (ticks, end labels, tooltip values) and x values (labels, tooltip titles). */
+interface LineFormats {
+  yFormat: (n: number) => string;
+  xFormat: (x: string) => string;
+}
 
 /**
  * A marker's 2px ring in the chart's surface colour: the card over the page, as
@@ -71,21 +60,8 @@ function SurfaceRing({cx, cy}: {cx?: number; cy?: number}) {
   );
 }
 
-function px(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/** The y ticks: 0 / middle / top for one sign, bottom / 0 / top across zero, whole numbers for whole data. */
-function yTicks(bottom: number, top: number, integers: boolean): number[] {
-  if (bottom < 0 && top > 0) return [bottom, 0, top];
-  const span = top > 0 ? top : -bottom;
-  let ticks = axisTicks(span);
-  if (integers && !ticks.every(Number.isInteger)) ticks = axisTicks(span, 2);
-  return top > 0 ? ticks : ticks.map((t) => (t === 0 ? 0 : -t)).reverse();
-}
-
 /** An SVG path through the points, starting a new subpath after every gap. */
-function linePath(points: ReadonlyArray<{x: number; y: number} | null>): string {
+function linePath(points: ReadonlyArray<PlotPoint | null>): string {
   let d = '';
   let pen = false;
   for (const point of points) {
@@ -100,9 +76,9 @@ function linePath(points: ReadonlyArray<{x: number; y: number} | null>): string 
 }
 
 /** The wash under each unbroken run, closed along the zero line. */
-function areaPath(points: ReadonlyArray<{x: number; y: number} | null>, zero: number): string {
-  const runs: Array<Array<{x: number; y: number}>> = [];
-  let run: Array<{x: number; y: number}> = [];
+function areaPath(points: ReadonlyArray<PlotPoint | null>, zero: number): string {
+  const runs: PlotPoint[][] = [];
+  let run: PlotPoint[] = [];
   for (const point of points) {
     if (point == null) {
       if (run.length) runs.push(run);
@@ -118,10 +94,117 @@ function areaPath(points: ReadonlyArray<{x: number; y: number} | null>, zero: nu
     .join('');
 }
 
-/** The default x labels: the first, the quarter points and the last, without repeats. */
-function defaultTicks(xs: readonly string[]): string[] {
-  const n = xs.length;
-  return [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => xs[Math.round(f * (n - 1))]))];
+/** The tooltip at x `index`: the x, then every series' value there, "—" for one with none. */
+function tooltipAt(series: readonly LineSeries[], layout: LineLayout, formats: LineFormats, index: number): TooltipContent {
+  return {
+    title: formats.xFormat(layout.xs[index]),
+    rows: series.map((s, si) => {
+      const v = layout.values[si][index];
+      return {label: s.label, value: v == null ? '—' : formats.yFormat(v), color: s.color};
+    }),
+  };
+}
+
+/** The labelled hairline at the baseline value. */
+function Baseline({layout, y, label}: {layout: LineLayout; y: number; label: string}) {
+  return (
+    <g data-baseline>
+      <line
+        x1={layout.left}
+        x2={layout.left + layout.plotWidth}
+        y1={px(y)}
+        y2={px(y)}
+        stroke={ADMIN_COLORS.strongBorder}
+        strokeWidth={1}
+        shapeRendering="crispEdges"
+      />
+      <text x={layout.left + SPACING.xs} y={px(y - SPACING.xs)} fontSize={LABEL_SIZE} fill={ADMIN_COLORS.muted}>
+        {label}
+      </text>
+    </g>
+  );
+}
+
+/** Each series' line, its lone points' dots and its ringed end dot, then the end labels. */
+function SeriesMarks({series, layout, area}: {series: readonly LineSeries[]; layout: LineLayout; area: boolean}) {
+  return (
+    <>
+      {area &&
+        series.map((s, si) => (
+          <path
+            key={s.id}
+            className="adm-chart-area"
+            data-area={s.id}
+            d={areaPath(layout.points[si], layout.zero)}
+            fill={s.color}
+            fillOpacity={AREA_OPACITY}
+          />
+        ))}
+      {series.map((s, si) => (
+        <path
+          key={s.id}
+          className="adm-chart-line"
+          data-series={s.id}
+          d={linePath(layout.points[si])}
+          pathLength={1}
+          fill="none"
+          stroke={s.color}
+          strokeWidth={LINE_WIDTH}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ))}
+      {series.map((s, si) =>
+        lonePoints(layout.points[si]).map((i) => {
+          const p = layout.points[si][i]!;
+          return <circle key={`${s.id}-${i}`} data-lone={s.id} cx={px(p.x)} cy={px(p.y)} r={DOT_RADIUS} fill={s.color} />;
+        }),
+      )}
+      {series.map((s, si) => {
+        const p = layout.points[si].filter((point) => point != null).at(-1);
+        return p ? (
+          <g key={s.id} className="adm-chart-label">
+            <SurfaceRing cx={px(p.x)} cy={px(p.y)} />
+            <circle data-end={s.id} cx={px(p.x)} cy={px(p.y)} r={DOT_RADIUS} fill={s.color} />
+          </g>
+        ) : null;
+      })}
+      {layout.endLabels.map((e) => (
+        <text
+          key={e.id}
+          className="adm-chart-label"
+          data-end-label={e.id}
+          x={px(layout.endLabelX)}
+          y={px(e.y)}
+          dominantBaseline="middle"
+          fontSize={LABEL_SIZE}
+          fill={ADMIN_COLORS.text}
+          style={{fontVariantNumeric: 'tabular-nums'}}>
+          {e.text}
+        </text>
+      ))}
+    </>
+  );
+}
+
+/** The crosshair at x `active`, with a ringed marker on each series that has a point there. */
+function Crosshair({series, layout, active}: {series: readonly LineSeries[]; layout: LineLayout; active: number}) {
+  return (
+    <>
+      <g className="adm-chart-cursor" data-cursor={active} style={{transform: `translateX(${px(layout.xPx[active])}px)`}}>
+        <line x1={0} x2={0} y1={layout.plotTop} y2={layout.plotBottom} stroke={ADMIN_COLORS.strongBorder} strokeWidth={1} />
+      </g>
+      {layout.points.map((row, si) => {
+        const p = row[active];
+        return p == null ? null : (
+          <g key={series[si].id} className="adm-chart-cursor" style={{transform: `translate(${px(p.x)}px, ${px(p.y)}px)`}}>
+            <SurfaceRing />
+            <circle data-marker={series[si].id} r={DOT_RADIUS} fill={series[si].color} />
+          </g>
+        );
+      })}
+    </>
+  );
 }
 
 /**
@@ -134,6 +217,7 @@ function defaultTicks(xs: readonly string[]): string[] {
  * always includes zero (and the baseline). Each series ends in a dot with a
  * 2px surface ring, and its last value is printed beside it unless the end
  * labels would collide, when the legend and the tooltip carry them.
+ * lineLayout places everything; this draws it and handles input.
  *
  * The plot is a slider (useChartCursor): the crosshair snaps to the nearest x
  * under the pointer, ←/→, Home and End move it, and the tooltip lists every
@@ -153,234 +237,51 @@ export function LineChart({
 }: LineChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const measured = useContainerWidth(wrapRef);
-  const seen = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))];
-  // Days go into time order; any other x keeps the order the series give it.
-  const byTime = seen.length > 0 && seen.every(isDay);
-  const xs = byTime ? seen.sort() : seen;
-  const n = xs.length;
-  const cursor = useChartCursor(n);
+  const layout = lineLayout(measured > 0 ? measured : CHART_FALLBACK_WIDTH, series, {height, yFormat, xFormat, xTicks, baseline});
+  const cursor = useChartCursor(layout.xs.length);
 
-  const width = measured > 0 ? measured : CHART_FALLBACK_WIDTH;
-  const indexOf = new Map(xs.map((x, i) => [x, i]));
-  const values = series.map((s) => {
-    const row: Array<number | null> = xs.map(() => null);
-    for (const p of s.points) if (Number.isFinite(p.y)) row[indexOf.get(p.x) ?? 0] = p.y;
-    return row;
-  });
-  const all = values.flat().filter((v): v is number => v != null);
-  const hi = Math.max(0, ...all, baseline ?? 0);
-  const lo = Math.min(0, ...all, baseline ?? 0);
-  const top = hi > 0 ? niceCeiling(hi) : lo < 0 ? 0 : 1;
-  const bottom = lo < 0 ? -niceCeiling(-lo) : 0;
-  const integers = all.every(Number.isInteger) && (baseline == null || Number.isInteger(baseline));
-  const ticks = yTicks(bottom, top, integers);
-  const tickLabels = ticks.map(yFormat);
-
-  // End labels: each series that reaches the last x prints its last value, unless two would collide.
-  const plotTop = TOP_PAD;
-  const plotBottom = plotTop + height;
-  const y = linear([bottom, top], [plotBottom, plotTop]);
-  const ends = series.flatMap((s, si) => {
-    const v = values[si][n - 1];
-    return v == null ? [] : [{id: s.id, text: yFormat(v), y: y(v)}];
-  });
-  const sortedEnds = [...ends].sort((a, b) => a.y - b.y);
-  const endsCollide = sortedEnds.some((e, i) => i > 0 && e.y - sortedEnds[i - 1].y < LABEL_SIZE + SURFACE_GAP);
-  const endLabels = endsCollide ? [] : ends;
-  const endRoom = endLabels.length
-    ? Math.max(...endLabels.map((e) => textWidth(e.text, LABEL_SIZE))) + DOT_RADIUS + RING + SPACING.xs
-    : 0;
-
-  const left = Math.ceil(Math.max(...tickLabels.map((t) => textWidth(t, LABEL_SIZE)))) + TICK_GAP;
-  const right = Math.max(RIGHT_PAD, Math.ceil(endRoom));
-  const plotWidth = Math.max(width - left - right, 1);
-  const svgHeight = plotBottom + X_BAND;
-  const positions = xs.map((x, i) => (byTime ? (dayIndex(x) ?? i) : i));
-  const xScale = linear([positions[0] ?? 0, positions[n - 1] ?? 0], [left, left + plotWidth]);
-  const xPx = positions.map(xScale);
-  const points = values.map((row) => row.map((v, i) => (v == null ? null : {x: xPx[i], y: y(v)})));
-  const zero = y(0);
-
-  const contentAt = (i: number): TooltipContent => ({
-    title: xFormat(xs[i]),
-    rows: series.map((s, si) => {
-      const v = values[si][i];
-      return {label: s.label, value: v == null ? '—' : yFormat(v), color: s.color};
-    }),
-  });
-
-  // X labels: drop any that would overlap the one before; the last always stays.
-  const tickIndexes = (xTicks ?? defaultTicks(xs)).map((x) => indexOf.get(x)).filter((i): i is number => i != null);
-  const xLabels: Array<{index: number; x: number; text: string; width: number}> = [];
-  for (const index of [...new Set(tickIndexes)].sort((a, b) => a - b)) {
-    const text = xFormat(xs[index]);
-    const labelWidth = textWidth(text, LABEL_SIZE);
-    const label = {index, text, width: labelWidth, x: Math.min(Math.max(xPx[index], labelWidth / 2), width - labelWidth / 2)};
-    const before = xLabels.at(-1);
-    if (before && label.x - before.x < (label.width + before.width) / 2 + SPACING.sm) {
-      if (index !== n - 1) continue;
-      xLabels.pop();
-    }
-    xLabels.push(label);
-  }
-
-  const active = cursor.index;
-  const activePoints = active == null ? [] : points.map((row) => row[active]);
-  const tipY = Math.min(...activePoints.filter((p) => p != null).map((p) => p.y), plotBottom);
-
-  if (n === 0) {
+  if (layout.xs.length === 0) {
     return (
-      <div ref={wrapRef} style={{minWidth: 0}}>
-        <p style={{margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{emptyText}</p>
+      <div ref={wrapRef} style={WRAP}>
+        <EmptyChart text={emptyText} />
       </div>
     );
   }
 
+  const contentAt = (i: number) => tooltipAt(series, layout, {xFormat, yFormat}, i);
+  const active = cursor.index;
   return (
-    <div ref={wrapRef} style={{minWidth: 0}}>
+    <div ref={wrapRef} style={WRAP}>
       <div
         className="adm-chart-plot"
         aria-label={ariaLabel}
-        {...cursor.plotProps((i) => tooltipText(contentAt(i)), xPx)}
-        style={{position: 'relative', height: svgHeight}}>
-        <svg
-          aria-hidden="true"
-          width={width}
-          height={svgHeight}
-          viewBox={`0 0 ${width} ${svgHeight}`}
-          style={{position: 'absolute', top: 0, left: 0, display: 'block', maxWidth: '100%', height: 'auto', pointerEvents: 'none'}}>
-          {ticks.map((tick, i) => (
-            <g key={tick}>
-              <line
-                x1={left}
-                x2={left + plotWidth}
-                y1={px(y(tick))}
-                y2={px(y(tick))}
-                stroke={tick === 0 ? ADMIN_COLORS.border : ADMIN_COLORS.divider}
-                strokeWidth={1}
-                shapeRendering="crispEdges"
-              />
-              <text
-                x={left - TICK_GAP}
-                y={px(y(tick))}
-                textAnchor="end"
-                dominantBaseline="middle"
-                fontSize={LABEL_SIZE}
-                fill={ADMIN_COLORS.muted}
-                style={{fontVariantNumeric: 'tabular-nums'}}>
-                {tickLabels[i]}
-              </text>
-            </g>
-          ))}
-          {baseline != null && (
-            <g data-baseline>
-              <line
-                x1={left}
-                x2={left + plotWidth}
-                y1={px(y(baseline))}
-                y2={px(y(baseline))}
-                stroke={ADMIN_COLORS.strongBorder}
-                strokeWidth={1}
-                shapeRendering="crispEdges"
-              />
-              <text x={left + SPACING.xs} y={px(y(baseline) - SPACING.xs)} fontSize={LABEL_SIZE} fill={ADMIN_COLORS.muted}>
-                {baselineLabel ?? yFormat(baseline)}
-              </text>
-            </g>
+        {...cursor.plotProps((i) => tooltipText(contentAt(i)), layout.xPx)}
+        style={{position: 'relative', height: layout.svgHeight}}>
+        <ChartSvg width={layout.width} height={layout.svgHeight}>
+          <AxisGrid ticks={layout.ticks} left={layout.left} right={layout.left + layout.plotWidth} />
+          {layout.baseline && (
+            <Baseline layout={layout} y={layout.baseline.y} label={baselineLabel ?? yFormat(layout.baseline.value)} />
           )}
-          {area &&
-            series.map((s, si) => (
-              <path
-                key={s.id}
-                className="adm-chart-area"
-                data-area={s.id}
-                d={areaPath(points[si], zero)}
-                fill={s.color}
-                fillOpacity={AREA_OPACITY}
-              />
-            ))}
-          {series.map((s, si) => (
-            <path
-              key={s.id}
-              className="adm-chart-line"
-              data-series={s.id}
-              d={linePath(points[si])}
-              pathLength={1}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={LINE_WIDTH}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          ))}
-          {series.map((s, si) => {
-            // A point with no neighbour on either side draws no line, so it gets a dot.
-            const row = points[si];
-            return row.map((p, i) =>
-              p != null && row[i - 1] == null && row[i + 1] == null && i !== n - 1 ? (
-                <circle key={`${s.id}-${i}`} data-lone={s.id} cx={px(p.x)} cy={px(p.y)} r={DOT_RADIUS} fill={s.color} />
-              ) : null,
-            );
-          })}
-          {series.map((s, si) => {
-            const p = points[si].filter((point) => point != null).at(-1);
-            return p ? (
-              <g key={s.id} className="adm-chart-label">
-                <SurfaceRing cx={px(p.x)} cy={px(p.y)} />
-                <circle data-end={s.id} cx={px(p.x)} cy={px(p.y)} r={DOT_RADIUS} fill={s.color} />
-              </g>
-            ) : null;
-          })}
-          {endLabels.map((e) => (
-            <text
-              key={e.id}
-              className="adm-chart-label"
-              data-end-label={e.id}
-              x={px(left + plotWidth + DOT_RADIUS + RING + SPACING.xs)}
-              y={px(e.y)}
-              dominantBaseline="middle"
-              fontSize={LABEL_SIZE}
-              fill={ADMIN_COLORS.text}
-              style={{fontVariantNumeric: 'tabular-nums'}}>
-              {e.text}
-            </text>
-          ))}
-          {xLabels.map((label) => (
+          <SeriesMarks series={series} layout={layout} area={area} />
+          {layout.xLabels.map((label) => (
             <text
               key={label.index}
               data-x-label
               x={px(label.x)}
-              y={plotBottom + X_BAND - SPACING.xs}
+              y={layout.xLabelY}
               textAnchor="middle"
               fontSize={LABEL_SIZE}
               fill={ADMIN_COLORS.muted}>
               {label.text}
             </text>
           ))}
-          {active != null && (
-            <>
-              <g className="adm-chart-cursor" data-cursor={active} style={{transform: `translateX(${px(xPx[active])}px)`}}>
-                <line x1={0} x2={0} y1={plotTop} y2={plotBottom} stroke={ADMIN_COLORS.strongBorder} strokeWidth={1} />
-              </g>
-              {activePoints.map((p, si) =>
-                p == null ? null : (
-                  <g
-                    key={series[si].id}
-                    className="adm-chart-cursor"
-                    style={{transform: `translate(${px(p.x)}px, ${px(p.y)}px)`}}>
-                    <SurfaceRing />
-                    <circle data-marker={series[si].id} r={DOT_RADIUS} fill={series[si].color} />
-                  </g>
-                ),
-              )}
-            </>
-          )}
-        </svg>
+          {active != null && <Crosshair series={series} layout={layout} active={active} />}
+        </ChartSvg>
         <ChartTooltip
           content={active == null ? null : contentAt(active)}
-          x={active == null ? 0 : xPx[active]}
-          y={tipY}
-          bounds={{width, height: svgHeight}}
+          x={active == null ? 0 : layout.xPx[active]}
+          y={active == null ? layout.plotBottom : tooltipY(layout, active)}
+          bounds={{width: layout.width, height: layout.svgHeight}}
         />
       </div>
     </div>

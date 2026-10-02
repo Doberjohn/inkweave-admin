@@ -1,5 +1,5 @@
 import {bucketFor, rangeStartDay, type RangePreset} from '../../../charts/range';
-import {addDays, eachDay, weekStart} from '../../../charts/scale';
+import {addDays, eachDay, weekStart, type Day} from '../../../charts/scale';
 import {fmtInt} from '../../../ui/format';
 import {groupVotesByDay, latestVoteDay} from '../activityStats';
 import type {VoteLogRow} from '../voteLogTypes';
@@ -21,7 +21,7 @@ export interface ActivityFilters {
   voter: number | null;
   band: BandFilter;
   /** The picked bar's key: a UTC `YYYY-MM-DD` day, or the week's Monday when the chart buckets by week. */
-  day: string | null;
+  day: Day | null;
   /** The window the page reads, ending on the log's newest vote (R-9). */
   range: RangePreset;
 }
@@ -29,7 +29,7 @@ export interface ActivityFilters {
 /** One bar in the chart, a day or a week: votes per band, their total, and distinct voters. */
 export interface DayStack {
   /** The UTC day, or the week's UTC Monday. */
-  day: string;
+  day: Day;
   high: number;
   mid: number;
   low: number;
@@ -40,7 +40,7 @@ export interface DayStack {
 
 /** One day on the vote log's current page: the day's full counts, plus the rows the page shows. */
 export interface LogDay {
-  day: string;
+  day: Day;
   count: number;
   voters: number;
   rows: VoteLogRow[];
@@ -53,7 +53,7 @@ export const SCORE_BANDS: readonly ScoreBand[] = ['high', 'mid', 'low', 'unscore
 export const BAND_LABELS: Record<ScoreBand, string> = {high: '7+', mid: '5–6', low: '≤4', unscored: 'No score'};
 
 /** A vote's UTC day. The log's timestamps are UTC ISO strings; groupVotesByDay reads them the same way. */
-function dayOf(vote: VoteLogRow): string {
+function dayOf(vote: VoteLogRow): Day {
   return vote.ts.slice(0, 10);
 }
 
@@ -92,17 +92,31 @@ export function hasActiveFilters(f: ActivityFilters): boolean {
  */
 export function filterVotes(votes: VoteLogRow[], f: ActivityFilters): VoteLogRow[] {
   const q = f.q.trim().toLowerCase();
-  return votes.filter(
-    (v) =>
-      (f.voter === null || v.voter === f.voter) &&
-      (f.band === 'all' || scoreBandOf(v.score) === f.band) &&
-      (f.day === null || v.ts.startsWith(f.day)) &&
-      (q === '' || v.aName.toLowerCase().includes(q) || v.bName.toLowerCase().includes(q)),
-  );
+  return votes.filter((v) => matchesVoter(v, f) && matchesBand(v, f) && matchesDay(v, f) && matchesSearch(v, q));
+}
+
+/** The filter's voter cast the vote, or no voter is set. */
+function matchesVoter(v: VoteLogRow, f: ActivityFilters): boolean {
+  return f.voter === null || v.voter === f.voter;
+}
+
+/** The vote's score falls in the filter's band, or the band is 'all'. */
+function matchesBand(v: VoteLogRow, f: ActivityFilters): boolean {
+  return f.band === 'all' || scoreBandOf(v.score) === f.band;
+}
+
+/** The vote's timestamp starts with the filter's day, or no day is set. */
+function matchesDay(v: VoteLogRow, f: ActivityFilters): boolean {
+  return f.day === null || v.ts.startsWith(f.day);
+}
+
+/** Either card's name holds `q` (already trimmed and lower-cased), or the search is blank. */
+function matchesSearch(v: VoteLogRow, q: string): boolean {
+  return q === '' || v.aName.toLowerCase().includes(q) || v.bName.toLowerCase().includes(q);
 }
 
 /** The votes whose UTC day falls from `startDay` to `endDay`, both included, in input order. */
-export function votesInRange(votes: VoteLogRow[], startDay: string, endDay: string): VoteLogRow[] {
+export function votesInRange(votes: VoteLogRow[], startDay: Day, endDay: Day): VoteLogRow[] {
   return votes.filter((v) => {
     const day = dayOf(v);
     return day >= startDay && day <= endDay;
@@ -114,7 +128,7 @@ export function votesInRange(votes: VoteLogRow[], startDay: string, endDay: stri
  * newest vote and counts back per the range, never past the log's oldest vote
  * (rangeStartDay). Null for an empty log.
  */
-export function activityWindow(votes: VoteLogRow[], range: RangePreset): {startDay: string; endDay: string} | null {
+export function activityWindow(votes: VoteLogRow[], range: RangePreset): {startDay: Day; endDay: Day} | null {
   const endDay = latestVoteDay(votes);
   if (endDay === undefined) return null;
   const firstDay = votes.reduce((first, vote) => (dayOf(vote) < first ? dayOf(vote) : first), endDay);
@@ -127,14 +141,14 @@ interface StackSlot {
 }
 
 /** An empty stack per key, in key order. */
-function emptySlots(keys: readonly string[]): Map<string, StackSlot> {
+function emptySlots(keys: readonly Day[]): Map<Day, StackSlot> {
   return new Map(
     keys.map((day) => [day, {stack: {day, high: 0, mid: 0, low: 0, unscored: 0, total: 0, voters: 0}, voters: new Set()}]),
   );
 }
 
 /** Counts each vote into its slot by band and voter. A vote whose key has no slot is left out. */
-function fillSlots(slots: Map<string, StackSlot>, votes: VoteLogRow[], keyOf: (vote: VoteLogRow) => string): DayStack[] {
+function fillSlots(slots: Map<Day, StackSlot>, votes: VoteLogRow[], keyOf: (vote: VoteLogRow) => Day): DayStack[] {
   for (const vote of votes) {
     const slot = slots.get(keyOf(vote));
     if (!slot) continue;
@@ -162,25 +176,21 @@ export function dailyStacks(votes: VoteLogRow[], days: number, endDay = latestVo
  * Votes outside the window are left out, so the first and last weeks can be
  * part weeks.
  */
-export function weeklyStacks(votes: VoteLogRow[], startDay: string, endDay: string): DayStack[] {
+export function weeklyStacks(votes: VoteLogRow[], startDay: Day, endDay: Day): DayStack[] {
   if (startDay > endDay) return [];
   const mondays = eachDay(weekStart(startDay), weekStart(endDay)).filter((_, i) => i % 7 === 0);
   return fillSlots(emptySlots(mondays), votesInRange(votes, startDay, endDay), (vote) => weekStart(dayOf(vote)));
 }
 
 /** The chart's bars for a window: one per day up to 90 days, one per week past that (bucketFor, R-9). */
-export function chartStacks(
-  votes: VoteLogRow[],
-  startDay: string,
-  endDay: string,
-): {bucket: ChartBucket; stacks: DayStack[]} {
+export function chartStacks(votes: VoteLogRow[], startDay: Day, endDay: Day): {bucket: ChartBucket; stacks: DayStack[]} {
   const bucket = bucketFor(startDay, endDay);
   if (bucket === 'week') return {bucket, stacks: weeklyStacks(votes, startDay, endDay)};
   return {bucket, stacks: dailyStacks(votes, eachDay(startDay, endDay).length, endDay)};
 }
 
 /** The votes under one bar of the chart: its UTC day, or the seven days from its week's Monday. */
-export function votesInBucket(votes: VoteLogRow[], key: string, bucket: ChartBucket): VoteLogRow[] {
+export function votesInBucket(votes: VoteLogRow[], key: Day, bucket: ChartBucket): VoteLogRow[] {
   return votesInRange(votes, key, bucket === 'day' ? key : addDays(key, 6));
 }
 
@@ -192,10 +202,10 @@ export function activityKpis(votes: VoteLogRow[]): {
   votes: number;
   activeVoters: number;
   avgScore: number | null;
-  busiestDay: {day: string; count: number} | null;
+  busiestDay: {day: Day; count: number} | null;
 } {
   const voters = new Set<number>();
-  const perDay = new Map<string, number>();
+  const perDay = new Map<Day, number>();
   let scoreSum = 0;
   let scored = 0;
   for (const vote of votes) {
@@ -206,7 +216,7 @@ export function activityKpis(votes: VoteLogRow[]): {
       scored += 1;
     }
   }
-  let busiestDay: {day: string; count: number} | null = null;
+  let busiestDay: {day: Day; count: number} | null = null;
   for (const [day, count] of perDay) {
     if (!busiestDay || count > busiestDay.count || (count === busiestDay.count && day > busiestDay.day)) {
       busiestDay = {day, count};
@@ -237,6 +247,39 @@ interface PairTally {
   latest: number;
 }
 
+/** A pair's key: its two ids in sorted order, so a pair is one pair whichever way round it comes. */
+function pairKey(vote: VoteLogRow): string {
+  return vote.a < vote.b ? `${vote.a}:${vote.b}` : `${vote.b}:${vote.a}`;
+}
+
+/** Counts a vote into its pair's tally. A pair's first vote starts the tally, with that vote's names. */
+function tallyVote(tallies: Map<string, PairTally>, vote: VoteLogRow): void {
+  const key = pairKey(vote);
+  const tally = tallies.get(key) ?? {
+    key,
+    a: vote.a,
+    b: vote.b,
+    aName: vote.aName,
+    bName: vote.bName,
+    count: 0,
+    scoreSum: 0,
+    scored: 0,
+    latest: -Infinity,
+  };
+  tally.count += 1;
+  if (vote.score != null) {
+    tally.scoreSum += vote.score;
+    tally.scored += 1;
+  }
+  tally.latest = Math.max(tally.latest, Date.parse(vote.ts));
+  tallies.set(key, tally);
+}
+
+/** Most votes first, then the pair voted most recently, then the lower key. */
+function byPairRank(x: PairTally, y: PairTally): number {
+  return y.count - x.count || y.latest - x.latest || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0);
+}
+
 /**
  * The `n` pairs with the most votes, each with its average over scored votes
  * (null when none has a score). The log already orders every pair's ids
@@ -251,22 +294,9 @@ export function topPairs(
   n: number,
 ): Array<{a: string; b: string; aName: string; bName: string; count: number; avgScore: number | null}> {
   const tallies = new Map<string, PairTally>();
-  for (const vote of votes) {
-    const key = vote.a < vote.b ? `${vote.a}:${vote.b}` : `${vote.b}:${vote.a}`;
-    let tally = tallies.get(key);
-    if (!tally) {
-      tally = {key, a: vote.a, b: vote.b, aName: vote.aName, bName: vote.bName, count: 0, scoreSum: 0, scored: 0, latest: -Infinity};
-      tallies.set(key, tally);
-    }
-    tally.count += 1;
-    if (vote.score != null) {
-      tally.scoreSum += vote.score;
-      tally.scored += 1;
-    }
-    tally.latest = Math.max(tally.latest, Date.parse(vote.ts));
-  }
+  for (const vote of votes) tallyVote(tallies, vote);
   return [...tallies.values()]
-    .sort((x, y) => y.count - x.count || y.latest - x.latest || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
+    .sort(byPairRank)
     .slice(0, n)
     .map(({a, b, aName, bName, count, scoreSum, scored}) => ({
       a,

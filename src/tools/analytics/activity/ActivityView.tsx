@@ -16,6 +16,8 @@ import {
   votesInBucket,
   votesInRange,
   type ActivityFilters,
+  type ChartBucket,
+  type DayStack,
 } from './activityModel';
 
 interface ActivityViewProps {
@@ -25,20 +27,38 @@ interface ActivityViewProps {
 }
 
 /**
- * The Vote activity page body, as PageLayout's grid items. The range (R-9)
- * and the rest of the filter row narrow everything below them: the KPIs, the
- * chart, the log and the side panels. The bar picked in the chart narrows only
- * the vote log, so the rest keep their context. Every filter change starts the
- * log at its first page again.
+ * The log's "Pick a day" select. A bar's column can be under 24px wide (90
+ * days, a phone), so the log offers the same pick as a select: the equivalent
+ * control WCAG 2.5.8 allows. It shows a bar pick too.
  */
-export function ActivityView({voteLog, error}: ActivityViewProps) {
+function BucketPicker({bucket, stacks, value, onChange}: {
+  bucket: ChartBucket;
+  stacks: readonly DayStack[];
+  value: string | null;
+  onChange: (key: string | null) => void;
+}) {
+  const day = bucket === 'day';
+  return (
+    <select
+      className="adm-select"
+      aria-label={day ? 'Pick a day' : 'Pick a week'}
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}>
+      <option value="">{day ? 'All days' : 'All weeks'}</option>
+      {stacks.map((stack) => (
+        <option key={stack.day} value={stack.day}>
+          {bucketTitle(stack.day, bucket)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** The page body once the vote log has loaded: the filters' state and everything they narrow. */
+function ActivityBody({voteLog}: {voteLog: VoteLog}) {
   const [filters, setFilters] = useState<ActivityFilters>(NO_FILTERS);
   const [limit, setLimit] = useState(LOG_PAGE_SIZE);
 
-  if (error) {
-    return <Notice tone="error">Could not load the vote log. Has the artifact been generated? ({error.message})</Notice>;
-  }
-  if (!voteLog) return <Notice>Loading vote log...</Notice>;
   // The window counts back from the whole log's newest vote, so a filter never shifts the days on show.
   const span = activityWindow(voteLog.votes, filters.range);
   if (!span) {
@@ -62,7 +82,7 @@ export function ActivityView({voteLog, error}: ActivityViewProps) {
 
   const base = filterVotes(votesInRange(voteLog.votes, span.startDay, span.endDay), {...filters, day: null});
   const {bucket, stacks} = chartStacks(base, span.startDay, span.endDay);
-  const logVotes = filters.day === null ? base : votesInBucket(base, filters.day, bucket);
+  const picked = filters.day;
 
   return (
     <>
@@ -73,35 +93,20 @@ export function ActivityView({voteLog, error}: ActivityViewProps) {
         bucket={bucket}
         startDay={span.startDay}
         endDay={span.endDay}
-        selectedKey={filters.day}
+        selectedKey={picked}
         // A pick of the picked bar clears it, whether the kit hands back its key or null.
-        onSelect={(key) => update({day: key === null || key === filters.day ? null : key})}
+        onSelect={(key) => update({day: key === picked ? null : key})}
       />
       <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: SPACING.xl}}>
         <div style={{flex: '999 1 520px', minWidth: 0}}>
           <VoteLogTable
-            votes={logVotes}
+            votes={picked === null ? base : votesInBucket(base, picked, bucket)}
             limit={limit}
-            pickedLabel={filters.day === null ? null : bucketTitle(filters.day, bucket)}
+            pickedLabel={picked === null ? null : bucketTitle(picked, bucket)}
             voter={filters.voter}
             onShowMore={() => setLimit(limit + LOG_PAGE_SIZE)}
             onPickVoter={(voter) => update({voter})}
-            // A bar's column can be under 24px wide (90 days, a phone), so the log offers the same pick
-            // as a select: the equivalent control WCAG 2.5.8 allows. It shows a bar pick too.
-            picker={
-              <select
-                className="adm-select"
-                aria-label={bucket === 'day' ? 'Pick a day' : 'Pick a week'}
-                value={filters.day ?? ''}
-                onChange={(e) => update({day: e.target.value === '' ? null : e.target.value})}>
-                <option value="">{bucket === 'day' ? 'All days' : 'All weeks'}</option>
-                {stacks.map((stack) => (
-                  <option key={stack.day} value={stack.day}>
-                    {bucketTitle(stack.day, bucket)}
-                  </option>
-                ))}
-              </select>
-            }
+            picker={<BucketPicker bucket={bucket} stacks={stacks} value={picked} onChange={(day) => update({day})} />}
           />
         </div>
         <div style={{flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: SPACING.xl}}>
@@ -115,4 +120,19 @@ export function ActivityView({voteLog, error}: ActivityViewProps) {
       </div>
     </>
   );
+}
+
+/**
+ * The Vote activity page body, as PageLayout's grid items. The range (R-9)
+ * and the rest of the filter row narrow everything below them: the KPIs, the
+ * chart, the log and the side panels. The bar picked in the chart narrows only
+ * the vote log, so the rest keep their context. Every filter change starts the
+ * log at its first page again.
+ */
+export function ActivityView({voteLog, error}: ActivityViewProps) {
+  if (error) {
+    return <Notice tone="error">Could not load the vote log. Has the artifact been generated? ({error.message})</Notice>;
+  }
+  if (!voteLog) return <Notice>Loading vote log...</Notice>;
+  return <ActivityBody voteLog={voteLog} />;
 }

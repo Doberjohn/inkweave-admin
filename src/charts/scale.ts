@@ -7,6 +7,12 @@
  * moves with the viewer's time zone or a daylight-saving change.
  */
 
+/**
+ * A UTC calendar day, 'YYYY-MM-DD'. Only a name for the string: a function
+ * that takes one says what it does with a string that isn't a day.
+ */
+export type Day = string;
+
 const DAY_MS = 86_400_000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -62,12 +68,12 @@ export function nearestIndex(xs: readonly number[], x: number): number {
   return best;
 }
 
-function dayOf(time: number): string {
+function dayOf(time: number): Day {
   return new Date(time).toISOString().slice(0, 10);
 }
 
 /** The UTC midnight of a 'YYYY-MM-DD' day in ms, or null when it is not a real calendar day. */
-function dayTime(day: string): number | null {
+function dayTime(day: Day): number | null {
   if (!DAY_RE.test(day)) return null;
   const time = Date.parse(`${day}T00:00:00Z`);
   // Date.parse rolls 2026-02-30 over into March; the round trip rejects it.
@@ -80,34 +86,34 @@ export function isDay(day: string): boolean {
 }
 
 /** Whole UTC days since 1970-01-01, so a chart can place dates by time. Null when `day` isn't a day. */
-export function dayIndex(day: string): number | null {
+export function dayIndex(day: Day): number | null {
   const time = dayTime(day);
   return time == null ? null : Math.round(time / DAY_MS);
 }
 
 /** `day` moved by `n` whole days: ('2026-09-30', 1) -> '2026-10-01'. Anything that isn't a day comes back unchanged. */
-export function addDays(day: string, n: number): string {
+export function addDays(day: Day, n: number): Day {
   const time = dayTime(day);
   return time == null ? day : dayOf(time + Math.round(n) * DAY_MS);
 }
 
 /** How many days run from `start` to `end`, both included: one day -> 1. 0 when end is before start or either isn't a day. */
-export function daySpan(start: string, end: string): number {
+export function daySpan(start: Day, end: Day): number {
   const a = dayTime(start);
   const b = dayTime(end);
-  if (a == null || b == null || b < a) return 0;
-  return Math.round((b - a) / DAY_MS) + 1;
+  if (a == null || b == null) return 0;
+  return b < a ? 0 : Math.round((b - a) / DAY_MS) + 1;
 }
 
 /** Every day from `start` to `end`, both included. Empty when end is before start or either isn't a day. */
-export function eachDay(start: string, end: string): string[] {
+export function eachDay(start: Day, end: Day): Day[] {
   const a = dayTime(start);
   if (a == null) return [];
   return Array.from({length: daySpan(start, end)}, (_, i) => dayOf(a + i * DAY_MS));
 }
 
 /** The UTC Monday of the week `day` falls in: the day itself on a Monday. Anything that isn't a day comes back unchanged. */
-export function weekStart(day: string): string {
+export function weekStart(day: Day): Day {
   const time = dayTime(day);
   if (time == null) return day;
   const sinceMonday = (new Date(time).getUTCDay() + 6) % 7;

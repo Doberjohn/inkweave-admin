@@ -15,8 +15,10 @@ interface BiasBarProps {
 
 /** Which way the fill leans and how far (percent of the whole track), or null when there is nothing to draw. */
 function fillFor(gap: number | null, scale: number): {direction: 'over' | 'under'; width: number} | null {
-  if (gap == null || !Number.isFinite(gap) || gap === 0) return null;
-  return {direction: gap < 0 ? 'over' : 'under', width: Math.min(Math.abs(gap) / scale, 1) * 50};
+  // No gap draws like a zero one: no fill.
+  const value = gap ?? 0;
+  if (value === 0 || !Number.isFinite(value)) return null;
+  return {direction: value < 0 ? 'over' : 'under', width: Math.min(Math.abs(value) / scale, 1) * 50};
 }
 
 /**

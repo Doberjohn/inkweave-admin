@@ -6,7 +6,7 @@ import {gapColor} from '../tools/analytics/gapColor';
 import {fmtDay, fmtGap, fmtInt} from '../ui/format';
 import {Panel} from '../ui/Panel';
 import {BarChart, type BarDatum} from './BarChart';
-import {ChartFrame, type ChartTable} from './ChartFrame';
+import {ChartFrame, type ChartTable, type ChartView} from './ChartFrame';
 import {ChartLegend} from './ChartLegend';
 import {LineChart, type LineSeries} from './LineChart';
 import {RangeControl} from './RangeControl';
@@ -210,19 +210,25 @@ function eventsTable(series: readonly LineSeries[]): ChartTable {
   };
 }
 
-/** Two series with the area wash: crosshair, every series in the tooltip, end labels, and the legend. */
-export const LineTwoSeriesArea: Story = {
-  render: () => (
+/** The two event series in a frame with their legend and table. The stories below differ in the view they open on, the wash and the subtitle. */
+function EventsChart({subtitle, area = false, defaultView}: {subtitle?: string; area?: boolean; defaultView?: ChartView}) {
+  return (
     <Panel>
       <ChartFrame
         title="Events per day"
-        subtitle="Reporting window Sep 1 – Sep 30"
+        subtitle={subtitle}
         legend={<ChartLegend series={EVENTS} mark="line" />}
-        table={eventsTable(EVENTS)}>
-        <LineChart series={EVENTS} ariaLabel="Events per day" area />
+        table={eventsTable(EVENTS)}
+        defaultView={defaultView}>
+        <LineChart series={EVENTS} ariaLabel="Events per day" area={area} />
       </ChartFrame>
     </Panel>
-  ),
+  );
+}
+
+/** Two series with the area wash: crosshair, every series in the tooltip, end labels, and the legend. */
+export const LineTwoSeriesArea: Story = {
+  render: () => <EventsChart subtitle="Reporting window Sep 1 – Sep 30" area />,
 };
 
 const GAP_TREND: LineSeries[] = [
@@ -254,19 +260,7 @@ export const LineWithBaseline: Story = {
 };
 
 /** The Chart | Table toggle opened on the table: the accessible twin every chart carries. */
-export const TableView: Story = {
-  render: () => (
-    <Panel>
-      <ChartFrame
-        title="Events per day"
-        legend={<ChartLegend series={EVENTS} mark="line" />}
-        table={eventsTable(EVENTS)}
-        defaultView="table">
-        <LineChart series={EVENTS} ariaLabel="Events per day" />
-      </ChartFrame>
-    </Panel>
-  ),
-};
+export const TableView: Story = {render: () => <EventsChart defaultView="table" />};
 
 /** Empty and all-zero data: the empty text, and a bare 0 to 1 axis. */
 export const EmptyStates: Story = {

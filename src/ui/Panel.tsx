@@ -15,6 +15,32 @@ interface PanelProps {
   padded?: boolean;
 }
 
+/** The header row: the h2 title on the left, the action on the right. Flush panels pad it and rule it off. */
+function PanelHeader({title, titleId, action, padded}: Omit<PanelProps, 'children'> & {titleId: string}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: SPACING.md,
+        ...(padded
+          ? {}
+          : {padding: `${SPACING.section}px ${SPACING.lg}px`, borderBottom: `1px solid ${ADMIN_COLORS.border}`}),
+      }}>
+      {title && (
+        <h2 id={titleId} style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
+          {title}
+        </h2>
+      )}
+      {action != null && (
+        <div style={{marginLeft: 'auto', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{action}</div>
+      )}
+    </div>
+  );
+}
+
 /**
  * The surface the insights pages are built from: a bordered panel with an
  * optional header row (the h2 title on the left, an action on the right). A
@@ -23,7 +49,6 @@ interface PanelProps {
  */
 export function Panel({title, action, children, padded = true}: PanelProps) {
   const titleId = useId();
-  const hasHeader = Boolean(title) || action != null;
   return (
     <section
       aria-labelledby={title ? titleId : undefined}
@@ -42,28 +67,7 @@ export function Panel({title, action, children, padded = true}: PanelProps) {
         // A flush table's corners would poke past the radius.
         overflow: padded ? undefined : 'hidden',
       }}>
-      {hasHeader && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: SPACING.md,
-            ...(padded
-              ? {}
-              : {padding: `${SPACING.section}px ${SPACING.lg}px`, borderBottom: `1px solid ${ADMIN_COLORS.border}`}),
-          }}>
-          {title && (
-            <h2 id={titleId} style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
-              {title}
-            </h2>
-          )}
-          {action != null && (
-            <div style={{marginLeft: 'auto', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{action}</div>
-          )}
-        </div>
-      )}
+      {(Boolean(title) || action != null) && <PanelHeader title={title} titleId={titleId} action={action} padded={padded} />}
       {children}
     </section>
   );

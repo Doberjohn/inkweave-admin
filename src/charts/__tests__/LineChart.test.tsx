@@ -4,21 +4,18 @@ import userEvent from '@testing-library/user-event';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {fmtGap} from '../../ui/format';
 import {LineChart, type LineSeries} from '../LineChart';
+import type {SeriesDef} from '../series';
 
 const DAYS = ['2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30'];
 
-function seriesOf(id: string, label: string, color: string, ys: Array<number | null>, days = DAYS): LineSeries {
-  return {
-    id,
-    label,
-    color,
-    points: ys.flatMap((y, i) => (y == null ? [] : [{x: days[i], y}])),
-  };
+/** A series with `ys` on `days`; a null leaves that day out, so the line breaks there. */
+function seriesOf(def: SeriesDef, ys: Array<number | null>, days = DAYS): LineSeries {
+  return {...def, points: ys.flatMap((y, i) => (y == null ? [] : [{x: days[i], y}]))};
 }
 
-const SEARCHES = seriesOf('searches', 'Searches', ADMIN_COLORS.accent, [10, 20, 30, 25, 40]);
+const SEARCHES = seriesOf({id: 'searches', label: 'Searches', color: ADMIN_COLORS.accent}, [10, 20, 30, 25, 40]);
 // No point on Sep 28: the line breaks there.
-const VIEWS = seriesOf('views', 'Card views', ADMIN_COLORS.under, [5, 8, null, 12, 18]);
+const VIEWS = seriesOf({id: 'views', label: 'Card views', color: ADMIN_COLORS.under}, [5, 8, null, 12, 18]);
 
 /** jsdom has no layout: the plot's box, at the 640px fallback width. */
 function placePlot(plot: HTMLElement) {
@@ -80,14 +77,14 @@ describe('LineChart: marks', () => {
 
   it('gives a point with no neighbours a dot of its own', () => {
     // Searches has every day, so Lonely's Sep 26 and Sep 28 stand alone; Sep 30 has its end dot.
-    const lonely = seriesOf('lonely', 'Lonely', ADMIN_COLORS.under, [5, null, 7, null, 9]);
+    const lonely = seriesOf({id: 'lonely', label: 'Lonely', color: ADMIN_COLORS.under}, [5, null, 7, null, 9]);
     const {container} = render(<LineChart series={[SEARCHES, lonely]} ariaLabel="Events per day" />);
     expect(container.querySelectorAll('circle[data-lone="lonely"]')).toHaveLength(2);
     expect(container.querySelectorAll('circle[data-lone="searches"]')).toHaveLength(0);
   });
 
   it('draws a one-point series: one end dot, one x label, a one-position slider', () => {
-    const one = seriesOf('s', 'Searches', ADMIN_COLORS.accent, [5], ['2026-09-30']);
+    const one = seriesOf({id: 's', label: 'Searches', color: ADMIN_COLORS.accent}, [5], ['2026-09-30']);
     const {container} = render(<LineChart series={[one]} ariaLabel="Events per day" />);
     expect(container.querySelectorAll('circle[data-end]')).toHaveLength(1);
     expect(container.querySelectorAll('circle[data-lone]')).toHaveLength(0);
@@ -111,14 +108,14 @@ describe('LineChart: marks', () => {
     const {container, rerender} = render(<LineChart series={[SEARCHES, VIEWS]} ariaLabel="Events per day" />);
     expect(texts(container, '[data-end-label]')).toEqual(['40', '18']);
     for (const label of container.querySelectorAll('[data-end-label]')) expect(label).toHaveAttribute('fill', ADMIN_COLORS.text);
-    const close = seriesOf('close', 'Close', ADMIN_COLORS.under, [5, 8, 9, 12, 39]);
+    const close = seriesOf({id: 'close', label: 'Close', color: ADMIN_COLORS.under}, [5, 8, 9, 12, 39]);
     rerender(<LineChart series={[SEARCHES, close]} ariaLabel="Events per day" />);
     expect(container.querySelectorAll('[data-end-label]')).toHaveLength(0);
   });
 
   it('labels the first, quarter and last days by default, or the days it is given', () => {
     const nine = Array.from({length: 9}, (_, i) => `2026-09-0${i + 1}`);
-    const s = seriesOf('s', 'S', ADMIN_COLORS.accent, [1, 2, 3, 4, 5, 6, 7, 8, 9], nine);
+    const s = seriesOf({id: 's', label: 'S', color: ADMIN_COLORS.accent}, [1, 2, 3, 4, 5, 6, 7, 8, 9], nine);
     const {container, rerender} = render(<LineChart series={[s]} ariaLabel="Events per day" />);
     expect(texts(container, '[data-x-label]')).toEqual(['Sep 1', 'Sep 3', 'Sep 5', 'Sep 7', 'Sep 9']);
     rerender(<LineChart series={[s]} ariaLabel="Events per day" xTicks={['2026-09-02', '2026-09-09', 'not here']} />);
@@ -157,13 +154,16 @@ describe('LineChart: axis and baseline', () => {
 
   it('charts an all-zero series on a bare 0 to 1 axis', () => {
     const {container} = render(
-      <LineChart series={[seriesOf('z', 'Searches', ADMIN_COLORS.accent, [0, 0, 0, 0, 0])]} ariaLabel="Events per day" />,
+      <LineChart
+        series={[seriesOf({id: 'z', label: 'Searches', color: ADMIN_COLORS.accent}, [0, 0, 0, 0, 0])]}
+        ariaLabel="Events per day"
+      />,
     );
     expect(texts(container, 'svg > g > text')).toEqual(['0', '1']);
   });
 
   it('spans zero for signed data and draws a labelled baseline', () => {
-    const gaps = seriesOf('gap', 'Mean gap', ADMIN_COLORS.accent, [-0.5, 0.3, 1.2]);
+    const gaps = seriesOf({id: 'gap', label: 'Mean gap', color: ADMIN_COLORS.accent}, [-0.5, 0.3, 1.2]);
     const {container} = render(
       <LineChart series={[gaps]} ariaLabel="Weekly gap" yFormat={fmtGap} baseline={0} baselineLabel="No gap" />,
     );
@@ -174,7 +174,7 @@ describe('LineChart: axis and baseline', () => {
   });
 
   it('labels the baseline with its value by default, and keeps an all-negative axis on whole numbers', () => {
-    const drop = seriesOf('drop', 'Drop', ADMIN_COLORS.over, [-3, -1]);
+    const drop = seriesOf({id: 'drop', label: 'Drop', color: ADMIN_COLORS.over}, [-3, -1]);
     const {container} = render(<LineChart series={[drop]} ariaLabel="Drop" baseline={0} />);
     expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−3', '0']);
     expect(container.querySelector('g[data-baseline] text')).toHaveTextContent('0');
@@ -207,7 +207,7 @@ describe('LineChart: crosshair, tooltip and keyboard', () => {
 
   it('places days by time, so a gap in the dates keeps its width', () => {
     const days = ['2026-09-01', '2026-09-02', '2026-09-10'];
-    const s = seriesOf('s', 'Searches', ADMIN_COLORS.accent, [1, 2, 3], days);
+    const s = seriesOf({id: 's', label: 'Searches', color: ADMIN_COLORS.accent}, [1, 2, 3], days);
     const {container} = render(<LineChart series={[s]} ariaLabel="Events per day" />);
     const slider = screen.getByRole('slider');
     placePlot(slider);

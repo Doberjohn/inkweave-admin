@@ -4,7 +4,7 @@ import {fmtWeekday} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
 import type {VoteLogRow} from '../voteLogTypes';
-import {carriesLabel, countOf, logPage} from './activityModel';
+import {carriesLabel, countOf, logPage, type LogDay} from './activityModel';
 
 /** Rows on the log's first page, and rows each "Show more" adds. */
 export const LOG_PAGE_SIZE = 25;
@@ -46,6 +46,93 @@ const DAY_CELL: React.CSSProperties = {
   fontWeight: 700,
   color: ADMIN_COLORS.text,
 };
+
+/** One vote: its time, the pair, the score, who carries, and the voter, who filters the log when picked. */
+function VoteRow({vote, onPickVoter}: {vote: VoteLogRow; onPickVoter: (voter: number) => void}) {
+  const pair = `${vote.aName} × ${vote.bName}`;
+  return (
+    <tr className="adm-hover-row">
+      <td style={{...CELL, color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(11, 16)}</td>
+      <td style={{...CELL, ...TRUNCATE}} title={pair}>
+        {pair}
+      </td>
+      <td style={{...CELL, textAlign: 'center'}}>
+        <ScorePill score={vote.score} />
+      </td>
+      <td style={{...CELL, ...TRUNCATE, color: ADMIN_COLORS.muted}}>{carriesLabel(vote)}</td>
+      <td style={{...CELL, textAlign: 'right'}}>
+        <LinkButton
+          type="button"
+          tone="muted"
+          size="sm"
+          aria-label={`Filter by voter #${vote.voter}`}
+          onClick={() => onPickVoter(vote.voter)}>
+          #{vote.voter}
+        </LinkButton>
+      </td>
+    </tr>
+  );
+}
+
+/** One day's rows, under a row header that keeps the day's full counts even when the page cuts the day short. */
+function DayRows({group, onPickVoter}: {group: LogDay; onPickVoter: (voter: number) => void}) {
+  return (
+    <tbody>
+      <tr>
+        <th scope="rowgroup" colSpan={5} style={DAY_CELL}>
+          {fmtWeekday(group.day)}
+          {' · '}
+          <span style={{fontWeight: 500, color: ADMIN_COLORS.muted}}>
+            {`${countOf(group.count, 'vote')} · ${countOf(group.voters, 'voter')}`}
+          </span>
+        </th>
+      </tr>
+      {group.rows.map((vote) => (
+        <VoteRow key={`${vote.ts}:${vote.voter}:${vote.a}:${vote.b}`} vote={vote} onPickVoter={onPickVoter} />
+      ))}
+    </tbody>
+  );
+}
+
+/** The log's table: a hidden caption, fixed columns, and one row group per day. */
+function LogTable({days, onPickVoter}: {days: readonly LogDay[]; onPickVoter: (voter: number) => void}) {
+  return (
+    <div style={{overflowX: 'auto'}}>
+      <table style={{width: '100%', minWidth: 560, borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: ADMIN_TYPE.body}}>
+        <caption style={SR_ONLY}>Votes matching the filters, newest first</caption>
+        <colgroup>
+          <col style={{width: 96}} />
+          <col />
+          <col style={{width: 72}} />
+          <col style={{width: 160}} />
+          <col style={{width: 80}} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" style={HEAD_CELL}>
+              Time (UTC)
+            </th>
+            <th scope="col" style={HEAD_CELL}>
+              Pair
+            </th>
+            <th scope="col" style={{...HEAD_CELL, textAlign: 'center'}}>
+              Score
+            </th>
+            <th scope="col" style={HEAD_CELL}>
+              Carries
+            </th>
+            <th scope="col" style={{...HEAD_CELL, textAlign: 'right'}}>
+              Voter
+            </th>
+          </tr>
+        </thead>
+        {days.map((group) => (
+          <DayRows key={group.day} group={group} onPickVoter={onPickVoter} />
+        ))}
+      </table>
+    </div>
+  );
+}
 
 interface VoteLogTableProps {
   /** The votes in the range that pass every filter, the picked bar included. */
@@ -92,84 +179,7 @@ export function VoteLogTable({votes, limit, pickedLabel, voter, onShowMore, onPi
           {voter === null ? 'No votes match these filters.' : `No votes from voter ${voter} match these filters.`}
         </p>
       ) : (
-        <div style={{overflowX: 'auto'}}>
-          <table
-            style={{
-              width: '100%',
-              minWidth: 560,
-              borderCollapse: 'collapse',
-              tableLayout: 'fixed',
-              fontSize: ADMIN_TYPE.body,
-            }}>
-            <caption style={SR_ONLY}>Votes matching the filters, newest first</caption>
-            <colgroup>
-              <col style={{width: 96}} />
-              <col />
-              <col style={{width: 72}} />
-              <col style={{width: 160}} />
-              <col style={{width: 80}} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col" style={HEAD_CELL}>
-                  Time (UTC)
-                </th>
-                <th scope="col" style={HEAD_CELL}>
-                  Pair
-                </th>
-                <th scope="col" style={{...HEAD_CELL, textAlign: 'center'}}>
-                  Score
-                </th>
-                <th scope="col" style={HEAD_CELL}>
-                  Carries
-                </th>
-                <th scope="col" style={{...HEAD_CELL, textAlign: 'right'}}>
-                  Voter
-                </th>
-              </tr>
-            </thead>
-            {days.map((group) => (
-              <tbody key={group.day}>
-                <tr>
-                  <th scope="rowgroup" colSpan={5} style={DAY_CELL}>
-                    {fmtWeekday(group.day)}
-                    {' · '}
-                    <span style={{fontWeight: 500, color: ADMIN_COLORS.muted}}>
-                      {`${countOf(group.count, 'vote')} · ${countOf(group.voters, 'voter')}`}
-                    </span>
-                  </th>
-                </tr>
-                {group.rows.map((vote) => {
-                  const pair = `${vote.aName} × ${vote.bName}`;
-                  return (
-                    <tr key={`${vote.ts}:${vote.voter}:${vote.a}:${vote.b}`} className="adm-hover-row">
-                      <td style={{...CELL, color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>
-                        {vote.ts.slice(11, 16)}
-                      </td>
-                      <td style={{...CELL, ...TRUNCATE}} title={pair}>
-                        {pair}
-                      </td>
-                      <td style={{...CELL, textAlign: 'center'}}>
-                        <ScorePill score={vote.score} />
-                      </td>
-                      <td style={{...CELL, ...TRUNCATE, color: ADMIN_COLORS.muted}}>{carriesLabel(vote)}</td>
-                      <td style={{...CELL, textAlign: 'right'}}>
-                        <LinkButton
-                          type="button"
-                          tone="muted"
-                          size="sm"
-                          aria-label={`Filter by voter #${vote.voter}`}
-                          onClick={() => onPickVoter(vote.voter)}>
-                          #{vote.voter}
-                        </LinkButton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            ))}
-          </table>
-        </div>
+        <LogTable days={days} onPickVoter={onPickVoter} />
       )}
       {hidden > 0 && (
         <div

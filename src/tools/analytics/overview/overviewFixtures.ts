@@ -93,20 +93,19 @@ export const NO_RAW_ANALYTICS: VoteAnalytics = {
   global: {...ANALYTICS.global, distinctVoters: null, weekly: [], dimensionFill: null},
 };
 
-function vote(aName: string, bName: string, score: number | null, ts: string, voter: number): VoteLogRow {
+/** What a sample vote varies; the rest of its row is filled in. */
+type VoteSeed = Pick<VoteLogRow, 'aName' | 'bName' | 'score' | 'ts' | 'voter'>;
+
+function vote(seed: VoteSeed): VoteLogRow {
   return {
-    a: `crd-${aName}`,
-    b: `crd-${bName}`,
-    aName,
-    bName,
-    score,
-    accuracy: score == null ? 1 : 0,
+    ...seed,
+    a: `crd-${seed.aName}`,
+    b: `crd-${seed.bName}`,
+    accuracy: seed.score == null ? 1 : 0,
     isReal: null,
     wouldPlay: null,
     difficulty: null,
     whoCarries: null,
-    ts,
-    voter,
   };
 }
 
@@ -120,11 +119,11 @@ export const VOTE_LOG: VoteLog = {
   generatedAt: '2026-09-30T04:12:00Z',
   voterCount: 114,
   votes: [
-    vote('Maui', 'Fishhook', 5, '2026-09-30T14:20:00.123456+00:00', 41),
-    vote('Maui', 'Fishhook', null, '2026-09-30T09:05:00Z', 12),
-    vote('Elsa - Spirit', 'Elsa - Snow Queen', 7, '2026-09-29T18:44:00Z', 5),
-    vote('Cogsworth', 'Beast’s Castle', 3, '2026-09-28T11:02:00Z', 6),
-    vote('Mad Hatter', 'The Queen of Hearts', 8, '2026-09-27T20:15:00Z', 88),
+    vote({aName: 'Maui', bName: 'Fishhook', score: 5, ts: '2026-09-30T14:20:00.123456+00:00', voter: 41}),
+    vote({aName: 'Maui', bName: 'Fishhook', score: null, ts: '2026-09-30T09:05:00Z', voter: 12}),
+    vote({aName: 'Elsa - Spirit', bName: 'Elsa - Snow Queen', score: 7, ts: '2026-09-29T18:44:00Z', voter: 5}),
+    vote({aName: 'Cogsworth', bName: 'Beast’s Castle', score: 3, ts: '2026-09-28T11:02:00Z', voter: 6}),
+    vote({aName: 'Mad Hatter', bName: 'The Queen of Hearts', score: 8, ts: '2026-09-27T20:15:00Z', voter: 88}),
   ],
 };
 

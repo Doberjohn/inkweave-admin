@@ -135,6 +135,81 @@ function TokenBox({open, onForget}: {open: boolean; onForget: () => void}) {
   );
 }
 
+/** The brand tile, and beside it the wordmark while the sidebar is open. */
+function Brand({open}: {open: boolean}) {
+  return (
+    <div style={{display: 'flex', alignItems: 'center', gap: SPACING.md, height: 36, padding: `0 ${SPACING.xs}px`, flex: 'none'}}>
+      <span aria-hidden="true" style={brandTile}>
+        I
+      </span>
+      {open && (
+        <p style={{margin: 0, display: 'flex', alignItems: 'baseline', gap: SPACING.xs, whiteSpace: 'nowrap'}}>
+          <span style={{fontFamily: FONTS.hero, fontWeight: 700, fontSize: ADMIN_TYPE.brand}}>Inkweave</span>
+          <span style={{fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>admin</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The pages, group by group. A group's list carries its name; the visible label shows only while open. */
+function NavGroups({open}: {open: boolean}) {
+  return (
+    <nav aria-label="Admin" style={{flex: 1, display: 'flex', flexDirection: 'column', gap: SPACING.xl}}>
+      {GROUPS.map((group) => {
+        const items = NAV_ITEMS.filter((item) => item.group === group.id);
+        if (items.length === 0) return null;
+        return (
+          <div key={group.id}>
+            {/* The list carries the group's name, so the visible label is hidden from assistive tech (no double read). */}
+            {open && group.label && (
+              <p aria-hidden="true" style={groupLabel}>
+                {group.label}
+              </p>
+            )}
+            <ul aria-label={group.label} style={list}>
+              {items.map((item) => (
+                <li key={item.id}>
+                  <NavItemLink item={item} open={open} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** The collapse toggle at the foot of the sidebar. It controls the sidebar (aria-controls) and says which way it goes. */
+function CollapseToggle({open, controls, onToggle}: {open: boolean; controls: string; onToggle: () => void}) {
+  return (
+    // The kit's neutral button: its hover warms to gold rather than the handoff's grey.
+    <CtaButton
+      variant="neutral"
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
+      title={open ? undefined : 'Expand sidebar'}
+      onClick={onToggle}
+      style={{
+        flex: 'none',
+        minHeight: 36,
+        justifyContent: open ? 'flex-start' : 'center',
+        gap: SPACING.md,
+        padding: `0 ${SPACING.xs}px`,
+        borderRadius: ADMIN_RADIUS.control,
+        fontSize: ADMIN_TYPE.small,
+        whiteSpace: 'nowrap',
+      }}>
+      <span aria-hidden="true" style={{width: 24, textAlign: 'center', fontSize: ADMIN_TYPE.body}}>
+        {open ? '«' : '»'}
+      </span>
+      {open && <span>Collapse</span>}
+    </CtaButton>
+  );
+}
+
 interface SidebarProps {
   /** A GitHub token is saved, so pages that write show the token box. */
   tokenSaved: boolean;
@@ -183,67 +258,10 @@ export function Sidebar({tokenSaved, onForgetToken}: SidebarProps) {
         overflowY: 'auto',
         transition: `width 0.2s ${EASING.smooth}`,
       }}>
-      <div style={{display: 'flex', alignItems: 'center', gap: SPACING.md, height: 36, padding: `0 ${SPACING.xs}px`, flex: 'none'}}>
-        <span aria-hidden="true" style={brandTile}>
-          I
-        </span>
-        {open && (
-          <p style={{margin: 0, display: 'flex', alignItems: 'baseline', gap: SPACING.xs, whiteSpace: 'nowrap'}}>
-            <span style={{fontFamily: FONTS.hero, fontWeight: 700, fontSize: ADMIN_TYPE.brand}}>Inkweave</span>
-            <span style={{fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>admin</span>
-          </p>
-        )}
-      </div>
-
-      <nav aria-label="Admin" style={{flex: 1, display: 'flex', flexDirection: 'column', gap: SPACING.xl}}>
-        {GROUPS.map((group) => {
-          const items = NAV_ITEMS.filter((item) => item.group === group.id);
-          if (items.length === 0) return null;
-          return (
-            <div key={group.id}>
-              {/* The list carries the group's name, so the visible label is hidden from assistive tech (no double read). */}
-              {open && group.label && (
-                <p aria-hidden="true" style={groupLabel}>
-                  {group.label}
-                </p>
-              )}
-              <ul aria-label={group.label} style={list}>
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <NavItemLink item={item} open={open} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </nav>
-
+      <Brand open={open} />
+      <NavGroups open={open} />
       {tokenSaved && isWritePath(pathname) && <TokenBox open={open} onForget={onForgetToken} />}
-
-      {/* The kit's neutral button: its hover warms to gold rather than the handoff's grey. */}
-      <CtaButton
-        variant="neutral"
-        aria-expanded={open}
-        aria-controls={sidebarId}
-        aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
-        title={open ? undefined : 'Expand sidebar'}
-        onClick={toggle}
-        style={{
-          flex: 'none',
-          minHeight: 36,
-          justifyContent: open ? 'flex-start' : 'center',
-          gap: SPACING.md,
-          padding: `0 ${SPACING.xs}px`,
-          borderRadius: ADMIN_RADIUS.control,
-          fontSize: ADMIN_TYPE.small,
-          whiteSpace: 'nowrap',
-        }}>
-        <span aria-hidden="true" style={{width: 24, textAlign: 'center', fontSize: ADMIN_TYPE.body}}>
-          {open ? '«' : '»'}
-        </span>
-        {open && <span>Collapse</span>}
-      </CtaButton>
+      <CollapseToggle open={open} controls={sidebarId} onToggle={toggle} />
     </aside>
   );
 }

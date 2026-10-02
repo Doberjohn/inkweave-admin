@@ -18,6 +18,37 @@ const PAIRS = [
   {a: '0602', b: '0658', aName: 'Mickey Mouse - Brave Little Tailor', bName: 'Goofy - Musketeer'},
 ];
 
+/** A fixed-seed generator in [0, 1), so every render draws the same votes. */
+function seeded(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 16807) % 2147483647;
+    return state / 2147483647;
+  };
+}
+
+/** Who carries a scored vote: mostly the one-click default 'both'. */
+function carriesFor(next: () => number): VoteLogRow['whoCarries'] {
+  return next() < 0.85 ? 'both' : (['a', 'b', 'neither'] as const)[Math.floor(next() * 3)];
+}
+
+/** One sample vote on the day starting at `dayStart` (ms): about a third are quick votes, with no score. */
+function sampleVote(next: () => number, dayStart: number): VoteLogRow {
+  const pair = PAIRS[Math.floor(next() * PAIRS.length)];
+  const quick = next() < 0.35;
+  return {
+    ...pair,
+    score: quick ? null : 1 + Math.floor(next() * 10),
+    accuracy: Math.floor(next() * 3) - 1,
+    isReal: quick ? null : next() < 0.9,
+    wouldPlay: quick ? null : next() < 0.6,
+    difficulty: quick ? null : 1 + Math.floor(next() * 3),
+    whoCarries: quick ? null : carriesFor(next),
+    ts: new Date(dayStart + Math.floor(next() * DAY_MS)).toISOString(),
+    voter: 1 + Math.floor(next() ** 2 * 40),
+  };
+}
+
 /**
  * `days` days of sample votes ending Wed Sep 30 2026, newest first: quieter
  * weekends, a few empty days, about a third quick votes with no score, and most
@@ -25,32 +56,15 @@ const PAIRS = [
  * every render the same.
  */
 function sampleLog(days: number): VoteLog {
-  let seed = 20260930;
-  const next = () => {
-    seed = (seed * 16807) % 2147483647;
-    return seed / 2147483647;
-  };
+  const next = seeded(20260930);
   const start = Date.UTC(2026, 8, 30) - (days - 1) * DAY_MS;
   const votes: VoteLogRow[] = [];
   for (let d = 0; d < days; d++) {
-    const weekday = new Date(start + d * DAY_MS).getUTCDay();
+    const dayStart = start + d * DAY_MS;
+    const weekday = new Date(dayStart).getUTCDay();
     const quiet = weekday === 0 || weekday === 6;
     const count = d % 17 === 5 ? 0 : 4 + Math.floor(next() * (quiet ? 12 : 40));
-    for (let i = 0; i < count; i++) {
-      const pair = PAIRS[Math.floor(next() * PAIRS.length)];
-      const quick = next() < 0.35;
-      votes.push({
-        ...pair,
-        score: quick ? null : 1 + Math.floor(next() * 10),
-        accuracy: Math.floor(next() * 3) - 1,
-        isReal: quick ? null : next() < 0.9,
-        wouldPlay: quick ? null : next() < 0.6,
-        difficulty: quick ? null : 1 + Math.floor(next() * 3),
-        whoCarries: quick ? null : next() < 0.85 ? 'both' : (['a', 'b', 'neither'] as const)[Math.floor(next() * 3)],
-        ts: new Date(start + d * DAY_MS + Math.floor(next() * DAY_MS)).toISOString(),
-        voter: 1 + Math.floor(next() ** 2 * 40),
-      });
-    }
+    for (let i = 0; i < count; i++) votes.push(sampleVote(next, dayStart));
   }
   votes.sort((x, y) => (x.ts < y.ts ? 1 : x.ts > y.ts ? -1 : 0));
   return {generatedAt: '2026-10-01T04:00:00.000Z', votes, voterCount: 40};

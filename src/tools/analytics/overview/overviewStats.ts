@@ -33,7 +33,8 @@ const COLUMN_MIN = 40;
  * call), or no events were tracked.
  */
 export function trackedEventsTotal(v: VercelAnalytics | null): {total: number; eventTypes: number} | null {
-  if (!v || !v.hasVercelData || v.events.length === 0) return null;
+  // No artifact yet, or the empty one: neither has Vercel data.
+  if (!v?.hasVercelData || v.events.length === 0) return null;
   return {total: v.events.reduce((sum, e) => sum + e.total, 0), eventTypes: v.events.length};
 }
 

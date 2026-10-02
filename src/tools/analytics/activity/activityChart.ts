@@ -1,7 +1,7 @@
 import type {BarDatum} from '../../../charts/BarChart';
 import type {ChartTable} from '../../../charts/ChartFrame';
 import type {TooltipContent} from '../../../charts/ChartTooltip';
-import {addDays, weekStart} from '../../../charts/scale';
+import {addDays, weekStart, type Day} from '../../../charts/scale';
 import type {SeriesDef} from '../../../charts/series';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt, fmtWeekday} from '../../../ui/format';
@@ -44,8 +44,21 @@ const LABEL_STEPS = [1, 2, 4, 7, 14, 28, 56];
 const MAX_X_LABELS = 7;
 
 /** The UTC Sunday that closes the week from `monday`. */
-function weekEnd(monday: string): string {
+function weekEnd(monday: Day): Day {
   return addDays(monday, 6);
+}
+
+/**
+ * How a range from `startDay` to `endDay` clips the week from `monday`, in
+ * words: "from Jun 10", "to Sep 30" or "Jun 10 to Jun 12"; "" when the week
+ * runs whole. A missing end doesn't clip.
+ */
+function weekClip(monday: Day, startDay: Day = monday, endDay: Day = weekEnd(monday)): string {
+  const from = startDay > monday ? fmtDay(startDay) : '';
+  const to = endDay < weekEnd(monday) ? fmtDay(endDay) : '';
+  if (from && to) return `${from} to ${to}`;
+  if (from) return `from ${from}`;
+  return to ? `to ${to}` : '';
 }
 
 /** "Votes per day", or "Votes per week" once the range runs past 90 days. */
@@ -59,19 +72,15 @@ export function chartTitle(bucket: ChartBucket): string {
  * ("Week of Sep 28 (to Sep 30)", "Week of Jun 8 (from Jun 10)"), so a part
  * week at either end never reads as a whole one. Without them, the plain form.
  */
-export function bucketTitle(key: string, bucket: ChartBucket, startDay?: string, endDay?: string): string {
+export function bucketTitle(key: Day, bucket: ChartBucket, startDay?: Day, endDay?: Day): string {
   if (bucket === 'day') return fmtWeekday(key);
   const title = `Week of ${fmtDay(key)}`;
-  const from = startDay !== undefined && startDay > key ? startDay : null;
-  const to = endDay !== undefined && endDay < weekEnd(key) ? endDay : null;
-  if (from !== null && to !== null) return `${title} (${fmtDay(from)} to ${fmtDay(to)})`;
-  if (from !== null) return `${title} (from ${fmtDay(from)})`;
-  if (to !== null) return `${title} (to ${fmtDay(to)})`;
-  return title;
+  const clip = weekClip(key, startDay, endDay);
+  return clip ? `${title} (${clip})` : title;
 }
 
 /** Which end weeks a weekly range clips, as a clause for the subtitle; "" when it runs Monday to Sunday. */
-function partialWeeks(startDay: string, endDay: string): string {
+function partialWeeks(startDay: Day, endDay: Day): string {
   const first = weekStart(startDay) !== startDay;
   const last = weekEnd(weekStart(endDay)) !== endDay;
   if (first && last) return ', first and last weeks partial';
@@ -81,7 +90,7 @@ function partialWeeks(startDay: string, endDay: string): string {
 }
 
 /** The chart's subtitle: the range's days, how a weekly chart cuts them, and how to pick a bar. */
-export function chartSubtitle(bucket: ChartBucket, startDay: string, endDay: string): string {
+export function chartSubtitle(bucket: ChartBucket, startDay: Day, endDay: Day): string {
   const days = `${fmtDay(startDay)} – ${fmtDay(endDay)}`;
   const pick = `. Pick a ${bucket} to filter the log; pick it again to clear.`;
   if (bucket === 'day') return `${days}${pick}`;
@@ -107,8 +116,8 @@ export function barData(stacks: readonly DayStack[]): BarDatum[] {
 export function tooltipFor(
   stacks: readonly DayStack[],
   bucket: ChartBucket,
-  startDay: string,
-  endDay: string,
+  startDay: Day,
+  endDay: Day,
 ): (d: BarDatum) => TooltipContent {
   const byKey = new Map(stacks.map((stack) => [stack.day, stack]));
   return (d) => {
@@ -130,7 +139,7 @@ export function tooltipFor(
 }
 
 /** The chart's table view: a row per bar, oldest first, with every number the bars and tooltips carry. */
-export function chartTable(stacks: readonly DayStack[], bucket: ChartBucket, startDay: string, endDay: string): ChartTable {
+export function chartTable(stacks: readonly DayStack[], bucket: ChartBucket, startDay: Day, endDay: Day): ChartTable {
   return {
     caption: `${chartTitle(bucket)}, ${fmtDay(startDay)} – ${fmtDay(endDay)}`,
     columns: [bucket === 'day' ? 'Day' : 'Week', 'Votes', ...SCORE_BANDS.map((band) => BAND_LABELS[band]), 'Voters'],
