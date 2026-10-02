@@ -1,4 +1,5 @@
 import {COLORS, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
+import {fmtGap} from '../../ui/format';
 import type {WeeklyPoint} from './voteAnalyticsTypes';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -38,7 +39,7 @@ export function WeeklyActivityChart({weekly, latestDate}: WeeklyActivityChartPro
         {weekly.map((w) => (
           <div
             key={w.week}
-            title={`Week of ${shortDate(w.week)}: ${w.votes} votes${w.meanGap == null ? '' : `, gap ${w.meanGap.toFixed(2)}`}`}
+            title={`Week of ${shortDate(w.week)}: ${w.votes} votes${w.meanGap == null ? '' : `, gap ${fmtGap(w.meanGap)}`}`}
             style={{
               flex: 1,
               minHeight: 2,

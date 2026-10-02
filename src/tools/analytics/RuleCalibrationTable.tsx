@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {CAP_LABEL_XS, COLORS, FONTS, FONT_SIZES, LETTER_SPACING, LinkButton, RADIUS, SPACING} from '../../app-bridge';
+import {fmtGap} from '../../ui/format';
 import {gapColor} from './gapColor';
 import type {RuleStat} from './voteAnalyticsTypes';
 
@@ -15,11 +16,6 @@ const LOW_N = 10;
 const GAP_FULL_SCALE = 2.5;
 
 type SortKey = 'gap' | 'votes';
-
-function formatGap(meanGap: number | null): string {
-  if (meanGap == null) return '—';
-  return (meanGap > 0 ? '+' : '') + meanGap.toFixed(2);
-}
 
 /** The diverging gap bar: a center-ticked track with a fill leaning left (over) or right (under). */
 function GapBar({meanGap}: {meanGap: number | null}) {
@@ -136,7 +132,7 @@ function RuleRow({rule, selected, onSelect}: {rule: RuleStat; selected: boolean;
       <td style={{...CELL, width: '35%'}}>
         <GapBar meanGap={rule.meanGap} />
       </td>
-      <td style={{...NUMERIC_CELL, color: gapColor(rule.meanGap)}}>{formatGap(rule.meanGap)}</td>
+      <td style={{...NUMERIC_CELL, color: gapColor(rule.meanGap)}}>{fmtGap(rule.meanGap)}</td>
       <td style={{...NUMERIC_CELL, color: COLORS.textMuted}}>{rule.scoreVotes.toLocaleString()}</td>
     </tr>
   );

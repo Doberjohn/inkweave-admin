@@ -1,4 +1,5 @@
 import {CAP_LABEL_XS, COLORS, FONTS, FONT_SIZES, LETTER_SPACING, RADIUS, SPACING} from '../../app-bridge';
+import {fmtGap} from '../../ui/format';
 import {biasCopy} from './biasCopy';
 import {scalePercent, verdictFor} from './verdict';
 
@@ -52,7 +53,7 @@ function AccuracyColumn({accuracySentiment, stacked}: {accuracySentiment: number
         Accuracy sentiment
       </div>
       <div style={{fontSize: FONT_SIZES.xxxl, fontWeight: 700, margin: '4px 0 2px', fontFamily: FONTS.body}}>
-        {accuracySentiment == null ? '—' : (accuracySentiment > 0 ? '+' : '') + accuracySentiment.toFixed(2)}
+        {fmtGap(accuracySentiment)}
       </div>
       <div style={{fontSize: FONT_SIZES.xs, color: COLORS.textDim}}>thumbs: too-low vs too-high</div>
     </div>
@@ -98,7 +99,7 @@ export function VerdictHero({meanGap, accuracySentiment, stacked = false}: Verdi
           The engine <span style={{color: verdict.wordColor, fontStyle: 'italic'}}>{verdict.word}</span>
         </h2>
         <div style={{fontSize: FONT_SIZES.displayMd, fontWeight: 800, lineHeight: 1.05, margin: '4px 0 6px', color: verdict.numberColor}}>
-          {meanGap == null ? '—' : meanGap.toFixed(2)}
+          {fmtGap(meanGap)}
         </div>
         <div style={{fontSize: FONT_SIZES.base, color: COLORS.gray700, maxWidth: 380}}>{read}</div>
         <GapScale meanGap={meanGap} color={verdict.numberColor} />

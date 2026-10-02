@@ -86,3 +86,6 @@ const EMPTY_LOG: VoteLog = {generatedAt: '2026-06-30T00:00:00Z', votes: [], vote
 
 export const WithData: Story = {args: {analytics: WITH_DATA, voteLog: VOTE_LOG}};
 export const NoRawVotes: Story = {args: {analytics: NO_RAW, voteLog: EMPTY_LOG}};
+
+// What the Overview's Tune link opens: /calibration?rule=ramp.
+export const RuleSelected: Story = {args: {analytics: WITH_DATA, voteLog: VOTE_LOG, initialRuleId: 'ramp'}};
