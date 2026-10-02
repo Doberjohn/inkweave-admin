@@ -133,6 +133,16 @@ describe('admin routes', () => {
     expect(screen.getByText('Loading vote log...')).toBeInTheDocument();
     expect(sidebarNav().getByRole('link', {name: /Vote activity/})).toHaveAttribute('aria-current', 'page');
   });
+
+  it('opens web analytics at /web, current in the sidebar and with no branch notice', () => {
+    renderAt('/web');
+    expect(screen.getByRole('heading', {name: 'Web analytics'})).toBeInTheDocument();
+    expect(screen.getByText('Loading Web Analytics...')).toBeInTheDocument();
+    const link = screen.getByRole('link', {name: /Web analytics/});
+    expect(link).toHaveAttribute('href', '/web');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText('master')).not.toBeInTheDocument();
+  });
 });
 
 describe('the Overview nav item', () => {

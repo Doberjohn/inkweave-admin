@@ -4,6 +4,7 @@ import {NotFound} from './shell/NotFound';
 import {AnalyticsPage} from './tools/analytics/AnalyticsPage';
 import {ActivityPage} from './tools/analytics/activity/ActivityPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
+import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
 import {TuningPage} from './tools/tuning/TuningPage';
@@ -15,6 +16,7 @@ export const routes: RouteObject[] = [
     children: [
       {index: true, element: <OverviewPage />},
       {path: 'activity', element: <ActivityPage />},
+      {path: 'web', element: <WebAnalyticsPage />},
       {path: 'analytics', element: <AnalyticsPage />},
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},

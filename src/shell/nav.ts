@@ -21,6 +21,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'overview', label: 'Overview', mark: 'Ov', path: '/', group: 'main', writes: false},
   {id: 'analytics', label: 'Analytics', mark: 'An', path: '/analytics', group: 'insights', writes: false},
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
+  {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
   {id: 'tuning', label: 'Engine tuning', mark: 'Tu', path: '/tuning', group: 'publish', writes: true},
   {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
   {id: 'image', label: 'Card images', mark: 'Im', path: '/image', group: 'publish', writes: true},
