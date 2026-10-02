@@ -30,8 +30,8 @@ export function AdminShell() {
             fontFamily: FONTS.body,
           }}>
           <Sidebar tokenSaved={Boolean(token)} onForgetToken={clearToken} />
-          {/* PageLayout fills this column and scrolls its own body. A page that
-              isn't in PageLayout yet (AnalyticsPage) scrolls the column. */}
+          {/* PageLayout fills this column and scrolls its own body. A page
+              outside it scrolls the column. */}
           <div style={{flex: 1, minWidth: 0, overflowY: 'auto'}}>
             <Outlet />
           </div>

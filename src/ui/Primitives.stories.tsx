@@ -193,7 +193,7 @@ export const Notices: Story = {
   ),
 };
 
-/** The deterministic sawtooth WebAnalyticsView's stories use. */
+/** A deterministic sawtooth: the sample trend WebAnalyticsView's stories used. */
 const TREND = Array.from({length: 30}, (_, i) => 30 + ((i * 7) % 11));
 
 export const Sparklines: Story = {
