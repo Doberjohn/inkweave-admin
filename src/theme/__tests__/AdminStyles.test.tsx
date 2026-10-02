@@ -12,7 +12,6 @@ const CLASSES = [
   'adm-seg-btn',
   'adm-row-btn',
   'adm-card-btn',
-  'adm-bar-btn',
   'adm-input',
   'adm-select',
   'adm-hover-row',
@@ -32,12 +31,11 @@ const FOCUSABLE = [
   'adm-seg-btn',
   'adm-row-btn',
   'adm-card-btn',
-  'adm-bar-btn',
   'adm-input',
   'adm-select',
   'adm-chart-hit',
 ];
-const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-bar-btn', 'adm-chart-hit'];
+const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
 
 function stylesheet(): string {
@@ -85,20 +83,6 @@ describe('AdminStyles', () => {
     for (const [, px] of css.matchAll(/font-size:(\d+)px/g)) expect(sizes.has(Number(px)), `font-size ${px}px`).toBe(true);
     const radii = new Set<number>([0, ...Object.values(RADIUS)]);
     for (const [, px] of css.matchAll(/border-radius:(\d+)/g)) expect(radii.has(Number(px)), `border-radius ${px}`).toBe(true);
-  });
-
-  it('dims the bars next to a pressed bar', () => {
-    render(
-      <>
-        <AdminStyles />
-        <div>
-          <button type="button" className="adm-bar-btn" aria-pressed="true">Sep 29</button>
-          <button type="button" className="adm-bar-btn" aria-pressed="false">Sep 30</button>
-        </div>
-      </>,
-    );
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Sep 29'})).opacity).toBe('1');
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Sep 30'})).opacity).toBe('0.4');
   });
 
   it('clips translucent fills to the padding box, a selected card included', () => {

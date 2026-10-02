@@ -169,7 +169,6 @@ export const ADMIN_LAYOUT: {sidebarOpen: 240; sidebarCollapsed: 64; headerMinHei
 // adm-seg (group) / adm-seg-btn ([aria-pressed="true"]),
 // adm-row-btn (selectable list/table row, [aria-pressed="true"]),
 // adm-card-btn (selectable card, [aria-pressed="true"]),
-// adm-bar-btn (a selectable bar laid out in HTML, [aria-pressed="true"]; the kit's BarChart uses adm-chart-hit),
 // adm-input, adm-select, adm-hover-row (non-interactive row hover)
 // chart kit (R1-3b adds): adm-chart-plot (a slider plot), adm-chart-hit (a selectable bar's column button,
 // [aria-pressed="true"], never dimmed), adm-chart-mark ([data-active="true"], [data-dim="true"]), adm-chart-bar,

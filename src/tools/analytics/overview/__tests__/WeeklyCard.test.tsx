@@ -3,6 +3,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {BAR_Y_AXIS_WIDTH} from '../../../../charts/BarChart';
+import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {WeeklyCard} from '../WeeklyCard';
 import {ANALYTICS, EARLY_ANALYTICS} from '../overviewFixtures';
 
@@ -38,6 +39,13 @@ function tooltip(title: string): HTMLElement {
 
 /** A table row's cells as text, header cells included. */
 const cells = (row: HTMLElement) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent);
+
+/** The sub-label printed under the x label `day`, or null when the week has none. */
+function subLabelUnder(container: HTMLElement, day: string): Element | null {
+  const label = [...container.querySelectorAll('[data-x-label]')].find((t) => t.textContent === day);
+  expect(label, `no x label "${day}"`).toBeDefined();
+  return label!.parentElement!.querySelector('[data-sub-label]');
+}
 
 describe('WeeklyCard', () => {
   it('reads a week from the keyboard: the votes, then the mean gap', async () => {
@@ -81,6 +89,23 @@ describe('WeeklyCard', () => {
     act(() => chart().focus());
     await user.keyboard('{Home}{ArrowRight}');
     expect(tooltip('Week of Sep 14')).toHaveTextContent(/Week of Sep 14\s*0\s*Votes\s*—\s*Mean gap/);
+  });
+
+  it('prints each week’s gap under its date in the gap’s colour, and nothing under a quick-vote-only week', () => {
+    const {container} = renderCard();
+    const sep28 = subLabelUnder(container, 'Sep 28');
+    expect(sep28).toHaveTextContent('−0.30');
+    expect(sep28).toHaveAttribute('fill', ADMIN_COLORS.over);
+    // The week of Aug 10 holds only quick votes, so it has no gap to print.
+    expect(subLabelUnder(container, 'Aug 10')).toBeNull();
+  });
+
+  it('mutes a gap that prints "0.00", whichever side of zero it is on', () => {
+    const weekly = ANALYTICS.global.weekly.map((w) => (w.week === '2026-09-28' ? {...w, meanGap: -0.004} : w));
+    const {container} = renderCard({weekly});
+    const sep28 = subLabelUnder(container, 'Sep 28');
+    expect(sep28).toHaveTextContent('0.00');
+    expect(sep28).toHaveAttribute('fill', ADMIN_COLORS.muted);
   });
 
   it('has a table view of every week in the window', async () => {

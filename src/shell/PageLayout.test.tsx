@@ -22,6 +22,24 @@ describe('PageLayout', () => {
     expect(main.getByText('Body')).toBeInTheDocument();
   });
 
+  it('names the browser tab after the page, and renames it with the title', () => {
+    const {rerender, unmount} = render(
+      <PageLayout title="Vote activity">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Vote activity · Inkweave admin');
+    rerender(
+      <PageLayout title="Web analytics">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Web analytics · Inkweave admin');
+    // Nothing to restore: the next page sets its own.
+    unmount();
+    expect(document.title).toBe('Web analytics · Inkweave admin');
+  });
+
   it('names no branch on a page that writes nothing', () => {
     render(
       <PageLayout title="Web analytics">

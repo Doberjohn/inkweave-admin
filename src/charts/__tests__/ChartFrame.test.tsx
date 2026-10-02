@@ -76,6 +76,13 @@ describe('ChartFrame', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
+  it('scrolls a wide table inside its own box, never the page body', () => {
+    renderFrame({defaultView: 'table'});
+    const box = screen.getByRole('table').parentElement!;
+    expect(box).toHaveStyle({overflowX: 'auto', maxWidth: '100%'});
+    expect(box.tagName).toBe('DIV');
+  });
+
   it('can open on the table', () => {
     renderFrame({defaultView: 'table'});
     expect(screen.getByRole('table', {name: 'Votes per day, Sep 29 – Sep 30'})).toBeInTheDocument();

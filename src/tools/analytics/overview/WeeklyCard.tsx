@@ -35,14 +35,12 @@ function weekTooltip(w: WeeklyPoint): TooltipContent {
 }
 
 /**
- * The gap under a week's date, in its over/under colour; nothing for a week
- * without score votes. A gap that rounds to "0.00" is muted, as gapColor makes
- * an exact 0, so a −0.004 week doesn't print "0.00" in the over-rates red.
+ * The gap under a week's date, in its over/under colour (gapColor, which mutes
+ * a gap that prints "0.00"); nothing for a week without score votes.
  */
 function gapLine(w: WeeklyPoint): {text: string; color: string} | null {
   if (w.meanGap == null) return null;
-  const text = fmtGap(w.meanGap);
-  return {text, color: text === '0.00' ? ADMIN_COLORS.muted : gapColor(w.meanGap)};
+  return {text: fmtGap(w.meanGap), color: gapColor(w.meanGap)};
 }
 
 /** The table view: every week of the window, oldest first, the narrow card's dropped weeks included. */

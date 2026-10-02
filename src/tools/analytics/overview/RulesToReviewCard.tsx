@@ -31,7 +31,8 @@ export function RulesToReviewCard({rules}: {rules: RuleStat[]}) {
               key={r.ruleId}
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 100px 52px 36px',
+                // Names keep 80px when the card is narrow (1185–1280px viewports); the bias bar gives first.
+                gridTemplateColumns: 'minmax(80px, 1fr) minmax(0, 100px) 52px 36px',
                 alignItems: 'center',
                 gap: SPACING.md,
                 padding: `${SPACING.sm}px 0`,
@@ -42,13 +43,7 @@ export function RulesToReviewCard({rules}: {rules: RuleStat[]}) {
                 {r.ruleName}
               </span>
               <BiasBar gap={r.meanGap} />
-              {/* A gap that rounds to "0.00" reads neutral, as the weekly chart's gapLine does. */}
-              <span
-                style={{
-                  textAlign: 'right',
-                  fontVariantNumeric: 'tabular-nums',
-                  color: fmtGap(r.meanGap) === '0.00' ? ADMIN_COLORS.muted : gapColor(r.meanGap),
-                }}>
+              <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: gapColor(r.meanGap)}}>
                 {fmtGap(r.meanGap)}
               </span>
               <span style={{textAlign: 'right'}}>

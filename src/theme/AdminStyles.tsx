@@ -70,11 +70,6 @@ button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;borde
 .adm-card-btn:hover${ENABLED}{border-color:${C.accentBorder};}
 .adm-card-btn[aria-pressed="true"]{background-color:${C.accentTintSoft};border-color:${C.accentStrong};}
 
-.adm-bar-btn{flex:1 1 0;min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:${SPACING.xs}px;margin:0;padding:${SPACING.xs}px 0 0;border:none;border-radius:${R.control}px;background:transparent;color:${C.muted};font:inherit;font-size:${T.label}px;cursor:pointer;transition:background-color ${FAST},opacity ${FAST};}
-.adm-bar-btn:hover${ENABLED}{background:${C.rowHover};}
-.adm-bar-btn[aria-pressed="true"]{background:${C.accentTintSoft};color:${C.accent};}
-:has(> .adm-bar-btn[aria-pressed="true"]) > .adm-bar-btn:not([aria-pressed="true"]){opacity:.4;}
-
 .adm-input,.adm-select{box-sizing:border-box;height:${INPUT_HEIGHT}px;margin:0;padding:0 ${SPACING.md}px;background-color:${C.card};background-clip:padding-box;border:1px solid ${C.inputBorder};border-radius:${R.control}px;color:${C.text};font-family:inherit;font-size:${T.body}px;transition:border-color ${FAST};}
 textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACING.sm}px ${SPACING.md}px;line-height:1.5;resize:vertical;}
 .adm-select{padding:0 ${SPACING.sm}px;cursor:pointer;}
@@ -84,10 +79,10 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
 
-.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-bar-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
-.adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-bar-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
+.adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
 
 .adm-chart-plot{border-radius:${R.control}px;outline:none;touch-action:pan-y;}
 .adm-chart-plot:focus-visible{${FOCUS_RING}outline-offset:2px;}
@@ -108,7 +103,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
 
 @media (prefers-reduced-motion: reduce){
-.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-bar-btn,.adm-input,.adm-select,.adm-hover-row{transition:none;}
+.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}
 }

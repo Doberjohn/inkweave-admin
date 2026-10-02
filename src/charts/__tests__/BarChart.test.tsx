@@ -353,4 +353,17 @@ describe('BarChart: selectable bars', () => {
     fireEvent.pointerLeave(screen.getByRole('group', {name: 'Votes per day'}));
     expect(tip(container)).toBeNull();
   });
+
+  it('keeps a tapped bar’s tooltip when the finger lifts, and drops it when a mouse leaves', () => {
+    const {container} = render(<Selectable onSelect={() => {}} />);
+    const group = screen.getByRole('group', {name: 'Votes per day'});
+    // A lifted finger fires pointerleave too (touch has no hover).
+    fireEvent.pointerEnter(screen.getByRole('button', {name: /^Sep 28:/}), {pointerType: 'touch'});
+    fireEvent.pointerLeave(group, {pointerType: 'touch'});
+    expect(within(tip(container)!).getByText('Sep 28')).toBeInTheDocument();
+
+    fireEvent.pointerEnter(screen.getByRole('button', {name: /^Sep 29:/}), {pointerType: 'mouse'});
+    fireEvent.pointerLeave(group, {pointerType: 'mouse'});
+    expect(tip(container)).toBeNull();
+  });
 });

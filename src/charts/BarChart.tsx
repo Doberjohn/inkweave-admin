@@ -414,7 +414,10 @@ export function BarChart({
       <div
         role="group"
         aria-label={ariaLabel}
-        onPointerLeave={() => cursor.setIndex(null)}
+        // A lifted finger fires pointerleave too, so a touch keeps its bar's tooltip (as useChartCursor does).
+        onPointerLeave={(event) => {
+          if (event.pointerType !== 'touch') cursor.setIndex(null);
+        }}
         style={{position: 'relative', height: svgHeight}}>
         {/* The hit columns sit under the drawing, each spanning its whole slot and the
             full height, so the target is never just the painted bar. AdminStyles'

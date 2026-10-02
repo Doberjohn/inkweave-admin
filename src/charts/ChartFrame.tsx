@@ -35,50 +35,56 @@ const HEAD_CELL: React.CSSProperties = {
   color: ADMIN_COLORS.muted,
 };
 
-/** The table view: a caption, column headers and a row header per row. It takes focus when a control in the chart opens it. */
+/**
+ * The table view: a caption, column headers and a row header per row. It takes
+ * focus when a control in the chart opens it. A table wider than the card
+ * scrolls inside its own box, as VoteLogTable's does, never the page body.
+ */
 function DataTable({table, tableRef}: {table: ChartTable; tableRef: React.Ref<HTMLTableElement>}) {
   return (
-    <table
-      ref={tableRef}
-      tabIndex={-1}
-      style={{width: '100%', borderCollapse: 'collapse', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.text}}>
-      <caption
-        style={{
-          captionSide: 'top',
-          textAlign: 'left',
-          paddingBottom: SPACING.sm,
-          fontSize: ADMIN_TYPE.label,
-          color: ADMIN_COLORS.muted,
-        }}>
-        {table.caption}
-      </caption>
-      <thead>
-        <tr>
-          {table.columns.map((column, i) => (
-            <th key={column} scope="col" style={{...HEAD_CELL, textAlign: i === 0 ? 'left' : 'right'}}>
-              {column}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {table.rows.map((row, r) => (
-          <tr key={`${row[0]}-${r}`} className="adm-hover-row">
-            {row.map((cell, i) =>
-              i === 0 ? (
-                <th key={i} scope="row" style={{...CELL, textAlign: 'left', fontWeight: 500}}>
-                  {cell}
-                </th>
-              ) : (
-                <td key={i} style={CELL}>
-                  {cell}
-                </td>
-              ),
-            )}
+    <div style={{overflowX: 'auto', maxWidth: '100%'}}>
+      <table
+        ref={tableRef}
+        tabIndex={-1}
+        style={{width: '100%', borderCollapse: 'collapse', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.text}}>
+        <caption
+          style={{
+            captionSide: 'top',
+            textAlign: 'left',
+            paddingBottom: SPACING.sm,
+            fontSize: ADMIN_TYPE.label,
+            color: ADMIN_COLORS.muted,
+          }}>
+          {table.caption}
+        </caption>
+        <thead>
+          <tr>
+            {table.columns.map((column, i) => (
+              <th key={column} scope="col" style={{...HEAD_CELL, textAlign: i === 0 ? 'left' : 'right'}}>
+                {column}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {table.rows.map((row, r) => (
+            <tr key={`${row[0]}-${r}`} className="adm-hover-row">
+              {row.map((cell, i) =>
+                i === 0 ? (
+                  <th key={i} scope="row" style={{...CELL, textAlign: 'left', fontWeight: 500}}>
+                    {cell}
+                  </th>
+                ) : (
+                  <td key={i} style={CELL}>
+                    {cell}
+                  </td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

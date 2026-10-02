@@ -1,3 +1,4 @@
+import {useEffect} from 'react';
 import {FONTS, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../theme/adminTheme';
 import {BranchNotice} from './BranchNotice';
@@ -68,9 +69,14 @@ interface PageLayoutProps {
 /**
  * Every admin page's frame: a header with the page's h1, subtitle, meta,
  * actions and (on pages that write) the branch notice, over a scrolling body
- * that stacks the page's sections. It renders the page's only <main>.
+ * that stacks the page's sections. It renders the page's only <main>, and
+ * names the browser tab after the page ("Vote activity · Inkweave admin").
+ * Nothing restores the old title on unmount: the next page sets its own.
  */
 export function PageLayout({title, subtitle, meta, actions, writes = false, branchLabel, children}: PageLayoutProps) {
+  useEffect(() => {
+    document.title = `${title} · Inkweave admin`;
+  }, [title]);
   const hasSide = meta != null || actions != null || writes;
   return (
     <main style={MAIN}>

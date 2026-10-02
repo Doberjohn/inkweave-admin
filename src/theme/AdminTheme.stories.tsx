@@ -148,20 +148,12 @@ export const Radius: Story = {
 };
 
 const BANDS = ['All', '7+', '5–6', '≤4'] as const;
-const DAYS = [
-  {day: 'Sep 28', votes: 12},
-  {day: 'Sep 29', votes: 30},
-  {day: 'Sep 30', votes: 21},
-  {day: 'Oct 1', votes: 8},
-];
 
 /** Every adm-* class in its states. Tab through it to see the focus rings. */
 function ControlsDemo() {
   const [band, setBand] = useState<(typeof BANDS)[number]>('All');
   const [row, setRow] = useState<string | null>('Ramp');
   const [card, setCard] = useState('Searches');
-  const [day, setDay] = useState<string | null>(null);
-  const most = Math.max(...DAYS.map((d) => d.votes));
   return (
     <>
       <nav
@@ -229,30 +221,6 @@ function ControlsDemo() {
           <button key={name} type="button" className="adm-card-btn" aria-pressed={card === name} onClick={() => setCard(name)}>
             <span style={{color: ADMIN_COLORS.muted}}>{name}</span>
             <span style={{fontFamily: FONTS.hero, fontSize: ADMIN_TYPE.kpi}}>8,540</span>
-          </button>
-        ))}
-      </div>
-
-      {/* The bars are direct children of this row: the :has() dim only reaches siblings. */}
-      <div style={{display: 'flex', gap: SPACING.lg, height: 160, maxWidth: 420}}>
-        {DAYS.map((d) => (
-          <button
-            key={d.day}
-            type="button"
-            className="adm-bar-btn"
-            aria-pressed={day === d.day}
-            aria-label={`${d.day}: ${d.votes} votes`}
-            onClick={() => setDay(day === d.day ? null : d.day)}>
-            <span style={{color: ADMIN_COLORS.text}}>{d.votes}</span>
-            <span
-              style={{
-                width: '100%',
-                height: (d.votes / most) * 100,
-                background: ADMIN_COLORS.barNeutral,
-                borderRadius: ADMIN_RADIUS.tag,
-              }}
-            />
-            <span>{d.day}</span>
           </button>
         ))}
       </div>

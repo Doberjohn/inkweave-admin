@@ -78,7 +78,26 @@ describe('admin routes', () => {
     renderAt('/admin/reveal');
     expect(screen.getByRole('heading', {level: 1, name: 'Not found'})).toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'Back to Overview'})).toHaveAttribute('href', '/');
+    expect(document.title).toBe('Not found · Inkweave admin');
   });
+
+  it.each(NAV_ITEMS.map((item) => [item.path, item.label] as const))(
+    'names the browser tab on %s "%s · Inkweave admin"',
+    (path, label) => {
+      renderAt(path);
+      expect(document.title).toBe(`${label} · Inkweave admin`);
+    },
+  );
+
+  // nav.ts marks the pages that write, and each page passes `writes` to its own
+  // PageLayout: the branch notice shows exactly where the two agree it should.
+  it.each(NAV_ITEMS.map((item) => [item.path, item.writes] as const))(
+    'shows the branch notice on %s exactly when its nav item writes (%s)',
+    (path, writes) => {
+      renderAt(path);
+      expect(screen.queryByText('Writes to Doberjohn/inkweave') != null).toBe(writes);
+    },
+  );
 
   const WRITE_PAGES: Array<[path: string, title: string]> = [
     ['/reveal', 'Reveal publisher'],
