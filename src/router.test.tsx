@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import {useGithubToken} from './github/useGithubToken';
 import {routes} from './router';
-import {NAV_ITEMS} from './shell/nav';
+import {NAV_ITEMS, isWritePath, navItemFor} from './shell/nav';
 
 function renderAt(path: string) {
   return render(<RouterProvider router={createMemoryRouter(routes, {initialEntries: [path]})} />);
@@ -32,10 +32,16 @@ afterEach(() => {
 });
 
 describe('admin routes', () => {
-  it('sends / to analytics until the Overview exists', async () => {
+  it('shows the Overview at /, current in the sidebar', () => {
     renderAt('/');
-    expect(await screen.findByRole('heading', {level: 1, name: 'Engine Calibration'})).toBeInTheDocument();
-    expect(sidebarNav().getByRole('link', {name: 'Analytics'})).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', {level: 1, name: 'Overview'})).toBeInTheDocument();
+    expect(sidebarNav().getByRole('link', {name: 'Overview'})).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('marks Overview current on / only', () => {
+    // NavLink treats to="/" as exact, so the sidebar needs no `end` prop.
+    renderAt('/tuning');
+    expect(sidebarNav().getByRole('link', {name: 'Overview'})).not.toHaveAttribute('aria-current');
   });
 
   it('links every page from the sidebar', () => {
@@ -118,5 +124,13 @@ describe('admin routes', () => {
     renderAt('/analytics');
     expect(screen.getByRole('button', {name: 'Expand sidebar'})).toHaveAttribute('aria-expanded', 'false');
     expect(sidebarNav().getByRole('link', {name: 'Analytics'})).toHaveAttribute('title', 'Analytics');
+  });
+});
+
+describe('the Overview nav item', () => {
+  it('owns / and nothing under it, and writes nothing', () => {
+    expect(navItemFor('/')?.id).toBe('overview');
+    expect(navItemFor('/no-such-page')).toBeUndefined();
+    expect(isWritePath('/')).toBe(false);
   });
 });

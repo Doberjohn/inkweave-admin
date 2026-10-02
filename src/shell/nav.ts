@@ -18,6 +18,7 @@ export interface NavItem {
 
 /** Every page the sidebar links, in sidebar order within each group. */
 export const NAV_ITEMS: readonly NavItem[] = [
+  {id: 'overview', label: 'Overview', mark: 'Ov', path: '/', group: 'main', writes: false},
   {id: 'analytics', label: 'Analytics', mark: 'An', path: '/analytics', group: 'insights', writes: false},
   {id: 'tuning', label: 'Engine tuning', mark: 'Tu', path: '/tuning', group: 'publish', writes: true},
   {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
