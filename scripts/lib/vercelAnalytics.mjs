@@ -19,7 +19,8 @@
  * - source 'dimension': a Vercel automatic dimension (deviceType, country, …) —
  *   grouped by a bare `by=<prop>`, value returned under the row's `<prop>` field.
  * - numeric: sort rows by their numeric value ascending, so score breakdowns read
- *   as a distribution rather than a top-N-by-count list.
+ *   as a distribution rather than a top-N-by-count list. Every other breakdown is
+ *   sorted by count, busiest first (Vercel returns rows by visitors).
  *
  * Every eventData `prop` is declared in the AnalyticsEvents catalog
  * (apps/web/src/shared/lib/analytics.ts). Edit this table to add or drop dimensions.
@@ -182,13 +183,34 @@ export function rowValue(row, valueKey) {
   return found ? String(found[1]) : '';
 }
 
-/** Numeric-ascending comparator that pushes non-numeric values (e.g. an "Others" row) last. */
+/** The value Vercel gives the row that folds a breakdown's tail beyond its query limit. */
+const OTHERS_VALUE = 'Others';
+
+/** A row's value as a number, or NaN when it isn't one. A blank value isn't, though Number('') is 0. */
+function numericValue(row) {
+  return row.value.trim() === '' ? NaN : Number(row.value);
+}
+
+/**
+ * Numeric-ascending comparator that pushes non-numeric values (a blank or an
+ * "Others" row) last, keeping their order among themselves.
+ */
 function byNumericValue(a, b) {
-  const na = Number(a.value);
-  const nb = Number(b.value);
-  if (Number.isNaN(na)) return 1;
+  const na = numericValue(a);
+  const nb = numericValue(b);
+  if (Number.isNaN(na)) return Number.isNaN(nb) ? 0 : 1;
   if (Number.isNaN(nb)) return -1;
   return na - nb;
+}
+
+/**
+ * Count-descending comparator that keeps the "Others" row last. Vercel returns
+ * breakdown rows by visitors, so a later row can outnumber an earlier one; this
+ * makes the bars fall monotonically. Sort is stable, so ties keep Vercel's order.
+ */
+function byCount(a, b) {
+  const othersLast = Number(a.value === OTHERS_VALUE) - Number(b.value === OTHERS_VALUE);
+  return othersLast || b.count - a.count;
 }
 
 /**
@@ -196,6 +218,8 @@ function byNumericValue(a, b) {
  * `count` is the events/count response body's `data`; `trend` the by=day aggregate
  * rows; `breakdowns` an array of {prop, label, valueKey?, numeric?, rows} where each
  * raw row carries `count`, `visitors`, and the grouped value under `valueKey`.
+ * Numeric breakdowns come out in value order, with the rows that aren't numbers
+ * ("Others", a blank) after them; every other breakdown busiest first, "Others" last.
  */
 export function buildEvent({name, label, count, trend, breakdowns}) {
   return {
@@ -213,7 +237,7 @@ export function buildEvent({name, label, count, trend, breakdowns}) {
         count: row.count ?? 0,
         visitors: row.visitors ?? 0,
       }));
-      if (b.numeric) rows.sort(byNumericValue);
+      rows.sort(b.numeric ? byNumericValue : byCount);
       return {prop: b.prop, label: b.label, rows};
     }),
   };

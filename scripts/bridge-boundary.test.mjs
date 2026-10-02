@@ -87,22 +87,15 @@ describe('the app-bridge boundary', () => {
   });
 });
 
-// The literals SynergyBanner keeps (eslint.config.js): an off-token color, a 15px
-// size and a 9px radius. RAW_HEX is a rule the exception does not cover.
-const BANNER_ART = "export const art = {color: 'rgba(43, 127, 255, 0.22)', fontSize: 15, borderRadius: 9};\n";
-const RAW_HEX = "export const ink = '#123456';\n";
-const BANNER_RULES = ['inkweave/no-raw-rgba', 'inkweave/no-raw-font-size', 'inkweave/no-raw-radius'];
+// Admin has no design-token exception (CLAUDE.md): every source file gets the
+// app's rules. OFF_TOKEN breaks four of them: an off-token color, a 15px size,
+// a 9px radius and a raw hex.
+const OFF_TOKEN =
+  "export const art = {color: 'rgba(43, 127, 255, 0.22)', fontSize: 15, borderRadius: 9, background: '#123456'};\n";
+const TOKEN_RULES = ['inkweave/no-raw-rgba', 'inkweave/no-raw-font-size', 'inkweave/no-raw-radius', 'inkweave/no-raw-hex-colors'];
 
-describe('the design-token exception', () => {
-  it.each(BANNER_RULES)('lets SynergyBanner.tsx through %s', async (rule) => {
-    await expectAllowed('src/tools/banner/SynergyBanner.tsx', BANNER_ART, rule);
-  });
-
-  it.each(BANNER_RULES)('holds every other file to %s', async (rule) => {
-    expect(await ruleIds('src/tools/banner/BannerPage.tsx', BANNER_ART)).toContain(rule);
-  });
-
-  it('holds SynergyBanner.tsx to the rest of the design-token rules', async () => {
-    expect(await ruleIds('src/tools/banner/SynergyBanner.tsx', RAW_HEX)).toContain('inkweave/no-raw-hex-colors');
+describe('the design-token rules', () => {
+  it.each(TOKEN_RULES)('hold every admin source file to %s', async (rule) => {
+    expect(await ruleIds('src/shell/Art.tsx', OFF_TOKEN)).toContain(rule);
   });
 });

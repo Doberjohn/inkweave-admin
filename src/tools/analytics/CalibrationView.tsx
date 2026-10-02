@@ -1,5 +1,6 @@
 import {useRef, useState} from 'react';
 import {COLORS, FONT_SIZES, SPACING, useContainerWidth} from '../../app-bridge';
+import {fmtGap} from '../../ui/format';
 import {VerdictHero} from './VerdictHero';
 import {Scorecard, ScorecardRow} from './Scorecard';
 import {RuleCalibrationTable} from './RuleCalibrationTable';
@@ -15,6 +16,12 @@ import type {VoteLog, VoteLogRow} from './voteLogTypes';
 interface CalibrationViewProps {
   analytics: VoteAnalytics;
   voteLog: VoteLog;
+  /**
+   * The rule to open with selected (/calibration?rule=<ruleId>, from the
+   * Overview's Tune links). An id the analytics don't have, such as a stale
+   * link to a retired rule, opens on all pairs instead.
+   */
+  initialRuleId?: string | null;
 }
 
 type SelectedPair = {a: string; b: string};
@@ -47,8 +54,7 @@ function filterVotes(votes: VoteLogRow[], sel: SelectedPair | null): VoteLogRow[
 /** Right-column header: the selected rule's name + gap + votes, or "All pairs". */
 function formatHeaderLine(rule: RuleStat | null): string {
   if (!rule) return 'All pairs';
-  const gap = rule.meanGap == null ? '—' : (rule.meanGap > 0 ? '+' : '') + rule.meanGap.toFixed(2);
-  return `${rule.ruleName} · gap ${gap} · ${num(rule.scoreVotes)} votes`;
+  return `${rule.ruleName} · gap ${fmtGap(rule.meanGap)} · ${num(rule.scoreVotes)} votes`;
 }
 
 /** The top scorecards; the voters card only appears when raw votes are present. */
@@ -87,14 +93,16 @@ function SecondaryStrip({
 }
 
 /**
- * The Calibration tab body: a verdict hero, a stat strip, a two-column
+ * The Calibration page body: a verdict hero, a stat strip, a two-column
  * rule → pair → vote drill-down, and a raw-votes activity strip. Purely
- * presentational — all selection lives in local state, and the data comes in
- * via props (fetched by the page).
+ * presentational — all selection lives in local state (the rule starts from
+ * initialRuleId), and the data comes in via props (fetched by the page).
  */
-export function CalibrationView({analytics, voteLog}: CalibrationViewProps) {
+export function CalibrationView({analytics, voteLog, initialRuleId = null}: CalibrationViewProps) {
   const g = analytics.global;
-  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() =>
+    analytics.rules.some((r) => r.ruleId === initialRuleId) ? initialRuleId : null,
+  );
   const [selectedPair, setSelectedPair] = useState<SelectedPair | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);

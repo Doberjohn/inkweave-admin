@@ -4,7 +4,7 @@ import {GithubTokenGate} from './GithubTokenGate';
 const meta: Meta<typeof GithubTokenGate> = {
   title: 'Admin/GithubTokenGate',
   component: GithubTokenGate,
-  args: {title: 'Card image admin', onSave: () => {}},
+  args: {onSave: () => {}},
 };
 export default meta;
 

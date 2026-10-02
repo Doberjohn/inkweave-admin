@@ -3,11 +3,14 @@ import {validateToken} from './githubCommit';
 import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton} from '../app-bridge';
 
 interface GithubTokenGateProps {
-  title: string;
   onSave: (token: string) => void;
 }
 
-export function GithubTokenGate({title, onSave}: GithubTokenGateProps) {
+/**
+ * Asks for a token before a write tool opens. It renders in the page body, under
+ * the page's own title and branch notice, so its heading is an h2.
+ */
+export function GithubTokenGate({onSave}: GithubTokenGateProps) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,8 +25,8 @@ export function GithubTokenGate({title, onSave}: GithubTokenGateProps) {
   }
 
   return (
-    <div style={{maxWidth: 460, margin: '0 auto', padding: SPACING.lg, color: COLORS.text}}>
-      <h1 style={{fontSize: FONT_SIZES.xxl}}>{title}</h1>
+    <div style={{maxWidth: 460}}>
+      <h2 style={{fontSize: FONT_SIZES.xl, margin: 0}}>GitHub token</h2>
       <p style={{color: COLORS.gray600, fontSize: FONT_SIZES.sm}}>
         Paste a GitHub fine-grained token scoped to <code>Doberjohn/inkweave</code> with Contents:
         read and write.

@@ -87,6 +87,54 @@ describe('buildEvent breakdowns', () => {
     });
     expect(ev.breakdowns[0].rows.map((r) => r.value)).toEqual(['4', '7', '9', 'Others']);
   });
+
+  it('sorts a blank value after the numbers, not to the top (Number("") is 0)', () => {
+    const ev = buildEvent({
+      name: 'vote_submitted',
+      label: 'Votes submitted',
+      breakdowns: [
+        {
+          prop: 'userScore',
+          label: 'By user score',
+          valueKey: 'eventData',
+          numeric: true,
+          // rowValue writes '' for a row with no value.
+          rows: [{eventData: '7', count: 5}, {count: 9}, {eventData: '0', count: 3}, {eventData: 'Others', count: 2}],
+        },
+      ],
+    });
+    expect(ev.breakdowns[0].rows.map((r) => r.value)).toEqual(['0', '7', '', 'Others']);
+  });
+
+  it('sorts every other breakdown by count, busiest first, keeping "Others" last', () => {
+    // Vercel returns rows by visitors, so the counts arrive out of order.
+    const ev = buildEvent({
+      name: 'reveal_card_click',
+      label: 'Reveal card clicks',
+      breakdowns: [
+        {
+          prop: 'franchise',
+          label: 'By franchise',
+          valueKey: 'eventData',
+          rows: [
+            {eventData: 'Big Hero 6', count: 30, visitors: 20},
+            {eventData: 'Others', count: 90, visitors: 15},
+            {eventData: 'The Sword in the Stone', count: 40, visitors: 12},
+            {count: 25, visitors: 10},
+            {eventData: 'Frozen', count: 30, visitors: 8},
+          ],
+        },
+      ],
+    });
+    // Big Hero 6 and Frozen tie at 30: the sort is stable, so Vercel's order holds.
+    expect(ev.breakdowns[0].rows.map((r) => [r.value, r.count])).toEqual([
+      ['The Sword in the Stone', 40],
+      ['Big Hero 6', 30],
+      ['Frozen', 30],
+      ['', 25],
+      ['Others', 90],
+    ]);
+  });
 });
 
 describe('EVENT_QUERIES expansion', () => {

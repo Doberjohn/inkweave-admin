@@ -71,7 +71,6 @@ function readyToPublish(p: {
 export interface RevealAdminController {
   token: string | null;
   setToken: (t: string) => void;
-  clearToken: () => void;
   form: RevealCardForm;
   patchForm: (patch: Partial<RevealCardForm>) => void;
   previewCard: LorcanaCard | null;
@@ -90,7 +89,7 @@ export interface RevealAdminController {
  * page component as mostly-presentational JSX (and well under the complexity gate).
  */
 export function useRevealAdmin(): RevealAdminController {
-  const {token, setToken, clearToken} = useGithubToken();
+  const {token, setToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
   // The chosen file and its bytes, kept in step (useImageUpload).
@@ -119,7 +118,7 @@ export function useRevealAdmin(): RevealAdminController {
     if (!validation.ok) return;
     setPublishing(true);
     setPublishError(null);
-    // The last publish's banner would otherwise stand beside this attempt's outcome.
+    // The last publish's commit notice would otherwise stand beside this attempt's outcome.
     setResult(null);
     try {
       const card = buildPreviewCard(form);
@@ -138,7 +137,6 @@ export function useRevealAdmin(): RevealAdminController {
   return {
     token,
     setToken,
-    clearToken,
     form,
     patchForm,
     previewCard,

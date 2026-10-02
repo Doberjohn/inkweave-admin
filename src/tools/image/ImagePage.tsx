@@ -1,32 +1,17 @@
-import {COLORS, SPACING, FONT_SIZES, RADIUS, CtaButton} from '../../app-bridge';
+import {COLORS, SPACING, FONT_SIZES, RADIUS} from '../../app-bridge';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
 import {goLiveNote} from '../../github/goLiveNote';
-import {useImageAdmin, CardImagePicker, UploadColumn} from './index';
+import {PageLayout} from '../../shell/PageLayout';
+import {useImageAdmin, CardImagePicker, UploadColumn, type ImageAdminController} from './index';
 
-export function ImagePage() {
-  const ctrl = useImageAdmin();
-
-  if (!ctrl.token) {
-    return <GithubTokenGate title="Card image admin" onSave={ctrl.setToken} />;
-  }
-
+/** The commit banner, the card picker and the upload column, once a token is saved. */
+function ImageTool({ctrl}: {ctrl: ImageAdminController}) {
   return (
-    <main style={{maxWidth: 900, margin: '0 auto', padding: SPACING.lg, color: COLORS.text}}>
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <h1 style={{fontSize: FONT_SIZES.xxl}}>Update a card image</h1>
-        <CtaButton
-          variant="neutral"
-          onClick={ctrl.clearToken}
-          style={{minHeight: 0, padding: '6px 10px', fontSize: FONT_SIZES.sm}}>
-          Forget token
-        </CtaButton>
-      </div>
-
+    <>
       {ctrl.result && (
         <div
           role="status"
           style={{
-            margin: `${SPACING.md}px 0`,
             padding: SPACING.md,
             background: COLORS.surfaceAlt,
             borderRadius: RADIUS.sm,
@@ -64,6 +49,20 @@ export function ImagePage() {
           onPublish={ctrl.publish}
         />
       </div>
-    </main>
+    </>
+  );
+}
+
+/**
+ * Card images: replace a card's art, inside the page layout that names the
+ * branch it writes to. The sidebar's token box forgets the token; the gate then
+ * takes the tool's place under the same header.
+ */
+export function ImagePage() {
+  const ctrl = useImageAdmin();
+  return (
+    <PageLayout title="Card images" subtitle="Replace an existing card's image." writes>
+      {ctrl.token ? <ImageTool ctrl={ctrl} /> : <GithubTokenGate onSave={ctrl.setToken} />}
+    </PageLayout>
   );
 }

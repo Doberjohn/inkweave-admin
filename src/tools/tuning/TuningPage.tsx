@@ -1,7 +1,8 @@
-import {COLORS, SPACING, FONT_SIZES, CtaButton} from '../../app-bridge';
+import {COLORS, FONT_SIZES} from '../../app-bridge';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
 import {targetBranch} from '../../github/githubCommit';
 import {useGithubToken} from '../../github/useGithubToken';
+import {PageLayout} from '../../shell/PageLayout';
 import {TuningEditor} from './index';
 import {useLiveTuning} from './useLiveTuning';
 
@@ -21,26 +22,16 @@ function LiveTuningEditor({token}: {token: string}) {
   return <TuningEditor token={token} config={tuning.config} onPublished={tuning.reload} />;
 }
 
+/**
+ * Engine tuning, inside the page layout that names the branch it writes to. The
+ * sidebar's token box forgets the token; the gate then takes the editor's place
+ * under the same header.
+ */
 export function TuningPage() {
-  const {token, setToken, clearToken} = useGithubToken();
-
-  if (!token) {
-    return <GithubTokenGate title="Tuning admin" onSave={setToken} />;
-  }
-
+  const {token, setToken} = useGithubToken();
   return (
-    <main style={{maxWidth: 1000, margin: '0 auto', padding: SPACING.lg, color: COLORS.text}}>
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <h1 style={{fontSize: FONT_SIZES.xxl}}>Tuning editor</h1>
-        <CtaButton
-          variant="neutral"
-          onClick={clearToken}
-          style={{minHeight: 0, padding: '6px 10px', fontSize: FONT_SIZES.sm}}>
-          Forget token
-        </CtaButton>
-      </div>
-
-      <LiveTuningEditor token={token} />
-    </main>
+    <PageLayout title="Engine tuning" subtitle="Edit playstyle copy and the Shift and Ramp scores." writes>
+      {token ? <LiveTuningEditor token={token} /> : <GithubTokenGate onSave={setToken} />}
+    </PageLayout>
   );
 }

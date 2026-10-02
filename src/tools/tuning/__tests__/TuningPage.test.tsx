@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {render, screen} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {TuningPage} from '../TuningPage';
 
@@ -21,7 +22,7 @@ afterEach(() => {
 describe('TuningPage', () => {
   it('edits the live tuning.json from the target branch, not the bundled copy', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(LIVE)));
-    render(<TuningPage />);
+    render(<TuningPage />, {wrapper: MemoryRouter});
 
     expect(await screen.findByRole('button', {name: 'Live Ramp'})).toBeInTheDocument();
     expect(String(fetchMock.mock.calls[0][0])).toBe(
@@ -31,7 +32,7 @@ describe('TuningPage', () => {
 
   it('says why when tuning.json cannot be read', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Not Found', {status: 404}));
-    render(<TuningPage />);
+    render(<TuningPage />, {wrapper: MemoryRouter});
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not read tuning.json: GitHub 404');
   });
