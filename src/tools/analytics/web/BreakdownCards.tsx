@@ -39,7 +39,8 @@ function inkOf(prop: string, value: string) {
  * The icon in front of a row's value: the app's ink icon on ink props. On the
  * rarity prop, RaritySymbol draws Common to Legendary (the five keys
  * rarityConfigOf knows) and the printing webps cover Enchanted, Epic and
- * Iconic. "Others" and any other value show their text alone.
+ * Iconic. "Others" and any other value show their text alone. A blank value
+ * (NOT_SET_LABEL) never gets here: it has no ink or rarity to look up.
  */
 function ValueIcon({prop, value}: {prop: string; value: string}) {
   const ink = inkOf(prop, value);
@@ -79,13 +80,13 @@ function BreakdownCard({breakdown}: {breakdown: Breakdown}) {
             flexDirection: 'column',
             gap: SPACING.sm,
           }}>
-          {shares.map(({row, pct, fraction, others}) => {
+          {shares.map(({row, label, notSet, pct, fraction, others}) => {
             const ink = inkOf(breakdown.prop, row.value);
             const barColor = ink ? INK_COLORS[ink].border : others ? ADMIN_COLORS.barNeutral : ADMIN_COLORS.accent;
             return (
               <li
-                key={row.value}
-                title={`${row.value}: ${fmtInt(row.count)} (${pct}%)`}
+                key={label}
+                title={`${label}: ${fmtInt(row.count)} (${pct}%)`}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'minmax(0, 110px) minmax(0, 1fr) 48px 36px',
@@ -94,8 +95,8 @@ function BreakdownCard({breakdown}: {breakdown: Breakdown}) {
                   fontSize: ADMIN_TYPE.small,
                 }}>
                 <span style={{display: 'flex', alignItems: 'center', gap: SPACING.sm, minWidth: 0}}>
-                  <ValueIcon prop={breakdown.prop} value={row.value} />
-                  <span style={{...TRUNCATE, color: others ? ADMIN_COLORS.muted : ADMIN_COLORS.text}}>{row.value}</span>
+                  {!notSet && <ValueIcon prop={breakdown.prop} value={row.value} />}
+                  <span style={{...TRUNCATE, color: others ? ADMIN_COLORS.muted : ADMIN_COLORS.text}}>{label}</span>
                 </span>
                 <MeterBar fraction={fraction} color={barColor} height={6} />
                 <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtInt(row.count)}</span>

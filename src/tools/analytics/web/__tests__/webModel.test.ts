@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import type {BreakdownRow, TrendPoint, VercelEvent} from '../../vercelAnalyticsTypes';
-import {breakdownShares, fillTrendDays, sortEventsByTotal, trendSummary} from '../webModel';
+import {NOT_SET_LABEL, breakdownShares, fillTrendDays, sortEventsByTotal, trendSummary} from '../webModel';
 
 function event(name: string, total: number): VercelEvent {
   return {name, label: name, total, visitors: 1, trend: [], breakdowns: []};
@@ -110,5 +110,23 @@ describe('breakdownShares', () => {
 
   it('returns nothing for a breakdown with no rows in the window', () => {
     expect(breakdownShares([])).toEqual([]);
+  });
+
+  it('labels each row with its value, and a blank value "(not set)"', () => {
+    // The real export has a blank row in Reveal card clicks' franchise and rarity breakdowns.
+    const shares = breakdownShares([row('Frozen', 12), row('', 6), row('Moana', 4)]);
+    expect(NOT_SET_LABEL).toBe('(not set)');
+    expect(shares.map((s) => [s.label, s.notSet, s.row.value])).toEqual([
+      ['Frozen', false, 'Frozen'],
+      ['(not set)', true, ''],
+      ['Moana', false, 'Moana'],
+    ]);
+    // It is a row like any other: its share counts, and it stays where the artifact put it.
+    expect(shares.map((s) => s.pct)).toEqual([55, 27, 18]);
+    expect(shares[1].others).toBe(false);
+  });
+
+  it('treats a value of spaces alone as blank', () => {
+    expect(breakdownShares([row('  ', 3)])[0]).toMatchObject({label: NOT_SET_LABEL, notSet: true});
   });
 });

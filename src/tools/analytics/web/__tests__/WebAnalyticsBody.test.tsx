@@ -36,6 +36,8 @@ const REVEALS = event('reveal_card_click', 'Reveal card clicks', 9340, {
       label: 'By rarity',
       rows: [row('Others', 50), row('Common', 30), row('Enchanted', 10), row('Super Rare', 20)],
     },
+    // A blank value, as the real export has: the events that sent no franchise.
+    {prop: 'franchise', label: 'By franchise', rows: [row('Frozen', 12), row('', 6), row('Moana', 4)]},
     {prop: 'deviceType', label: 'By device', rows: []},
   ],
 });
@@ -324,6 +326,14 @@ describe('WebAnalyticsBody', () => {
     expect(screen.getByText('Enchanted').closest('li')!.querySelector('img')).not.toBeNull();
     const rarityList = screen.getByText('Common').closest('ul')!;
     expect(within(rarityList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
+  });
+
+  it('names a row with a blank value "(not set)", in its text and its title, with no icon', () => {
+    render(<WebAnalyticsBody analytics={ANALYTICS} />);
+    expect(rowsAround('Frozen')).toEqual(['Frozen: 12 (55%)', '(not set): 6 (27%)', 'Moana: 4 (18%)']);
+    const notSet = screen.getByText('(not set)').closest('li')!;
+    expect(notSet).toHaveTextContent(/^\(not set\)627%$/);
+    expect(notSet.querySelector('img, svg')).toBeNull();
   });
 
   it('names each breakdown by its prop and says when one is empty', () => {

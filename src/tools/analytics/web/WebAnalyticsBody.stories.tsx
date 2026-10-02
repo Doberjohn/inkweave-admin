@@ -69,6 +69,8 @@ const populated: VercelAnalytics = {
             {value: 'The Little Mermaid', count: 1100, visitors: 430},
             {value: 'Mulan', count: 820, visitors: 300},
             {value: 'Peter Pan', count: 700, visitors: 260},
+            // Events that sent no franchise: the row reads "(not set)".
+            {value: '', count: 380, visitors: 150},
             {value: 'Others', count: 800, visitors: 300},
           ],
         },

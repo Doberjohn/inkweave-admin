@@ -4,6 +4,13 @@ import type {BreakdownRow, ReportingWindow, TrendPoint, VercelEvent} from '../ve
 /** The value Vercel gives the row that folds a breakdown's tail beyond its query limit. */
 export const OTHERS_VALUE = 'Others';
 
+/**
+ * What a breakdown row with a blank value shows: the events that sent the prop
+ * empty or not at all. The precompute writes '' for them (rowValue in
+ * scripts/lib/vercelAnalytics.mjs), and the real export has such rows.
+ */
+export const NOT_SET_LABEL = '(not set)';
+
 /** Events busiest first. Returns a copy, and ties keep the artifact's order (sort is stable). */
 export function sortEventsByTotal(events: VercelEvent[]): VercelEvent[] {
   return [...events].sort((a, b) => b.total - a.total);
@@ -47,6 +54,10 @@ export function trendSummary(trend: TrendPoint[]): {inWindow: number; dailyAvera
 /** One breakdown row ready to draw. */
 export interface BreakdownShare {
   row: BreakdownRow;
+  /** The row's text, title and key: its value, or NOT_SET_LABEL when the value is blank. */
+  label: string;
+  /** True for a blank value: the row reads NOT_SET_LABEL and has no ink or rarity to look up. */
+  notSet: boolean;
   /** The row's share of the breakdown's total, as a whole percent. */
   pct: number;
   /** Bar length (0–1) against the breakdown's biggest row. */
@@ -56,18 +67,24 @@ export interface BreakdownShare {
 }
 
 /**
- * A breakdown's rows with their shares. Rows keep the artifact's order (by
- * count, or by value for score breakdowns), except that "Others" goes last.
- * Bars scale to the biggest row wherever it sits, "Others" included.
+ * A breakdown's rows with their shares. Rows keep the artifact's order, which
+ * the precompute sets (buildEvent in scripts/lib/vercelAnalytics.mjs): busiest
+ * first, or by value for score breakdowns. "Others" goes last here too. Bars
+ * scale to the biggest row wherever it sits, "Others" included.
  */
 export function breakdownShares(rows: BreakdownRow[]): BreakdownShare[] {
   const sum = rows.reduce((total, row) => total + row.count, 0) || 1;
   const top = Math.max(1, ...rows.map((row) => row.count));
-  const shares = rows.map((row) => ({
-    row,
-    pct: Math.round((row.count / sum) * 100),
-    fraction: row.count / top,
-    others: row.value === OTHERS_VALUE,
-  }));
+  const shares = rows.map((row) => {
+    const notSet = row.value.trim() === '';
+    return {
+      row,
+      label: notSet ? NOT_SET_LABEL : row.value,
+      notSet,
+      pct: Math.round((row.count / sum) * 100),
+      fraction: row.count / top,
+      others: row.value === OTHERS_VALUE,
+    };
+  });
   return [...shares.filter((share) => !share.others), ...shares.filter((share) => share.others)];
 }
