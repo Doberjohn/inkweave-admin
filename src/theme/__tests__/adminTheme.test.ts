@@ -94,7 +94,7 @@ describe('ADMIN_COLORS', () => {
     const segmentFill = over(ADMIN_COLORS.navHover, card);
     expect(contrast(over(ADMIN_COLORS.accentStrong, segmentFill), segmentFill)).toBeGreaterThanOrEqual(3);
     expect(contrast(over(ADMIN_COLORS.accentStrong), PAGE)).toBeGreaterThanOrEqual(3);
-    // The Votes per day bands (BAND_FILL in src/tools/analytics/activity/VotesPerDayChart.tsx)
+    // The Votes per day bands (BAND_FILL in src/tools/analytics/activity/activityChart.ts)
     // sit in a Panel, whose fill is the card over the page. The No score hatch
     // draws muted stripes, with the card showing between them.
     const chartMarks: Record<string, string> = {
