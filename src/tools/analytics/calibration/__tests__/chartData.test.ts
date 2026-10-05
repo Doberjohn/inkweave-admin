@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest';
+import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import type {PairStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
@@ -53,6 +53,21 @@ function withGap(gap: number): PairStat {
 
 /** Noon UTC on `day`, in Supabase's microsecond +00:00 form. */
 const at = (day: string) => `${day}T12:00:00.000000+00:00`;
+
+// Week starts are UTC days whatever the viewer's zone. A zone west of UTC puts
+// Monday 00:00 UTC on the previous local Sunday, so a weekly bucket built from
+// local-time dates fails here; CI runs in UTC, where it would pass unnoticed.
+// The zone is this file's alone: afterAll puts the previous one back.
+const ORIGINAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+beforeAll(() => {
+  vi.stubEnv('TZ', 'America/Los_Angeles');
+});
+afterAll(() => {
+  // Name the original zone before unstubbing: when TZ was unset, unstubAllEnvs
+  // deletes it, and Node on Windows keeps the last zone when TZ is deleted.
+  vi.stubEnv('TZ', ORIGINAL_ZONE);
+  vi.unstubAllEnvs();
+});
 
 describe('GAP_SERIES, sideColor and gapSide', () => {
   it('splits by side in axis order, in the score-band colours, with true minus signs', () => {
@@ -160,6 +175,11 @@ describe('gapShares and sharePercent', () => {
     expect(sharePercent(0)).toBe('0%');
     expect(sharePercent(1 / 400)).toBe('<1%');
   });
+
+  it('switches from <1% to 1% at the rounding boundary', () => {
+    expect(sharePercent(0.0049)).toBe('<1%');
+    expect(sharePercent(0.005)).toBe('1%');
+  });
 });
 
 describe('scatterPoints, sharedScores and scoreText', () => {
@@ -223,6 +243,13 @@ describe('the chart tables', () => {
     expect(table.rows[2]).toEqual(['−3.5 to −2.5', '1', '1', '17%']);
     expect(table.rows[5]).toEqual(['within ±0.5', '2', '3', '33%']);
     expect(histogramTable(gapBins([]), 'All pairs').rows.every((row) => row[3] === '0%')).toBe(true);
+  });
+
+  it('histogramTable prints <1% for a one-pair end bin among 400, never 0%', () => {
+    const pairs = [...Array.from({length: 399}, () => withGap(0)), withGap(6)];
+    const table = histogramTable(gapBins(pairs), 'All pairs');
+    expect(table.rows[10]).toEqual(['+4.5 or higher', '1', '1', '<1%']);
+    expect(table.rows[5][3]).toBe('100%');
   });
 
   it('weeklyTable has a row per week, a quiet one with "—"', () => {
@@ -341,6 +368,8 @@ describe('gapDomain', () => {
 
 describe('SCORE_DOMAIN and SCORE_TICKS', () => {
   it('hold every jittered dot: an axis moves by at most 1.1 × SCATTER_JITTER', () => {
+    expect(SCATTER_JITTER).toBe(0.35);
+    expect(SCORE_DOMAIN).toEqual([0.5, 10.5]);
     expect(SCORE_TICKS).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(1 - 1.1 * SCATTER_JITTER).toBeGreaterThanOrEqual(SCORE_DOMAIN[0]);
     expect(10 + 1.1 * SCATTER_JITTER).toBeLessThanOrEqual(SCORE_DOMAIN[1]);

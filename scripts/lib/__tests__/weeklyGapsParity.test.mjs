@@ -8,7 +8,10 @@ import {buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
  * Both sides run on the same raw votes, through the transforms the Deploy runs
  * (buildAnalytics, buildVoteLog), so the Weekly gap chart can't drift from the
  * artifact it sits beside: on "All pairs" it shows global.weekly's mean gap,
- * and a rule's weeks add up to that rule's mean gap.
+ * and a rule's weeks add up to that rule's mean gap. That sum matches to ten
+ * places here only because this fixture's averages are exact; the precompute
+ * rounds gaps and averages to two places, so on real data it holds to about
+ * 0.005.
  */
 
 // The engine's pairs as loadEngineArtifacts keys them (pairKey: ids sorted, ':').

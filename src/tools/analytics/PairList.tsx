@@ -1,8 +1,9 @@
 import {SPACING, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {fmtGap, fmtInt, fmtScore} from '../../ui/format';
+import {fmtGap, fmtInt} from '../../ui/format';
 import {Panel} from '../../ui/Panel';
 import {countOf} from './activity/activityModel';
+import {scoreText} from './calibration/chartData';
 import {gapColor} from './gapColor';
 import type {PairStat} from './voteAnalyticsTypes';
 
@@ -54,14 +55,6 @@ const FOOTNOTE: React.CSSProperties = {
   fontSize: ADMIN_TYPE.label,
   color: ADMIN_COLORS.muted,
 };
-
-/**
- * A score as the scatter prints it: whole numbers bare ("7"), averages to two
- * places ("7.50"). The same body as R2-4b's exported scoreText.
- */
-function scoreText(n: number): string {
-  return fmtScore(n, Number.isInteger(n) ? 0 : 2);
-}
 
 /** A selection names its pair either way round, as R2-1's findPair matches it. */
 function isSelected(pair: PairStat, selected: {a: string; b: string} | null): boolean {
