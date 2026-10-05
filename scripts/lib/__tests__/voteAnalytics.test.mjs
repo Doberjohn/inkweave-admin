@@ -9,7 +9,7 @@ describe('pairKey', () => {
   });
 });
 
-import {computePairRecord, buildPairRecords, voteWeightedMean, rollUpByRule, isoWeekStart, bucketWeekly, buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
+import {computePairRecord, buildPairRecords, voteWeightedMean, ruleRosterEntry, rollUpByRule, isoWeekStart, bucketWeekly, buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
 
 const enginePair = {
   engineScore: 7,
@@ -71,6 +71,25 @@ describe('buildPairRecords', () => {
   });
 });
 
+describe('ruleRosterEntry', () => {
+  // An engine SynergyRule carries more than the roster keeps (a description, matches, findSynergies).
+  const engineRule = (over) => ({id: 'ramp', name: 'Ramp', description: 'd', matches: () => true, ...over});
+
+  it("keeps a playstyle rule's playstyleId: the tuning.json key of its copy", () => {
+    const rule = engineRule({id: 'lore-loss', name: 'Lore Loss', category: 'playstyle', playstyleId: 'lore-denial'});
+    expect(ruleRosterEntry(rule)).toEqual({
+      ruleId: 'lore-loss', ruleName: 'Lore Loss', category: 'playstyle', playstyleId: 'lore-denial',
+    });
+  });
+
+  it('writes null for a direct rule, so every roster entry carries the field', () => {
+    const rule = engineRule({id: 'shift-targets', name: 'Shift Targets', category: 'direct'});
+    expect(ruleRosterEntry(rule)).toStrictEqual({
+      ruleId: 'shift-targets', ruleName: 'Shift Targets', category: 'direct', playstyleId: null,
+    });
+  });
+});
+
 describe('rollUpByRule', () => {
   const allRules = [
     {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle'},
@@ -107,6 +126,20 @@ describe('rollUpByRule', () => {
     const toy = rules.find((r) => r.ruleId === 'toy');
     expect(toy.pairsVoted).toBe(1);
     expect(toy.pairsCovered).toBe(0);
+  });
+
+  it("passes each rule's playstyleId through from the roster", () => {
+    const roster = [
+      {ruleId: 'location-boost', ruleName: 'Location Boost', category: 'playstyle', playstyleId: 'location-control'},
+      {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle', playstyleId: 'ramp'},
+      {ruleId: 'shift', ruleName: 'Shift Targets', category: 'direct', playstyleId: null},
+    ];
+    const rules = rollUpByRule(pairs, roster, ruleTotalPairs);
+    expect(rules.map((r) => [r.ruleId, r.playstyleId])).toEqual([
+      ['location-boost', 'location-control'],
+      ['ramp', 'ramp'],
+      ['shift', null],
+    ]);
   });
 });
 
@@ -183,6 +216,17 @@ describe('buildAnalytics', () => {
     expect(out.global.distinctVoters).toBe(1);
     expect(out.global.weekly.length).toBe(1);
     expect(out.global.dimensionFill).toEqual({score: 1, accuracy: 0, isReal: 0, wouldPlay: 0, difficulty: 1});
+  });
+
+  it("writes each rule's playstyleId into the artifact, null included", () => {
+    const roster = [
+      {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle', playstyleId: 'ramp'},
+      {ruleId: 'shift', ruleName: 'Shift Targets', category: 'direct', playstyleId: null},
+    ];
+    const out = buildAnalytics({scoreRows, enginePairs, allRules: roster, names, ruleTotalPairs, rawVotes: null});
+    // What writeOut stores: JSON.stringify keeps a null and would drop an undefined.
+    const written = JSON.parse(JSON.stringify(out));
+    expect(written.rules.map((r) => [r.ruleId, r.playstyleId])).toEqual([['ramp', 'ramp'], ['shift', null]]);
   });
 });
 

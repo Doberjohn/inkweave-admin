@@ -28,6 +28,13 @@ export interface RuleStat {
   ruleId: string;
   ruleName: string;
   category: 'direct' | 'playstyle';
+  /**
+   * The tuning.json key of a playstyle rule's copy (its engine playstyleId:
+   * lore-denial for lore-loss, location-control for every location-* rule), and
+   * null for a direct rule. Absent from artifacts written before R2, and from
+   * local snapshots of them; the calibration model then asks the pinned engine.
+   */
+  playstyleId?: string | null;
   scoreVotes: number;
   pairsVoted: number;
   meanGap: number | null;

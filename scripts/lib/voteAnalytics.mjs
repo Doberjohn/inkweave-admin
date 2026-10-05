@@ -78,10 +78,29 @@ function appendToGroup(map, key, value) {
 }
 
 /**
+ * One engine rule as the roster holds it. `playstyleId` is the tuning.json key
+ * of a playstyle rule's copy (lore-loss keeps its copy under lore-denial, every
+ * location-* rule under location-control). A direct rule has none, so it gets
+ * null: every entry carries the field, and an artifact without it is an older
+ * one. The calibration page maps rules to tuning entries with it, so the rule
+ * list and the keys both come from the app's master (R-17 in
+ * docs/plans/R-redesign.md).
+ */
+export function ruleRosterEntry(rule) {
+  return {
+    ruleId: rule.id,
+    ruleName: rule.name,
+    category: rule.category,
+    playstyleId: rule.category === 'playstyle' ? rule.playstyleId : null,
+  };
+}
+
+/**
  * Roll pair records up to per-rule calibration stats. A pair is credited to
  * EVERY rule in its `rules` list (a vote is feedback on the whole displayed
  * score, which multiple rules built). meanGap is vote-weighted by scoreVotes.
- * Every rule in `allRules` is emitted, even with zero votes.
+ * Every rule in `allRules` is emitted, even with zero votes, with its roster
+ * playstyleId (ruleRosterEntry).
  *
  * Precondition: `pairRecords` is expected to contain only gap-defined
  * (non-engine-silent) pairs, as produced by `buildPairRecords().pairs`. The
@@ -102,6 +121,7 @@ export function rollUpByRule(pairRecords, allRules, ruleTotalPairs) {
       ruleId: rule.ruleId,
       ruleName: rule.ruleName,
       category: rule.category,
+      playstyleId: rule.playstyleId,
       scoreVotes: recs.reduce((s, r) => s + r.scoreVotes, 0),
       pairsVoted: recs.length,
       meanGap: voteWeightedMean(recs, (r) => r.gap, (r) => r.scoreVotes),
