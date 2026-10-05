@@ -107,6 +107,17 @@ describe('lineLayout', () => {
     expect(narrow.ticks.map((t) => t.label)).toEqual(['−1.00', '0.00', '+1.20']);
   });
 
+  it('widens a fixed y domain to hold zero and the baseline too', () => {
+    // 2 to 5 over values of 3 and 4 would leave zero, and the area wash's floor, below the plot.
+    const above = lineLayout(320, [seriesOf('s', [3, 4])], {...OPTIONS, yDomain: [2, 5]});
+    expect(above.ticks.map((t) => t.value)).toEqual([0, 5]);
+    expect(above.zero).toBe(above.plotBottom);
+    // −1 to 1 with a baseline of −2 reaches down to the baseline.
+    const below = lineLayout(320, [seriesOf('s', [0.2, 0.5])], {...OPTIONS, yDomain: [-1, 1], baseline: -2});
+    expect(below.ticks.map((t) => t.value)).toEqual([-2, 0, 1]);
+    expect(below.baseline?.y).toBe(below.plotBottom);
+  });
+
   it('lays the plot between fixed gutters when asked, whatever its labels need', () => {
     const gaps = lineLayout(320, [seriesOf('gap', [-0.5, 0.3, 1.2])], {...OPTIONS, yFormat: fmtGap, fixedGutters: true});
     const votes = lineLayout(320, [seriesOf('votes', [12, 45, 120])], {...OPTIONS, fixedGutters: true});

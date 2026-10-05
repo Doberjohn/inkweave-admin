@@ -38,6 +38,8 @@ describe('scatterLayout', () => {
     expect(square.diagonal).toEqual({x1: 32, y1: 416, x2: 424, y2: 24, angle: -45});
     const overlap = scatterLayout(440, [0, 10], [5, 20]);
     expect([overlap.diagonal?.x1, overlap.diagonal?.x2]).toEqual([overlap.x(5), overlap.x(10)]);
+    // Half the y span for the same x run: atan(196 / 392), −26.565°.
+    expect(scatterLayout(440, [0, 10], [0, 20]).diagonal?.angle).toBeCloseTo(-26.565, 3);
     expect(scatterLayout(440, [0, 4], [5, 9]).diagonal).toBeNull();
   });
 });

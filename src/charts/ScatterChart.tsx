@@ -20,7 +20,7 @@ import {
   type ScatterPoint,
 } from './scatter';
 import type {SeriesDef} from './series';
-import {useChartCursor} from './useChartCursor';
+import {useChartCursor, type PlotProps} from './useChartCursor';
 
 export type {ScatterPoint} from './scatter';
 
@@ -55,8 +55,6 @@ export interface ScatterChartProps {
   /** Shown in place of the plot when there are no points (default "No data to chart."). */
   emptyText?: string;
 }
-
-type PlotProps = React.HTMLAttributes<HTMLElement>;
 
 const WRAP: React.CSSProperties = {minWidth: 0};
 const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
@@ -171,13 +169,12 @@ function LiftedDot({dot, state}: {dot: PlacedDot; state: 'active' | 'selected'})
   );
 }
 
-/** The selected dot, lifted and ringed, then the dot under the cursor, lifted, unless it is the selected one. */
+/** The selected dot, lifted and ringed, then the dot under the cursor, lifted. */
 function LiftedDots({selected, active}: {selected: PlacedDot | null; active: PlacedDot | null}) {
-  const hovered = active?.point.key === selected?.point.key ? null : active;
   return (
     <>
       {selected && <LiftedDot dot={selected} state="selected" />}
-      {hovered && <LiftedDot dot={hovered} state="active" />}
+      {active && <LiftedDot dot={active} state="active" />}
     </>
   );
 }
@@ -313,6 +310,7 @@ export function ScatterChart({
           ariaLabel={ariaLabel}
           cursor={cursor}
           valueText={(i) => dotText(walk[i].point, selectedKey)}
+          // Required by ChartPlot, but only the kit's x-only pointer reads it, and `extend` swaps that for the nearest dot.
           xs={walk.map((dot) => dot.px)}
           height={layout.height}
           extend={scatterInput(walk, cursor.setIndex, onSelect)}>

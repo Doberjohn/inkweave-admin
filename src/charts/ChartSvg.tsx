@@ -1,6 +1,6 @@
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {LABEL_SIZE, TICK_GAP, px, type AxisTick} from './axis';
-import type {ChartCursor} from './useChartCursor';
+import type {ChartCursor, PlotProps} from './useChartCursor';
 
 const SVG_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -64,8 +64,6 @@ export function AxisGrid({ticks, left, right}: {ticks: readonly AxisTick[]; left
 export function EmptyChart({text = 'No data to chart.'}: {text?: string}) {
   return <p style={{margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{text}</p>;
 }
-
-type PlotProps = React.HTMLAttributes<HTMLElement>;
 
 interface ChartPlotProps {
   ariaLabel: string;

@@ -68,6 +68,30 @@ describe('ScatterChart: marks', () => {
     expect(screen.getByText('Up')).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['0', '5', '10']);
     expect(screen.getByText('Equal')).toHaveAttribute('transform', expect.stringMatching(/^rotate\(-45 /));
+    // A line's height above the line, clear of the r 6 discs of the dots on it (not −0.4em).
+    expect(screen.getByText('Equal')).toHaveAttribute('dy', '-1em');
+  });
+
+  it('turns the y = x label by the angle of the line itself when the domains differ', () => {
+    // Half the y span for the same x run: atan(196 / 392), −26.565°, which the chart rounds to 2 places.
+    renderChart({diagonal: 'Equal', yDomain: [0, 20], yTicks: [0, 10, 20]});
+    expect(screen.getByText('Equal')).toHaveAttribute('transform', expect.stringMatching(/^rotate\(-26\.57 /));
+  });
+
+  it('formats both axes with fmtInt by default, so a negative tick reads with a true minus', () => {
+    const {container} = renderChart({xDomain: [-5, 5], yDomain: [-5, 5], xTicks: [-5, 0, 5], yTicks: [-5, 0, 5]});
+    expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['−5', '0', '5']);
+    // The x label and the y label.
+    expect(screen.getAllByText('−5')).toHaveLength(2);
+  });
+
+  it('calls tickFormat one tick at a time, so an optional second parameter never gets the index', () => {
+    const digits = (n: number, places = 0) => n.toFixed(places);
+    const {container} = renderChart({tickFormat: digits});
+    expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['0', '5', '10']);
+    // The left margin sizes from the same labels: a stray index would make "5.0" and "10.00" and move every dot.
+    const expected = scatterLayout(SCATTER_MAX_WIDTH, DOMAIN, DOMAIN, ['0', '5', '10']);
+    expect(Number(container.querySelector('circle[data-key="a"]')?.getAttribute('cx'))).toBeCloseTo(expected.x(2), 2);
   });
 
   it('draws no y = x line without a label for it', () => {
@@ -83,15 +107,29 @@ describe('ScatterChart: marks', () => {
     expect(container.querySelector('circle[data-key="a"]')).toHaveAttribute('cx', cx);
   });
 
-  it('slides a dot along y = x with diagonal jitter, so its distance from the line barely moves', () => {
-    const {container} = renderChart({jitter: 0.35, jitterAlong: 'diagonal'});
-    const dot = container.querySelector('circle[data-key="b"]');
+  it('slides a dot along y = x only with diagonal jitter, so its distance from the line barely moves', () => {
+    // A pair-style key, as R2's are: a one-character key's two hashes nearly agree, so it would sit on the line either way.
+    const points: ScatterPoint[] = [{key: '1|2', x: 5, y: 5, series: 'high', label: 'B at 5, 5'}];
     const pxPerUnit = layout.side / 10;
-    const dx = (Number(dot?.getAttribute('cx')) - layout.x(5)) / pxPerUnit;
-    const dy = (layout.y(5) - Number(dot?.getAttribute('cy'))) / pxPerUnit;
-    expect(dx).not.toBe(0);
+    /** The dot's offset from its true spot, in data units. */
+    const offset = (container: HTMLElement) => {
+      const dot = container.querySelector('circle[data-key="1|2"]');
+      return {
+        dx: (Number(dot?.getAttribute('cx')) - layout.x(5)) / pxPerUnit,
+        dy: (layout.y(5) - Number(dot?.getAttribute('cy'))) / pxPerUnit,
+      };
+    };
     // px() rounds each coordinate to 0.01px, a few ten-thousandths of a unit here.
-    expect(Math.abs(dy - dx)).toBeLessThanOrEqual(0.35 / 5 + 0.001);
+    const band = 0.35 / 5 + 0.001;
+    // The control: the default 'both' spreads this key well off the line.
+    const square = renderChart({points, jitter: 0.35});
+    const spread = offset(square.container);
+    expect(Math.abs(spread.dy - spread.dx)).toBeGreaterThan(band);
+    square.unmount();
+    const along = renderChart({points, jitter: 0.35, jitterAlong: 'diagonal'});
+    const slid = offset(along.container);
+    expect(slid.dx).not.toBe(0);
+    expect(Math.abs(slid.dy - slid.dx)).toBeLessThanOrEqual(band);
   });
 
   it('shows the empty text in place of the plot when there are no points', () => {
