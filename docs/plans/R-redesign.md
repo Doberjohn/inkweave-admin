@@ -31,6 +31,24 @@
 | R-13 | More charts | R2 adds a calibration scatter (engine against community score per pair, with the agreement diagonal), a gap histogram and a weekly gap trend. R3 adds a synergy network diagram for a card. All of them build on the R1 chart kit. |
 | R-4 | Branch notice only on pages that write | The header names the target branch on pages that commit to the app (today `/tuning`, `/reveal`, `/image`; `/calibration` from R2, `/studio` from R4). CLAUDE.md's "The shell header always names the branch" changes to match. |
 
+## Decisions for R2 (owner, 2026-10-05)
+
+The R2 outline's open questions, settled before re-basing it. All twelve follow the recommendations.
+
+| # | Decision | Detail |
+|---|---|---|
+| R-17 | `playstyleId` comes from the analytics artifact | The precompute adds `playstyleId` to each rule (`loadRuleRoster` in `scripts/precompute-vote-analytics.mjs`, `rollUpByRule` in `scripts/lib/voteAnalytics.mjs`, `RuleStat`). So the rule list, the tuning key and the section all come from the app's `master`, and a pin lag can't make them disagree. Until a Deploy writes the field (old artifacts, local snapshots), the mapping falls back to the pinned engine's `getRuleById`. |
+| R-18 | Reload keeps edits that still apply | After a stale-value conflict, "Reload tuning.json" keeps every pending edit whose old value still matches the reloaded file, and drops only the stale ones. It says how many it dropped. |
+| R-19 | Unsaved edits are guarded | Leaving `/calibration` with pending edits asks first: a react-router `useBlocker` for in-app navigation and a `beforeunload` handler for tab close or reload. The guard is a reusable hook that R4's Card studio also uses. |
+| R-20 | No new tuning entries in R2 | The six direct rules with no `tuning.json` copy stay selectable for their pairs, and the aside says "No copy in tuning.json". Adding `directRules` entries is an app change, outside R2. With no token and no analytics, the rules table stays empty behind the token gate: no read-only fallback. |
+| R-21 | A shared entry names its rules | A tuning key several rules share (Locations: 9 rules) heads the aside with the tuning name and "Shared by N rules", and labels the gap with the selected rule's name. |
+| R-22 | "Inspect" where there's nothing to tune | The Overview's "Rules to review" link reads "Tune" for a rule with a tuning entry and "Inspect" for one without; both open `/calibration?rule=<id>`. |
+| R-23 | Scatter: opaque dots, diagonal jitter, one size | Opaque dots, each on its own page-coloured disc, spread along the diagonal by a fixed per-pair jitter (±0.35 along, ±0.035 across), widest gaps on top, and a "pairs on these scores" tooltip line. Translucent dots would fail 3:1. One dot size for every pair. |
+| R-24 | Histogram and trend shapes | Gap bins are one point wide, centred on whole numbers, with everything beyond ±5 folded into the end bins; R2's real-data check confirms ±5. The weekly score votes draw as an area under the gap line, so each week lines up. |
+| R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. |
+| R-27 | A fainter fill on selected rows | R2-3's option (a): `ADMIN_COLORS.rowSelected` = `hexRgba(COLORS.primary, 0.05)` fills a pressed `adm-row-btn`, hovered or not, so red gap text on a selected row reaches 4.58:1 (the 0.06 tint gave 4.50:1, and 4.15:1 hovered). R2-3 and R2-4 implement the (a) parts and skip (b). The sidebar's "Forget token" still drops unpublished tuning edits without asking (a noted limit). |
+| R-26 | Rejected token on a write page | When GitHub rejects the saved token (401), the tuning aside's error offers "Forget token" (the shared store), so the gate comes back without a trip to the sidebar. |
+
 ## Decisions made in planning (owner may overrule)
 
 | # | Decision | Why |
@@ -123,11 +141,11 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 | `src/theme/AdminStyles.tsx` | `AdminStyles` component: the one scoped stylesheet with every `adm-*` class (hover, focus-visible, selected states) |
 | `src/ui/format.ts` | Number, gap and date formatting shared by every page |
 | `src/ui/*.tsx` | Primitives: `Panel`, `KpiCard`, `SegmentedControl`, `MeterBar`, `BiasBar`, `ScorePill`, `RawTag`, `Notice`, `Sparkline` |
-| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis and plot (`axis.ts`, `ChartSvg.tsx`), take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`), and BarChart draws through `BarDrawing.tsx` and `SelectableBars.tsx` |
+| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis and plot (`axis.ts`, `ChartSvg.tsx`), take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`), and BarChart draws through `BarDrawing.tsx` and `SelectableBars.tsx`. R2-4a adds `ScatterChart.tsx` over the pure `scatter.ts`, plotted through `ChartPlot`'s `extend` |
 | `src/github/useGithubToken.ts` | Shared token state (one store for every component), same API as today |
 | `src/shell/nav.ts` | The sidebar's items, groups and which routes write (replaces `tools.ts`) |
 | `src/shell/Sidebar.tsx` | Sidebar: brand, groups, items, token box, collapse (persisted) |
-| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body |
+| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body; `flush` and `PAGE_GUTTER` for a page that lays out its own columns (R2-6) |
 | `src/shell/BranchNotice.tsx` | "Writes to Doberjohn/inkweave `master`" pill |
 | `src/shell/AdminShell.tsx` | Providers, `AdminStyles`, sidebar + outlet |
 | `src/router.tsx` | New routes and redirects |
@@ -135,11 +153,15 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 | `src/tools/analytics/overview/*` | Overview page, view and `overviewStats.ts` |
 | `src/tools/analytics/activity/*` | Vote activity page, view parts and `activityModel.ts` |
 | `src/tools/analytics/web/*` | Web analytics page, view parts and `webModel.ts` |
-| `src/tools/analytics/CalibrationPage.tsx` | R1 host for today's `CalibrationView` (replaced in R2) |
-| `src/tools/analytics/verdict.ts` | The verdict thresholds and words, shared by `VerdictHero` and the Overview (later R2 and R3) |
+| `src/tools/analytics/CalibrationPage.tsx` | R1 host for the old `CalibrationView`; R2-6 deletes it for `calibration/CalibrationPage.tsx` |
+| `src/tools/analytics/verdict.ts` | The verdict thresholds and words, shared by the Overview's calibration card and R2's `calibrationSubtitle` (later R3); `VerdictHero` retired in R2-7 |
 | `src/shell/WriteToolFrame.tsx` | Interim only: R1-6 creates it to frame the old write pages, and R1-7 deletes it |
+| `src/tools/analytics/calibration/*` | R2's `/calibration`: `calibrationModel.ts` (rows, tuning-key mapping, pair scope), `chartData.ts` and `chartFixtures.ts`, `RulesTable`, `CalibrationScatter`, `GapHistogram`, `WeeklyGapTrend`, `TuningAside` and `reloadNote.ts`, `CalibrationWorkspace` and `CalibrationPage` (its `TunedWorkspace` mounts the guard) |
+| `src/tools/tuning/tuningRows.ts`, `src/tools/tuning/tuningFailure.ts` | The editor's rows and names, and the failure kinds (R2-2), beside the kept `useLiveTuning`, `useTuningAdmin` and `githubClient.ts` |
+| `src/github/rejectedToken.ts`, `src/github/ForgetTokenOffer.tsx` | A token GitHub rejects (401): the check, and the "Forget token" offer (R-26), for R4's write pages too |
+| `src/shell/useUnsavedChangesGuard.ts`, `src/shell/UnsavedChangesGuard.tsx` | The unsaved-edits guard (R-19): the hook, its dialog, and the one-line component a page mounts |
 
-Deleted in R1: `src/tools/banner/**`, `scripts/export-banner*.mjs`, `docs/BANNER.md`, `public/art/banner/`, `src/shell/ToolIndex*`, `src/shell/tools.ts`, `src/shell/WriteToolFrame.tsx`, and the top-level `src/tools/analytics/{AnalyticsPage,AdminAnalyticsDashboard,ActivityView,DayGroup,WebAnalyticsView}*` files (not the new `activity/` folder) with their stories and tests. `Scorecard`, `WeeklyActivityChart` and `VerdictHero` stay until R2 (`CalibrationView` uses them).
+Deleted in R1: `src/tools/banner/**`, `scripts/export-banner*.mjs`, `docs/BANNER.md`, `public/art/banner/`, `src/shell/ToolIndex*`, `src/shell/tools.ts`, `src/shell/WriteToolFrame.tsx`, and the top-level `src/tools/analytics/{AnalyticsPage,AdminAnalyticsDashboard,ActivityView,DayGroup,WebAnalyticsView}*` files (not the new `activity/` folder) with their stories and tests. `Scorecard`, `WeeklyActivityChart` and `VerdictHero` stay until R2 (`CalibrationView` uses them). Deleted in R2: R1's `src/tools/analytics/CalibrationPage.tsx` and its test (R2-6); `CalibrationView`, `VerdictHero`, `Scorecard`, `WeeklyActivityChart`, `RuleCalibrationTable` and `RawVotesNotice`, with their stories and tests, and `src/tools/tuning/{TuningPage.tsx,index.ts}` with `components/{TuningEditor,RuleSelector}` and their stories and tests (R2-7).
 
 ## Shared interfaces (R1)
 
@@ -152,7 +174,7 @@ export const ADMIN_COLORS: {
   rowHover: string; navHover: string; divider: string; border: string;
   inputBorder: string; strongBorder: string; barTrack: string; barNeutral: string;
   text: string; muted: string; dim: string;
-  accent: string; accentHover: string; accentTint: string; accentTintSoft: string;
+  accent: string; accentHover: string; accentTint: string; accentTintSoft: string; rowSelected: string; // rowSelected: R2-3 (R-27), a selected row button's fill
   accentBorder: string; accentStrong: string;
   over: string; under: string; errorBg: string; errorBorder: string;
 };
@@ -188,7 +210,7 @@ export function Panel(props: {title?: string; action?: React.ReactNode; children
 export function KpiCard(props: {label: string; value: React.ReactNode; hint?: React.ReactNode; tag?: React.ReactNode; valueColor?: string}): JSX.Element;
 export function SegmentedControl<T extends string>(props: {options: ReadonlyArray<{value: T; label: string}>; value: T; onChange: (v: T) => void; ariaLabel: string}): JSX.Element;
 export function MeterBar(props: {fraction: number; color: string; height?: number; label?: string}): JSX.Element;
-export function BiasBar(props: {gap: number | null; scale?: number}): JSX.Element;   // diverging, full scale ±scale (default 2.5)
+export function BiasBar(props: {gap: number | null; scale?: number; minWidth?: number}): JSX.Element; // diverging, full scale ±scale (default 2.5); minWidth default 64, 0 to follow a grid track (R2-8)
 export function ScorePill(props: {score: number | null}): JSX.Element;               // ≥7 under colour, ≤4 over colour, null "—"
 export function RawTag(): JSX.Element;
 export function Notice(props: {tone?: 'info' | 'error'; children: React.ReactNode}): JSX.Element;
@@ -204,11 +226,15 @@ export interface NavItem {id: string; label: string; mark: string; path: string;
 export const NAV_ITEMS: readonly NavItem[];
 export function navItemFor(pathname: string): NavItem | undefined;
 export function isWritePath(pathname: string): boolean;
+export function calibrationHref(ruleId?: string): string; // R2-6: '/calibration', or '/calibration?rule=' + encodeURIComponent(ruleId)
 
 // src/shell/PageLayout.tsx
+export const PAGE_GUTTER: string; // R2-6: the side padding, clamp(16px, 4vw, 32px), for a flush page's own columns
 export function PageLayout(props: {
   title: string; subtitle?: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode;
-  writes?: boolean; branchLabel?: string; children: React.ReactNode;
+  writes?: boolean; branchLabel?: string;
+  flush?: boolean; // R2-6: children go straight into the scrolling body, with no padding and no grid (R2's aside, R4's studio)
+  children: React.ReactNode;
 }): JSX.Element;
 
 // src/tools/analytics/adminData.ts
@@ -271,7 +297,7 @@ export function RangeControl(props: {value: RangePreset; onChange: (v: RangePres
 export interface SeriesDef {id: string; label: string; color: string; pattern?: 'hatch'} // hatch: 45° stripes for "No score"
 
 // src/charts/ChartLegend.tsx
-export function ChartLegend(props: {series: readonly SeriesDef[]; mark: 'rect' | 'line'}): JSX.Element; // rendered only for 2+ series
+export function ChartLegend(props: {series: readonly SeriesDef[]; mark: 'rect' | 'line' | 'dot'}): JSX.Element; // rendered only for 2+ series; 'dot' (R2-4a) keys scatter dots with a filled circle, its hatch included
 
 // src/charts/ChartTooltip.tsx
 export interface TooltipRow {label: string; value: string; color?: string}  // value leads, label follows; a line key in `color`
@@ -327,8 +353,46 @@ export function LineChart(props: {
   xTicks?: readonly string[];               // default: first, quarter points, last
   baseline?: number; baselineLabel?: string;  // a labelled hairline (R2: zero gap); label default yFormat(baseline)
   emptyText?: string;                         // shown in place of the plot when no series has a point
+  yDomain?: readonly [number, number];        // R2-4a: the y domain to span, widened only to keep every value, zero and the baseline on the plot
+  fixedGutters?: boolean;                     // R2-4a: lay out between LINE_Y_AXIS_WIDTH and LINE_END_WIDTH (a wider label widens its gutter)
 }): JSX.Element;
+export const LINE_Y_AXIS_WIDTH: number;       // R2-4a: 48px (SPACING.xxxl + SPACING.lg); lives in lineLayout.ts, re-exported here
+export const LINE_END_WIDTH: number;          // R2-4a: 48px
 // One y axis, always. Two measures of different scale are two charts.
+
+// src/charts/scatter.ts (R2-4a): the scatter's pure geometry
+export interface ScatterPoint {key: string; x: number; y: number; series: string; label: string} // label: the slider's value text
+export const HIT_RADIUS = 24;                 // px: the pointer only has to be closest, within this of a dot's centre
+export const SCATTER_MARGIN: {readonly top: 24; readonly right: 16; readonly bottom: number; readonly left: 32}; // from SPACING; left is a floor
+export const SCATTER_MAX_WIDTH = 440;
+export function scatterWidth(measured: number): number; // min(chartWidth(measured), SCATTER_MAX_WIDTH): 440 until measured
+export interface DiagonalLine {x1: number; y1: number; x2: number; y2: number; angle: number}
+export interface ScatterLayout {width: number; height: number; left: number; top: number; side: number;
+  x: (v: number) => number; y: (v: number) => number; diagonal: DiagonalLine | null}
+export function scatterLayout(width: number, xDomain: readonly [number, number], yDomain: readonly [number, number],
+  yLabels?: readonly string[]): ScatterLayout; // a square plot; the left margin fits the widest y label
+export function jitterOffset(key: string, amount: number): [number, number];
+export function diagonalJitter(key: string, along: number, across: number): [number, number]; // y − x moves by at most `across`
+export type JitterAlong = 'both' | 'diagonal';
+export interface PlacedDot {point: ScatterPoint; color: string; px: number; py: number}
+export interface DotOptions {series: readonly SeriesDef[]; jitter: number; jitterAlong: JitterAlong}
+export function placeDots(points: readonly ScatterPoint[], layout: ScatterLayout, opts: DotOptions): PlacedDot[];
+export function nearestPoint(points: ReadonlyArray<{px: number; py: number}>, x: number, y: number, radius: number): number | null;
+export function scatterOrder<T extends {key: string; x: number; y: number}>(points: readonly T[]): T[]; // x, then y, then key
+
+// src/charts/ScatterChart.tsx (R2-4a): two measures per item on one square plot, through ChartPlot; re-exports ScatterPoint
+export function ScatterChart(props: {
+  points: readonly ScatterPoint[]; series: readonly SeriesDef[]; ariaLabel: string;
+  xDomain: readonly [number, number]; yDomain: readonly [number, number];
+  xTicks: readonly number[]; yTicks: readonly number[]; xLabel: string; yLabel: string;
+  tickFormat?: (n: number) => string;   // default fmtInt
+  diagonal?: string;                     // draws y = x, labelled with this text
+  jitter?: number; jitterAlong?: JitterAlong; // default 0 and 'both'; 'diagonal' slides along y = x, a fifth of that across
+  tooltip: (point: ScatterPoint) => TooltipContent;
+  selectedKey?: string | null; onSelect?: (key: string) => void; // with onSelect, click and Enter/Space select
+  emptyText?: string;                    // default "No data to chart."
+}): JSX.Element;
+// Opaque r 4 dots, each on its own r 6 disc in the page colour (R-23); the nearest dot within HIT_RADIUS lifts and shows the tooltip.
 ```
 
 ### Contract additions from the task drafts
@@ -350,13 +414,15 @@ These came out of drafting and reconciling the R1 tasks. They add names and rena
 // axis.ts: LABEL_SIZE, TICK_GAP, AxisTick, YAxis, px(n), labelWidth(text), labelX(center, width, chartWidth),
 //          wholeTicks(top, integers), yAxis(values, format, y)   // the y axis both charts share
 // ChartSvg.tsx: ChartSvg({width, height}), AxisGrid({ticks, left, right}), EmptyChart({text?}),
-//               ChartPlot({ariaLabel, cursor, valueText, xs, height})   // the slider plot both charts render
+//               ChartPlot({ariaLabel, cursor, valueText, xs, height, extend?})   // the slider plot every chart renders;
+//               extend (R2-4a) adjusts the slider's props before they are spread (ScatterChart's 2-D pointer and Enter/Space)
 // series.ts: chartWidth(measured)   // the measured width, or CHART_FALLBACK_WIDTH until there is one
 // barLayout.ts: barLayout(width, data, series, opts): BarLayout; barLayoutOptions(sizing) (BarChart's defaults);
 //               BarDatum, BarSizing, CapLabels and BAR_Y_AXIS_WIDTH live here
 // BarChart's parts: BarDrawing.tsx (the drawing and tooltip), SelectableBars.tsx (the bar buttons),
 //               useBarFocus.ts (their roving focus), barPaint.ts (paint, roundedTop, data flags)
 // lineLayout.ts: lineLayout(width, series, opts): LineLayout; lonePoints(row); tooltipY(layout, index); LinePoint, LineSeries
+//               LineLayoutOptions.yDomain and .fixedGutters, LINE_Y_AXIS_WIDTH and LINE_END_WIDTH (R2-4a)
 // R1-2's theme test gains 'Emphasis bar (accent)' at the start of chartMarks
 
 // src/github/GithubTokenGate.tsx (R1-7)
@@ -378,7 +444,16 @@ export function WriteToolFrame(props: {children: React.ReactNode}): JSX.Element;
 // {id:'tuning', label:'Engine tuning', mark:'Tu', path:'/tuning', group:'publish', writes:true}
 // {id:'reveal', label:'Reveal publisher', mark:'Re', path:'/reveal', group:'publish', writes:true}
 // {id:'image', label:'Card images', mark:'Im', path:'/image', group:'publish', writes:true}
-// URL contract: /calibration?rule=<RuleStat.ruleId> (R1-8 writes it, R1-11 reads it)
+// URL contract: /calibration?rule=<RuleStat.ruleId, or a tuning key>. R1-8 wrote it and R1-11 read it; from R2, R2-6's page reads it
+// and writes it (replace: true), and R2-8's Overview link builds it with calibrationHref
+// src/shell/nav.ts: NAV_ITEMS at the end of R2 (R2-6), in order
+// {id:'overview', label:'Overview', mark:'Ov', path:'/', group:'main', writes:false}
+// {id:'calibration', label:'Calibration & tuning', mark:'Ca', path:'/calibration', group:'insights', writes:true}
+// {id:'activity', label:'Vote activity', mark:'Ac', path:'/activity', group:'insights', writes:false}
+// {id:'web', label:'Web analytics', mark:'Wa', path:'/web', group:'insights', writes:false}
+// {id:'reveal', label:'Reveal publisher', mark:'Re', path:'/reveal', group:'publish', writes:true}
+// {id:'image', label:'Card images', mark:'Im', path:'/image', group:'publish', writes:true}
+// /tuning is a route only: <Navigate to="/calibration" replace /> (R-10)
 
 // src/tools/analytics/verdict.ts (R1-8)
 export const CALIBRATION_BAND = 0.5;
@@ -431,10 +506,25 @@ export function WebAnalyticsPage(): JSX.Element;
 
 // src/app-bridge.ts: R1-1 removes usePrecomputedSynergies; R1-10 adds
 // InkIcon, RaritySymbol, rarityConfigOf, enchantedSymbol, epicSymbol, iconicSymbol (the webps imported with ?no-inline)
+// R2-5a adds DialogShell (for UnsavedChangesDialog); R2-7 removes CAP_LABEL_XS (its last importers retire)
 
-// src/tools/analytics/CalibrationView.tsx, CalibrationPage.tsx (R1-11)
-// CalibrationViewProps gains: initialRuleId?: string | null  (an id the analytics don't have opens on "All pairs")
-export function CalibrationPage(): JSX.Element;
+// src/tools/analytics/CalibrationView.tsx, CalibrationPage.tsx (R1-11; retired in R2: R2-6 deletes the page, R2-7 the view)
+// CalibrationViewProps gained: initialRuleId?: string | null  (an id the analytics don't have opens on "All pairs")
+// R2's page: src/tools/analytics/calibration/CalibrationPage.tsx, export function CalibrationPage(): JSX.Element;
+
+// src/tools/analytics/voteAnalyticsTypes.ts, RuleStat gains (R2-1, R-17)
+playstyleId?: string | null; // a playstyle rule's tuning.json key, null for a direct rule; absent in artifacts written before R2
+// scripts/lib/voteAnalytics.mjs (R2-1): ruleRosterEntry(rule) -> {ruleId, ruleName, category, playstyleId: string | null};
+//   loadRuleRoster maps getAllRules() through it, and rollUpByRule passes playstyleId through
+
+// src/shell/useUnsavedChangesGuard.ts, UnsavedChangesGuard.tsx (R2-5a, R-19; R4's studio reuses them)
+export interface UnsavedChangesGuardState {blocked: boolean; stay: () => void; leave: () => void}
+export type LeavesPage = (from: Location, to: Location) => boolean; // react-router-dom's Location
+export function useUnsavedChangesGuard(dirty: boolean, leaves?: LeavesPage): UnsavedChangesGuardState; // default: a new pathname leaves
+export function UnsavedChangesDialog(props: {open: boolean; message: string; onStay: () => void; onLeave: () => void}): JSX.Element | null;
+export function UnsavedChangesGuard(props: {dirty: boolean; message: string; leaves?: LeavesPage}): JSX.Element | null;
+// useBlocker needs a data router, and a router holds one blocker: one guard per page, mounted by the page, never by a view a story renders.
+// R2's calibration model, tuning model and aside: R-redesign/R2-calibration-tuning.md, contract additions 8 to 10.
 ```
 
 ## Review focus
@@ -478,9 +568,9 @@ Each task lives in its own file under [R-redesign/](R-redesign/), in order. Ever
 
 ---
 
-## Phase R2: Calibration & tuning (outline)
+## Phase R2: Calibration & tuning (detailed)
 
-[R-redesign/R2-calibration-tuning.md](R-redesign/R2-calibration-tuning.md). Detailed when R2 starts, after the owner has seen R1.
+[R-redesign/R2-calibration-tuning.md](R-redesign/R2-calibration-tuning.md): tasks R2-1 to R2-8, re-based on R1 as built (main @ c92e260) and pin bc877e1 on 2026-10-05. Its decisions are R-17 to R-26 above.
 
 ## Phase R3: Card analytics (outline)
 
