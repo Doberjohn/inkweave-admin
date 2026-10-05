@@ -80,12 +80,27 @@ describe('ADMIN_COLORS', () => {
       navHover: over(ADMIN_COLORS.navHover),
       'card on a panel': over(ADMIN_COLORS.card, over(ADMIN_COLORS.panel)),
       'active nav item': over(ADMIN_COLORS.accentTint, sidebar),
-      'selected row, hovered': over(ADMIN_COLORS.accentTint, card),
+      'accent tint on a card': over(ADMIN_COLORS.accentTint, card),
+      'selected row': over(ADMIN_COLORS.rowSelected, card),
       'selected card': over(ADMIN_COLORS.accentTintSoft),
     };
     for (const [name, fill] of Object.entries(fills)) {
       expect(contrast(rgbOf(ADMIN_COLORS.text), fill), `text on ${name}`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(rgbOf(ADMIN_COLORS.muted), fill), `muted on ${name}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('keeps the gap colours above 4.5:1 on a row button in every state, a selected one included', () => {
+    const card = over(ADMIN_COLORS.card);
+    const rowFills: Record<string, Rgb> = {
+      'row at rest': card,
+      'row hovered or focused': over(ADMIN_COLORS.rowHover, card),
+      'selected row, hovered or not': over(ADMIN_COLORS.rowSelected, card),
+    };
+    for (const [name, fill] of Object.entries(rowFills)) {
+      // axe passes text above the ratio, not at it.
+      expect(contrast(rgbOf(ADMIN_COLORS.over), fill), `over on ${name}`).toBeGreaterThan(4.5);
+      expect(contrast(rgbOf(ADMIN_COLORS.under), fill), `under on ${name}`).toBeGreaterThan(4.5);
     }
   });
 

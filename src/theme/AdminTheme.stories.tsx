@@ -11,7 +11,7 @@ const GROUPS: ReadonlyArray<{title: string; keys: readonly ColorKey[]}> = [
   {title: 'Lines', keys: ['divider', 'border', 'inputBorder', 'strongBorder']},
   {title: 'Chart marks', keys: ['barTrack', 'barNeutral']},
   {title: 'Text', keys: ['text', 'muted', 'dim']},
-  {title: 'Accent', keys: ['accent', 'accentHover', 'accentTint', 'accentTintSoft', 'accentBorder', 'accentStrong']},
+  {title: 'Accent', keys: ['accent', 'accentHover', 'accentTint', 'accentTintSoft', 'rowSelected', 'accentBorder', 'accentStrong']},
   {title: 'Semantic', keys: ['over', 'under', 'errorBg', 'errorBorder']},
 ];
 
