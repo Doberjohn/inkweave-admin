@@ -12,23 +12,22 @@ function renderAt(path: string) {
 
 const sidebarNav = () => within(screen.getByRole('navigation', {name: 'Admin'}));
 const WRITE_PATHS = NAV_ITEMS.filter((item) => item.writes).map((item) => item.path);
+// Every page that writes names the repo: "Writes to Doberjohn/inkweave", or its
+// own label that keeps it ("Tuning writes to Doberjohn/inkweave").
+const BRANCH_NOTICE = /writes to Doberjohn\/inkweave/i;
 
 beforeEach(() => {
   // The shell's CardDataProvider loads the card data on mount, and the
-  // analytics page its artifacts. These tests only check routing, so those
+  // insights pages their artifacts. These tests only check routing, so those
   // fetches never settle.
   vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
 });
 
 afterEach(() => {
-  // The token store is module-level: a case that fails before its Forget-token
-  // click would otherwise hand its token to every later case. Clear it while the
-  // page is still mounted and fetch is still stubbed.
-  const store = renderHook(() => useGithubToken());
-  act(() => store.result.current.clearToken());
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
-  // The sidebar's collapsed state persists in localStorage.
+  // The token store reads localStorage on every snapshot, so this one clear
+  // resets the saved token and the sidebar's collapsed state alike.
   localStorage.clear();
 });
 
@@ -41,7 +40,7 @@ describe('admin routes', () => {
 
   it('marks Overview current on / only', () => {
     // NavLink treats to="/" as exact, so the sidebar needs no `end` prop.
-    renderAt('/tuning');
+    renderAt('/reveal');
     expect(sidebarNav().getByRole('link', {name: 'Overview'})).not.toHaveAttribute('aria-current');
   });
 
@@ -53,14 +52,14 @@ describe('admin routes', () => {
   });
 
   it("marks only the current page's link", () => {
-    renderAt('/tuning');
-    expect(sidebarNav().getByRole('link', {name: 'Engine tuning'})).toHaveAttribute('aria-current', 'page');
+    renderAt('/reveal');
+    expect(sidebarNav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('aria-current', 'page');
     expect(sidebarNav().getByRole('link', {name: 'Calibration & tuning'})).not.toHaveAttribute('aria-current');
   });
 
   it.each(WRITE_PATHS)('names the branch %s writes to', (path) => {
     renderAt(path);
-    expect(screen.getByText('Writes to Doberjohn/inkweave')).toHaveTextContent('Writes to Doberjohn/inkweave master');
+    expect(screen.getByText(BRANCH_NOTICE)).toHaveTextContent(/writes to Doberjohn\/inkweave master/i);
   });
 
   it('names a rehearsal branch when one is set', () => {
@@ -69,9 +68,9 @@ describe('admin routes', () => {
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 
-  it.each(['/calibration', '/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
+  it.each(['/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
     renderAt(path);
-    expect(screen.queryByText('Writes to Doberjohn/inkweave')).not.toBeInTheDocument();
+    expect(screen.queryByText(BRANCH_NOTICE)).not.toBeInTheDocument();
   });
 
   it('shows a not-found page for any other path', () => {
@@ -95,14 +94,15 @@ describe('admin routes', () => {
     'shows the branch notice on %s exactly when its nav item writes (%s)',
     (path, writes) => {
       renderAt(path);
-      expect(screen.queryByText('Writes to Doberjohn/inkweave') != null).toBe(writes);
+      expect(screen.queryByText(BRANCH_NOTICE) != null).toBe(writes);
     },
   );
 
   const WRITE_PAGES: Array<[path: string, title: string]> = [
     ['/reveal', 'Reveal publisher'],
     ['/image', 'Card images'],
-    ['/tuning', 'Engine tuning'],
+    // The gate fills the tuning aside; the analytics beside it need no token.
+    ['/calibration', 'Calibration & tuning'],
   ];
 
   it.each(WRITE_PAGES)('asks for a GitHub token on %s, under the page title', (path, title) => {
@@ -111,8 +111,9 @@ describe('admin routes', () => {
     expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
   });
 
-  // The write pages have no Forget token of their own any more (README section 1).
-  // The sidebar's is the only one, and the shared token state carries it to the page.
+  // The sidebar's Forget token works on every write page (README section 1), and the
+  // shared token state carries it to the page. /calibration's aside offers its own only
+  // when GitHub rejects the token (R-26).
   it.each(WRITE_PAGES)("returns %s to the token gate from the sidebar's Forget token", async (path, title) => {
     const user = userEvent.setup();
     const saved = renderHook(() => useGithubToken());
@@ -210,7 +211,7 @@ describe('calibration routes', () => {
   }
 
   beforeEach(() => {
-    // src/test/setup.ts has already emptied the artifact cache (R1-5), and the
+    // src/test/setup.ts has already emptied the artifact cache, and the
     // file's beforeEach stubbed a fetch that never settles. This one answers
     // vote-analytics.json and leaves everything else (the card data, the vote
     // log) pending.
@@ -231,11 +232,20 @@ describe('calibration routes', () => {
     expect(router.state.historyAction).toBe('REPLACE');
   });
 
-  it('opens Calibration & tuning at /calibration, without a branch notice', async () => {
+  it('redirects the retired /tuning to Calibration & tuning', async () => {
+    const router = routerAt('/tuning');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/calibration'));
+    expect(router.state.historyAction).toBe('REPLACE');
+    expect(screen.getByRole('heading', {level: 1, name: 'Calibration & tuning'})).toBeInTheDocument();
+  });
+
+  it('opens Calibration & tuning at /calibration, with a branch notice', async () => {
     routerAt('/calibration');
     expect(screen.getByRole('heading', {level: 1, name: 'Calibration & tuning'})).toBeInTheDocument();
     expect(await screen.findByText('All pairs')).toBeInTheDocument();
-    expect(screen.queryByText('Writes to Doberjohn/inkweave')).not.toBeInTheDocument();
+    expect(screen.getByText(/^Tuning writes to Doberjohn\/inkweave/)).toHaveTextContent(
+      'Tuning writes to Doberjohn/inkweave master',
+    );
   });
 
   it('opens with the rule from ?rule= selected', async () => {

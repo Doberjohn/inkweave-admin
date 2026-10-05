@@ -1,4 +1,4 @@
-import {NAV_ITEMS, isWritePath, navItemFor} from './nav';
+import {NAV_ITEMS, calibrationHref, isWritePath, navItemFor} from './nav';
 
 describe('navItemFor', () => {
   it.each([
@@ -15,11 +15,12 @@ describe('navItemFor', () => {
 });
 
 describe('isWritePath', () => {
-  it.each(['/tuning', '/reveal', '/image/'])('%s writes to the app', (pathname) => {
+  it.each(['/calibration', '/reveal', '/image/'])('%s writes to the app', (pathname) => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
-  it.each(['/calibration', '/no-such-page'])('%s writes nothing', (pathname) => {
+  // /tuning is a redirect now, and a redirect writes nothing.
+  it.each(['/tuning', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -39,9 +40,22 @@ describe('the Calibration & tuning item', () => {
     expect(NAV_ITEMS.some((item) => item.id === 'analytics')).toBe(false);
   });
 
-  it('owns /calibration, and writes nothing in R1', () => {
+  it('owns /calibration, and writes', () => {
     expect(navItemFor('/calibration')).toMatchObject({id: 'calibration', label: 'Calibration & tuning', mark: 'Ca'});
-    // Tuning moves in, and the page starts writing, in R2 (R-4).
-    expect(isWritePath('/calibration')).toBe(false);
+    // The tuning editor moved into the page (R-4), and /tuning only redirects to it.
+    expect(isWritePath('/calibration')).toBe(true);
+    expect(NAV_ITEMS.some((item) => item.id === 'tuning' || item.path === '/tuning')).toBe(false);
+  });
+});
+
+describe('calibrationHref', () => {
+  it('links the bare page when no rule is given', () => expect(calibrationHref()).toBe('/calibration'));
+
+  it.each([
+    ['lore-loss', '/calibration?rule=lore-loss'],
+    ['location-control', '/calibration?rule=location-control'],
+    ['a b', '/calibration?rule=a%20b'],
+  ])('links %s to %s', (ruleId, href) => {
+    expect(calibrationHref(ruleId)).toBe(href);
   });
 });

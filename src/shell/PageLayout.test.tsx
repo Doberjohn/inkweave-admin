@@ -67,4 +67,27 @@ describe('PageLayout', () => {
     );
     expect(screen.getByText('Tuning writes to')).toHaveTextContent('Tuning writes to admin-verify');
   });
+
+  it('puts a flush page straight into the scrolling body, with no padding and no grid', () => {
+    render(
+      <PageLayout title="Calibration & tuning" flush>
+        <p>Body</p>
+      </PageLayout>,
+    );
+    const body = screen.getByText('Body').parentElement;
+    expect(body).toHaveStyle({overflowY: 'auto'});
+    expect(body).not.toHaveStyle({display: 'grid'});
+    expect(body?.style.padding).toBe('');
+  });
+
+  it('lays the body out as the padded grid without flush', () => {
+    render(
+      <PageLayout title="Vote activity">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    const body = screen.getByText('Body').parentElement;
+    expect(body).toHaveStyle({overflowY: 'auto', display: 'grid'});
+    expect(body?.style.padding).not.toBe('');
+  });
 });

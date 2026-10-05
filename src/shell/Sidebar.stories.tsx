@@ -12,7 +12,7 @@ const meta: Meta<typeof Sidebar> = {
   // Full height at the shell's left edge, on the page named by parameters.route.
   decorators: [
     (Story, {parameters}) => (
-      <MemoryRouter initialEntries={[parameters.route ?? '/calibration']}>
+      <MemoryRouter initialEntries={[parameters.route ?? '/activity']}>
         <div style={{display: 'flex', height: '100vh'}}>
           <Story />
         </div>
@@ -35,6 +35,6 @@ export const WritePageWithToken: Story = {
 /** Collapsed: marks only. Each link keeps its full name as its accessible name and tooltip. */
 export const Collapsed: Story = {
   args: {tokenSaved: true},
-  parameters: {route: '/tuning'},
+  parameters: {route: '/calibration'},
   beforeEach: () => localStorage.setItem(SIDEBAR_OPEN_KEY, 'false'),
 };

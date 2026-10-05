@@ -1,13 +1,12 @@
 import {createBrowserRouter, Navigate, type RouteObject} from 'react-router-dom';
 import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
-import {CalibrationPage} from './tools/analytics/CalibrationPage';
 import {ActivityPage} from './tools/analytics/activity/ActivityPage';
+import {CalibrationPage} from './tools/analytics/calibration/CalibrationPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
-import {TuningPage} from './tools/tuning/TuningPage';
 
 /** Admin's routes. Every one renders inside AdminShell, whose sidebar links them (src/shell/nav.ts). */
 export const routes: RouteObject[] = [
@@ -22,7 +21,8 @@ export const routes: RouteObject[] = [
       {path: 'analytics', element: <Navigate to="/" replace />},
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},
-      {path: 'tuning', element: <TuningPage />},
+      // The tuning editor moved into /calibration's aside (R-10).
+      {path: 'tuning', element: <Navigate to="/calibration" replace />},
       {path: '*', element: <NotFound />},
     ],
   },

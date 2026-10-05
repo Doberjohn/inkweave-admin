@@ -30,7 +30,7 @@ describe('Sidebar', () => {
     renderSidebar();
     expect(screen.getByText('Insights')).toBeInTheDocument();
     expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web']);
-    expect(hrefs('Publish')).toEqual(['/tuning', '/reveal', '/image']);
+    expect(hrefs('Publish')).toEqual(['/reveal', '/image']);
     // The mark is aria-hidden: the exact name proves it stays out of the link's name.
     expect(nav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('href', '/reveal');
   });
@@ -51,7 +51,7 @@ describe('Sidebar', () => {
 
   it.each([
     ['a page that writes, with no token saved', '/image', false],
-    ['a read-only page, even with a token saved', '/calibration', true],
+    ['a read-only page, even with a token saved', '/activity', true],
   ])('shows no token box on %s', (_case, path, tokenSaved) => {
     renderSidebar({path, tokenSaved});
     expect(screen.queryByText('GitHub token saved')).not.toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('Sidebar', () => {
   it('keeps Forget token reachable when collapsed', async () => {
     localStorage.setItem(KEY, 'false');
     const onForgetToken = vi.fn();
-    renderSidebar({path: '/tuning', tokenSaved: true, onForgetToken});
+    renderSidebar({path: '/reveal', tokenSaved: true, onForgetToken});
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(onForgetToken).toHaveBeenCalledOnce();
   });

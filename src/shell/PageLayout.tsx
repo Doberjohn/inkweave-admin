@@ -3,8 +3,9 @@ import {FONTS, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../theme/adminTheme';
 import {BranchNotice} from './BranchNotice';
 
-// Side padding: 32px on a desktop, easing to 16px on a phone.
-const GUTTER = `clamp(${SPACING.lg}px, 4vw, ${SPACING.xxxl}px)`;
+// Side padding: 32px on a desktop, easing to 16px on a phone. Exported for a
+// flush page, which pads its own columns (R2's calibration workspace).
+export const PAGE_GUTTER = `clamp(${SPACING.lg}px, 4vw, ${SPACING.xxxl}px)`;
 
 // The page fills the shell's main column, so only the body scrolls and the header stays put.
 const MAIN: React.CSSProperties = {height: '100%', display: 'flex', flexDirection: 'column'};
@@ -17,7 +18,7 @@ const HEADER: React.CSSProperties = {
   justifyContent: 'space-between',
   gap: `${SPACING.md}px ${SPACING.lg}px`,
   minHeight: ADMIN_LAYOUT.headerMinHeight,
-  padding: `${SPACING.md}px ${GUTTER}`,
+  padding: `${SPACING.md}px ${PAGE_GUTTER}`,
   borderBottom: `1px solid ${ADMIN_COLORS.border}`,
 };
 
@@ -50,8 +51,12 @@ const BODY: React.CSSProperties = {
   gridTemplateColumns: 'minmax(0, 1fr)',
   alignContent: 'start',
   gap: SPACING.xxl,
-  padding: `${SPACING.xxl}px ${GUTTER}`,
+  padding: `${SPACING.xxl}px ${PAGE_GUTTER}`,
 };
+
+// `flush`: the same scroller with no padding and no grid, for a page that lays
+// out its own columns edge to edge (R2's tuning aside, R4's studio).
+const FLUSH_BODY: React.CSSProperties = {flex: 1, minHeight: 0, overflowY: 'auto'};
 
 interface PageLayoutProps {
   title: string;
@@ -61,8 +66,10 @@ interface PageLayoutProps {
   actions?: React.ReactNode;
   /** The page commits to the app repo: its header shows the BranchNotice. */
   writes?: boolean;
-  /** BranchNotice's label when the default doesn't fit, e.g. "Tuning writes to". */
+  /** BranchNotice's label when the default doesn't fit, e.g. "Tuning writes to Doberjohn/inkweave". */
   branchLabel?: string;
+  /** Children go straight into the scrolling body, with no padding and no grid. */
+  flush?: boolean;
   children: React.ReactNode;
 }
 
@@ -73,7 +80,16 @@ interface PageLayoutProps {
  * names the browser tab after the page ("Vote activity · Inkweave admin").
  * Nothing restores the old title on unmount: the next page sets its own.
  */
-export function PageLayout({title, subtitle, meta, actions, writes = false, branchLabel, children}: PageLayoutProps) {
+export function PageLayout({
+  title,
+  subtitle,
+  meta,
+  actions,
+  writes = false,
+  branchLabel,
+  flush = false,
+  children,
+}: PageLayoutProps) {
   useEffect(() => {
     document.title = `${title} · Inkweave admin`;
   }, [title]);
@@ -93,7 +109,7 @@ export function PageLayout({title, subtitle, meta, actions, writes = false, bran
           </div>
         )}
       </header>
-      <div style={BODY}>{children}</div>
+      <div style={flush ? FLUSH_BODY : BODY}>{children}</div>
     </main>
   );
 }

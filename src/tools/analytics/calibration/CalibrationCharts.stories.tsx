@@ -10,10 +10,10 @@ import {WeeklyGapTrend} from './WeeklyGapTrend';
 import {weeklyGaps} from './chartData';
 import {ALL_PAIRS, ALL_PAIRS_VOTES, ONE_RULE, ONE_RULE_VOTES} from './chartFixtures';
 
-/** R2-6's TWO_UP row: the scatter and the histogram two-up from 712px of column (two 346px tracks and the gap), stacked below that. */
+/** R2-6's charts row: the scatter and the histogram two-up from 772px of column (two 376px tracks and the gap), stacked below that. */
 const CHARTS_ROW: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 346px), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 376px), 1fr))',
   gap: SPACING.xl,
   alignItems: 'start',
 };
