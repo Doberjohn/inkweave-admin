@@ -28,7 +28,8 @@ export function ChartSvg({width, height, children}: {width: number; height: numb
 /**
  * The y axis: a solid 1px gridline per tick across the plot, from `left` to
  * `right`, one step off the surface (the zero line a step stronger), and its
- * label in muted text at the gutter's right edge (dataviz mark spec).
+ * label in muted text at the gutter's right edge (dataviz mark spec). A tick
+ * with an empty label keeps its gridline and prints no text.
  */
 export function AxisGrid({ticks, left, right}: {ticks: readonly AxisTick[]; left: number; right: number}) {
   return (
@@ -44,16 +45,18 @@ export function AxisGrid({ticks, left, right}: {ticks: readonly AxisTick[]; left
             strokeWidth={1}
             shapeRendering="crispEdges"
           />
-          <text
-            x={left - TICK_GAP}
-            y={px(tick.y)}
-            textAnchor="end"
-            dominantBaseline="middle"
-            fontSize={LABEL_SIZE}
-            fill={ADMIN_COLORS.muted}
-            style={{fontVariantNumeric: 'tabular-nums'}}>
-            {tick.label}
-          </text>
+          {tick.label !== '' && (
+            <text
+              x={left - TICK_GAP}
+              y={px(tick.y)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize={LABEL_SIZE}
+              fill={ADMIN_COLORS.muted}
+              style={{fontVariantNumeric: 'tabular-nums'}}>
+              {tick.label}
+            </text>
+          )}
         </g>
       ))}
     </>

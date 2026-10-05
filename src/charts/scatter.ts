@@ -132,8 +132,12 @@ export function diagonalJitter(key: string, along: number, across: number): [num
 /** How a scatter spreads points that share exact values: on each axis apart, or mostly along y = x. */
 export type JitterAlong = 'both' | 'diagonal';
 
-/** jitterAlong="diagonal": the spread across y = x, as a share of the spread along it. */
-const ACROSS_SHARE = 1 / 5;
+/**
+ * jitterAlong="diagonal": the spread across y = x, as a share of the spread
+ * along it. A caller that words the resulting bound (y − x moves by at most
+ * jitter × ACROSS_SHARE) reads it from here, so the words follow the code.
+ */
+export const ACROSS_SHARE = 1 / 5;
 
 /** A point placed on the plot: its colour and its centre in px, jitter included. */
 export interface PlacedDot {

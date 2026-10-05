@@ -1,8 +1,8 @@
 import {useRef} from 'react';
-import {SPACING, useContainerWidth} from '../app-bridge';
+import {useContainerWidth} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {fmtDay, fmtInt} from '../ui/format';
-import {LABEL_SIZE, px} from './axis';
+import {LABEL_SIZE, TICK_GAP, px} from './axis';
 import {AxisGrid, ChartPlot, ChartSvg, EmptyChart} from './ChartSvg';
 import {ChartTooltip, type TooltipContent} from './ChartTooltip';
 import {
@@ -33,13 +33,23 @@ interface LineChartProps {
   area?: boolean;
   /** Axis ticks, end labels and tooltip values (default fmtInt). */
   yFormat?: (n: number) => string;
-  /** X labels and tooltip titles (default fmtDay, which leaves a non-day as it is). */
+  /** X labels, and the tooltip titles unless `titleFormat` words them (default fmtDay, which leaves a non-day as it is). */
   xFormat?: (x: string) => string;
+  /**
+   * The tooltip's title, and the slider's value text's lead-in, for an x
+   * (default xFormat). It words an x in full where the axis can only abbreviate
+   * it: "Week of Sep 14" over a "Sep 14" label.
+   */
+  titleFormat?: (x: string) => string;
   /** The x values to label. Default: the first, the quarter points and the last. */
   xTicks?: readonly string[];
   /** A labelled hairline at this value, inside the y domain (R2: zero gap). */
   baseline?: number;
-  /** The baseline's label (default: yFormat(baseline)). */
+  /**
+   * The baseline's label (default: yFormat(baseline)). It prints in the y
+   * gutter at the baseline, as a tick label does, and a tick whose label would
+   * meet it prints none, so a line near the baseline never strikes it through.
+   */
   baselineLabel?: string;
   /** Shown in place of the plot when no series has a point (default "No data to chart."). */
   emptyText?: string;
@@ -64,10 +74,10 @@ const WRAP: React.CSSProperties = {minWidth: 0};
 const LINE_WIDTH = 2;
 const AREA_OPACITY = 0.1;
 
-/** The chart's formats: y values (ticks, end labels, tooltip values) and x values (labels, tooltip titles). */
+/** The chart's formats: y values (ticks, end labels, tooltip values), and an x's tooltip title. */
 interface LineFormats {
   yFormat: (n: number) => string;
-  xFormat: (x: string) => string;
+  titleFormat: (x: string) => string;
 }
 
 /**
@@ -122,7 +132,7 @@ function areaPath(points: ReadonlyArray<PlotPoint | null>, zero: number): string
 /** The tooltip at x `index`: the x, then every series' value there, "—" for one with none. */
 function tooltipAt(series: readonly LineSeries[], layout: LineLayout, formats: LineFormats, index: number): TooltipContent {
   return {
-    title: formats.xFormat(layout.xs[index]),
+    title: formats.titleFormat(layout.xs[index]),
     rows: series.map((s, si) => {
       const v = layout.values[si][index];
       return {label: s.label, value: v == null ? '—' : formats.yFormat(v), color: s.color};
@@ -130,21 +140,34 @@ function tooltipAt(series: readonly LineSeries[], layout: LineLayout, formats: L
   };
 }
 
-/** The labelled hairline at the baseline value. */
-function Baseline({layout, y, label}: {layout: LineLayout; y: number; label: string}) {
+/**
+ * The hairline at the baseline value, labelled in the y gutter at its y and set
+ * as a tick label is (AxisGrid), right-aligned against the plot. Inside the
+ * plot a line near the baseline would strike the label through; the gutter is
+ * clear of the data. lineLayout blanks the tick label it would meet.
+ */
+function Baseline({layout, baseline}: {layout: LineLayout; baseline: NonNullable<LineLayout['baseline']>}) {
+  const y = px(baseline.y);
   return (
     <g data-baseline>
       <line
         x1={layout.left}
         x2={layout.left + layout.plotWidth}
-        y1={px(y)}
-        y2={px(y)}
+        y1={y}
+        y2={y}
         stroke={ADMIN_COLORS.strongBorder}
         strokeWidth={1}
         shapeRendering="crispEdges"
       />
-      <text x={layout.left + SPACING.xs} y={px(y - SPACING.xs)} fontSize={LABEL_SIZE} fill={ADMIN_COLORS.muted}>
-        {label}
+      <text
+        x={layout.left - TICK_GAP}
+        y={y}
+        textAnchor="end"
+        dominantBaseline="middle"
+        fontSize={LABEL_SIZE}
+        fill={ADMIN_COLORS.muted}
+        style={{fontVariantNumeric: 'tabular-nums'}}>
+        {baseline.label}
       </text>
     </g>
   );
@@ -255,6 +278,7 @@ export function LineChart({
   area = false,
   yFormat = fmtInt,
   xFormat = fmtDay,
+  titleFormat = xFormat,
   xTicks,
   baseline,
   baselineLabel,
@@ -264,7 +288,16 @@ export function LineChart({
 }: LineChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const measured = useContainerWidth(wrapRef);
-  const layout = lineLayout(chartWidth(measured), series, {height, yFormat, xFormat, xTicks, baseline, yDomain, fixedGutters});
+  const layout = lineLayout(chartWidth(measured), series, {
+    height,
+    yFormat,
+    xFormat,
+    xTicks,
+    baseline,
+    baselineLabel,
+    yDomain,
+    fixedGutters,
+  });
   const cursor = useChartCursor(layout.xs.length);
 
   if (layout.xs.length === 0) {
@@ -275,7 +308,7 @@ export function LineChart({
     );
   }
 
-  const contentAt = (i: number) => tooltipAt(series, layout, {xFormat, yFormat}, i);
+  const contentAt = (i: number) => tooltipAt(series, layout, {yFormat, titleFormat}, i);
   const active = cursor.index;
   return (
     <div ref={wrapRef} style={WRAP}>
@@ -287,9 +320,7 @@ export function LineChart({
         height={layout.svgHeight}>
         <ChartSvg width={layout.width} height={layout.svgHeight}>
           <AxisGrid ticks={layout.ticks} left={layout.left} right={layout.left + layout.plotWidth} />
-          {layout.baseline && (
-            <Baseline layout={layout} y={layout.baseline.y} label={baselineLabel ?? yFormat(layout.baseline.value)} />
-          )}
+          {layout.baseline && <Baseline layout={layout} baseline={layout.baseline} />}
           <SeriesMarks series={series} layout={layout} area={area} />
           {layout.xLabels.map((label) => (
             <text

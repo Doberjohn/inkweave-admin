@@ -3,11 +3,15 @@ import {LineChart} from '../../../charts/LineChart';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
+import {bucketTitle} from '../activity/activityChart';
 import {gapDomain, weeklyTable, type WeeklyGap} from './chartData';
 
 /** The two plots' heights in px: the gap is the story, the score votes its context. */
 const GAP_HEIGHT = 160;
 const VOTES_HEIGHT = 72;
+
+/** A week's tooltip title and slider text, "Week of Sep 14", as the activity charts word a week. The axis keeps the short "Sep 14". */
+const weekTitle = (week: string) => bucketTitle(week, 'week');
 
 const MUTED: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.label, color: ADMIN_COLORS.muted};
 
@@ -65,6 +69,7 @@ export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
               height={GAP_HEIGHT}
               yFormat={fmtGap}
               xFormat={fmtDay}
+              titleFormat={weekTitle}
               xTicks={[]}
               baseline={0}
               baselineLabel="No gap"
@@ -86,6 +91,7 @@ export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
               area
               yFormat={fmtInt}
               xFormat={fmtDay}
+              titleFormat={weekTitle}
               fixedGutters
             />
           </>

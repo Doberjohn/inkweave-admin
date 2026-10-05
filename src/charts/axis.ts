@@ -14,7 +14,7 @@ export const LABEL_SIZE = ADMIN_TYPE.micro;
 /** The air between a tick label and the plot. */
 export const TICK_GAP = SPACING.sm;
 
-/** One y tick: its value, its label and its y in px. */
+/** One y tick: its value, its label and its y in px. An empty label keeps the gridline and prints no text (AxisGrid). */
 export interface AxisTick {
   value: number;
   label: string;
@@ -48,9 +48,13 @@ export function wholeTicks(top: number, integers: boolean): number[] {
   return integers && !ticks.every(Number.isInteger) ? axisTicks(top, 2) : ticks;
 }
 
+/** The room left of the plot that `labels` need: the widest one, and the gap to the plot. */
+export function gutterFor(labels: readonly string[]): number {
+  return Math.ceil(Math.max(...labels.map(labelWidth))) + TICK_GAP;
+}
+
 /** The ticks at `values`, labelled with `format` and placed by the chart's y scale. */
 export function yAxis(values: readonly number[], format: (n: number) => string, y: (v: number) => number): YAxis {
   const ticks = values.map((value) => ({value, label: format(value), y: y(value)}));
-  const widest = Math.max(...ticks.map((tick) => labelWidth(tick.label)));
-  return {ticks, gutter: Math.ceil(widest) + TICK_GAP};
+  return {ticks, gutter: gutterFor(ticks.map((tick) => tick.label))};
 }

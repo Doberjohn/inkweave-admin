@@ -2,6 +2,7 @@ import {ChartFrame} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import type {TooltipContent, TooltipRow} from '../../../charts/ChartTooltip';
 import {ScatterChart} from '../../../charts/ScatterChart';
+import {ACROSS_SHARE} from '../../../charts/scatter';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
@@ -67,6 +68,8 @@ export function CalibrationScatter({
 }: CalibrationScatterProps) {
   const byId = new Map(pairs.map((p) => [pairId(p.a, p.b), p]));
   const sharing = sharedScores(pairs);
+  // Out of the JSX: a call inside the ternary's branch is cached with the closures below, so a new selection would re-place every dot.
+  const points = scatterPoints(pairs);
   return (
     <Panel>
       <ChartFrame
@@ -83,7 +86,7 @@ export function CalibrationScatter({
         ) : (
           <>
             <ScatterChart
-              points={scatterPoints(pairs)}
+              points={points}
               series={GAP_SERIES}
               ariaLabel={`Engine score against community score, ${scopeLabel}`}
               xDomain={SCORE_DOMAIN}
@@ -107,8 +110,8 @@ export function CalibrationScatter({
             />
             <p style={NOTE}>
               Each dot slides a little along the line, so pairs on the same scores stay visible, and its height above
-              or below the line stays within {fmtScore(SCATTER_JITTER / 5, 2)} of its gap. The tooltip and the table
-              give the exact values. Select a dot to open its votes.
+              or below the line stays within {fmtScore(SCATTER_JITTER * ACROSS_SHARE, 2)} of its gap. The tooltip and the
+              table give the exact values. Select a dot, or press Enter on the one the chart reads out, to open its votes.
             </p>
           </>
         )}

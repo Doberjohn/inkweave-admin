@@ -62,6 +62,8 @@ const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
 const LIFT_RADIUS = DOT_RADIUS + RING;
 /** The keys that select the dot the slider announces. */
 const SELECT_KEYS = new Set(['Enter', ' ']);
+/** The y = x label's halo: a stroke 3px wide, so 1.5px of page colour shows outside each glyph. */
+const LABEL_HALO = 3;
 
 /** The x axis: a 1px gridline up the plot at each tick (the zero line a step stronger, as AxisGrid draws y), its label below. */
 function XGrid({ticks, layout, format}: {ticks: readonly number[]; layout: ScatterLayout; format: (n: number) => string}) {
@@ -114,17 +116,28 @@ function AxisTitles({layout, xLabel, yLabel}: {layout: ScatterLayout; xLabel: st
   );
 }
 
+/** The y = x line, a solid hairline. It draws under the dots, which sit on it. */
+function DiagonalRule({line}: {line: DiagonalLine}) {
+  return (
+    <g data-diagonal="line">
+      <line x1={px(line.x1)} y1={px(line.y1)} x2={px(line.x2)} y2={px(line.y2)} stroke={ADMIN_COLORS.dim} strokeWidth={1} />
+    </g>
+  );
+}
+
 /**
- * The y = x line, a solid hairline, with its label running along it just
- * inside the top end. The label sits a line's height above it, clear of the r 6
- * discs of the dots on the line (and their jitter across it, under 2px).
+ * The y = x label, running along the line just inside its top end, a line's
+ * height above it, clear of the r 6 discs of the dots on the line (and their
+ * jitter across it, under 2px). It draws after the dots, not with the line: at
+ * a two-up width a row of dots reaches that end of the line and would cover
+ * it. A halo in the page colour, painted under the glyphs, keeps it readable
+ * where a dot still lies behind it.
  */
-function Diagonal({line, label}: {line: DiagonalLine; label: string}) {
+function DiagonalLabel({line, label}: {line: DiagonalLine; label: string}) {
   const radians = (line.angle * Math.PI) / 180;
   const end = {x: px(line.x2 - Math.cos(radians) * SPACING.sm), y: px(line.y2 - Math.sin(radians) * SPACING.sm)};
   return (
-    <g data-diagonal>
-      <line x1={px(line.x1)} y1={px(line.y1)} x2={px(line.x2)} y2={px(line.y2)} stroke={ADMIN_COLORS.dim} strokeWidth={1} />
+    <g data-diagonal="label">
       <text
         x={end.x}
         y={end.y}
@@ -132,7 +145,11 @@ function Diagonal({line, label}: {line: DiagonalLine; label: string}) {
         textAnchor="end"
         transform={`rotate(${px(line.angle)} ${end.x} ${end.y})`}
         fontSize={LABEL_SIZE}
-        fill={ADMIN_COLORS.muted}>
+        fill={ADMIN_COLORS.muted}
+        stroke={ADMIN_COLORS.page}
+        strokeWidth={LABEL_HALO}
+        strokeLinejoin="round"
+        paintOrder="stroke">
         {label}
       </text>
     </g>
@@ -318,8 +335,9 @@ export function ScatterChart({
             <AxisGrid ticks={yAxis(yTicks, tickFormat, layout.y).ticks} left={layout.left} right={layout.left + layout.side} />
             <XGrid ticks={xTicks} layout={layout} format={tickFormat} />
             <AxisTitles layout={layout} xLabel={xLabel} yLabel={yLabel} />
-            {diagonal && layout.diagonal ? <Diagonal line={layout.diagonal} label={diagonal} /> : null}
+            {diagonal && layout.diagonal ? <DiagonalRule line={layout.diagonal} /> : null}
             <Dots dots={drawn} />
+            {diagonal && layout.diagonal ? <DiagonalLabel line={layout.diagonal} label={diagonal} /> : null}
             <LiftedDots selected={selected} active={active} />
           </ChartSvg>
           <DotTooltip dot={active} tooltip={tooltip} layout={layout} />

@@ -72,6 +72,30 @@ describe('ScatterChart: marks', () => {
     expect(screen.getByText('Equal')).toHaveAttribute('dy', '-1em');
   });
 
+  it('draws the y = x line under the dots and its label over them, with a page-coloured halo, under the lifted dots', () => {
+    // At a two-up width a row of dots reaches the line's top end, where the label runs: it must not draw beneath them.
+    const {container} = renderChart({diagonal: 'Equal', selectedKey: 'b'});
+    fireEvent.pointerMove(slider(), at(POINTS[0]));
+    const line = container.querySelector('[data-diagonal="line"]');
+    const label = container.querySelector('[data-diagonal="label"]');
+    const dots = Array.from(container.querySelectorAll('circle[data-key]'));
+    const after = (a: Element | null, b: Element | null) => Boolean(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(after(line, dots[0])).toBe(true);
+    expect(after(dots[dots.length - 1], label)).toBe(true);
+    expect(after(label, container.querySelector('[data-state="selected"]'))).toBe(true);
+    expect(after(label, container.querySelector('[data-state="active"]'))).toBe(true);
+    // The halo: 3px of page colour painted under the glyphs, with round joins, so it reads over any dot.
+    const text = screen.getByText('Equal');
+    expect(text).toHaveAttribute('stroke', ADMIN_COLORS.page);
+    expect(text).toHaveAttribute('stroke-width', '3');
+    expect(text).toHaveAttribute('stroke-linejoin', 'round');
+    expect(text).toHaveAttribute('paint-order', 'stroke');
+    expect(text).toHaveAttribute('fill', ADMIN_COLORS.muted);
+    // The line itself stays a bare hairline: no halo, no label.
+    expect(line?.querySelector('text')).toBeNull();
+    expect(line?.querySelector('line')).toHaveAttribute('stroke', ADMIN_COLORS.dim);
+  });
+
   it('turns the y = x label by the angle of the line itself when the domains differ', () => {
     // Half the y span for the same x run: atan(196 / 392), −26.565°, which the chart rounds to 2 places.
     renderChart({diagonal: 'Equal', yDomain: [0, 20], yTicks: [0, 10, 20]});

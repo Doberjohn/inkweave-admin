@@ -2,7 +2,8 @@ import {describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
-import {fmtGap} from '../../ui/format';
+import {fmtDay, fmtGap} from '../../ui/format';
+import {TICK_GAP} from '../axis';
 import {LINE_END_WIDTH, LINE_Y_AXIS_WIDTH, LineChart, type LineSeries} from '../LineChart';
 import type {SeriesDef} from '../series';
 
@@ -73,6 +74,16 @@ describe('LineChart: marks', () => {
     await userEvent.tab();
     await userEvent.keyboard('{ArrowLeft}');
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', 'Sep 14: — mean gap');
+  });
+
+  it('words the tooltip title and the slider text with titleFormat, and leaves the x labels to xFormat', async () => {
+    const weekOf = (x: string) => `Week of ${fmtDay(x)}`;
+    const {container} = render(<LineChart series={[SEARCHES]} ariaLabel="Events per day" titleFormat={weekOf} />);
+    expect(texts(container, '[data-x-label]')[0]).toBe('Sep 26');
+    await userEvent.tab();
+    await userEvent.keyboard('{Home}');
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', 'Week of Sep 26: 10 Searches');
+    expect(within(tip(container)!).getByText('Week of Sep 26')).toBeInTheDocument();
   });
 
   it('gives a point with no neighbours a dot of its own', () => {
@@ -167,16 +178,36 @@ describe('LineChart: axis and baseline', () => {
     const {container} = render(
       <LineChart series={[gaps]} ariaLabel="Weekly gap" yFormat={fmtGap} baseline={0} baselineLabel="No gap" />,
     );
-    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−0.50', '0.00', '+1.20']);
+    // The zero tick's label gives way to the baseline's; its gridline stays.
+    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−0.50', '+1.20']);
+    expect(container.querySelectorAll('svg > g:not([data-baseline]) > line')).toHaveLength(3);
     const baseline = container.querySelector('g[data-baseline]');
     expect(baseline?.querySelector('line')).toHaveAttribute('stroke', ADMIN_COLORS.strongBorder);
     expect(baseline?.querySelector('text')).toHaveTextContent('No gap');
   });
 
+  it('prints the baseline label in the y gutter at its y, right-aligned as a tick label is', () => {
+    // Inside the plot a line near the baseline would strike the label through.
+    const gaps = seriesOf({id: 'gap', label: 'Mean gap', color: ADMIN_COLORS.accent}, [-0.5, 0.3, 1.2]);
+    const {container} = render(
+      <LineChart series={[gaps]} ariaLabel="Weekly gap" yFormat={fmtGap} baseline={0} baselineLabel="No gap" />,
+    );
+    const line = container.querySelector('g[data-baseline] line');
+    const label = container.querySelector('g[data-baseline] text');
+    const plotLeft = Number(line?.getAttribute('x1'));
+    expect(label).toHaveAttribute('text-anchor', 'end');
+    expect(label).toHaveAttribute('dominant-baseline', 'middle');
+    expect(Number(label?.getAttribute('x'))).toBe(plotLeft - TICK_GAP);
+    expect(label).toHaveAttribute('y', line?.getAttribute('y1'));
+    // The gutter counts it: "No gap" (6 characters, 36px) is wider than "−0.50" (30px), so 36 and the gap.
+    expect(plotLeft).toBe(36 + TICK_GAP);
+  });
+
   it('labels the baseline with its value by default, and keeps an all-negative axis on whole numbers', () => {
     const drop = seriesOf({id: 'drop', label: 'Drop', color: ADMIN_COLORS.over}, [-3, -1]);
     const {container} = render(<LineChart series={[drop]} ariaLabel="Drop" baseline={0} />);
-    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−3', '0']);
+    // The zero tick's label is the baseline's: one "0", in the gutter.
+    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−3']);
     expect(container.querySelector('g[data-baseline] text')).toHaveTextContent('0');
   });
 
@@ -186,7 +217,9 @@ describe('LineChart: axis and baseline', () => {
     const {container} = render(
       <LineChart series={[lopsided]} ariaLabel="Weekly gap" yFormat={fmtGap} baseline={0} yDomain={[-1.5, 1.5]} />,
     );
-    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−1.50', '0.00', '+1.50']);
+    // The zero tick's "0.00" is the baseline's own label here, which sits in the gutter.
+    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−1.50', '+1.50']);
+    expect(container.querySelector('g[data-baseline] text')).toHaveTextContent('0.00');
   });
 
   it('puts each x at the same px in two charts with fixed gutters, whatever their labels need', () => {

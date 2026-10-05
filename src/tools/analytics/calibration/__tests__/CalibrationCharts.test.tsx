@@ -3,12 +3,14 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {LineChart as RealLineChart} from '../../../../charts/LineChart';
+import type {ScatterChart as RealScatterChart} from '../../../../charts/ScatterChart';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {CalibrationScatter} from '../CalibrationScatter';
 import {GapHistogram} from '../GapHistogram';
 import {WeeklyGapTrend} from '../WeeklyGapTrend';
 import {SIX_PAIRS} from '../chartFixtures';
-import {gapDomain, type WeeklyGap} from '../chartData';
+import {SCATTER_JITTER, SCORE_DOMAIN, SCORE_TICKS, gapDomain, type WeeklyGap} from '../chartData';
+import {pairId} from '../calibrationModel';
 
 // jsdom has no ResizeObserver, so the real useContainerWidth stays at 0 and the
 // charts lay out at their fallback widths. One test gives the histogram a real
@@ -31,9 +33,21 @@ vi.mock('../../../../charts/LineChart', async (importOriginal) => {
   return {...actual, LineChart: RecordingLineChart};
 });
 
+// The same for the scatter: the wiring (the line, the jitter, the shared axes) is what CalibrationScatter adds.
+const scatterProps = vi.hoisted(() => [] as Array<ComponentProps<typeof RealScatterChart>>);
+vi.mock('../../../../charts/ScatterChart', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../charts/ScatterChart')>();
+  function RecordingScatterChart(props: ComponentProps<typeof actual.ScatterChart>) {
+    scatterProps.push(props);
+    return <actual.ScatterChart {...props} />;
+  }
+  return {...actual, ScatterChart: RecordingScatterChart};
+});
+
 beforeEach(() => {
   measured.width = 0;
   lineProps.length = 0;
+  scatterProps.length = 0;
 });
 
 /** The tooltip showing `title`. ChartTooltip's root is aria-hidden (R1-3b), so it is found by its text. */
@@ -98,6 +112,35 @@ describe('CalibrationScatter', () => {
   });
 });
 
+describe('CalibrationScatter: wiring', () => {
+  it('draws the y = x line and spreads dots along it, on the shared 1 to 10 axes', () => {
+    const {container} = render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
+    const props = scatterProps.at(-1);
+    // Module constants, so the chart gets the same inputs on every render (R2-4a's note on stable inputs).
+    expect(props?.xDomain).toBe(SCORE_DOMAIN);
+    expect(props?.yDomain).toBe(SCORE_DOMAIN);
+    expect(props?.xTicks).toBe(SCORE_TICKS);
+    expect(props?.yTicks).toBe(SCORE_TICKS);
+    // The note says a dot's height stays within 0.07 of its gap: that holds only when the jitter runs along the line.
+    expect(props?.jitter).toBe(SCATTER_JITTER);
+    expect(props?.jitterAlong).toBe('diagonal');
+    expect(props?.diagonal).toBe('Engine = community');
+    expect(container.querySelector('g[data-diagonal="label"] text')).toHaveTextContent('Engine = community');
+    expect(screen.getByText('Engine score')).toBeInTheDocument();
+    expect(screen.getByText('Community score')).toBeInTheDocument();
+  });
+
+  it('keeps the dots it hands the chart when only the selection changes', () => {
+    const {rerender} = render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
+    const before = scatterProps.at(-1)?.points;
+    rerender(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={{a: '3', b: '4'}} onSelectPair={vi.fn()} />);
+    // A new selection moves a ring, not the dots: the chart keeps its placement for the same points.
+    expect(before).toBeDefined();
+    expect(scatterProps.at(-1)?.selectedKey).toBe(pairId('3', '4'));
+    expect(scatterProps.at(-1)?.points).toBe(before);
+  });
+});
+
 describe('CalibrationScatter: scope, selection, table and footnotes', () => {
   it('names the scope and the count', () => {
     render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
@@ -130,6 +173,8 @@ describe('CalibrationScatter: scope, selection, table and footnotes', () => {
   it('notes the jitter in the chart, and the engine-silent pairs only when given, in both views', async () => {
     const {rerender} = render(<CalibrationScatter pairs={PAIRS} scopeLabel="All pairs" selectedPair={null} onSelectPair={vi.fn()} />);
     expect(screen.getByText(/within 0\.07 of its gap/)).toBeInTheDocument();
+    // A keyboard user is told how to pick a dot: Enter on the one the chart reads out.
+    expect(screen.getByText(/press Enter on the one the chart reads out, to open its votes/)).toBeInTheDocument();
     expect(screen.queryByText(/Not plotted/)).not.toBeInTheDocument();
     rerender(
       <CalibrationScatter pairs={PAIRS} scopeLabel="All pairs" selectedPair={null} onSelectPair={vi.fn()} engineSilentPairs={2} />,
@@ -199,6 +244,15 @@ describe('GapHistogram: bars, labels, table and rule copy', () => {
     expect(labelsAt(300)).toEqual(['≤−5', '−3', '−1', '+1', '+3', '≥+5']);
   });
 
+  it('prints no cap label and keys its legend in squares', () => {
+    const {container} = render(<GapHistogram pairs={PAIRS} scopeLabel="Ramp" />);
+    // The subtitle carries the three shares, so no bar prints a count above it.
+    expect(container.querySelectorAll('[data-cap]')).toHaveLength(0);
+    const legend = screen.getByRole('list', {name: 'Legend'});
+    expect(within(legend).getAllByRole('listitem')).toHaveLength(3);
+    expect(legend.querySelectorAll('rect')).toHaveLength(3);
+  });
+
   it('names the rule when the workspace says so', () => {
     render(<GapHistogram pairs={[]} scopeLabel="Ramp" emptyText="No voted pairs for this rule yet." />);
     expect(screen.getByText('No voted pairs for this rule yet.')).toBeInTheDocument();
@@ -230,6 +284,35 @@ describe('WeeklyGapTrend', () => {
     expect(firstX('votes')).toBe(firstX('gap'));
     expect(endX('gap')).toBeDefined();
     expect(endX('votes')).toBe(endX('gap'));
+  });
+
+  it('draws the votes as a neutral area under an accent gap line, and reads each week from the keyboard', async () => {
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    expect(container.querySelector('path[data-area="votes"]')).toHaveAttribute('fill', ADMIN_COLORS.barNeutral);
+    expect(container.querySelector('path[data-series="votes"]')).toHaveAttribute('stroke', ADMIN_COLORS.barNeutral);
+    // Only the votes are a wash: the gap is a line against its baseline.
+    expect(container.querySelector('path[data-area="gap"]')).toBeNull();
+    expect(container.querySelector('path[data-series="gap"]')).toHaveAttribute('stroke', ADMIN_COLORS.accent);
+    // Each plot names its weeks in full ("Week of Sep 14", as the activity charts do) and formats its own values.
+    const gap = screen.getByRole('slider', {name: 'Weekly mean gap, Ramp'});
+    act(() => gap.focus());
+    await userEvent.keyboard('{Home}');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 14: −0.50 Mean gap');
+    await userEvent.keyboard('{ArrowRight}');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 21: — Mean gap');
+    const votes = screen.getByRole('slider', {name: 'Score votes per week, Ramp'});
+    act(() => votes.focus());
+    await userEvent.keyboard('{End}');
+    expect(votes).toHaveAttribute('aria-valuetext', 'Week of Sep 28: 3 Score votes');
+  });
+
+  it('reads the gap axis as +1.00, No gap, −1.00, and the votes axis in whole numbers', () => {
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    const [gapPlot, votesPlot] = [...container.querySelectorAll('svg')];
+    // The zero tick's label gives way to the baseline's, which sits in the gutter at the same y.
+    expect([...gapPlot.querySelectorAll('svg > g:not([data-baseline]) > text')].map((t) => t.textContent)).toEqual(['−1.00', '+1.00']);
+    expect(gapPlot.querySelector('g[data-baseline] text')).toHaveTextContent('No gap');
+    expect([...votesPlot.querySelectorAll('svg > g > text')].map((t) => t.textContent)).toEqual(['0', '3']);
   });
 
   it('gives a scored week between two quiet ones a dot of its own', () => {
