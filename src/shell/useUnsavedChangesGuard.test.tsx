@@ -4,10 +4,17 @@ import {useState} from 'react';
 import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
 import {useUnsavedChangesGuard, type LeavesPage} from './useUnsavedChangesGuard';
 
+/** What the page saw in each render: its edits, and whether the guard said a navigation is held. */
+const renders: Array<{dirty: boolean; blocked: boolean}> = [];
+beforeEach(() => {
+  renders.length = 0;
+});
+
 /** A page with an "Unsaved edits" switch, links away and to itself, and the guard's answer buttons. */
 function Editor({leaves}: {leaves?: LeavesPage}) {
   const [dirty, setDirty] = useState(false);
   const guard = useUnsavedChangesGuard(dirty, leaves);
+  renders.push({dirty, blocked: guard.blocked});
   return (
     <>
       <h1>Editor</h1>
@@ -133,6 +140,17 @@ describe('useUnsavedChangesGuard', () => {
     expect(router.state.location.pathname).toBe('/editor');
   });
 
+  it('never reports a hold in the render where the edits clear', async () => {
+    const {user} = renderEditor();
+    await user.click(editsSwitch());
+    await user.click(screen.getByRole('link', {name: 'Elsewhere'}));
+    expect(await screen.findByText('Held')).toBeInTheDocument();
+    await user.click(editsSwitch());
+    // The reset effect lands inside the click's act, so only the render log shows a one-render lag.
+    expect(renders.some((render) => render.blocked)).toBe(true);
+    expect(renders.filter((render) => !render.dirty && render.blocked)).toEqual([]);
+  });
+
   it('asks the browser to confirm a tab close or reload only while there are unsaved edits', async () => {
     const {user, unmount} = renderEditor();
     expect(unloadPrevented()).toBe(false);
@@ -143,5 +161,16 @@ describe('useUnsavedChangesGuard', () => {
     await user.click(editsSwitch());
     unmount();
     expect(unloadPrevented()).toBe(false);
+  });
+
+  it('also sets returnValue to true, which Chrome and Edge before 119 need', async () => {
+    const {user} = renderEditor();
+    await user.click(editsSwitch());
+    const event = new Event('beforeunload', {cancelable: true});
+    // jsdom's returnValue setter ignores true, so a spy on the setter is how the assignment shows.
+    const setReturnValue = vi.fn();
+    Object.defineProperty(event, 'returnValue', {configurable: true, get: () => true, set: setReturnValue});
+    window.dispatchEvent(event);
+    expect(setReturnValue).toHaveBeenCalledWith(true);
   });
 });

@@ -38,7 +38,7 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/constants';
 export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
-// The app's overlay contract (#510): portal, scrim, focus trap, Escape, focus
+// The app's overlay contract (inkweave#510): portal, scrim, focus trap, Escape, focus
 // restore and scroll lock. inkweave/no-unshelled-dialogs allows aria-modal only
 // through it, so admin's dialogs render in it.
 export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';

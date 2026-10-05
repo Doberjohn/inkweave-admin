@@ -62,6 +62,16 @@ describe('UnsavedChangesGuard', () => {
     expect(within(dialog).getByRole('button', {name: 'Stay on this page'})).toHaveFocus();
   });
 
+  it('keeps Shift+Tab inside the dialog from the message', async () => {
+    const {user} = renderEditor();
+    const dialog = await tryToLeave(user);
+    await waitFor(() => expect(within(dialog).getByText(MESSAGE)).toHaveFocus());
+    await user.tab({shift: true});
+    // The message is no tabbable control, so the app's trap would not catch this: focus must not climb behind the scrim.
+    expect(within(dialog).getByRole('button', {name: 'Leave this page'})).toHaveFocus();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+  });
+
   it('stays on the page with its edits, and hands focus back to the link', async () => {
     const {router, user} = renderEditor();
     const dialog = await tryToLeave(user);
@@ -76,6 +86,15 @@ describe('UnsavedChangesGuard', () => {
     const {router, user} = renderEditor();
     await tryToLeave(user);
     await user.keyboard('{Escape}');
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+    expect(router.state.location.pathname).toBe('/editor');
+  });
+
+  it('stays on a click on the scrim', async () => {
+    const {router, user} = renderEditor();
+    await tryToLeave(user);
+    // The scrim is DialogShell's aria-hidden backdrop: the only such div in the body.
+    await user.click(document.body.querySelector('div[aria-hidden="true"]') as HTMLElement);
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
     expect(router.state.location.pathname).toBe('/editor');
   });

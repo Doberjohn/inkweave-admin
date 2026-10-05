@@ -52,10 +52,18 @@ interface UnsavedChangesDialogProps {
  * that closes). Every way out but "Leave this page" stays: the Stay button,
  * Escape and the scrim. Focus opens on the message, so a screen reader reads
  * what leaving loses and no single key press leaves; Tab reaches "Stay on this
- * page" first.
+ * page" first, and Shift+Tab goes to "Leave this page", never out of the dialog.
  */
 export function UnsavedChangesDialog({open, message, onStay, onLeave}: UnsavedChangesDialogProps) {
   const messageRef = useRef<HTMLParagraphElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  // Focus opens on the message, which the app's trap does not count as its first
+  // control, so Shift+Tab would climb out of the dialog. Send it to the last button.
+  const wrapBackwards = (event: React.KeyboardEvent) => {
+    if (event.key !== 'Tab' || !event.shiftKey) return;
+    event.preventDefault();
+    (actionsRef.current?.lastElementChild as HTMLElement | null)?.focus();
+  };
   return (
     <DialogShell
       isOpen={open}
@@ -65,10 +73,11 @@ export function UnsavedChangesDialog({open, message, onStay, onLeave}: UnsavedCh
       initialFocusRef={messageRef}
       panelStyle={PANEL}>
       <h2 style={HEADING}>{TITLE}</h2>
-      <p ref={messageRef} tabIndex={-1} style={MESSAGE}>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the message holds focus on open (focus trap) */}
+      <p ref={messageRef} tabIndex={-1} onKeyDown={wrapBackwards} style={MESSAGE}>
         {message}
       </p>
-      <div style={ACTIONS}>
+      <div ref={actionsRef} style={ACTIONS}>
         <CtaButton type="button" onClick={onStay} style={ACTION}>
           Stay on this page
         </CtaButton>
