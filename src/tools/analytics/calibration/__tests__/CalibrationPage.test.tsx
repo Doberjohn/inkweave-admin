@@ -3,7 +3,7 @@ import {act, render, screen, waitFor, waitForElementToBeRemoved, within} from '@
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import type {TuningConfig} from 'inkweave-synergy-engine';
-import {commitTuning} from '../../../tuning/githubClient';
+import {applyTuningEdits, commitTuning} from '../../../tuning/githubClient';
 import type {PairStat, RuleStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from '../../voteLogTypes';
 import {CalibrationPage} from '../CalibrationPage';
@@ -22,6 +22,7 @@ const REPO_URL = 'https://api.github.com/repos/Doberjohn/inkweave';
 const REJECTED_PUBLISH = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 const TUNING_URL =
   'https://api.github.com/repos/Doberjohn/inkweave/contents/packages/synergy-engine/src/data/tuning.json?ref=master';
+const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 
 /**
  * A tuning.json unlike the bundled copy, so a pass proves the page edits the
@@ -126,6 +127,18 @@ const VOTE_LOG: VoteLog = {
   voterCount: 2,
 };
 
+/** applyTuningEdits' own refusal of a tagline edit to Ramp, once the branch holds `onBranch`. */
+function staleRefusal(onBranch: TuningConfig): Error {
+  try {
+    applyTuningEdits(JSON.stringify(onBranch), [
+      {path: ['playstyles', 'ramp', 'tagline'], value: 'From the branch!', expected: 'From the branch'},
+    ]);
+  } catch (e) {
+    return e as Error;
+  }
+  throw new Error('applyTuningEdits accepted a stale value');
+}
+
 const json = (body: unknown) => new Response(JSON.stringify(body), {headers: {'content-type': 'application/json'}});
 /** What Vite and vercel.json serve for an artifact that was never generated. */
 const spaFallback = () => new Response('<!doctype html>', {headers: {'content-type': 'text/html'}});
@@ -220,6 +233,8 @@ describe('CalibrationPage: the analytics notice', () => {
     expect(screen.getByText('Loading the rules…')).toBeInTheDocument();
     // calibrationSubtitle(null) is right only once the load has failed, so the header waits.
     expect(screen.queryByText('No vote analytics yet')).not.toBeInTheDocument();
+    // So does the date: there is none to give yet.
+    expect(screen.queryByText(/Data as of/)).not.toBeInTheDocument();
   });
 
   it.each([
@@ -234,6 +249,7 @@ describe('CalibrationPage: the analytics notice', () => {
     );
     expect(screen.getByText('No vote analytics yet')).toBeInTheDocument();
     expect(screen.queryByText('Loading analytics...')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Data as of/)).not.toBeInTheDocument();
     expect(
       screen.getByText('No rules to show: vote analytics are missing and tuning.json needs a GitHub token.'),
     ).toBeInTheDocument();
@@ -326,6 +342,20 @@ describe('CalibrationPage: selection', () => {
     expect(pairButtons().map((b) => b.getAttribute('aria-label')?.split(':')[0])).toEqual(['Card 1 × Card 2']);
     expect(await aside().findByText('Shared by 2 rules: Location Search, Location Boost')).toBeInTheDocument();
     expect(aside().getByText('Location Search gap')).toBeInTheDocument();
+  });
+
+  it('picks a pair under a tuning key, against the rule it resolves to', async () => {
+    const shared: VoteAnalytics = {
+      ...ANALYTICS,
+      pairs: [pairOf('1', '2', 7, 4, 3, ['location-search']), pairOf('3', '4', 3, 9, 1, ['location-boost'])],
+    };
+    stubFetch({analytics: () => json(shared)});
+    // The key resolves only once tuning.json is read, so this needs the token.
+    const {user} = renderPage('/calibration?rule=location-control', 'tok');
+    await screen.findByText('Location Search · gap −1.20 · 12 votes');
+    await user.click(screen.getByRole('button', {name: /^Card 1 × Card 2:/}));
+    expect(screen.getByRole('button', {name: /^Card 1 × Card 2:/})).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('region', {name: 'Card 1 × Card 2'})).toBeInTheDocument();
   });
 
   it('writes ?rule= when a rule is picked, scoping the pairs, and clears it on a second pick', async () => {
@@ -535,8 +565,53 @@ describe('CalibrationPage: the tuning aside', () => {
     const {user} = renderPage('/calibration', 'tok');
     await user.click(await aside().findByRole('button', {name: 'Forget token'}));
     expect(aside().getByRole('button', {name: 'Save token'})).toBeInTheDocument();
+    // The button went with the error: the gate's field takes focus, not <body> (F2).
+    expect(aside().getByLabelText('GitHub token')).toHaveFocus();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(await ruleRow('Ramp')).toBeInTheDocument();
+  });
+
+  it('hands focus to the loaded editor after Save token: the entry heading', async () => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    const {user} = renderPage('/calibration?rule=ramp');
+    await user.type(aside().getByLabelText('GitHub token'), 'tok');
+    await user.click(aside().getByRole('button', {name: 'Save token'}));
+    const heading = await aside().findByRole('heading', {level: 2, name: 'Live Ramp'});
+    await waitFor(() => expect(heading).toHaveFocus());
+  });
+
+  it('hands focus to the loaded editor after reading tuning.json again: its first heading, with no rule picked', async () => {
+    let reads = 0;
+    stubFetch({tuning: () => (++reads === 1 ? new Response('Bad gateway', {status: 502}) : json(LIVE))});
+    const {user} = renderPage('/calibration', 'tok');
+    expect(await aside().findByRole('alert')).toHaveTextContent('Could not read tuning.json: GitHub 502');
+
+    await user.click(aside().getByRole('button', {name: 'Read tuning.json again'}));
+    const heading = await aside().findByRole('heading', {level: 2, name: 'Pending changes · 0'});
+    await waitFor(() => expect(heading).toHaveFocus());
+  });
+
+  it('keeps the commit link and the tray when the read after a publish fails (C1)', async () => {
+    vi.mocked(commitTuning).mockResolvedValue({commitUrl: COMMIT_URL});
+    let reads = 0;
+    stubFetch({
+      analytics: () => json(ANALYTICS),
+      tuning: () => (++reads === 2 ? new Response('Bad gateway', {status: 502}) : json(LIVE)),
+    });
+    const {user} = renderPage('/calibration?rule=ramp', 'tok');
+    await user.type(await aside().findByRole('textbox', {name: 'Title text'}), '!');
+    await user.click(aside().getByRole('button', {name: 'Publish to master'}));
+
+    // The commit landed, and the read after it failed: both say so, side by side.
+    expect(await aside().findByRole('alert')).toHaveTextContent('Could not read tuning.json: GitHub 502');
+    expect(aside().getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+    expect(aside().getByRole('region', {name: 'Pending changes'})).toBeInTheDocument();
+    expect(aside().getByRole('button', {name: 'Publish to master'})).toHaveFocus();
+
+    await user.click(aside().getByRole('button', {name: 'Read tuning.json again'}));
+    await waitFor(() => expect(aside().queryByRole('alert')).not.toBeInTheDocument());
+    expect(aside().getByRole('link', {name: 'View commit'})).toBeInTheDocument();
+    await waitFor(() => expect(aside().getByRole('heading', {level: 2, name: 'Live Ramp'})).toHaveFocus());
   });
 });
 
@@ -589,6 +664,7 @@ describe('CalibrationPage: unpublished edits (R-19)', () => {
     await user.click(forget);
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(aside().getByRole('button', {name: 'Save token'})).toBeInTheDocument();
+    expect(aside().getByLabelText('GitHub token')).toHaveFocus();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     // The same token saved again is a new workspace: the edit does not come back, and nothing is left to guard.
@@ -610,6 +686,54 @@ describe('CalibrationPage: unpublished edits (R-19)', () => {
     });
     expect(await aside().findByText('No pending changes')).toBeInTheDocument();
     expect(aside().queryByText('Live Ramp · Title · text')).not.toBeInTheDocument();
+  });
+
+  it("says leaving mid-publish won't stop it, since the commit can't be recalled", async () => {
+    vi.mocked(commitTuning).mockReturnValue(new Promise(() => {}));
+    const {router, user} = await stageTitleEdit();
+    await user.click(aside().getByRole('button', {name: 'Publish to master'}));
+    expect(aside().getByRole('button', {name: 'Publishing…'})).toBeDisabled();
+
+    act(() => void router.navigate('/'));
+    const dialog = await screen.findByRole('dialog', {name: 'Leave this page?'});
+    expect(dialog).toHaveTextContent(
+      "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.",
+    );
+    expect(dialog).not.toHaveTextContent('drops them');
+  });
+
+  it('keeps every pending edit, and the tray, when the reload after a stale publish fails', async () => {
+    // The branch changed Ramp's tagline after the page read it: the publish is refused as stale.
+    const onBranch: TuningConfig = {...LIVE, playstyles: {...LIVE.playstyles, ramp: {name: 'Live Ramp', tagline: 'Changed'}}};
+    vi.mocked(commitTuning).mockRejectedValue(staleRefusal(onBranch));
+    let reads = 0;
+    stubFetch({
+      analytics: () => json(ANALYTICS),
+      // The page's read, then the Reload's, which fails, then reading again.
+      tuning: () => [json(LIVE), new Response('Bad gateway', {status: 502}), json(onBranch)][reads++],
+    });
+    const {router, user} = renderPage('/calibration?rule=ramp', 'tok');
+    await user.type(await aside().findByRole('textbox', {name: 'Title text'}), '!');
+    await user.type(aside().getByRole('textbox', {name: 'Tagline text'}), '!');
+    await user.click(aside().getByRole('button', {name: 'Publish to master'}));
+    await user.click(await aside().findByRole('button', {name: 'Reload tuning.json'}));
+
+    expect(await aside().findByText(/^Could not read tuning\.json: GitHub 502/)).toBeInTheDocument();
+    // The edits stay pending, in the tray and under the guard (C1).
+    expect(aside().getByRole('heading', {level: 2, name: 'Pending changes · 2'})).toBeInTheDocument();
+    expect(aside().getByRole('textbox', {name: 'Title text'})).toHaveValue('Live Ramp!');
+    act(() => void router.navigate('/'));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', {name: 'Stay on this page'}));
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+
+    // Reading again settles them as Reload does: the stale tagline goes, the title stays.
+    await user.click(aside().getByRole('button', {name: 'Read tuning.json again'}));
+    expect(
+      await aside().findByText('Reloaded tuning.json. Dropped 1 edit whose value had changed: make it again.'),
+    ).toBeInTheDocument();
+    expect(aside().queryByRole('alert')).not.toBeInTheDocument();
+    expect(aside().getByRole('heading', {level: 2, name: 'Pending changes · 1'})).toBeInTheDocument();
+    expect(aside().getByText('Live Ramp · Title · text')).toBeInTheDocument();
   });
 
   it('lets the page go once the edit is published', async () => {

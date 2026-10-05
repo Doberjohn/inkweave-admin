@@ -1,4 +1,4 @@
-import type {ComponentProps} from 'react';
+import {useState, type ComponentProps} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -52,12 +52,56 @@ function staleRefusal(): string {
 
 const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 
+/** Three edits to Ramp's copy, in the order they were staged. */
+const THREE: PendingEdit[] = (['name', 'tagline', 'description'] as const).map((field) => {
+  const path = ['playstyles', 'ramp', field];
+  return {...EDIT, path, pathKey: JSON.stringify(path), label: `Ramp · ${field}`};
+});
+
+/** The tray over its own pending list, as the tuning hook keeps it: a revert or Clear all removes edits. */
+function LiveTray({initial}: {initial: PendingEdit[]}) {
+  const [pending, setPending] = useState(initial);
+  return trayElement(pending, {
+    onRevert: (pathKey) => setPending((prev) => prev.filter((edit) => edit.pathKey !== pathKey)),
+    onClear: () => setPending([]),
+  });
+}
+
 describe('PendingTray', () => {
   it('reverts one edit by its path key', async () => {
     const onRevert = vi.fn();
     renderTray([EDIT], {onRevert});
-    await userEvent.click(screen.getByRole('button', {name: 'revert'}));
+    await userEvent.click(screen.getByRole('button', {name: 'Revert Title · text'}));
     expect(onRevert).toHaveBeenCalledWith(EDIT.pathKey);
+  });
+
+  it('names each revert button by its edit, starting with the word it shows', () => {
+    renderTray(THREE);
+    expect(screen.getAllByRole('button', {name: /^Revert /}).map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Revert Ramp · name',
+      'Revert Ramp · tagline',
+      'Revert Ramp · description',
+    ]);
+    expect(screen.getByRole('button', {name: 'Revert Ramp · name'})).toHaveTextContent('revert');
+  });
+
+  it('moves focus to the next revert button after a revert, else the previous one, else the heading', async () => {
+    render(<LiveTray initial={THREE} />);
+    await userEvent.click(screen.getByRole('button', {name: 'Revert Ramp · tagline'}));
+    expect(screen.getByRole('button', {name: 'Revert Ramp · description'})).toHaveFocus();
+
+    // The last row has no next one.
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByRole('button', {name: 'Revert Ramp · name'})).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByRole('heading', {level: 2, name: 'Pending changes · 0'})).toHaveFocus();
+  });
+
+  it('moves focus to the heading after Clear all', async () => {
+    render(<LiveTray initial={THREE} />);
+    await userEvent.click(screen.getByRole('button', {name: 'Clear all'}));
+    expect(screen.getByRole('heading', {level: 2, name: 'Pending changes · 0'})).toHaveFocus();
   });
 
   it('clears every edit, and offers Clear all only when there are edits', async () => {
@@ -89,7 +133,7 @@ describe('PendingTray', () => {
 
   it('scrolls its edits inside the tray, so the pinned foot never outgrows the view', () => {
     renderTray([EDIT]);
-    const edits = screen.getByRole('button', {name: 'revert'}).parentElement?.parentElement;
+    const edits = screen.getByRole('button', {name: 'Revert Title · text'}).parentElement?.parentElement;
     // jest-dom's toHaveStyle can't parse vh in jsdom, so this reads the declared style.
     expect(edits?.style).toMatchObject({maxHeight: '30vh', overflowY: 'auto'});
   });

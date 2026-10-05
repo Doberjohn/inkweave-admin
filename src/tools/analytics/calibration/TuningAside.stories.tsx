@@ -125,6 +125,13 @@ export const ReadError: Story = {
   },
 };
 
+// A reload failed after a read had landed: the editor and the tray stay, with the read's error above the tray (C1).
+export const ReloadFailed: Story = {
+  args: {
+    live: {...READY, reloadError: 'GitHub 502 on packages/synergy-engine/src/data/tuning.json: Bad gateway'},
+  },
+};
+
 export const RejectedToken: Story = {
   args: {
     live: {

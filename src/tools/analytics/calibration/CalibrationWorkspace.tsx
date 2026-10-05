@@ -13,6 +13,7 @@ import type {PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
+import type {FocusHandoff} from './focusHandoff';
 import {TuningAside, type TuningState} from './TuningAside';
 import {WeeklyGapTrend} from './WeeklyGapTrend';
 import {
@@ -40,6 +41,8 @@ export interface CalibrationWorkspaceProps {
   onSaveToken: (token: string) => void;
   /** Clears the shared token: the aside's way out when GitHub rejects it (R-26). */
   onForgetToken: () => void;
+  /** Focus waiting for the aside's next view (CalibrationPage's, F2). A story leaves it out. */
+  handoff?: FocusHandoff;
   /** ?rule=: a row id, or a tuning key that findRow resolves to its first rule. */
   selectedId: string | null;
   /** Writes ?rule=; null clears it. */
@@ -329,6 +332,7 @@ export function CalibrationWorkspace({
   tuning,
   onSaveToken,
   onForgetToken,
+  handoff,
   selectedId,
   onSelect,
 }: CalibrationWorkspaceProps) {
@@ -364,6 +368,7 @@ export function CalibrationWorkspace({
           onForgetToken={onForgetToken}
           selected={selection.selected}
           sharedWith={sharedWith(rows, selection.selected)}
+          handoff={handoff}
         />
       </aside>
     </div>

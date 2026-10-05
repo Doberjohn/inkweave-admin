@@ -11,16 +11,17 @@ import {PendingTray} from '../../tuning/components/PendingTray';
 import {TierRow} from '../../tuning/components/TierRow';
 import {tuningFailureKind} from '../../tuning/tuningFailure';
 import {pendingLabel, rowsForSelection, tuningKind, tuningName, type RowSpec} from '../../tuning/tuningRows';
-import type {useLiveTuning} from '../../tuning/useLiveTuning';
+import type {UseLiveTuningResult} from '../../tuning/useLiveTuning';
 import type {PendingEdit, StageArgs, UseTuningAdminResult} from '../../tuning/useTuningAdmin';
 import {biasCopy} from '../biasCopy';
 import {gapColor} from '../gapColor';
 import type {CalibrationRow} from './calibrationModel';
+import {focusUnmoved, useTakeHandoff, type FocusHandoff} from './focusHandoff';
 import {reloadNote} from './reloadNote';
 
 /** Both tuning hooks. They need a token, so R2-6's TunedWorkspace calls them and hands them down. */
 export interface TuningState {
-  live: ReturnType<typeof useLiveTuning>;
+  live: UseLiveTuningResult;
   admin: UseTuningAdminResult;
 }
 
@@ -34,11 +35,24 @@ interface TuningAsideProps {
   selected: CalibrationRow | null;
   /** The rows whose tuningKey is the selected row's (rowsSharingKey): two or more is a shared entry (R-21). */
   sharedWith: CalibrationRow[];
+  /**
+   * Focus waiting for the aside's next view (CalibrationPage's): the token
+   * gate's field takes it, or the first heading of the loaded editor (F2).
+   * Without it, nothing moves focus.
+   */
+  handoff?: FocusHandoff;
 }
 
 type Path = (string | number)[];
 
 const PADDED: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.md, padding: SPACING.xxl};
+// A failed reload's error, over the tray it keeps on screen (C1).
+const READ_ERROR: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: SPACING.sm,
+  marginBottom: SPACING.md,
+};
 
 // R2-6's <aside> stretches to the row, and this column fills it, so the tray sits at
 // the foot of a short aside and sticks to the bottom of the view on a long page.
@@ -124,7 +138,10 @@ function EntryHeader({
     <div style={{display: 'flex', flexDirection: 'column', gap: SPACING.sm}}>
       <p style={EYEBROW}>{eyebrow}</p>
       <div style={TITLE_ROW}>
-        <h2 style={TITLE}>{title}</h2>
+        {/* Takes focus when the editor arrives after the button that asked for it unmounted (F2). */}
+        <h2 tabIndex={-1} style={TITLE}>
+          {title}
+        </h2>
         <p style={GAP}>
           <span style={GAP_LABEL}>{own ? 'Gap' : `${row.name} gap`}</span>{' '}
           <span style={{...GAP_VALUE, color: gapColor(gap)}}>{fmtGap(gap)}</span>
@@ -235,25 +252,65 @@ function SelectedEntry({
   );
 }
 
-/** tuning.json is loaded: the selected entry over the pinned tray. */
+/** A failed read of tuning.json, and its way out: Forget token when GitHub rejected the token (R-26), else read it again. */
+function ReadError({error, onForget, onReadAgain}: {error: string; onForget: () => void; onReadAgain: () => void}) {
+  return (
+    <>
+      <Notice tone="error">Could not read tuning.json: {error}</Notice>
+      {tuningFailureKind(error) === 'rejected-token' ? (
+        <ForgetTokenOffer onForget={onForget} />
+      ) : (
+        <CtaButton type="button" variant="neutral" onClick={onReadAgain} style={{alignSelf: 'flex-start'}}>
+          Read tuning.json again
+        </CtaButton>
+      )}
+    </>
+  );
+}
+
+/** No token: the gate. Its field takes a pending handoff, after Forget token unmounted the button pressed (F2). */
+function TokenGate({onSave, handoff}: {onSave: (token: string) => void; handoff?: FocusHandoff}) {
+  const gateRef = useRef<HTMLDivElement>(null);
+  useTakeHandoff(handoff, gateRef, 'input');
+  return (
+    <div ref={gateRef} style={PADDED}>
+      {/* The gate's own h2 is "GitHub token"; this line says what the token opens. */}
+      <p style={EYEBROW}>Tuning editor</p>
+      <GithubTokenGate onSave={onSave} />
+    </div>
+  );
+}
+
+type ReadyLive = Extract<UseLiveTuningResult, {status: 'ready'}>;
+
+/**
+ * tuning.json is loaded: the selected entry over the pinned tray. A failed
+ * reload keeps both, with its error above the tray (C1), so a publish's commit
+ * link and the pending edits stay in view.
+ */
 function ReadyAside({
-  config,
-  reload,
+  live,
   admin,
   selected,
   sharedWith,
   onForgetToken,
+  handoff,
 }: {
-  config: TuningConfig;
-  reload: TuningState['live']['reload'];
+  live: ReadyLive;
   admin: UseTuningAdminResult;
   selected: CalibrationRow | null;
   sharedWith: CalibrationRow[];
   onForgetToken: () => void;
+  handoff?: FocusHandoff;
 }) {
+  const {config, reloadError, reload} = live;
   // How many edits the last "Reload tuning.json" dropped (R-18); null until one runs, and again once a publish starts.
   const [dropped, setDropped] = useState<number | null>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
+  // A pending handoff goes to the first heading, the entry's or else the tray's, once no read error is up.
+  useTakeHandoff(handoff, columnRef, 'h2', reloadError === undefined);
 
   // The tray shows a failed publish (useTuningAdmin keeps the error); only a success asks for fresh values.
   const publish = () => {
@@ -266,18 +323,37 @@ function ReadyAside({
   // R-18: read tuning.json again, then keep the edits that still apply to it. The admin
   // captured at the click is right: dropStale settles the paths this render knew of. The
   // Reload button goes with the error it answered, so focus moves to the line that says
-  // what the reload did.
+  // what the reload did, unless the user moved it while the read ran (F19).
   const reloadKeepingEdits = () => {
+    const from = document.activeElement;
     void reload().then((next) => {
-      if (!next) return; // The read failed (the aside now says why), or a newer read replaced it.
+      if (!next) return; // The read failed (its error shows above the tray), or a newer read replaced it.
       setDropped(admin.dropStale(next));
-      noteRef.current?.focus();
+      if (focusUnmoved(from)) noteRef.current?.focus();
     });
+  };
+  // After a stale refusal, reading again settles the edits as Reload does, so the
+  // refusal goes with the read error (R2-5 M5). Otherwise its button goes once the
+  // read lands, and the first heading takes focus.
+  const readAgain =
+    admin.error && tuningFailureKind(admin.error) === 'stale-value'
+      ? reloadKeepingEdits
+      : () => {
+          handoff?.request();
+          void reload();
+        };
+  // The rows scroll under the pinned tray, which hides them: a field that takes
+  // focus there scrolls up into view (WCAG 2.4.11).
+  const keepClearOfTray = (event: React.FocusEvent<HTMLDivElement>) => {
+    const trayTop = footRef.current?.getBoundingClientRect().top;
+    if (trayTop !== undefined && event.target.getBoundingClientRect().bottom > trayTop) {
+      event.target.scrollIntoView({block: 'center'});
+    }
   };
 
   return (
-    <div style={COLUMN}>
-      <div style={BODY}>
+    <div ref={columnRef} style={COLUMN}>
+      <div style={BODY} onFocus={keepClearOfTray}>
         <SelectedEntry
           config={config}
           pending={admin.pending}
@@ -286,7 +362,12 @@ function ReadyAside({
           stageEdit={admin.stageEdit}
         />
       </div>
-      <div style={FOOT}>
+      <div ref={footRef} style={FOOT}>
+        {reloadError !== undefined && (
+          <div style={READ_ERROR}>
+            <ReadError error={reloadError} onForget={onForgetToken} onReadAgain={readAgain} />
+          </div>
+        )}
         {/* Mounted with the tray, so its text is announced when it arrives. */}
         <div
           ref={noteRef}
@@ -314,21 +395,13 @@ function ReadyAside({
 
 /**
  * The tuning editor beside the calibration analytics: the token gate, the
- * tuning.json read (loading or failed), then the selected rule's entry over
- * the pinned pending tray. A read or a publish GitHub refused for the token
- * offers "Forget token" (R-26), which asks first when edits are pending; any
- * other failed read offers to read tuning.json again.
+ * tuning.json read (loading, or failed before any read landed), then the
+ * selected rule's entry over the pinned pending tray. A read or a publish
+ * GitHub refused for the token offers "Forget token" (R-26), which asks first
+ * when edits are pending; any other failed read offers to read tuning.json again.
  */
-export function TuningAside({tuning, onSaveToken, onForgetToken, selected, sharedWith}: TuningAsideProps) {
-  if (!tuning) {
-    return (
-      <div style={PADDED}>
-        {/* The gate's own h2 is "GitHub token"; this line says what the token opens. */}
-        <p style={EYEBROW}>Tuning editor</p>
-        <GithubTokenGate onSave={onSaveToken} />
-      </div>
-    );
-  }
+export function TuningAside({tuning, onSaveToken, onForgetToken, selected, sharedWith, handoff}: TuningAsideProps) {
+  if (!tuning) return <TokenGate onSave={onSaveToken} handoff={handoff} />;
   const {live, admin} = tuning;
   const forget = confirmForget(admin.pending.length, onForgetToken);
   if (live.status === 'loading') {
@@ -339,33 +412,25 @@ export function TuningAside({tuning, onSaveToken, onForgetToken, selected, share
     );
   }
   if (live.status === 'error') {
+    // No read has landed, so there is no editor yet: once one does, its first heading takes focus.
+    const readAgain = () => {
+      handoff?.request();
+      void live.reload();
+    };
     return (
       <div style={PADDED}>
-        {/* The aside's one alert (Notice's error tone): R2-6 finds it with within(aside).findByRole('alert'). */}
-        <Notice tone="error">Could not read tuning.json: {live.error}</Notice>
-        {tuningFailureKind(live.error) === 'rejected-token' ? (
-          <ForgetTokenOffer onForget={forget} />
-        ) : (
-          // A failed reload keeps the pending edits (TunedWorkspace holds them): reading again brings them back.
-          <CtaButton
-            type="button"
-            variant="neutral"
-            onClick={() => void live.reload()}
-            style={{alignSelf: 'flex-start'}}>
-            Read tuning.json again
-          </CtaButton>
-        )}
+        <ReadError error={live.error} onForget={forget} onReadAgain={readAgain} />
       </div>
     );
   }
   return (
     <ReadyAside
-      config={live.config}
-      reload={live.reload}
+      live={live}
       admin={admin}
       selected={selected}
       sharedWith={sharedWith}
       onForgetToken={forget}
+      handoff={handoff}
     />
   );
 }

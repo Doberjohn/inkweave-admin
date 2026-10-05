@@ -1,3 +1,4 @@
+import {useRef} from 'react';
 import type {PendingEdit} from '../useTuningAdmin';
 import {COLORS, SPACING, CtaButton, LinkButton} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
@@ -55,7 +56,7 @@ const DIFF: React.CSSProperties = {
   overflowWrap: 'anywhere',
 };
 
-function PendingEditRow({edit, onRevert}: {edit: PendingEdit; onRevert: (pathKey: string) => void}) {
+function PendingEditRow({edit, onRevert}: {edit: PendingEdit; onRevert: () => void}) {
   return (
     <div style={ROW}>
       <div style={{minWidth: 0}}>
@@ -67,15 +68,28 @@ function PendingEditRow({edit, onRevert}: {edit: PendingEdit; onRevert: (pathKey
           <div style={{fontSize: ADMIN_TYPE.label, color: COLORS.error}}>{edit.error}</div>
         )}
       </div>
+      {/* Named by its edit, so a list of buttons tells them apart; the name starts with the visible word (2.5.3). */}
       <LinkButton
         type="button"
         tone="muted"
-        onClick={() => onRevert(edit.pathKey)}
+        aria-label={`Revert ${edit.label}`}
+        onClick={onRevert}
         style={{flexShrink: 0, fontSize: ADMIN_TYPE.small}}>
         revert
       </LinkButton>
     </div>
   );
+}
+
+/**
+ * Where focus goes once the row at `index` is reverted, since its button goes
+ * with it: the next row's revert button, else the previous row's, else the
+ * tray's heading.
+ */
+function focusAfterRevert(edits: HTMLElement | null, index: number, heading: HTMLElement | null) {
+  const rows = edits?.children;
+  const neighbour = rows?.[index + 1] ?? rows?.[index - 1];
+  (neighbour?.querySelector<HTMLElement>('button') ?? heading)?.focus();
 }
 
 /**
@@ -120,14 +134,28 @@ export function PendingTray({
   onReload,
   onForgetToken,
 }: PendingTrayProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const editsRef = useRef<HTMLDivElement>(null);
+  // Reverting or clearing unmounts the button pressed: focus moves on first, never to <body>.
+  const revert = (index: number, pathKey: string) => {
+    focusAfterRevert(editsRef.current, index, headingRef.current);
+    onRevert(pathKey);
+  };
+  const clearAll = () => {
+    headingRef.current?.focus();
+    onClear();
+  };
   return (
     <section aria-label="Pending changes" style={{display: 'flex', flexDirection: 'column', gap: SPACING.sm}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.md}}>
-        <h2 style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
           Pending changes · {pending.length}
         </h2>
         {pending.length > 0 && (
-          <LinkButton type="button" tone="muted" onClick={onClear} style={{fontSize: ADMIN_TYPE.small}}>
+          <LinkButton type="button" tone="muted" onClick={clearAll} style={{fontSize: ADMIN_TYPE.small}}>
             Clear all
           </LinkButton>
         )}
@@ -136,9 +164,9 @@ export function PendingTray({
       {pending.length === 0 ? (
         <p style={{margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>No pending changes</p>
       ) : (
-        <div style={EDITS}>
-          {pending.map((edit) => (
-            <PendingEditRow key={edit.pathKey} edit={edit} onRevert={onRevert} />
+        <div ref={editsRef} style={EDITS}>
+          {pending.map((edit, index) => (
+            <PendingEditRow key={edit.pathKey} edit={edit} onRevert={() => revert(index, edit.pathKey)} />
           ))}
         </div>
       )}

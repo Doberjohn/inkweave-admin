@@ -1,12 +1,13 @@
 import {useState} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {act, render, screen, within} from '@testing-library/react';
+import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {TuningConfig} from 'inkweave-synergy-engine';
-import {applyTuningEdits} from '../../../tuning/githubClient';
+import {applyTuningEdits, type TuningEdit} from '../../../tuning/githubClient';
 import {useTuningAdmin} from '../../../tuning/useTuningAdmin';
 import type {RuleStat} from '../../voteAnalyticsTypes';
 import type {CalibrationRow} from '../calibrationModel';
+import {useFocusHandoff} from '../focusHandoff';
 import {TuningAside, type TuningState} from '../TuningAside';
 
 // Publishes go through commitTuning; each test decides how it settles. The
@@ -75,13 +76,28 @@ const TAGLINE_CHANGED: TuningConfig = {
   playstyles: {...CONFIG.playstyles, ramp: {name: 'Ramp', tagline: 'Ink faster'}},
 };
 
-const REJECTED_READ ='GitHub 401 on packages/synergy-engine/src/data/tuning.json: {"message":"Bad credentials"}';
+// The app removed Ramp's entry on the branch after the editor read it.
+const RAMP_GONE: TuningConfig = {...CONFIG, playstyles: {dwarfs: {name: 'Dwarfs', tagline: 'Go wide'}}};
+
+// tuning.json once "Ramp!" is published.
+const PUBLISHED: TuningConfig = {
+  ...CONFIG,
+  playstyles: {...CONFIG.playstyles, ramp: {name: 'Ramp!', tagline: 'Ink fast'}},
+};
+
+const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
+const BAD_GATEWAY = 'GitHub 502 on packages/synergy-engine/src/data/tuning.json: Bad gateway';
+const REJECTED_READ = 'GitHub 401 on packages/synergy-engine/src/data/tuning.json: {"message":"Bad credentials"}';
 const REJECTED_PUBLISH = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 
+/** What a reload reads: a config, an Error when the read fails, or null when a newer read replaces it. */
+type ReloadResult = TuningConfig | Error | null;
+
 /**
- * The real edit hook and a live read that is ready with CONFIG, as R2-6's
- * TunedWorkspace hands them down. `live` replaces the read; a reload reads
- * `reloadTo()` and shows it, as useLiveTuning does.
+ * The real edit hook, a live read that is ready with CONFIG, and a focus
+ * handoff, as CalibrationPage hands them down. `live` replaces the read. A
+ * reload reads `reloadTo()` and shows it as useLiveTuning does: a failed read
+ * keeps the values on screen beside its reason, and a replaced one changes nothing.
  */
 function Harness({
   selected = null,
@@ -93,18 +109,22 @@ function Harness({
   selected?: CalibrationRow | null;
   sharedWith?: CalibrationRow[];
   live?: Live;
-  /** What a reload reads, or null when the read fails or a newer one replaces it: nothing then reaches the screen. */
-  reloadTo?: () => TuningConfig | null;
+  reloadTo?: () => ReloadResult | Promise<ReloadResult>;
   onForgetToken?: () => void;
 }) {
-  const [config, setConfig] = useState(CONFIG);
+  const [read, setRead] = useState<{config: TuningConfig; reloadError?: string}>({config: CONFIG});
   const admin = useTuningAdmin('tok');
+  const handoff = useFocusHandoff();
   const ready: Live = {
     status: 'ready',
-    config,
+    ...read,
     reload: async () => {
-      const next = reloadTo();
-      if (next) setConfig(next);
+      const next = await reloadTo();
+      if (next instanceof Error) {
+        setRead((prev) => ({config: prev.config, reloadError: next.message}));
+        return null;
+      }
+      if (next) setRead({config: next});
       return next;
     },
   };
@@ -115,16 +135,17 @@ function Harness({
       onForgetToken={onForgetToken}
       selected={selected}
       sharedWith={sharedWith}
+      handoff={handoff}
     />
   );
 }
 
-/** applyTuningEdits' own refusal of the tagline edit, once the branch holds `onBranch`. */
-function staleRefusal(onBranch: TuningConfig): Error {
+const TAGLINE_EDIT: TuningEdit = {path: ['playstyles', 'ramp', 'tagline'], value: 'Ink fast!', expected: 'Ink fast'};
+
+/** applyTuningEdits' own refusal of `edit` (the tagline's by default), once the branch holds `onBranch`. */
+function staleRefusal(onBranch: TuningConfig, edit: TuningEdit = TAGLINE_EDIT): Error {
   try {
-    applyTuningEdits(JSON.stringify(onBranch), [
-      {path: ['playstyles', 'ramp', 'tagline'], value: 'Ink fast!', expected: 'Ink fast'},
-    ]);
+    applyTuningEdits(JSON.stringify(onBranch), [edit]);
   } catch (e) {
     return e as Error;
   }
@@ -132,7 +153,9 @@ function staleRefusal(onBranch: TuningConfig): Error {
 }
 
 const title = () => screen.getByRole('textbox', {name: 'Title text'});
+const tagline = () => screen.getByRole('textbox', {name: 'Tagline text'});
 const tray = () => within(screen.getByRole('region', {name: 'Pending changes'}));
+const publishButton = () => screen.getByRole('button', {name: 'Publish to master'});
 
 async function renameRamp(to: string) {
   await userEvent.clear(title());
@@ -190,26 +213,27 @@ describe('TuningAside, by state', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('asks before Forget token drops pending edits, when GitHub rejects the token on the read', async () => {
+  it('asks before Forget token drops pending edits, when GitHub rejects the token on a reload', async () => {
     const onForgetToken = vi.fn();
-    const rejected: Live = {status: 'error', error: REJECTED_READ, reload: vi.fn()};
+    const rejected: Live = {status: 'ready', config: CONFIG, reloadError: REJECTED_READ, reload: vi.fn()};
     const {rerender} = render(<Harness selected={RAMP} onForgetToken={onForgetToken} />);
     await renameRamp('Ramp!');
-    await userEvent.type(screen.getByRole('textbox', {name: 'Tagline text'}), '!');
+    await userEvent.type(tagline(), '!');
 
-    // The same Harness keeps useTuningAdmin's state, so both edits stay pending under the error.
+    // The same Harness keeps useTuningAdmin's state. A failed reload keeps the editor
+    // and both edits on screen, with the read's error and its way out above the tray (C1).
     rerender(<Harness selected={RAMP} live={rejected} onForgetToken={onForgetToken} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(`Could not read tuning.json: ${REJECTED_READ}`);
+    expect(tray().getByRole('heading', {level: 2, name: 'Pending changes · 2'})).toBeInTheDocument();
+    expect(title()).toHaveValue('Ramp!');
+    // Reading again with the same token would fail the same way.
+    expect(screen.queryByRole('button', {name: 'Read tuning.json again'})).not.toBeInTheDocument();
+
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(confirm).toHaveBeenCalledWith('Forget the token and drop 2 unpublished edits?');
     expect(onForgetToken).not.toHaveBeenCalled();
 
-    // Declined: the token stays, and the read coming back finds both edits still pending.
-    rerender(<Harness selected={RAMP} onForgetToken={onForgetToken} />);
-    expect(tray().getByRole('heading', {level: 2, name: 'Pending changes · 2'})).toBeInTheDocument();
-    expect(title()).toHaveValue('Ramp!');
-
-    rerender(<Harness selected={RAMP} live={rejected} onForgetToken={onForgetToken} />);
     confirm.mockReturnValue(true);
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(onForgetToken).toHaveBeenCalledOnce();
@@ -279,8 +303,34 @@ describe('TuningAside, editing', () => {
     render(<Harness selected={RAMP} />);
     await renameRamp('Ramp!');
 
-    await userEvent.click(tray().getByRole('button', {name: 'revert'}));
+    await userEvent.click(tray().getByRole('button', {name: 'Revert Ramp · Title · text'}));
     expect(title()).toHaveValue('Ramp');
+  });
+
+  it("ties an invalid edit's error to its field and the tray, and holds Publish until it is fixed", async () => {
+    render(<Harness selected={SHIFT} sharedWith={[SHIFT]} />);
+    const label = screen.getByRole('textbox', {name: 'Label text'});
+    await userEvent.clear(label);
+    expect(label).toHaveAccessibleDescription('Text cannot be empty');
+    expect(label).toHaveAttribute('aria-invalid', 'true');
+
+    const score = screen.getByRole('spinbutton', {name: 'curve.gap3 score'});
+    await userEvent.clear(score);
+    await userEvent.type(score, '11');
+    expect(score).toHaveAccessibleDescription('Score must be an integer 1-10');
+    expect(score).toHaveAttribute('aria-invalid', 'true');
+
+    // The tray prints each invalid edit's reason in place of a diff.
+    expect(tray().getByText('Text cannot be empty')).toBeInTheDocument();
+    expect(tray().getByText('Score must be an integer 1-10')).toBeInTheDocument();
+    expect(publishButton()).toBeDisabled();
+
+    await userEvent.type(label, 'Shift onto it');
+    await userEvent.clear(score);
+    await userEvent.type(score, '7');
+    expect(label).not.toHaveAttribute('aria-invalid');
+    expect(score).not.toHaveAttribute('aria-invalid');
+    expect(publishButton()).toBeEnabled();
   });
 
   it("labels a pending edit with the entry's name", async () => {
@@ -320,6 +370,29 @@ describe('TuningAside, publishing', () => {
     await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledOnce());
   });
 
+  it('keeps the commit link and the tray when the read after a publish fails, and says why above the tray', async () => {
+    commitTuning.mockResolvedValue({commitUrl: COMMIT_URL});
+    const reloadTo = vi.fn<() => ReloadResult>(() => new Error(BAD_GATEWAY));
+    render(<Harness selected={RAMP} reloadTo={reloadTo} />);
+    await renameRamp('Ramp!');
+    await userEvent.click(publishButton());
+
+    // The commit landed: the read's failure must not read as the publish's (C1).
+    expect(await screen.findByRole('alert')).toHaveTextContent(`Could not read tuning.json: ${BAD_GATEWAY}`);
+    expect(screen.getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+    expect(tray().getByRole('heading', {level: 2, name: 'Pending changes · 0'})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 2, name: 'Ramp'})).toBeInTheDocument();
+    expect(publishButton()).toHaveFocus();
+
+    reloadTo.mockReturnValue(PUBLISHED);
+    await userEvent.click(screen.getByRole('button', {name: 'Read tuning.json again'}));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(title()).toHaveValue('Ramp!');
+    expect(screen.getByRole('link', {name: 'View commit'})).toBeInTheDocument();
+    // The button went with the error it answered: focus goes to the entry's heading, not <body> (F2).
+    expect(screen.getByRole('heading', {level: 2, name: 'Ramp!'})).toHaveFocus();
+  });
+
   it('keeps the values it has when a publish fails, and says why in an alert', async () => {
     commitTuning.mockRejectedValue(new Error('GitHub 422 on /refs: not a fast forward'));
     const reloadTo = vi.fn(() => CONFIG);
@@ -352,14 +425,18 @@ describe('TuningAside, publishing', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'playstyles.ramp.tagline changed since the editor loaded it (now "Ink faster")',
     );
+    // The note's live region is in place, empty, before the reload fills it: one mounted with its text often goes unannounced.
+    const [before] = screen.getAllByRole('status');
+    expect(before).toBeEmptyDOMElement();
 
     await userEvent.click(screen.getByRole('button', {name: 'Reload tuning.json'}));
     const note = await screen.findByText('Reloaded tuning.json. Dropped 1 edit whose value had changed: make it again.');
+    expect(note).toBe(before);
     expect(note).toHaveAttribute('role', 'status');
     expect(note).toHaveFocus();
     expect(reloadTo).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(tray().getAllByRole('button', {name: 'revert'})).toHaveLength(1);
+    expect(tray().getAllByRole('button', {name: /^Revert /})).toHaveLength(1);
     expect(tray().getByText('Ramp · Title · text')).toBeInTheDocument();
     expect(title()).toHaveValue('Ramp!');
     expect(screen.getByRole('textbox', {name: 'Tagline text'})).toHaveValue('Ink faster');
@@ -381,17 +458,44 @@ describe('TuningAside, publishing', () => {
     const note = await screen.findByText('Reloaded tuning.json. Every pending edit still applies.');
     expect(note).toHaveAttribute('role', 'status');
     expect(note).toHaveFocus();
-    expect(tray().getAllByRole('button', {name: 'revert'})).toHaveLength(1);
+    expect(tray().getAllByRole('button', {name: /^Revert /})).toHaveLength(1);
   });
 
-  it('keeps every pending edit when the reload read nothing, with the error still on screen', async () => {
+  it("leaves focus where the user put it while the reload read, and still says what it did", async () => {
     commitTuning.mockRejectedValue(staleRefusal(TAGLINE_CHANGED));
-    // The read failed, or a newer one replaced it: dropStale must never see "no config".
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    render(
+      <Harness
+        selected={RAMP}
+        reloadTo={async () => {
+          await gate;
+          return TAGLINE_CHANGED;
+        }}
+      />,
+    );
+    await userEvent.type(tagline(), '!');
+    await userEvent.click(publishButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('changed since the editor loaded it');
+
+    await userEvent.click(screen.getByRole('button', {name: 'Reload tuning.json'}));
+    // A GitHub read takes a moment, and the user moves on to the title meanwhile.
+    await userEvent.click(title());
+    await act(async () => release());
+
+    expect(await screen.findByText('Reloaded tuning.json. Dropped 1 edit whose value had changed: make it again.')).toBeInTheDocument();
+    expect(title()).toHaveFocus();
+  });
+
+  it("keeps every pending edit, and the error, when a newer read replaces the reload's", async () => {
+    commitTuning.mockRejectedValue(staleRefusal(TAGLINE_CHANGED));
+    // A newer read replaced it, so the reload resolves with nothing: dropStale must never see "no config".
+    // A failed read is CalibrationPage's case: there the real hook keeps the values beside the read's error.
     const reloadTo = vi.fn(() => null);
     render(<Harness selected={RAMP} reloadTo={reloadTo} />);
     await renameRamp('Ramp!');
-    await userEvent.type(screen.getByRole('textbox', {name: 'Tagline text'}), '!');
-    await userEvent.click(screen.getByRole('button', {name: 'Publish to master'}));
+    await userEvent.type(tagline(), '!');
+    await userEvent.click(publishButton());
     expect(await screen.findByRole('alert')).toHaveTextContent('changed since the editor loaded it');
 
     await userEvent.click(screen.getByRole('button', {name: 'Reload tuning.json'}));
@@ -401,6 +505,26 @@ describe('TuningAside, publishing', () => {
     expect(tray().getByRole('heading', {level: 2, name: 'Pending changes · 2'})).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('changed since the editor loaded it');
     expect(screen.queryByText(/^Reloaded tuning\.json/)).not.toBeInTheDocument();
+  });
+
+  it("offers Reload when the edit's entry is gone from the branch, and Reload drops the edit", async () => {
+    commitTuning.mockRejectedValue(
+      staleRefusal(RAMP_GONE, {path: ['playstyles', 'ramp', 'name'], value: 'Ramp!', expected: 'Ramp'}),
+    );
+    render(<Harness selected={RAMP} reloadTo={() => RAMP_GONE} />);
+    await renameRamp('Ramp!');
+    await userEvent.click(publishButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'playstyles.ramp.name changed since the editor loaded it (now missing). Reload tuning.json and make the edit again.',
+    );
+
+    await userEvent.click(screen.getByRole('button', {name: 'Reload tuning.json'}));
+    expect(
+      await screen.findByText('Reloaded tuning.json. Dropped 1 edit whose value had changed: make it again.'),
+    ).toHaveFocus();
+    expect(tray().getByRole('heading', {level: 2, name: 'Pending changes · 0'})).toBeInTheDocument();
+    // Ramp's scores live elsewhere in tuning.json, so they stay; its playstyle copy went with the entry.
+    expect(screen.queryByRole('textbox', {name: 'Title text'})).not.toBeInTheDocument();
   });
 
   it("publishes a direct entry's score as a number, against the saved score", async () => {
@@ -442,5 +566,27 @@ describe('TuningAside, publishing', () => {
     confirm.mockReturnValue(true);
     await userEvent.click(forget);
     expect(onForgetToken).toHaveBeenCalledOnce();
+  });
+});
+
+describe('TuningAside, the pinned tray', () => {
+  /** A box from `top` to `bottom` in the view, all getBoundingClientRect's callers here read. */
+  const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+
+  it('brings a field that takes focus under the pinned tray up into view (WCAG 2.4.11)', () => {
+    render(<Harness selected={RAMP} />);
+    const foot = screen.getByRole('region', {name: 'Pending changes'}).parentElement as HTMLElement;
+    vi.spyOn(foot, 'getBoundingClientRect').mockReturnValue(box(600, 730));
+    // The title sits clear of the tray; the tagline has scrolled under its top edge.
+    vi.spyOn(title(), 'getBoundingClientRect').mockReturnValue(box(400, 476));
+    vi.spyOn(tagline(), 'getBoundingClientRect').mockReturnValue(box(580, 656));
+    title().scrollIntoView = vi.fn();
+    tagline().scrollIntoView = vi.fn();
+
+    act(() => title().focus());
+    expect(title().scrollIntoView).not.toHaveBeenCalled();
+
+    act(() => tagline().focus());
+    expect(tagline().scrollIntoView).toHaveBeenCalledWith({block: 'center'});
   });
 });
