@@ -4,12 +4,12 @@ import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 
 interface PanelLinkProps {
   to: string;
-  /** The accessible name, when the visible text alone is ambiguous (four "Tune" links). */
+  /** The accessible name, when the visible text alone is ambiguous (four "Tune" or "Inspect" links). */
   label?: string;
   children: ReactNode;
 }
 
-/** A panel's text link ("Open calibration →", "Tune"): a router Link in the accent colour. */
+/** A panel's text link ("Open calibration →", "Tune", "Inspect"): a router Link in the accent colour. */
 export function PanelLink({to, label, children}: PanelLinkProps) {
   return (
     <Link

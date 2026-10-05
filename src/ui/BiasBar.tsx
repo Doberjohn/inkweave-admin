@@ -11,6 +11,11 @@ interface BiasBarProps {
   gap: number | null;
   /** The |gap| that fills a half-track (default 2.5 points). */
   scale?: number;
+  /**
+   * The bar's narrowest width in px (default 64). A grid that sizes the bar's
+   * track itself passes 0, so the bar never runs past its track.
+   */
+  minWidth?: number;
 }
 
 /** Which way the fill leans and how far (percent of the whole track), or null when there is nothing to draw. */
@@ -27,12 +32,12 @@ function fillFor(gap: number | null, scale: number): {direction: 'over' | 'under
  * a positive one, |gap| / scale of a half-track wide and clamped at the end.
  * Decoration (aria-hidden): every use prints the gap beside it with fmtGap.
  */
-export function BiasBar({gap, scale = DEFAULT_SCALE}: BiasBarProps) {
+export function BiasBar({gap, scale = DEFAULT_SCALE, minWidth = 64}: BiasBarProps) {
   const fill = fillFor(gap, scale);
   return (
     <div
       aria-hidden="true"
-      style={{position: 'relative', height: TRACK, minWidth: 64, background: ADMIN_COLORS.barTrack, borderRadius: RADIUS.xs}}>
+      style={{position: 'relative', height: TRACK, minWidth, background: ADMIN_COLORS.barTrack, borderRadius: RADIUS.xs}}>
       {fill && (
         <div
           data-direction={fill.direction}

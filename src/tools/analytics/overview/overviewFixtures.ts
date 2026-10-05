@@ -16,6 +16,7 @@ const rule = (r: RuleSeed): RuleStat => ({...r, pairsVoted: Math.round(r.scoreVo
 const RULES: RuleStat[] = [
   rule({ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle', scoreVotes: 557, meanGap: -0.57}),
   rule({ruleId: 'shift-targets', ruleName: 'Shift Targets', category: 'direct', scoreVotes: 214, meanGap: -0.22}),
+  // A direct rule with no tuning.json copy: its link reads Inspect (R-22).
   rule({ruleId: 'singer-songs', ruleName: 'Singer + Songs', category: 'direct', scoreVotes: 141, meanGap: 0.14}),
   rule({ruleId: 'discard', ruleName: 'Discard', category: 'playstyle', scoreVotes: 103, meanGap: 0.83}),
   // The widest gap of all, on 9 votes: Rules to review leaves it out.
