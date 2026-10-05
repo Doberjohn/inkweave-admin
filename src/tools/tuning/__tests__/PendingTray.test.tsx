@@ -1,6 +1,6 @@
 import type {ComponentProps} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {PendingTray} from '../components/PendingTray';
 import {applyTuningEdits} from '../githubClient';
@@ -18,8 +18,8 @@ const EDIT: PendingEdit = {
   valid: true,
 };
 
-function renderTray(pending: PendingEdit[], props: Partial<ComponentProps<typeof PendingTray>> = {}) {
-  render(
+function trayElement(pending: PendingEdit[], props: Partial<ComponentProps<typeof PendingTray>> = {}) {
+  return (
     <PendingTray
       pending={pending}
       publishDisabled={false}
@@ -30,8 +30,12 @@ function renderTray(pending: PendingEdit[], props: Partial<ComponentProps<typeof
       onClear={() => {}}
       onPublish={() => {}}
       {...props}
-    />,
+    />
   );
+}
+
+function renderTray(pending: PendingEdit[], props: Partial<ComponentProps<typeof PendingTray>> = {}) {
+  return render(trayElement(pending, props));
 }
 
 /** applyTuningEdits' own refusal: the edit expected 'Ramp', and tuning.json now says 'Ramp 2'. */
@@ -130,6 +134,19 @@ describe('PendingTray', () => {
 
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(onForgetToken).toHaveBeenCalledOnce();
+  });
+
+  it('mounts its status line before a publish, so "Published." is announced when it arrives', () => {
+    const commitUrl = 'https://github.com/Doberjohn/inkweave/commit/abc123';
+    const {rerender} = renderTray([]);
+    const status = screen.getByRole('status');
+    expect(status).toBeEmptyDOMElement();
+
+    rerender(trayElement([], {result: {commitUrl}}));
+    // The same element, now filled: a live region mounted with its text often goes unannounced.
+    expect(screen.getByRole('status')).toBe(status);
+    expect(status).toHaveTextContent('Published.');
+    expect(within(status).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', commitUrl);
   });
 
   it('offers no Forget token without onForgetToken', () => {

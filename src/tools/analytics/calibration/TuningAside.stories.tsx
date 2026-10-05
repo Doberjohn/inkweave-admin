@@ -54,14 +54,15 @@ interface AsideStoryProps {
 
 /**
  * The real edit hook, so a story stages, reverts and clears edits as the page
- * does. Publishing needs a real token, and Forget token only asks (with edits
- * pending) and then does nothing.
+ * does. The token is no token at all, and Publish is held disabled: the hook
+ * would otherwise send a real request to api.github.com, so the stories stop
+ * at staging. Forget token only asks (with edits pending) and then does nothing.
  */
 function AsideStory({live, selected, sharedWith}: AsideStoryProps) {
-  const admin = useTuningAdmin('ghp_example');
+  const admin = useTuningAdmin('storybook-no-token');
   return (
     <TuningAside
-      tuning={live ? {live, admin} : null}
+      tuning={live ? {live, admin: {...admin, publishDisabled: true}} : null}
       onSaveToken={() => {}}
       onForgetToken={() => {}}
       selected={selected}
