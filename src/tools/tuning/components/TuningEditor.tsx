@@ -2,6 +2,7 @@ import {useState} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {COLORS, SPACING, FONT_SIZES} from '../../../app-bridge';
 import {useTuningAdmin, type PendingEdit, type StageArgs} from '../useTuningAdmin';
+import {rowsForSelection, type RowSpec} from '../tuningRows';
 import {RuleSelector} from './RuleSelector';
 import {PendingTray} from './PendingTray';
 import {TierRow} from './TierRow';
@@ -12,58 +13,6 @@ interface TuningEditorProps {
   config: TuningConfig;
   /** Called after a successful publish, to reload the live values. */
   onPublished?: () => void;
-}
-
-interface RowSpec {
-  label: string;
-  textPath?: (string | number)[];
-  textValue?: string;
-  scorePath?: (string | number)[];
-  scoreValue?: number;
-}
-
-/** Rows for the Shift Targets tier list — text plus an optional score per tier. */
-function shiftTierRows(config: TuningConfig): RowSpec[] {
-  return Object.entries(config.ruleTexts['shift-targets']).map(([tierKey, entry]) => ({
-    label: tierKey,
-    textPath: ['ruleTexts', 'shift-targets', tierKey, 'text'],
-    textValue: entry.text,
-    scorePath: entry.score !== undefined ? ['ruleTexts', 'shift-targets', tierKey, 'score'] : undefined,
-    scoreValue: entry.score,
-  }));
-}
-
-/** Rows for the Ramp rule — score-only rows plus template-text rows. */
-function rampRows(config: TuningConfig): RowSpec[] {
-  const scores = Object.entries(config.ruleTexts.ramp.scores).map(([k, v]) => ({
-    label: `score · ${k}`,
-    scorePath: ['ruleTexts', 'ramp', 'scores', k],
-    scoreValue: v,
-  }));
-  const templates = Object.entries(config.ruleTexts.ramp.templates).map(([k, t]) => ({
-    label: `template · ${k}`,
-    textPath: ['ruleTexts', 'ramp', 'templates', k],
-    textValue: t,
-  }));
-  return [...scores, ...templates];
-}
-
-/** Build the editable rows for a selected rule id. */
-function rowsForSelection(config: TuningConfig, selectedId: string): RowSpec[] {
-  const rows: RowSpec[] = [];
-  const playstyle = config.playstyles[selectedId];
-  if (playstyle) {
-    rows.push({label: 'Title', textPath: ['playstyles', selectedId, 'name'], textValue: playstyle.name});
-    rows.push({label: 'Tagline', textPath: ['playstyles', selectedId, 'tagline'], textValue: playstyle.tagline});
-  }
-  const direct = config.directRules[selectedId];
-  if (direct) {
-    rows.push({label: 'Label', textPath: ['directRules', selectedId, 'name'], textValue: direct.name});
-    rows.push({label: 'Description', textPath: ['directRules', selectedId, 'description'], textValue: direct.description});
-  }
-  if (selectedId === 'shift-targets') rows.push(...shiftTierRows(config));
-  if (selectedId === 'ramp') rows.push(...rampRows(config));
-  return rows;
 }
 
 type Path = (string | number)[];

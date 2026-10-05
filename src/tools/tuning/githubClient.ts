@@ -39,7 +39,7 @@ export function applyTuningEdits(text: string, edits: TuningEdit[]): string {
     const key = path[path.length - 1];
     if (node[key] !== expected) {
       throw new Error(
-        `${path.join('.')} changed since the editor loaded it (now ${JSON.stringify(node[key])}). Reload the page and make the edit again.`,
+        `${path.join('.')} changed since the editor loaded it (now ${JSON.stringify(node[key])}). Reload tuning.json and make the edit again.`,
       );
     }
     node[key] = value;

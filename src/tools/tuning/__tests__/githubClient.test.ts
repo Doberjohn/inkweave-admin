@@ -35,7 +35,7 @@ describe('applyTuningEdits', () => {
     const before = JSON.stringify({ruleTexts: {ramp: {scores: {density: 7}}}}, null, 2);
     expect(() =>
       applyTuningEdits(before, [{path: ['ruleTexts', 'ramp', 'scores', 'density'], value: 6, expected: 5}]),
-    ).toThrow('ruleTexts.ramp.scores.density changed since the editor loaded it (now 7). Reload the page and make the edit again.');
+    ).toThrow('ruleTexts.ramp.scores.density changed since the editor loaded it (now 7). Reload tuning.json and make the edit again.');
   });
 });
 
