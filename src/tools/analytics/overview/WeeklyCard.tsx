@@ -116,7 +116,7 @@ interface WeeklyCardProps {
  * the y ticks, the tooltip and the table carry the rest. The table view holds
  * the whole window, including weeks a narrow card leaves out. Weekly points
  * come from the raw vote log, so without raw votes the card says how to enable
- * them (RawVotesNotice's copy, minus the panels that now live on Calibration).
+ * them (the copy RawVotesNotice used, minus the panels that now live on Calibration).
  */
 export function WeeklyCard({weekly, hasRawVotes, latestDay}: WeeklyCardProps) {
   if (!hasRawVotes) {

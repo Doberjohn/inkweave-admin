@@ -1,6 +1,6 @@
 # Admin Tuning Editor — engine copy + scores — Design
 
-> Moved from the app repo (`docs/superpowers/specs/2026-07-07-admin-tuning-editor-design.md` at `e70249be`) when P2 ported the tool; P4 deletes the original. Paths below are the app's, from before the move, so they are plain text rather than links. The tool now reads `tuning.json` live instead of the bundled copy, and it reads and commits on the target branch (`VITE_ADMIN_TARGET_BRANCH`, default `master`): where this design says `master`, read the target branch.
+> Moved from the app repo (`docs/superpowers/specs/2026-07-07-admin-tuning-editor-design.md` at `e70249be`) when P2 ported the tool; P4 deletes the original. Paths below are the app's, from before the move, so they are plain text rather than links. The tool now reads `tuning.json` live instead of the bundled copy, and it reads and commits on the target branch (`VITE_ADMIN_TARGET_BRANCH`, default `master`): where this design says `master`, read the target branch. Since the redesign's phase R2 (#24), the editor is the aside of `/calibration`, beside the calibration analytics it tunes, and `/tuning` redirects there.
 
 **Issue**: TBD (to be drafted via `/draft-issue` after spec approval)
 **Date**: 2026-07-07

@@ -229,7 +229,7 @@ function RulesHead({sortKey}: {sortKey: RuleSortKey | null}) {
 /**
  * The rules table on /calibration: one row per selectable rule, sorted by
  * |gap| or by votes (sortCalibrationRows, so tuning-only rows stay last). It
- * replaces RuleCalibrationTable. Rows keep <table> semantics for the columns
+ * replaced RuleCalibrationTable. Rows keep <table> semantics for the columns
  * and are buttons with aria-pressed; click, Enter or Space selects. A rule
  * under LOW_N score votes carries "low n", and a row whose tuning entry has a
  * pending edit carries the gold dot (every rule sharing that entry does).

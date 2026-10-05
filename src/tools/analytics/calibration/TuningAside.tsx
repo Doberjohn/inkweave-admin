@@ -141,7 +141,7 @@ function EntryHeader({
 }
 
 /**
- * One editable row, copied from TuningEditor (which R2-7 deletes). It shows
+ * One editable row, copied from TuningEditor (which R2-7 deleted). It shows
  * the pending value when there is one and the saved value otherwise, so
  * switching rules, reverting and clearing always show what Publish would
  * commit. Its pending edits are labelled with the entry's name.

@@ -14,7 +14,6 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 export {
   ALL_INKS,
-  CAP_LABEL_XS,
   COLORS,
   EASING,
   EMPTY_BOX,
