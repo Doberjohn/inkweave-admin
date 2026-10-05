@@ -84,13 +84,27 @@ interface ChartPlotProps {
    * from a press keeps what the press found. Default: the props as they are.
    */
   extend?: (props: PlotProps) => PlotProps;
+  /** The id of what describes the slider (aria-describedby): how to use it, where the plot works unlike the kit's others. */
+  describedBy?: string;
   children: React.ReactNode;
 }
 
+/**
+ * ChartPlot's default `extend`. At module scope, not inline in the parameters:
+ * an inline arrow default makes React Compiler skip ChartPlot, and nothing
+ * (lint included) says so.
+ */
+const asIs = (props: PlotProps): PlotProps => props;
+
 /** A chart's plot as one slider (useChartCursor), named by `ariaLabel`, holding the drawing and its tooltip. */
-export function ChartPlot({ariaLabel, cursor, valueText, xs, height, extend = (props) => props, children}: ChartPlotProps) {
+export function ChartPlot({ariaLabel, cursor, valueText, xs, height, extend = asIs, describedBy, children}: ChartPlotProps) {
   return (
-    <div className="adm-chart-plot" aria-label={ariaLabel} {...extend(cursor.plotProps(valueText, xs))} style={{position: 'relative', height}}>
+    <div
+      className="adm-chart-plot"
+      aria-label={ariaLabel}
+      aria-describedby={describedBy}
+      {...extend(cursor.plotProps(valueText, xs))}
+      style={{position: 'relative', height}}>
       {children}
     </div>
   );

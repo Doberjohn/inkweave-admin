@@ -54,7 +54,24 @@ export interface ScatterChartProps {
   onSelect?: (key: string) => void;
   /** Shown in place of the plot when there are no points (default "No data to chart."). */
   emptyText?: string;
+  /** The id of what describes the slider (aria-describedby), such as a note on how to select a dot. */
+  describedBy?: string;
 }
+
+/**
+ * What ScatterPlot draws with: the dots ScatterChart placed, in drawing order
+ * (`drawn`, as `points` gives them) and in keyboard order (`walk`), on their
+ * layout, with the chart's props that don't move a dot.
+ */
+type ScatterPlotProps = Omit<
+  ScatterChartProps,
+  'points' | 'series' | 'xDomain' | 'yDomain' | 'tickFormat' | 'jitter' | 'jitterAlong' | 'emptyText'
+> & {
+  layout: ScatterLayout;
+  drawn: readonly PlacedDot[];
+  walk: readonly PlacedDot[];
+  tickFormat: (n: number) => string;
+};
 
 const WRAP: React.CSSProperties = {minWidth: 0};
 const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
@@ -270,6 +287,60 @@ function scatterInput(walk: readonly PlacedDot[], setIndex: (i: number | null) =
 }
 
 /**
+ * The plot over dots ScatterChart has placed: the slider, the drawing and the
+ * tooltip. The cursor lives here, not in ScatterChart, so a hover, an arrow
+ * key or a new selection re-renders this alone: the lifted dots, the ring and
+ * the tooltip move, and the placed dots (`<Dots>`, every point's two circles)
+ * keep their render. With the cursor beside the placing, React Compiler
+ * cached the two in one block, and every move of the cursor placed every dot
+ * again.
+ */
+function ScatterPlot({
+  layout,
+  drawn,
+  walk,
+  ariaLabel,
+  xTicks,
+  yTicks,
+  xLabel,
+  yLabel,
+  tickFormat,
+  diagonal,
+  tooltip,
+  selectedKey = null,
+  onSelect,
+  describedBy,
+}: ScatterPlotProps) {
+  const cursor = useChartCursor(walk.length);
+  const active = activeDot(walk, cursor.index);
+  const selected = drawn.find((dot) => dot.point.key === selectedKey) ?? null;
+  return (
+    <div style={{width: layout.width, maxWidth: '100%', cursor: onSelect && active ? 'pointer' : undefined}}>
+      <ChartPlot
+        ariaLabel={ariaLabel}
+        cursor={cursor}
+        valueText={(i) => dotText(walk[i].point, selectedKey)}
+        // Required by ChartPlot, but only the kit's x-only pointer reads it, and `extend` swaps that for the nearest dot.
+        xs={walk.map((dot) => dot.px)}
+        height={layout.height}
+        extend={scatterInput(walk, cursor.setIndex, onSelect)}
+        describedBy={describedBy}>
+        <ChartSvg width={layout.width} height={layout.height}>
+          <AxisGrid ticks={yAxis(yTicks, tickFormat, layout.y).ticks} left={layout.left} right={layout.left + layout.side} />
+          <XGrid ticks={xTicks} layout={layout} format={tickFormat} />
+          <AxisTitles layout={layout} xLabel={xLabel} yLabel={yLabel} />
+          {diagonal && layout.diagonal ? <DiagonalRule line={layout.diagonal} /> : null}
+          <Dots dots={drawn} />
+          {diagonal && layout.diagonal ? <DiagonalLabel line={layout.diagonal} label={diagonal} /> : null}
+          <LiftedDots selected={selected} active={active} />
+        </ChartSvg>
+        <DotTooltip dot={active} tooltip={tooltip} layout={layout} />
+      </ChartPlot>
+    </div>
+  );
+}
+
+/**
  * Two measures per item on one square plot (docs/plans/R-redesign.md, Chart
  * kit), built on the kit's slider: the plot is one ChartPlot whose ← and →
  * walk the dots left to right, reading each dot's label, and the dot nearest
@@ -277,7 +348,11 @@ function scatterInput(walk: readonly PlacedDot[], setIndex: (i: number | null) =
  * opaque, each on its own page-coloured disc, so the ring keeps every edge
  * visible where dots overlap, and `jitter` spreads dots that share exact
  * values. The selected dot lifts too and wears an accent ring, and its value
- * text says ", selected". scatter.ts places everything; this draws it.
+ * text says ", selected". scatter.ts places everything; ScatterPlot draws it.
+ *
+ * This places the dots, from the points, the width and the props that move a
+ * dot, and nothing else: the cursor and the selection live in ScatterPlot, so
+ * neither places them again.
  *
  * The width follows the container (useContainerWidth) up to SCATTER_MAX_WIDTH.
  * Until it is measured, and always in jsdom, it lays out at that maximum.
@@ -285,25 +360,17 @@ function scatterInput(walk: readonly PlacedDot[], setIndex: (i: number | null) =
 export function ScatterChart({
   points,
   series,
-  ariaLabel,
   xDomain,
   yDomain,
-  xTicks,
   yTicks,
-  xLabel,
-  yLabel,
   tickFormat = fmtInt,
-  diagonal,
   jitter = 0,
   jitterAlong = 'both',
-  tooltip,
-  selectedKey = null,
-  onSelect,
   emptyText,
+  ...plot
 }: ScatterChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const measured = useContainerWidth(wrapRef);
-  const cursor = useChartCursor(points.length);
 
   if (points.length === 0) {
     return (
@@ -318,31 +385,9 @@ export function ScatterChart({
   const placing = {series, jitter, jitterAlong};
   const drawn = placeDots(points, layout, placing);
   const walk = placeDots(scatterOrder(points), layout, placing);
-  const active = activeDot(walk, cursor.index);
-  const selected = drawn.find((dot) => dot.point.key === selectedKey) ?? null;
   return (
     <div ref={wrapRef} style={WRAP}>
-      <div style={{width: layout.width, maxWidth: '100%', cursor: onSelect && active ? 'pointer' : undefined}}>
-        <ChartPlot
-          ariaLabel={ariaLabel}
-          cursor={cursor}
-          valueText={(i) => dotText(walk[i].point, selectedKey)}
-          // Required by ChartPlot, but only the kit's x-only pointer reads it, and `extend` swaps that for the nearest dot.
-          xs={walk.map((dot) => dot.px)}
-          height={layout.height}
-          extend={scatterInput(walk, cursor.setIndex, onSelect)}>
-          <ChartSvg width={layout.width} height={layout.height}>
-            <AxisGrid ticks={yAxis(yTicks, tickFormat, layout.y).ticks} left={layout.left} right={layout.left + layout.side} />
-            <XGrid ticks={xTicks} layout={layout} format={tickFormat} />
-            <AxisTitles layout={layout} xLabel={xLabel} yLabel={yLabel} />
-            {diagonal && layout.diagonal ? <DiagonalRule line={layout.diagonal} /> : null}
-            <Dots dots={drawn} />
-            {diagonal && layout.diagonal ? <DiagonalLabel line={layout.diagonal} label={diagonal} /> : null}
-            <LiftedDots selected={selected} active={active} />
-          </ChartSvg>
-          <DotTooltip dot={active} tooltip={tooltip} layout={layout} />
-        </ChartPlot>
-      </div>
+      <ScatterPlot {...plot} layout={layout} drawn={drawn} walk={walk} yTicks={yTicks} tickFormat={tickFormat} />
     </div>
   );
 }

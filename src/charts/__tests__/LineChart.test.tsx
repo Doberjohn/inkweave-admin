@@ -291,6 +291,18 @@ describe('LineChart: crosshair, tooltip and keyboard', () => {
     expect(container.querySelector('[data-cursor]')).toHaveAttribute('data-cursor', '4');
   });
 
+  it('words a missing value with missingText on the slider only, and keeps the dash in the tooltip', async () => {
+    const {container} = render(<LineChart series={[SEARCHES, VIEWS]} ariaLabel="Events per day" missingText="no card views" />);
+    const slider = screen.getByRole('slider');
+    await userEvent.tab();
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    // Only the series with no value on Sep 28 reads the words, in place of its whole "— Card views" row.
+    expect(slider).toHaveAttribute('aria-valuetext', 'Sep 28: 30 Searches, no card views');
+    expect(tip(container)).toHaveTextContent(/30Searches—Card views$/);
+    await userEvent.keyboard('{ArrowRight}');
+    expect(slider).toHaveAttribute('aria-valuetext', 'Sep 29: 25 Searches, 12 Card views');
+  });
+
   it('keys each tooltip row with its series colour', async () => {
     const {container} = render(<LineChart series={[SEARCHES, VIEWS]} ariaLabel="Events per day" />);
     await userEvent.tab();

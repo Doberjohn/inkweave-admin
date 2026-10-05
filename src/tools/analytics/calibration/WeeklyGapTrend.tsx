@@ -73,6 +73,8 @@ export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
               xTicks={[]}
               baseline={0}
               baselineLabel="No gap"
+              // A quiet week has no gap: the slider says why ("Week of Sep 21: no score votes"), the tooltip "—".
+              missingText="no score votes"
               yDomain={gapDomain(weeks)}
               fixedGutters
             />

@@ -28,7 +28,10 @@ export interface LineLayoutOptions {
   xTicks?: readonly string[];
   /** A hairline value the y domain must include. */
   baseline?: number;
-  /** The baseline's label, which prints in the y gutter at the baseline (default: yFormat(baseline)). */
+  /**
+   * The baseline's label, which prints in the y gutter at the baseline
+   * (default: yFormat(baseline)). Keep it short: the gutter grows to fit it.
+   */
   baselineLabel?: string;
   /** The y domain to span in place of a computed one, widened only to keep every value, zero and the baseline on the plot. */
   yDomain?: readonly [number, number];

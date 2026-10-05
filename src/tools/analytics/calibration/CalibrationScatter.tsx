@@ -1,3 +1,4 @@
+import {useId} from 'react';
 import {ChartFrame} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import type {TooltipContent, TooltipRow} from '../../../charts/ChartTooltip';
@@ -68,7 +69,9 @@ export function CalibrationScatter({
 }: CalibrationScatterProps) {
   const byId = new Map(pairs.map((p) => [pairId(p.a, p.b), p]));
   const sharing = sharedScores(pairs);
-  // Out of the JSX: a call inside the ternary's branch is cached with the closures below, so a new selection would re-place every dot.
+  const noteId = useId();
+  // Out of the JSX: inside the ternary's branch the call would be cached with the closures below, so a new selection
+  // would hand the chart new points, and it would place every dot again. Kept here, a selection only moves the ring.
   const points = scatterPoints(pairs);
   return (
     <Panel>
@@ -107,11 +110,14 @@ export function CalibrationScatter({
                 const pair = byId.get(key);
                 if (pair) onSelectPair({a: pair.a, b: pair.b});
               }}
+              describedBy={noteId}
             />
-            <p style={NOTE}>
+            {/* The slider's description: selecting with Enter is the scatter's own, so a screen reader hears how on focus. */}
+            <p id={noteId} style={NOTE}>
               Each dot slides a little along the line, so pairs on the same scores stay visible, and its height above
               or below the line stays within {fmtScore(SCATTER_JITTER * ACROSS_SHARE, 2)} of its gap. The tooltip and the
-              table give the exact values. Select a dot, or press Enter on the one the chart reads out, to open its votes.
+              table give the exact values. Select a dot, or step through the dots with the arrow keys and press Enter on
+              the one the chart reads out, to open its votes.
             </p>
           </>
         )}

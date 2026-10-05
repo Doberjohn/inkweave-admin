@@ -49,8 +49,16 @@ interface LineChartProps {
    * The baseline's label (default: yFormat(baseline)). It prints in the y
    * gutter at the baseline, as a tick label does, and a tick whose label would
    * meet it prints none, so a line near the baseline never strikes it through.
+   * Keep it short: the gutter grows to fit it, and the plot narrows to match.
    */
   baselineLabel?: string;
+  /**
+   * The slider's words for a series with no value at an x, in place of the
+   * tooltip's "— label" row: a screen reader drops the dash and reads the
+   * label alone. They stand for the whole row, so word them for every series
+   * (R2's gap: "no score votes"). The tooltip keeps "—".
+   */
+  missingText?: string;
   /** Shown in place of the plot when no series has a point (default "No data to chart."). */
   emptyText?: string;
   /**
@@ -74,10 +82,11 @@ const WRAP: React.CSSProperties = {minWidth: 0};
 const LINE_WIDTH = 2;
 const AREA_OPACITY = 0.1;
 
-/** The chart's formats: y values (ticks, end labels, tooltip values), and an x's tooltip title. */
+/** The chart's formats: y values (ticks, end labels, tooltip values), an x's tooltip title, and the slider's words for no value. */
 interface LineFormats {
   yFormat: (n: number) => string;
   titleFormat: (x: string) => string;
+  missingText?: string;
 }
 
 /**
@@ -138,6 +147,18 @@ function tooltipAt(series: readonly LineSeries[], layout: LineLayout, formats: L
       return {label: s.label, value: v == null ? '—' : formats.yFormat(v), color: s.color};
     }),
   };
+}
+
+/**
+ * The slider's value text at x `index`: the tooltip's line, with missingText,
+ * when there is one, as the whole row of each series that has no value there.
+ */
+function valueTextAt(series: readonly LineSeries[], layout: LineLayout, formats: LineFormats, index: number): string {
+  const content = tooltipAt(series, layout, formats, index);
+  const {missingText} = formats;
+  if (missingText === undefined) return tooltipText(content);
+  const rows = content.rows.map((row, si) => (layout.values[si][index] == null ? {...row, value: missingText, label: ''} : row));
+  return tooltipText({...content, rows});
 }
 
 /**
@@ -269,7 +290,8 @@ function Crosshair({series, layout, active}: {series: readonly LineSeries[]; lay
  *
  * The plot is a slider (useChartCursor): the crosshair snaps to the nearest x
  * under the pointer, ←/→, Home and End move it, and the tooltip lists every
- * series at that x, with "—" for one that has no point there.
+ * series at that x, with "—" for one that has no point there (where the
+ * slider reads `missingText`, when it is given).
  */
 export function LineChart({
   series,
@@ -282,6 +304,7 @@ export function LineChart({
   xTicks,
   baseline,
   baselineLabel,
+  missingText,
   emptyText,
   yDomain,
   fixedGutters,
@@ -308,14 +331,15 @@ export function LineChart({
     );
   }
 
-  const contentAt = (i: number) => tooltipAt(series, layout, {yFormat, titleFormat}, i);
+  const formats = {yFormat, titleFormat, missingText};
+  const contentAt = (i: number) => tooltipAt(series, layout, formats, i);
   const active = cursor.index;
   return (
     <div ref={wrapRef} style={WRAP}>
       <ChartPlot
         ariaLabel={ariaLabel}
         cursor={cursor}
-        valueText={(i) => tooltipText(contentAt(i))}
+        valueText={(i) => valueTextAt(series, layout, formats, i)}
         xs={layout.xPx}
         height={layout.svgHeight}>
         <ChartSvg width={layout.width} height={layout.svgHeight}>

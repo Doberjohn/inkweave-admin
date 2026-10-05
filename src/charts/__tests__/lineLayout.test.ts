@@ -154,6 +154,13 @@ describe('lineLayout', () => {
     expect(far.ticks.map((t) => t.label)).toEqual(['−1.50', '', '+1.50']);
   });
 
+  it('keeps the label of a tick exactly a label height (12px) from the baseline', () => {
+    // 0 to 10 over 120px is 12px a unit: the baseline at 1 sits exactly 12px above the 0 tick, whose label clears it.
+    const layout = lineLayout(320, [seriesOf('s', [2, 3, 10])], {...OPTIONS, height: 120, baseline: 1});
+    expect(layout.ticks[0].y - (layout.baseline?.y ?? 0)).toBe(12);
+    expect(layout.ticks.map((t) => t.label)).toEqual(['0', '5', '10']);
+  });
+
   it('counts the baseline label in the gutter, and "No gap" fits the fixed one', () => {
     const gaps = seriesOf('gap', [-0.5, 0.3, 1.2]);
     const base = {...OPTIONS, yFormat: fmtGap, baseline: 0};

@@ -3,8 +3,14 @@ import {act, fireEvent, render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {ScatterChart, type ScatterPoint} from '../ScatterChart';
-import {SCATTER_MAX_WIDTH, scatterLayout} from '../scatter';
+import {SCATTER_MAX_WIDTH, placeDots, scatterLayout} from '../scatter';
 import type {SeriesDef} from '../series';
+
+// placeDots runs as it is, and counts its calls: the placement test checks the dots are placed once per layout.
+vi.mock('../scatter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../scatter')>();
+  return {...actual, placeDots: vi.fn(actual.placeDots)};
+});
 
 const SERIES: SeriesDef[] = [
   {id: 'low', label: 'Low', color: ADMIN_COLORS.over},
@@ -115,6 +121,19 @@ describe('ScatterChart: marks', () => {
     expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['0', '5', '10']);
     // The left margin sizes from the same labels: a stray index would make "5.0" and "10.00" and move every dot.
     const expected = scatterLayout(SCATTER_MAX_WIDTH, DOMAIN, DOMAIN, ['0', '5', '10']);
+    expect(Number(container.querySelector('circle[data-key="a"]')?.getAttribute('cx'))).toBeCloseTo(expected.x(2), 2);
+  });
+
+  it('formats both axes and the left margin with a custom tickFormat', () => {
+    // fmtInt can't print these, and map's index in `suffix` would print "00", "51" and "102".
+    const unit = (n: number, suffix = ' pts') => `${n}${suffix}`;
+    const {container} = renderChart({tickFormat: unit});
+    expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['0 pts', '5 pts', '10 pts']);
+    // The x label and the y label.
+    expect(screen.getAllByText('10 pts')).toHaveLength(2);
+    // "10 pts" (36px) and the tick gap widen the left margin past its floor, which moves every dot.
+    const expected = scatterLayout(SCATTER_MAX_WIDTH, DOMAIN, DOMAIN, ['0 pts', '5 pts', '10 pts']);
+    expect(expected.left).toBeGreaterThan(layout.left);
     expect(Number(container.querySelector('circle[data-key="a"]')?.getAttribute('cx'))).toBeCloseTo(expected.x(2), 2);
   });
 
@@ -237,6 +256,16 @@ describe('ScatterChart: keyboard', () => {
     expect(slider()).toHaveAttribute('aria-valuetext', 'B at 5, 5, selected');
   });
 
+  it('takes a description for its slider, such as how to select a dot', () => {
+    render(
+      <>
+        <Chart describedBy="how-to-pick" />
+        <p id="how-to-pick">Press Enter to pick the dot.</p>
+      </>,
+    );
+    expect(slider()).toHaveAccessibleDescription('Press Enter to pick the dot.');
+  });
+
   it('selects the dot the slider announces with Enter or Space, before any arrow key and after Escape', async () => {
     const onSelect = vi.fn();
     const {container} = renderChart({onSelect});
@@ -253,5 +282,27 @@ describe('ScatterChart: keyboard', () => {
     await userEvent.keyboard(' ');
     expect(onSelect).toHaveBeenCalledTimes(2);
     expect(onSelect).toHaveBeenLastCalledWith('a');
+  });
+});
+
+describe('ScatterChart: placement', () => {
+  it('places the dots once per layout: hover, the arrow keys and a new selection place none again', async () => {
+    const {container, rerender} = renderChart();
+    const placed = vi.mocked(placeDots);
+    placed.mockClear();
+    // The pointer onto each dot in turn, then the keyboard across them: the cursor moves, the dots don't.
+    for (const point of POINTS) fireEvent.pointerMove(slider(), at(point));
+    expect(screen.getByText('Tip b')).toBeInTheDocument();
+    await userEvent.tab();
+    await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'C at 8, 2');
+    // A new selection moves the ring, and only the ring.
+    rerender(<Chart selectedKey="b" />);
+    rerender(<Chart selectedKey="a" />);
+    expect(container.querySelector('[data-state="selected"] circle')).toHaveAttribute('cx', String(layout.x(2)));
+    expect(placed).not.toHaveBeenCalled();
+    // The control: a new placing input places them again.
+    rerender(<Chart selectedKey="a" jitter={0.25} />);
+    expect(placed).toHaveBeenCalled();
   });
 });

@@ -134,7 +134,8 @@ describe('CalibrationScatter: wiring', () => {
     const {rerender} = render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
     const before = scatterProps.at(-1)?.points;
     rerender(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={{a: '3', b: '4'}} onSelectPair={vi.fn()} />);
-    // A new selection moves a ring, not the dots: the chart keeps its placement for the same points.
+    // This pins only that the chart gets the same points. That it then places no dot again, and moves only the ring,
+    // is ScatterChart's own placement test.
     expect(before).toBeDefined();
     expect(scatterProps.at(-1)?.selectedKey).toBe(pairId('3', '4'));
     expect(scatterProps.at(-1)?.points).toBe(before);
@@ -184,6 +185,15 @@ describe('CalibrationScatter: scope, selection, table and footnotes', () => {
     await userEvent.click(screen.getByRole('button', {name: 'Table'}));
     expect(screen.getByText(/Not plotted: 2 engine-silent pairs/)).toBeInTheDocument();
     expect(screen.queryByText(/within 0\.07 of its gap/)).not.toBeInTheDocument();
+  });
+
+  it('describes the slider with the note, so a screen reader hears how to step through the dots and open one', () => {
+    render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
+    const slider = screen.getByRole('slider', {name: 'Engine score against community score, Ramp'});
+    expect(slider).toHaveAccessibleDescription(
+      /step through the dots with the arrow keys and press Enter on the one the chart reads out, to open its votes\.$/,
+    );
+    expect(slider).toHaveAccessibleDescription(/^Each dot slides a little along the line/);
   });
 });
 
@@ -270,6 +280,7 @@ describe('WeeklyGapTrend', () => {
     expect(gap?.fixedGutters).toBe(true);
     expect(gap?.xTicks).toEqual([]);
     expect(gap?.series[0].points[1]).toEqual({x: '2026-09-21', y: null});
+    expect(gap?.missingText).toBe('no score votes');
     const votes = lineProps.find((p) => p.ariaLabel === 'Score votes per week, Ramp');
     expect(votes?.fixedGutters).toBe(true);
     expect(votes?.xTicks).toBeUndefined();
@@ -298,8 +309,10 @@ describe('WeeklyGapTrend', () => {
     act(() => gap.focus());
     await userEvent.keyboard('{Home}');
     expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 14: −0.50 Mean gap');
+    // A quiet week says why it has no gap: a screen reader drops the tooltip's dash and would read "Mean gap" alone.
     await userEvent.keyboard('{ArrowRight}');
-    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 21: — Mean gap');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 21: no score votes');
+    expect(tooltip('Week of Sep 21')).toHaveTextContent(/—\s*Mean gap$/);
     const votes = screen.getByRole('slider', {name: 'Score votes per week, Ramp'});
     act(() => votes.focus());
     await userEvent.keyboard('{End}');

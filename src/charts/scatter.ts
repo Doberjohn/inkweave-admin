@@ -110,7 +110,9 @@ function unitHash(key: string, salt: number): number {
 /**
  * A fixed offset of up to ±amount on each axis, seeded by the key. Points that
  * share exact values spread into a small cloud, and each dot stays where it was
- * across renders and reloads.
+ * across renders and reloads. Keys should be a few characters long: the two
+ * axes' hashes of a one- or two-character key nearly agree, so short keys
+ * streak along a diagonal in place of a cloud (R2's "id|id" pair keys don't).
  */
 export function jitterOffset(key: string, amount: number): [number, number] {
   if (amount <= 0) return [0, 0];
@@ -173,7 +175,12 @@ export function placeDots(points: readonly ScatterPoint[], layout: ScatterLayout
   });
 }
 
-/** The index of the point nearest (x, y) within `radius` px, or null. The first of two equally near points wins. */
+/**
+ * The index of the point nearest (x, y) within `radius` px, or null. The first
+ * of two equally near points wins. ScatterChart passes its walk (scatterOrder),
+ * so of two dots stacked on one spot, the walk's first wins, not the one drawn
+ * on top. With jitter on, two dots all but never share a spot.
+ */
 export function nearestPoint(
   points: ReadonlyArray<{px: number; py: number}>,
   x: number,
