@@ -48,7 +48,7 @@ describe('TuningEditor', () => {
     render(<TuningEditor token="tok" config={CONFIG} onPublished={onPublished} />);
     await renameRamp('Ramp!');
 
-    await userEvent.click(screen.getByRole('button', {name: 'Publish'}));
+    await userEvent.click(screen.getByRole('button', {name: 'Publish to master'}));
     await vi.waitFor(() => expect(onPublished).toHaveBeenCalledOnce());
   });
 
@@ -58,7 +58,7 @@ describe('TuningEditor', () => {
     render(<TuningEditor token="tok" config={CONFIG} onPublished={onPublished} />);
     await renameRamp('Ramp!');
 
-    await userEvent.click(screen.getByRole('button', {name: 'Publish'}));
+    await userEvent.click(screen.getByRole('button', {name: 'Publish to master'}));
     expect(await screen.findByText('GitHub 422 on /refs: not a fast forward')).toBeInTheDocument();
     expect(onPublished).not.toHaveBeenCalled();
   });
