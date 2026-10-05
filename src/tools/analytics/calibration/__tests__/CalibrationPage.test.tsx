@@ -218,6 +218,8 @@ describe('CalibrationPage: the analytics notice', () => {
     expect(screen.getByRole('heading', {level: 1, name: 'Calibration & tuning'})).toBeInTheDocument();
     expect(screen.getByText('Loading analytics...')).toBeInTheDocument();
     expect(screen.getByText('Loading the rules…')).toBeInTheDocument();
+    // calibrationSubtitle(null) is right only once the load has failed, so the header waits.
+    expect(screen.queryByText('No vote analytics yet')).not.toBeInTheDocument();
   });
 
   it.each([
@@ -226,9 +228,11 @@ describe('CalibrationPage: the analytics notice', () => {
   ])('says so when the artifact %s, and why the rules table is empty without a token (R-20)', async (_, respond, reason) => {
     stubFetch({analytics: respond});
     renderPage('/calibration');
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    // Exact text: without tuning.json there are no rules "from tuning.json alone" to point at.
+    expect((await screen.findByRole('alert')).textContent).toBe(
       `Could not load vote analytics. Has the artifact been generated? (${reason})`,
     );
+    expect(screen.getByText('No vote analytics yet')).toBeInTheDocument();
     expect(screen.queryByText('Loading analytics...')).not.toBeInTheDocument();
     expect(
       screen.getByText('No rules to show: vote analytics are missing and tuning.json needs a GitHub token.'),
@@ -249,7 +253,7 @@ describe('CalibrationPage: the analytics notice', () => {
     renderPage('/calibration', 'tok');
     expect(await ruleRow('Live Ramp')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(TUNING_URL, expect.anything());
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(screen.getByRole('alert').textContent).toBe(
       'Could not load vote analytics. Has the artifact been generated? (vote-analytics.json has not been generated yet) The rules below come from tuning.json alone.',
     );
   });
@@ -409,6 +413,10 @@ describe('CalibrationPage: what the rule scopes', () => {
     expect(await screen.findByText('Toys · no score votes yet')).toBeInTheDocument();
     expect(figure('Engine vs community').getByText('No voted pairs for this rule yet.')).toBeInTheDocument();
     expect(figure('Gap distribution').getByText('No voted pairs for this rule yet.')).toBeInTheDocument();
+    // The pair list's own text: on all pairs it would read its default, "No voted pairs yet."
+    expect(
+      within(screen.getByRole('region', {name: 'Widest gaps'})).getByText('No voted pairs for this rule yet.'),
+    ).toBeInTheDocument();
     expect(await figure('Weekly gap').findByText('No score votes in this scope yet.')).toBeInTheDocument();
     expect(screen.queryByRole('slider', {name: 'Weekly mean gap, Toys'})).not.toBeInTheDocument();
   });
@@ -469,6 +477,19 @@ describe('CalibrationPage: what the rule scopes', () => {
   });
 });
 
+describe('CalibrationPage: the votes panel', () => {
+  // The weekly gap's Notice says the same while the log loads, so the text is read inside the pair's region.
+  it.each([
+    ['is still loading', never, 'Loading the vote log…'],
+    ['failed', () => new Response('', {status: 500}), 'Could not load the vote log.'],
+  ])('says so on the votes panel of a picked pair while the vote log %s', async (_, voteLog, text) => {
+    stubFetch({analytics: () => json(RAW), voteLog});
+    const {user} = renderPage('/calibration');
+    await user.click(await screen.findByRole('button', {name: /^Card 1 × Card 2:/}));
+    expect(within(screen.getByRole('region', {name: 'Card 1 × Card 2'})).getByText(text)).toBeInTheDocument();
+  });
+});
+
 describe('CalibrationPage: layout', () => {
   /** The grid track a panel sits in, as the row's inline style gives it. */
   const trackOf = (panel: HTMLElement) =>
@@ -500,6 +521,10 @@ describe('CalibrationPage: the tuning aside', () => {
     stubFetch({tuning: () => new Response('Not Found', {status: 404})});
     renderPage('/calibration', 'tok');
     expect(await aside().findByRole('alert')).toHaveTextContent('Could not read tuning.json: GitHub 404');
+    // With a token saved the table must not ask for one (R-20).
+    expect(
+      screen.getByText("No rules to show: vote analytics are missing and tuning.json hasn't loaded."),
+    ).toBeInTheDocument();
   });
 
   it('forgets a token GitHub rejects from the aside, and keeps the analytics (R-26)', async () => {
@@ -574,6 +599,17 @@ describe('CalibrationPage: unpublished edits (R-19)', () => {
     expect(await aside().findByRole('textbox', {name: 'Title text'})).toHaveValue('Live Ramp');
     act(() => void router.navigate('/'));
     expect(await screen.findByRole('heading', {level: 1, name: 'Overview'})).toBeInTheDocument();
+  });
+
+  it('starts a new workspace when the token changes in another tab, dropping the edits', async () => {
+    await stageTitleEdit();
+    // Another tab saved a different token: the shared store hears the storage event, with no forget on this page.
+    act(() => {
+      localStorage.setItem(TOKEN_KEY, 'other');
+      window.dispatchEvent(new StorageEvent('storage', {key: TOKEN_KEY}));
+    });
+    expect(await aside().findByText('No pending changes')).toBeInTheDocument();
+    expect(aside().queryByText('Live Ramp · Title · text')).not.toBeInTheDocument();
   });
 
   it('lets the page go once the edit is published', async () => {

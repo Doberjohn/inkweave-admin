@@ -12,7 +12,10 @@ const config = (name: string): TuningConfig => ({
   ruleTexts: {'shift-targets': {}, ramp: {scores: {}, templates: {}}},
 });
 
-beforeEach(() => readTuning.mockReset());
+beforeEach(() => {
+  // A block, not an arrow's value: mockReset() returns the mock, and Vitest calls a function a hook returns as its teardown.
+  readTuning.mockReset();
+});
 
 /** Renders the hook once its first read has landed with `name`. */
 async function loaded(name: string) {
