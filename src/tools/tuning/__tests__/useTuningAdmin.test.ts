@@ -218,6 +218,21 @@ describe('useTuningAdmin', () => {
     expect(dropped).toBe(1);
     expect(result.current.pending).toEqual([]);
   });
+
+  // Someone deleted the whole entry, so the path leads nowhere rather than to a changed value.
+  it('drops an edit whose tuning entry is gone, and keeps the one that still applies', () => {
+    const result = stageScores('6');
+    act(() => {
+      result.current.stageEdit({path: ['playstyles', 'gone', 'name'], rawValue: 'Gone!', kind: 'text', oldValue: 'x', label: 'gone'});
+    });
+
+    let dropped = -1;
+    act(() => {
+      dropped = result.current.dropStale(reloaded('Ramp'));
+    });
+    expect(dropped).toBe(1);
+    expect(labels(result.current.pending)).toEqual(['label']);
+  });
 });
 
 // Someone renamed Ramp after this editor read tuning.json.
@@ -235,6 +250,7 @@ describe('stillApplies', () => {
 
   it('fails once the path leads nowhere, or only through a string or an inherited key', () => {
     expect(stillApplies({path: ['ruleTexts', 'shift-targets', 'curve.gap9', 'score'], oldValue: 4}, config)).toBe(false);
+    expect(stillApplies({path: ['playstyles', 'gone', 'name'], oldValue: 'x'}, config)).toBe(false);
     // A plain walk would find both: 'Big Ramp'.length is 8, and an object's constructor is named 'Object'.
     expect(stillApplies({path: [...TITLE, 'length'], oldValue: 8}, config)).toBe(false);
     expect(stillApplies({path: ['playstyles', 'constructor', 'name'], oldValue: 'Object'}, config)).toBe(false);
