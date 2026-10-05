@@ -3,7 +3,7 @@ import {fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {fmtGap} from '../../ui/format';
-import {LineChart, type LineSeries} from '../LineChart';
+import {LINE_END_WIDTH, LINE_Y_AXIS_WIDTH, LineChart, type LineSeries} from '../LineChart';
 import type {SeriesDef} from '../series';
 
 const DAYS = ['2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30'];
@@ -178,6 +178,31 @@ describe('LineChart: axis and baseline', () => {
     const {container} = render(<LineChart series={[drop]} ariaLabel="Drop" baseline={0} />);
     expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−3', '0']);
     expect(container.querySelector('g[data-baseline] text')).toHaveTextContent('0');
+  });
+
+  it('spans a fixed y domain, so signed data that leans one way keeps its ticks apart', () => {
+    // On its own, −0.05 to 1.2 gets ticks at −0.05 and 0, about 7px apart, and their labels collide.
+    const lopsided = seriesOf({id: 'gap', label: 'Mean gap', color: ADMIN_COLORS.accent}, [-0.05, 0.3, 1.2]);
+    const {container} = render(
+      <LineChart series={[lopsided]} ariaLabel="Weekly gap" yFormat={fmtGap} baseline={0} yDomain={[-1.5, 1.5]} />,
+    );
+    expect(texts(container, 'svg > g:not([data-baseline]) > text')).toEqual(['−1.50', '0.00', '+1.50']);
+  });
+
+  it('puts each x at the same px in two charts with fixed gutters, whatever their labels need', () => {
+    // On their own, "−0.50" needs a wider gutter than "120", so the same day would sit at two xs.
+    const gaps = seriesOf({id: 'gap', label: 'Mean gap', color: ADMIN_COLORS.accent}, [-0.5, 0.3, 1.2]);
+    const votes = seriesOf({id: 'votes', label: 'Score votes', color: ADMIN_COLORS.barNeutral}, [12, 45, 120]);
+    const gap = render(<LineChart series={[gaps]} ariaLabel="Gap" yFormat={fmtGap} fixedGutters />).container;
+    const vote = render(<LineChart series={[votes]} ariaLabel="Votes" fixedGutters />).container;
+    const firstX = (container: HTMLElement, id: string) =>
+      container.querySelector(`path[data-series="${id}"]`)?.getAttribute('d')?.split(',')[0];
+    const endX = (container: HTMLElement, id: string) => container.querySelector(`circle[data-end="${id}"]`)?.getAttribute('cx');
+    expect(firstX(gap, 'gap')).toBe(`M${LINE_Y_AXIS_WIDTH}`);
+    expect(firstX(vote, 'votes')).toBe(`M${LINE_Y_AXIS_WIDTH}`);
+    // The 640px fallback width, less the right gutter.
+    expect(endX(gap, 'gap')).toBe(String(640 - LINE_END_WIDTH));
+    expect(endX(vote, 'votes')).toBe(String(640 - LINE_END_WIDTH));
   });
 });
 

@@ -1,0 +1,195 @@
+import {describe, expect, it, vi} from 'vitest';
+import {act, fireEvent, render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {ADMIN_COLORS} from '../../theme/adminTheme';
+import {ScatterChart, type ScatterPoint} from '../ScatterChart';
+import {SCATTER_MAX_WIDTH, scatterLayout} from '../scatter';
+import type {SeriesDef} from '../series';
+
+const SERIES: SeriesDef[] = [
+  {id: 'low', label: 'Low', color: ADMIN_COLORS.over},
+  {id: 'high', label: 'High', color: ADMIN_COLORS.under},
+];
+const DOMAIN = [0, 10] as const;
+const TICKS = [0, 5, 10];
+const POINTS: ScatterPoint[] = [
+  {key: 'c', x: 8, y: 2, series: 'low', label: 'C at 8, 2'},
+  {key: 'a', x: 2, y: 6, series: 'high', label: 'A at 2, 6'},
+  {key: 'b', x: 5, y: 5, series: 'high', label: 'B at 5, 5'},
+];
+// jsdom has no layout: the chart lays out at SCATTER_MAX_WIDTH, and the plot's box starts at 0, 0.
+const layout = scatterLayout(SCATTER_MAX_WIDTH, DOMAIN, DOMAIN, TICKS.map(String));
+const at = (point: ScatterPoint) => ({clientX: layout.x(point.x), clientY: layout.y(point.y)});
+
+/** The chart with test defaults; any prop can be overridden. */
+function Chart(props: Partial<React.ComponentProps<typeof ScatterChart>>) {
+  return (
+    <ScatterChart
+      points={POINTS}
+      series={SERIES}
+      ariaLabel="Test scatter"
+      xDomain={DOMAIN}
+      yDomain={DOMAIN}
+      xTicks={TICKS}
+      yTicks={TICKS}
+      xLabel="Across"
+      yLabel="Up"
+      tooltip={(point) => ({title: `Tip ${point.key}`, rows: []})}
+      {...props}
+    />
+  );
+}
+
+const renderChart = (props: Partial<React.ComponentProps<typeof ScatterChart>> = {}) => render(<Chart {...props} />);
+const slider = () => screen.getByRole('slider', {name: 'Test scatter'});
+const tip = (container: HTMLElement) => container.querySelector('.adm-chart-tip');
+
+describe('ScatterChart: marks', () => {
+  it('draws one dot per point in its series colour, in the order given', () => {
+    const {container} = renderChart();
+    const dots = container.querySelectorAll('circle[data-key]');
+    expect(Array.from(dots).map((d) => d.getAttribute('data-key'))).toEqual(['c', 'a', 'b']);
+    expect(container.querySelector('circle[data-key="c"]')).toHaveAttribute('fill', ADMIN_COLORS.over);
+    expect(container.querySelector('circle[data-key="a"]')).toHaveAttribute('fill', ADMIN_COLORS.under);
+  });
+
+  it('draws each r 4 dot on its own opaque r 6 disc in the page colour, with no stroke', () => {
+    const {container} = renderChart();
+    const dot = container.querySelector('circle[data-key="a"]');
+    expect(dot).toHaveAttribute('r', '4');
+    expect(dot).not.toHaveAttribute('stroke');
+    expect(dot?.previousElementSibling).toHaveAttribute('fill', ADMIN_COLORS.page);
+    expect(dot?.previousElementSibling).toHaveAttribute('r', '6');
+  });
+
+  it('labels both axes, the ticks and the y = x line, which runs along the diagonal', () => {
+    const {container} = renderChart({diagonal: 'Equal'});
+    expect(screen.getByText('Across')).toBeInTheDocument();
+    expect(screen.getByText('Up')).toBeInTheDocument();
+    expect(Array.from(container.querySelectorAll('[data-x-label]')).map((t) => t.textContent)).toEqual(['0', '5', '10']);
+    expect(screen.getByText('Equal')).toHaveAttribute('transform', expect.stringMatching(/^rotate\(-45 /));
+  });
+
+  it('draws no y = x line without a label for it', () => {
+    const {container} = renderChart();
+    expect(container.querySelector('[data-diagonal]')).toBeNull();
+  });
+
+  it('keeps each dot where it was across renders, jitter included', () => {
+    const {container, rerender} = renderChart({jitter: 0.25});
+    const cx = container.querySelector('circle[data-key="a"]')?.getAttribute('cx');
+    expect(cx).not.toBe(String(layout.x(2)));
+    rerender(<Chart points={[...POINTS].reverse()} jitter={0.25} />);
+    expect(container.querySelector('circle[data-key="a"]')).toHaveAttribute('cx', cx);
+  });
+
+  it('slides a dot along y = x with diagonal jitter, so its distance from the line barely moves', () => {
+    const {container} = renderChart({jitter: 0.35, jitterAlong: 'diagonal'});
+    const dot = container.querySelector('circle[data-key="b"]');
+    const pxPerUnit = layout.side / 10;
+    const dx = (Number(dot?.getAttribute('cx')) - layout.x(5)) / pxPerUnit;
+    const dy = (layout.y(5) - Number(dot?.getAttribute('cy'))) / pxPerUnit;
+    expect(dx).not.toBe(0);
+    // px() rounds each coordinate to 0.01px, a few ten-thousandths of a unit here.
+    expect(Math.abs(dy - dx)).toBeLessThanOrEqual(0.35 / 5 + 0.001);
+  });
+
+  it('shows the empty text in place of the plot when there are no points', () => {
+    const {container} = renderChart({points: [], emptyText: 'No pairs yet.'});
+    expect(screen.getByText('No pairs yet.')).toBeInTheDocument();
+    expect(container.querySelector('svg')).toBeNull();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  });
+});
+
+describe('ScatterChart: pointer', () => {
+  it('lifts the dot nearest the pointer, within 24px, and shows its tooltip', () => {
+    const {container} = renderChart();
+    const b = at(POINTS[2]);
+    fireEvent.pointerMove(slider(), {clientX: b.clientX + 20, clientY: b.clientY});
+    expect(screen.getByText('Tip b')).toBeInTheDocument();
+    const lifted = container.querySelectorAll('[data-state="active"] circle');
+    expect(Array.from(lifted).map((c) => [c.getAttribute('r'), c.getAttribute('fill')])).toEqual([
+      ['8', ADMIN_COLORS.page],
+      ['6', ADMIN_COLORS.under],
+    ]);
+    fireEvent.pointerMove(slider(), {clientX: b.clientX + 30, clientY: b.clientY - 30});
+    expect(tip(container)).toBeNull();
+    expect(container.querySelector('[data-state="active"]')).toBeNull();
+  });
+
+  it('lets go when a mouse leaves, and keeps a tapped dot when the finger lifts', () => {
+    const {container} = renderChart();
+    fireEvent.pointerMove(slider(), at(POINTS[1]));
+    fireEvent.pointerLeave(slider());
+    expect(tip(container)).toBeNull();
+    fireEvent.pointerDown(slider(), {...at(POINTS[1]), pointerType: 'touch'});
+    fireEvent.pointerLeave(slider(), {pointerType: 'touch'});
+    expect(screen.getByText('Tip a')).toBeInTheDocument();
+  });
+
+  it('shows no tooltip when a press on empty space focuses the plot', async () => {
+    // Focus from the keyboard shows the resting dot; focus from a press keeps what the press found.
+    const {container} = renderChart();
+    await userEvent.pointer({keys: '[MouseLeft]', target: slider(), coords: {clientX: 1, clientY: 1}});
+    expect(slider()).toHaveFocus();
+    expect(tip(container)).toBeNull();
+  });
+
+  it('selects the dot under a click, and nothing with no dot within 24px', () => {
+    const onSelect = vi.fn();
+    renderChart({onSelect});
+    fireEvent.click(slider(), at(POINTS[0]));
+    expect(onSelect).toHaveBeenLastCalledWith('c');
+    fireEvent.click(slider(), {clientX: 1, clientY: 1});
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('rings the selected dot in the accent, just outside its lifted disc', () => {
+    const {container} = renderChart({selectedKey: 'b'});
+    const ring = container.querySelector('[data-state="selected"] circle');
+    expect(ring).toHaveAttribute('stroke', ADMIN_COLORS.accent);
+    expect(ring).toHaveAttribute('r', '9');
+    expect(ring).toHaveAttribute('cx', String(layout.x(5)));
+  });
+});
+
+describe('ScatterChart: keyboard', () => {
+  it('is the kit plot: one named slider that walks the dots left to right and reads each one out', async () => {
+    renderChart();
+    expect(slider()).toHaveClass('adm-chart-plot');
+    expect(slider()).toHaveAttribute('aria-valuemax', '2');
+    act(() => slider().focus());
+    await userEvent.keyboard('{Home}');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'A at 2, 6');
+    await userEvent.keyboard('{ArrowRight}');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'B at 5, 5');
+    await userEvent.keyboard('{End}');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'C at 8, 2');
+  });
+
+  it('says which dot is selected', async () => {
+    renderChart({selectedKey: 'b'});
+    act(() => slider().focus());
+    await userEvent.keyboard('{Home}{ArrowRight}');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'B at 5, 5, selected');
+  });
+
+  it('selects the dot the slider announces with Enter or Space, before any arrow key and after Escape', async () => {
+    const onSelect = vi.fn();
+    const {container} = renderChart({onSelect});
+    // Focus from the keyboard shows the resting dot, the newest: the one the slider announces.
+    await userEvent.tab();
+    expect(tip(container)).toHaveTextContent('Tip c');
+    expect(slider()).toHaveAttribute('aria-valuetext', 'C at 8, 2');
+    await userEvent.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenLastCalledWith('c');
+    // Escape hides the tooltip and keeps the place (the kit's cursor): the slider still announces A, and Space takes it.
+    await userEvent.keyboard('{Home}{Escape}');
+    expect(tip(container)).toBeNull();
+    expect(slider()).toHaveAttribute('aria-valuetext', 'A at 2, 6');
+    await userEvent.keyboard(' ');
+    expect(onSelect).toHaveBeenCalledTimes(2);
+    expect(onSelect).toHaveBeenLastCalledWith('a');
+  });
+});

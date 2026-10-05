@@ -5,11 +5,23 @@ import {fmtDay, fmtInt} from '../ui/format';
 import {LABEL_SIZE, px} from './axis';
 import {AxisGrid, ChartPlot, ChartSvg, EmptyChart} from './ChartSvg';
 import {ChartTooltip, type TooltipContent} from './ChartTooltip';
-import {DOT_RADIUS, RING, lineLayout, lonePoints, tooltipY, type LineLayout, type LineSeries, type PlotPoint} from './lineLayout';
+import {
+  DOT_RADIUS,
+  LINE_END_WIDTH,
+  LINE_Y_AXIS_WIDTH,
+  RING,
+  lineLayout,
+  lonePoints,
+  tooltipY,
+  type LineLayout,
+  type LineSeries,
+  type PlotPoint,
+} from './lineLayout';
 import {chartWidth, tooltipText} from './series';
 import {useChartCursor} from './useChartCursor';
 
 export type {LinePoint, LineSeries} from './lineLayout';
+export {LINE_END_WIDTH, LINE_Y_AXIS_WIDTH};
 
 interface LineChartProps {
   series: readonly LineSeries[];
@@ -31,6 +43,19 @@ interface LineChartProps {
   baselineLabel?: string;
   /** Shown in place of the plot when no series has a point (default "No data to chart."). */
   emptyText?: string;
+  /**
+   * The y domain to span in place of 0 to a clean top, widened only to keep
+   * every value, zero and the baseline on the plot. On its own, signed data
+   * that leans one way (−0.05 to 1.2) gets ticks at −0.05 and 0, close enough
+   * to collide; a symmetric domain keeps them apart (R2's gapDomain).
+   */
+  yDomain?: readonly [number, number];
+  /**
+   * Lays the plot out between LINE_Y_AXIS_WIDTH and LINE_END_WIDTH instead of
+   * the room its own labels need, so two charts over the same x put each x at
+   * the same px (R2's weekly gap trend). A wider label still widens its gutter.
+   */
+  fixedGutters?: boolean;
 }
 
 const DEFAULT_HEIGHT = 180;
@@ -234,10 +259,12 @@ export function LineChart({
   baseline,
   baselineLabel,
   emptyText,
+  yDomain,
+  fixedGutters,
 }: LineChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const measured = useContainerWidth(wrapRef);
-  const layout = lineLayout(chartWidth(measured), series, {height, yFormat, xFormat, xTicks, baseline});
+  const layout = lineLayout(chartWidth(measured), series, {height, yFormat, xFormat, xTicks, baseline, yDomain, fixedGutters});
   const cursor = useChartCursor(layout.xs.length);
 
   if (layout.xs.length === 0) {

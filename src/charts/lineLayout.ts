@@ -28,6 +28,10 @@ export interface LineLayoutOptions {
   xTicks?: readonly string[];
   /** A hairline value the y domain must include. */
   baseline?: number;
+  /** The y domain to span in place of a computed one, widened only to keep every value, zero and the baseline on the plot. */
+  yDomain?: readonly [number, number];
+  /** Lay the plot out between LINE_Y_AXIS_WIDTH and LINE_END_WIDTH, so charts over the same x put each x at the same px. */
+  fixedGutters?: boolean;
 }
 
 /** A plotted point, in px. */
@@ -89,6 +93,14 @@ export const RING = 2;
 const TOP_PAD = SPACING.sm;
 const X_BAND = SPACING.xl;
 const RIGHT_PAD = SPACING.sm;
+/**
+ * fixedGutters' room left of the plot: a six-character tick label ("−10.00",
+ * 36px at the label size) and the gap to the plot. Like BAR_Y_AXIS_WIDTH, a
+ * label that needs more widens it rather than clip.
+ */
+export const LINE_Y_AXIS_WIDTH = SPACING.xxxl + SPACING.lg;
+/** fixedGutters' room right of the plot: the ringed end dot and a six-character end label. A wider label widens it too. */
+export const LINE_END_WIDTH = SPACING.xxxl + SPACING.lg;
 
 /** The y domain: it always includes zero and the baseline, and whether its ticks should be whole numbers. */
 interface YDomain {
@@ -113,12 +125,17 @@ function valueRows(series: readonly LineSeries[], indexOf: ReadonlyMap<string, n
   });
 }
 
-/** A clean domain around the values, zero and the baseline: 0 to 1 when there is nothing but zeros. */
-function yDomain(all: readonly number[], baseline: number | undefined): YDomain {
-  const extra = baseline ?? 0;
+/**
+ * The domain around the values, zero and the baseline: the caller's fixed one,
+ * widened where one of them falls outside it, or else clean ends (0 to 1 when
+ * there is nothing but zeros).
+ */
+function yDomain(all: readonly number[], opts: Pick<LineLayoutOptions, 'baseline' | 'yDomain'>): YDomain {
+  const extra = opts.baseline ?? 0;
   const hi = Math.max(0, ...all, extra);
   const lo = Math.min(0, ...all, extra);
   const integers = all.every(Number.isInteger) && Number.isInteger(extra);
+  if (opts.yDomain) return {bottom: Math.min(opts.yDomain[0], lo), top: Math.max(opts.yDomain[1], hi), integers};
   if (lo < 0) return {bottom: -niceCeiling(-lo), top: hi > 0 ? niceCeiling(hi) : 0, integers};
   return {bottom: 0, top: niceCeiling(hi), integers};
 }
@@ -152,6 +169,12 @@ function rightRoom(endLabels: readonly EndLabel[]): number {
   if (endLabels.length === 0) return RIGHT_PAD;
   const widest = Math.max(...endLabels.map((e) => labelWidth(e.text)));
   return Math.max(RIGHT_PAD, Math.ceil(widest + DOT_RADIUS + RING + SPACING.xs));
+}
+
+/** The room left and right of the plot: what its labels need, and with fixed gutters at least LINE_Y_AXIS_WIDTH and LINE_END_WIDTH. */
+function gutters(left: number, right: number, fixed: boolean): {left: number; right: number} {
+  if (!fixed) return {left, right};
+  return {left: Math.max(LINE_Y_AXIS_WIDTH, left), right: Math.max(LINE_END_WIDTH, right)};
 }
 
 /** The default x labels: the first, the quarter points and the last, without repeats. */
@@ -202,12 +225,12 @@ export function lineLayout(width: number, series: readonly LineSeries[], opts: L
   const values = valueRows(series, indexOf);
   const plotTop = TOP_PAD;
   const plotBottom = plotTop + opts.height;
-  const domain = yDomain(values.flat().filter((v): v is number => v != null), opts.baseline);
+  const domain = yDomain(values.flat().filter((v): v is number => v != null), opts);
   const y = linear([domain.bottom, domain.top], [plotBottom, plotTop]);
   const axis = yAxis(yTicks(domain), opts.yFormat, y);
   const endLabels = endLabelsFor(values, series, {y, format: opts.yFormat});
-  const left = axis.gutter;
-  const plotWidth = Math.max(width - left - rightRoom(endLabels), 1);
+  const {left, right} = gutters(axis.gutter, rightRoom(endLabels), opts.fixedGutters ?? false);
+  const plotWidth = Math.max(width - left - right, 1);
   const positions = xs.map((x, i) => (byTime ? (dayIndex(x) ?? i) : i));
   const xPx = positions.map(linear([positions[0] ?? 0, positions[n - 1] ?? 0], [left, left + plotWidth]));
   return {

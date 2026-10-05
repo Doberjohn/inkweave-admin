@@ -11,8 +11,14 @@ const LINE_KEY = SPACING.lg;
 
 interface ChartLegendProps {
   series: readonly SeriesDef[];
-  /** 'rect' for bars and areas, 'line' for lines: the swatch mirrors the mark. */
-  mark: 'rect' | 'line';
+  /** 'rect' for bars and areas, 'line' for lines, 'dot' for scatter dots: the swatch mirrors the mark. */
+  mark: 'rect' | 'line' | 'dot';
+}
+
+/** A filled swatch in the series' paint: a dot for scatter dots, else a rounded square. */
+function Swatch({mark, fill}: {mark: 'rect' | 'dot'; fill: string}) {
+  if (mark === 'dot') return <circle cx={SWATCH / 2} cy={SWATCH / 2} r={SWATCH / 2} fill={fill} />;
+  return <rect width={SWATCH} height={SWATCH} rx={RADIUS.xs} fill={fill} />;
 }
 
 /**
@@ -59,7 +65,7 @@ export function ChartLegend({series, mark}: ChartLegendProps) {
                   <HatchPattern id={hatchId(chartId, s)} color={s.color} />
                 </defs>
               )}
-              <rect width={SWATCH} height={SWATCH} rx={RADIUS.xs} fill={seriesPaint(s, chartId)} />
+              <Swatch mark={mark} fill={seriesPaint(s, chartId)} />
             </svg>
           )}
           {s.label}

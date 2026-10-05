@@ -65,6 +65,8 @@ export function EmptyChart({text = 'No data to chart.'}: {text?: string}) {
   return <p style={{margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>{text}</p>;
 }
 
+type PlotProps = React.HTMLAttributes<HTMLElement>;
+
 interface ChartPlotProps {
   ariaLabel: string;
   cursor: ChartCursor;
@@ -73,13 +75,21 @@ interface ChartPlotProps {
   /** Each position's x in px, which the pointer snaps to. */
   xs: readonly number[];
   height: number;
+  /**
+   * Adjusts the slider's props before they are spread, for a plot whose
+   * positions x alone doesn't place: ScatterChart swaps the x-only pointer for
+   * the nearest dot, adds selection, and passes focus on only from the
+   * keyboard, so focus from the keyboard shows the resting position and focus
+   * from a press keeps what the press found. Default: the props as they are.
+   */
+  extend?: (props: PlotProps) => PlotProps;
   children: React.ReactNode;
 }
 
 /** A chart's plot as one slider (useChartCursor), named by `ariaLabel`, holding the drawing and its tooltip. */
-export function ChartPlot({ariaLabel, cursor, valueText, xs, height, children}: ChartPlotProps) {
+export function ChartPlot({ariaLabel, cursor, valueText, xs, height, extend = (props) => props, children}: ChartPlotProps) {
   return (
-    <div className="adm-chart-plot" aria-label={ariaLabel} {...cursor.plotProps(valueText, xs)} style={{position: 'relative', height}}>
+    <div className="adm-chart-plot" aria-label={ariaLabel} {...extend(cursor.plotProps(valueText, xs))} style={{position: 'relative', height}}>
       {children}
     </div>
   );
