@@ -1,4 +1,5 @@
 import type {PairStat, RuleStat} from '../voteAnalyticsTypes';
+import type {VoteLogRow} from '../voteLogTypes';
 
 /*
  * Card analytics fixtures, shared by the /cards tests and stories, as
@@ -166,3 +167,116 @@ const REVIEW_SEEDS: readonly ReviewSeed[] = [
   {id: '3007', name: 'Ursula - Power Hungry', gap: -3, votes: [4, 5]},
 ];
 export const REVIEW_PAIRS: readonly PairStat[] = REVIEW_SEEDS.flatMap(reviewPairs);
+
+/*
+ * Raw votes (R3-3): one card's votes in a small vote log, and the pairs[]
+ * rows the precompute would write for that log. Card 500 has, among its
+ * partners:
+ * - 120 and 640, pairs the engine scores (500 sits on side b of 120's rows
+ *   and side a of 640's);
+ * - 710, engine-silent with both cards in the card list;
+ * - 305, engine-silent with a partner outside the list (UNLISTED_IDS);
+ * - 880, only quick votes, so not engine-silent.
+ * The log runs from Monday Aug 31 to Tuesday Oct 6, so its last week is a
+ * part week, and its first and last votes aren't on card 500.
+ */
+
+/** Card 500: the card whose votes the R3-3 fixtures follow. */
+export const VOTED_CARD = '500';
+
+/** Partners outside the current card list: the card list's lookup says no to these. */
+export const UNLISTED_IDS: ReadonlySet<string> = new Set(['305']);
+
+/** A vote-log row: "Card <a>" × "Card <b>" by voter 1, score 5, nothing else answered. Override what a case needs. */
+export function voteRow({a, b, ...rest}: Partial<VoteLogRow> & Pick<VoteLogRow, 'a' | 'b' | 'ts'>): VoteLogRow {
+  return {
+    a,
+    b,
+    aName: `Card ${a}`,
+    bName: `Card ${b}`,
+    score: 5,
+    accuracy: null,
+    isReal: null,
+    wouldPlay: null,
+    difficulty: null,
+    whoCarries: null,
+    voter: 1,
+    ...rest,
+  };
+}
+
+/**
+ * The whole vote log, oldest first (the file itself is newest first; nothing
+ * reads the order). Timestamps are Supabase's microsecond +00:00 form, and
+ * one vote lands late on a Sunday. Every row is one the votes table accepts:
+ * no voter votes the same pair twice (its unique index), and every row
+ * answers something (its has_vote check), so each quick vote here answers who
+ * carries.
+ */
+export const VOTED_CARD_LOG: readonly VoteLogRow[] = [
+  voteRow({a: '120', b: '640', ts: '2026-08-31T12:00:00.123456+00:00', score: 6, voter: 7}),
+  voteRow({
+    a: '120',
+    b: '500',
+    ts: '2026-09-08T09:00:00.123456+00:00',
+    score: 7,
+    accuracy: 0,
+    isReal: true,
+    wouldPlay: true,
+    difficulty: 1,
+    whoCarries: 'b',
+  }),
+  voteRow({
+    a: '120',
+    b: '500',
+    ts: '2026-09-13T23:30:00.123456+00:00',
+    score: 5,
+    accuracy: -1,
+    isReal: true,
+    wouldPlay: false,
+    difficulty: 2,
+    whoCarries: 'a',
+    voter: 2,
+  }),
+  voteRow({
+    a: '500',
+    b: '640',
+    ts: '2026-09-14T10:00:00.123456+00:00',
+    score: 9,
+    accuracy: 1,
+    isReal: false,
+    wouldPlay: true,
+    difficulty: 3,
+    whoCarries: 'a',
+  }),
+  voteRow({a: '500', b: '640', ts: '2026-09-16T10:00:00.123456+00:00', score: 8, whoCarries: 'both', voter: 3}),
+  voteRow({a: '500', b: '640', ts: '2026-09-17T10:00:00.123456+00:00', score: null, whoCarries: 'both', voter: 4}),
+  voteRow({
+    a: '500',
+    b: '710',
+    ts: '2026-09-22T10:00:00.123456+00:00',
+    score: 3,
+    accuracy: -1,
+    difficulty: 1,
+    whoCarries: 'neither',
+    voter: 2,
+  }),
+  voteRow({a: '500', b: '710', ts: '2026-09-23T10:00:00.123456+00:00', score: 4, whoCarries: 'b', voter: 5}),
+  voteRow({a: '500', b: '710', ts: '2026-09-23T11:00:00.123456+00:00', score: null, whoCarries: 'both', voter: 8}),
+  voteRow({a: '305', b: '500', ts: '2026-09-24T10:00:00.123456+00:00', score: 6}),
+  voteRow({a: '500', b: '880', ts: '2026-09-25T10:00:00.123456+00:00', score: null, whoCarries: 'both', voter: 6}),
+  voteRow({a: '500', b: '880', ts: '2026-09-26T10:00:00.123456+00:00', score: null, whoCarries: 'both', voter: 9}),
+  voteRow({a: '120', b: '640', ts: '2026-10-06T08:00:00.123456+00:00', score: 7}),
+];
+
+/**
+ * pairs[] for that log, as the precompute writes it: only the pairs the
+ * engine scores that have a score vote, community score the plain mean (no
+ * pair reaches 10 score votes, so nothing is trimmed), gap = community −
+ * engine. 710, 305 and 880 have no row.
+ */
+export const VOTED_CARD_PAIRS: readonly PairStat[] = [
+  pairStat({a: '120', b: VOTED_CARD, engineScore: 6, communityScore: 6, scoreVotes: 2}),
+  pairStat({a: VOTED_CARD, b: '640', engineScore: 8, communityScore: 8.5, scoreVotes: 2, rules: ['ramp', 'shift-targets']}),
+  pairStat({a: '120', b: '640', engineScore: 7, communityScore: 6.5, scoreVotes: 2, rules: ['shift-targets']}),
+];
