@@ -1,5 +1,6 @@
 import type {PairStat, RuleStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
+import type {CardSynergies} from './engineView';
 
 /*
  * Card analytics fixtures, shared by the /cards tests and stories, as
@@ -280,3 +281,121 @@ export const VOTED_CARD_PAIRS: readonly PairStat[] = [
   pairStat({a: VOTED_CARD, b: '640', engineScore: 8, communityScore: 8.5, scoreVotes: 2, rules: ['ramp', 'shift-targets']}),
   pairStat({a: '120', b: '640', engineScore: 7, communityScore: 6.5, scoreVotes: 2, rules: ['shift-targets']}),
 ];
+
+// ── Engine fixtures (R3-4) ──
+
+/** One partner in a synergy-file fixture. `rules`: the pair's rule names, strongest first (default ['Ramp']). */
+export interface FixturePartner {
+  id: string;
+  name: string;
+  score: number;
+  rules?: readonly string[];
+}
+
+/** A synergy file, and the name lookup the card page would build from the card list. */
+export interface EngineFixture {
+  data: CardSynergies;
+  nameOf: (id: string) => string;
+}
+
+type FixtureGroup = CardSynergies['groups'][number];
+type FixtureConnection = CardSynergies['pairs'][string]['connections'][number];
+
+const rulesOf = (partner: FixturePartner): readonly string[] => partner.rules ?? ['Ramp'];
+/** A rule's id from its name, as the engine's ids read: 'Shift Targets' is 'shift-targets'. */
+const ruleIdOf = (ruleName: string): string => ruleName.toLowerCase().replaceAll(' ', '-');
+
+/** The pair's connections, one per rule, strongest first and a point apart, as the engine writes them. */
+function connectionsOf(partner: FixturePartner): FixtureConnection[] {
+  return rulesOf(partner).map((ruleName, i) => ({
+    category: 'direct' as const,
+    ruleId: ruleIdOf(ruleName),
+    ruleName,
+    score: Math.max(1, partner.score - i),
+    explanation: `${ruleName} connects the two.`,
+  }));
+}
+
+/** One group per rule, in order of first use, listing every partner the rule connects. */
+function groupsOf(partners: readonly FixturePartner[]): FixtureGroup[] {
+  const rules = [...new Set(partners.flatMap(rulesOf))];
+  return rules.map((ruleName) => ({
+    groupKey: ruleIdOf(ruleName),
+    category: 'direct' as const,
+    label: ruleName,
+    tagline: `${ruleName} pairs.`,
+    description: `Cards ${ruleName} connects.`,
+    synergies: partners
+      .filter((partner) => rulesOf(partner).includes(ruleName))
+      .map((partner) => ({
+        cardId: partner.id,
+        score: partner.score,
+        explanation: `${ruleName} connects the two.`,
+        ruleId: ruleIdOf(ruleName),
+        ruleName,
+      })),
+  }));
+}
+
+/**
+ * A synergy file shaped as precompute-synergies.mjs writes it: one group per
+ * rule, and one `pairs` entry per partner whose aggregateScore is its score.
+ */
+export function engineFixture(partners: readonly FixturePartner[]): EngineFixture {
+  const names = new Map(partners.map((partner) => [partner.id, partner.name]));
+  return {
+    data: {
+      groups: groupsOf(partners),
+      pairs: Object.fromEntries(
+        partners.map((partner) => [partner.id, {connections: connectionsOf(partner), aggregateScore: partner.score}]),
+      ),
+    },
+    nameOf: (id) => names.get(id) ?? id,
+  };
+}
+
+/** No synergies: what fetchCardSynergies caches for a missing or unreadable file. */
+export const ENGINE_EMPTY: EngineFixture = engineFixture([]);
+
+/** One partner. */
+export const ENGINE_ONE_PARTNER: EngineFixture = engineFixture([
+  {id: '401', name: 'Marigold Finch - Lamplighter', score: 6},
+]);
+
+/**
+ * 15 partners in every tier: 10, 9, 9, 8, 8, eight at 7, then 5 and 3. The
+ * cut at 12 falls inside the eight at 7, so 7 of them are drawn, by name: the
+ * thirteenth is Yara Stormwick (id 306), though its id is the lowest of the
+ * eight. Wren Ashdown sits in two groups.
+ */
+export const ENGINE_FIFTEEN: EngineFixture = engineFixture([
+  {id: '301', name: 'Wren Ashdown - Keeper of Keys', score: 10, rules: ['Shift Targets', 'Ramp']},
+  {id: '302', name: 'Tobias Quill - Archivist', score: 9},
+  {id: '303', name: 'Ada Brightwater - Tidecaller', score: 9, rules: ['Singer']},
+  {id: '304', name: 'Pell - Tinker', score: 8},
+  {id: '305', name: 'Moss - Wanderer', score: 8, rules: ['Singer']},
+  {id: '306', name: 'Yara Stormwick - Captain', score: 7},
+  {id: '307', name: 'Bramble - Hedge Witch', score: 7},
+  {id: '308', name: 'Odette Fernsby - Seamstress', score: 7, rules: ['Shift Targets']},
+  {id: '309', name: 'Kit Marlow - Pickpocket', score: 7},
+  {id: '310', name: 'Ezra Vale - Cartographer', score: 7},
+  {id: '311', name: 'Cinder - Ember Sprite', score: 7},
+  {id: '312', name: 'Hollis Grey - Lantern Keeper', score: 7},
+  {id: '313', name: 'Uma Lark - Songbird', score: 7, rules: ['Singer']},
+  {id: '314', name: 'Garnet - Stonecutter', score: 5},
+  {id: '315', name: 'Lumen - Glowworm', score: 3},
+]);
+
+/**
+ * 142 partners, 100 of them in the Ramp group: the engine's cap, so the count
+ * is a floor. The 30 strongest share a score of 8, so the 12 drawn all come
+ * from that tie (R-37's example). Ramp: 30 at 8, 70 at 6; Shift Targets: 42 at 3.
+ */
+export const ENGINE_CAPPED: EngineFixture = engineFixture(
+  Array.from({length: 142}, (_, i) => ({
+    id: String(2001 + i),
+    name: `Partner ${String(i + 1).padStart(3, '0')}`,
+    score: i < 30 ? 8 : i < 100 ? 6 : 3,
+    rules: i < 100 ? ['Ramp'] : ['Shift Targets'],
+  })),
+);
