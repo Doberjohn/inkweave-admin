@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {COLORS} from '../../../app-bridge';
@@ -66,26 +66,75 @@ describe('PairList', () => {
     expect(screen.getByRole('button', {name: /Card 3/})).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('scrolls the pressed row into view inside the list as a pair is picked, and only then', () => {
-    // A dot picked on the scatter can sit below the rows on show, or past the widest 40.
-    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
-    try {
-      const {rerender} = render(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
-      expect(scroll).not.toHaveBeenCalled();
+  describe('scrolling the pressed row into view', () => {
+    // A dot picked on the scatter can sit below the rows on show, or past the widest 40. Only the
+    // list's own scroller may move: scrollIntoView would scroll the page too, taking the scatter
+    // just picked from out of view. jsdom does no layout, so the boxes are stubbed: the list shows
+    // 100 to 484 in the view.
+    const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+    const pick = {a: '4', b: '3'};
+    // jsdom has no scrollIntoView. A spy stands in, so a call shows up rather than throwing.
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    const scrollIntoView = vi.fn();
 
-      rerender(<PairList pairs={PAIRS} selectedPair={{a: '4', b: '3'}} onSelectPair={vi.fn()} />);
-      expect(scroll).toHaveBeenCalledTimes(1);
-      expect(scroll).toHaveBeenCalledWith({block: 'nearest'});
-      expect(scroll.mock.contexts[0]).toBe(screen.getByRole('button', {pressed: true}));
-      expect(scroll.mock.contexts[0]).toHaveAccessibleName(/^Card 3 × Card 4/);
+    beforeEach(() => {
+      scrollIntoView.mockClear();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', {configurable: true, writable: true, value: scrollIntoView});
+    });
+    afterEach(() => {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+      else delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
 
-      // The same pick again, and a list with nothing picked, leave the scroll alone.
-      rerender(<PairList pairs={PAIRS} selectedPair={{a: '3', b: '4'}} onSelectPair={vi.fn()} />);
-      rerender(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
-      expect(scroll).toHaveBeenCalledTimes(1);
-    } finally {
-      scroll.mockRestore();
+    /** Renders with nothing picked, puts the list and the second row at the given boxes, and starts the list at `scrollTop`. */
+    function renderUnpicked(rowBox: DOMRect, scrollTop = 0) {
+      const view = render(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
+      const list = screen.getByRole('list');
+      const row = screen.getByRole('button', {name: /^Card 3 × Card 4/});
+      vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(box(100, 484));
+      vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(rowBox);
+      list.scrollTop = scrollTop;
+      const pickPair = (selectedPair: {a: string; b: string} | null) =>
+        view.rerender(<PairList pairs={PAIRS} selectedPair={selectedPair} onSelectPair={vi.fn()} />);
+      return {list, pickPair};
     }
+
+    it('scrolls the list down by the overflow of a pressed row below it', () => {
+      const {list, pickPair} = renderUnpicked(box(520, 556));
+      pickPair(pick);
+      expect(screen.getByRole('button', {pressed: true})).toHaveAccessibleName(/^Card 3 × Card 4/);
+      expect(list.scrollTop).toBe(72);
+    });
+
+    it('scrolls the list up by the overflow of a pressed row above it', () => {
+      const {list, pickPair} = renderUnpicked(box(60, 96), 200);
+      pickPair(pick);
+      expect(list.scrollTop).toBe(160);
+    });
+
+    it('leaves the list where it is for a pressed row already inside it', () => {
+      const {list, pickPair} = renderUnpicked(box(200, 236), 50);
+      pickPair(pick);
+      expect(list.scrollTop).toBe(50);
+    });
+
+    it('scrolls only as a pair is picked: not with no pick, not for the same pick either way round, not on clear', () => {
+      const {list, pickPair} = renderUnpicked(box(520, 556));
+      expect(list.scrollTop).toBe(0);
+
+      pickPair(pick);
+      expect(list.scrollTop).toBe(72);
+      // The row's box is stubbed, so a second scroll would add another 72.
+      pickPair({a: '3', b: '4'});
+      pickPair(null);
+      expect(list.scrollTop).toBe(72);
+    });
+
+    it('never scrolls the page: scrollIntoView is not called', () => {
+      const {pickPair} = renderUnpicked(box(520, 556));
+      pickPair(pick);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
   });
 
   it('shows emptyText in place of the list, and "No voted pairs yet." without it', () => {

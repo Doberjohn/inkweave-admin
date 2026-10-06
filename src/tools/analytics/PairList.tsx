@@ -62,13 +62,21 @@ function isSelected(pair: PairStat, selected: {a: string; b: string} | null): bo
 }
 
 /**
- * The pressed row's ref: it scrolls into view inside the list as it becomes
- * pressed. A dot picked on the scatter can sit below the rows on show, or past
- * the widest 40 (withSelectedPair puts it last). 'nearest' leaves a row
- * already in view where it is.
+ * The pressed row's ref: as a row becomes pressed, the list scrolls just far
+ * enough to show it, as 'nearest' would, and a row already in view stays put.
+ * A dot picked on the scatter can sit below the rows on show, or past the
+ * widest 40 (withSelectedPair puts it last). Only the list's own scroller
+ * moves: scrollIntoView would also scroll the page, taking the scatter just
+ * picked from out of view. The callback is stable, so the same pick again, or
+ * clearing it, doesn't scroll.
  */
 function scrollIntoList(row: HTMLButtonElement | null) {
-  row?.scrollIntoView({block: 'nearest'});
+  const list = row?.closest('ul');
+  if (!row || !list) return;
+  const rowBox = row.getBoundingClientRect();
+  const listBox = list.getBoundingClientRect();
+  if (rowBox.top < listBox.top) list.scrollTop -= listBox.top - rowBox.top;
+  else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom;
 }
 
 /**
@@ -76,9 +84,9 @@ function scrollIntoList(row: HTMLButtonElement | null) {
  * "Widest gaps" panel: each row shows the two card names, the engine →
  * community score jump in the gap colour, and the vote count. Rows are
  * adm-row-btn buttons, so the selected one wears the gold bar, says
- * aria-pressed and scrolls into view (scrollIntoList). A footnote reminds the
- * reader that most pairs carry a single vote, so the rule-level trend is what
- * to trust.
+ * aria-pressed and scrolls into view within the list (scrollIntoList). A
+ * footnote reminds the reader that most pairs carry a single vote, so the
+ * rule-level trend is what to trust.
  */
 export function PairList({pairs, selectedPair, onSelectPair, emptyText = 'No voted pairs yet.'}: PairListProps) {
   return (
