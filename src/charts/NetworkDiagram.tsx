@@ -79,7 +79,8 @@ const CLIP: React.CSSProperties = {position: 'absolute', inset: 0, overflow: 'hi
 const SVG: React.CSSProperties = {display: 'block'};
 const LIST: React.CSSProperties = {margin: 0, padding: 0, listStyle: 'none'};
 const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
-const NOTE_BUTTON: React.CSSProperties = {minHeight: NODE_TARGET};
+/** The button variant prints at NOTE's size, so the line doesn't change size with onShowAll. */
+const NOTE_BUTTON: React.CSSProperties = {minHeight: NODE_TARGET, fontSize: ADMIN_TYPE.small};
 
 /** Each node's series colour, neutral for a series the chart doesn't define (as the scatter's placeDots). */
 function nodeColors(nodes: readonly NetworkNode[], series: readonly SeriesDef[]): string[] {
@@ -247,7 +248,7 @@ function MoreNote({more, onShowAll}: {more: number; onShowAll?: () => void}) {
   return (
     <p style={NOTE}>
       {onShowAll ? (
-        <LinkButton type="button" size="sm" onClick={onShowAll} style={NOTE_BUTTON}>
+        <LinkButton type="button" onClick={onShowAll} style={NOTE_BUTTON}>
           and {fmtInt(more)} more in the table
         </LinkButton>
       ) : (

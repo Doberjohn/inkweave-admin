@@ -3,6 +3,7 @@ import {
   FOCUS_REACH,
   NAME_SIZE,
   NODE_TARGET,
+  contains,
   labelFor,
   networkLayout,
   nodeTarget,
@@ -186,6 +187,40 @@ describe('networkLayout', () => {
     const [elsaLink, elsaName, elsaTarget] = [layout.links[0], layout.names[0]!, nodeTarget(layout.slots[0])];
     expect(elsaLink.y).toBe(elsaName.y);
     expect(elsaLink.y + elsaLink.height).toBe(elsaTarget.y + elsaTarget.height);
+  });
+
+  it('widens a side name’s link from its target to the name’s far end', () => {
+    // Anna sits at 3 o'clock, (410, 170): her target starts at x 398 and her name, 26.4px wide, at 422.
+    const anna = networkLayout(PLOT, ['Elsa', 'Anna', 'Olaf', 'Hans']).links[1];
+    expect(anna).toMatchObject({x: 398, y: 158, height: 24});
+    expect(anna.width).toBeCloseTo(50.4, 10);
+  });
+
+  it('covers every printed name, on any side, and its node’s target with that node’s link, at any width', () => {
+    const anchors = new Set<string>();
+    for (const width of [320, 480, 640, 960]) {
+      const layout = networkLayout({width, height: 340}, NAMES);
+      layout.names.forEach((name, i) => {
+        expect(contains(layout.links[i], nodeTarget(layout.slots[i]))).toBe(true);
+        if (!name) return;
+        anchors.add(name.anchor);
+        expect(contains(layout.links[i], name)).toBe(true);
+      });
+    }
+    // The premise: names on the right, on the left and above or below all printed.
+    expect([...anchors].sort()).toEqual(['end', 'middle', 'start']);
+  });
+
+  it('keeps a name FOCUS_REACH clear of the plot’s edge, not merely inside it, so no focus ring is clipped', () => {
+    const names = ['Elsa', 'Twenty chars exactly', 'Olaf', 'Hans'];
+    const narrow = networkLayout({width: 550, height: 340}, names);
+    // The premise: at 550px the 3 o'clock name would end at 549, inside the plot but within FOCUS_REACH of its edge.
+    const end = narrow.slots[1].x + NODE_TARGET / 2 + textWidth(names[1], NAME_SIZE);
+    expect(end).toBeCloseTo(549, 10);
+    expect(end).toBeGreaterThan(550 - FOCUS_REACH);
+    expect(narrow.names[1]).toBeNull();
+    // The control: at 560px it ends at 554, FOCUS_REACH clear, and prints.
+    expect(networkLayout({width: 560, height: 340}, names).names[1]).not.toBeNull();
   });
 
   it('keeps every printed name inside the plot, clear of each other, of every node and of the hub, at any width', () => {

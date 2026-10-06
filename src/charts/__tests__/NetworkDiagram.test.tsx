@@ -2,7 +2,7 @@ import {describe, expect, it, vi} from 'vitest';
 import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {RouterProvider, createMemoryRouter, useLocation, useParams} from 'react-router-dom';
-import {ADMIN_COLORS} from '../../theme/adminTheme';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {NETWORK_MAX_NODES, NetworkDiagram, type NetworkNode} from '../NetworkDiagram';
 import {networkLayout} from '../networkLayout';
 import {CHART_FALLBACK_WIDTH, tooltipText, type SeriesDef} from '../series';
@@ -82,6 +82,14 @@ describe('NetworkDiagram: nodes and links', () => {
     unmount();
     renderDiagram({nodes: nodes(12)});
     expect(screen.queryByText(/more in the table/)).not.toBeInTheDocument();
+  });
+
+  it('sets the note at one size, as a button or as text', () => {
+    const {unmount} = renderDiagram({nodes: nodes(13), onShowAll: vi.fn()});
+    expect(screen.getByRole('button', {name: 'and 1 more in the table'})).toHaveStyle({fontSize: `${ADMIN_TYPE.small}px`});
+    unmount();
+    renderDiagram({nodes: nodes(13)});
+    expect(screen.getByText('and 1 more in the table view')).toHaveStyle({fontSize: `${ADMIN_TYPE.small}px`});
   });
 
   it('covers each node’s target and its printed name with its link', () => {
