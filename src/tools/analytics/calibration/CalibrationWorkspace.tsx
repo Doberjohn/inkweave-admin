@@ -4,6 +4,7 @@ import {LinkButton, SPACING} from '../../../app-bridge';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
+import {activityWindow} from '../activity/activityModel';
 import {DimensionParticipation} from '../DimensionParticipation';
 import {PairList} from '../PairList';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
@@ -14,7 +15,7 @@ import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
 import type {FocusHandoff} from './focusHandoff';
-import {TuningAside, type TuningState} from './TuningAside';
+import {ASIDE_FILL, TuningAside, type TuningState} from './TuningAside';
 import {WeeklyGapTrend} from './WeeklyGapTrend';
 import {
   buildCalibrationRows,
@@ -24,7 +25,9 @@ import {
   pairsFor,
   pairsHeading,
   pairsInScope,
+  pinnedEntryName,
   rowsSharingKey,
+  tuningEntry,
   votesForPair,
   withSelectedPair,
   type CalibrationRow,
@@ -75,7 +78,7 @@ const LEFT: React.CSSProperties = {
 const ASIDE: React.CSSProperties = {
   flex: '1 1 340px',
   minWidth: 0,
-  background: `linear-gradient(${ADMIN_COLORS.aside}, ${ADMIN_COLORS.aside}), ${ADMIN_COLORS.page}`,
+  background: ASIDE_FILL,
 };
 
 /**
@@ -106,6 +109,8 @@ const PAIRS_ROW = twoUp(346);
 
 const SCOPE_ROW: React.CSSProperties = {display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: SPACING.md};
 const SCOPE_LINE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text};
+// A 24px target (2.5.8): LinkButton's size sm is about 15px tall, and base alone about 19px.
+const SCOPE_BUTTON: React.CSSProperties = {minHeight: SPACING.xxl};
 
 /** Dimension participation sits under the scope row, but reads every vote, so it says so. */
 const ALL_VOTES = 'All votes, whatever the rule';
@@ -137,13 +142,28 @@ function rulesEmptyText(analytics: UseVoteAnalyticsReturn, hasToken: boolean): s
     : 'No rules to show: vote analytics are missing and tuning.json needs a GitHub token.';
 }
 
+/** The Tune link: the name of the entry it opens, and what it does. */
+interface TuneLink {
+  name: string;
+  onTune: () => void;
+}
+
 /**
  * The one filter row above everything the rule scopes (dataviz: filters sit
- * above what they scope): what is in scope, and the way back to every pair.
- * "Show all pairs" unmounts as it clears the rule, so it hands focus to the
- * scope line first, not to <body>.
+ * above what they scope): what is in scope, the way back to every pair and,
+ * when the aside can take it, the way on to the rule's editor. "Show all
+ * pairs" unmounts as it clears the rule, so it hands focus to the scope line
+ * first, not to <body>.
  */
-function ScopeRow({selected, onShowAll}: {selected: CalibrationRow | null; onShowAll: () => void}) {
+function ScopeRow({
+  selected,
+  onShowAll,
+  tune,
+}: {
+  selected: CalibrationRow | null;
+  onShowAll: () => void;
+  tune: TuneLink | null;
+}) {
   const lineRef = useRef<HTMLParagraphElement>(null);
   return (
     <div style={SCOPE_ROW}>
@@ -151,16 +171,20 @@ function ScopeRow({selected, onShowAll}: {selected: CalibrationRow | null; onSho
         {pairsHeading(selected)}
       </p>
       {selected && (
-        // A 24px target (2.5.8): size sm is about 15px tall, and base alone about 19px.
         <LinkButton
           type="button"
           size="base"
-          style={{minHeight: SPACING.xxl}}
+          style={SCOPE_BUTTON}
           onClick={() => {
             onShowAll();
             lineRef.current?.focus();
           }}>
           Show all pairs
+        </LinkButton>
+      )}
+      {tune && (
+        <LinkButton type="button" size="base" style={SCOPE_BUTTON} onClick={tune.onTune}>
+          Tune {tune.name}
         </LinkButton>
       )}
     </div>
@@ -193,9 +217,18 @@ function scopeOf(data: VoteAnalytics, selected: CalibrationRow | null): Scope {
   return {pairs, label: selected.name, emptyText: 'No voted pairs for this rule yet.', engineSilentPairs: 0};
 }
 
-/** The weekly gap once the vote log is in; until then, or if it failed, a notice in its place. */
+/**
+ * The weekly gap once the vote log is in; until then, or if it failed, a
+ * notice in its place. The span is the whole log's, as Vote activity reads it
+ * at "All", so the trend can say which end weeks are part weeks.
+ */
 function WeeklyGap({voteLog, scope}: {voteLog: UseVoteLogReturn; scope: Scope}) {
-  if (voteLog.data) return <WeeklyGapTrend weeks={weeklyGaps(voteLog.data.votes, scope.pairs)} scopeLabel={scope.label} />;
+  if (voteLog.data) {
+    const {votes} = voteLog.data;
+    return (
+      <WeeklyGapTrend weeks={weeklyGaps(votes, scope.pairs)} span={activityWindow(votes, 'all')} scopeLabel={scope.label} />
+    );
+  }
   if (voteLog.error) return <Notice tone="error">Could not load the vote log: {voteLog.error.message}</Notice>;
   return <Notice>Loading the vote log…</Notice>;
 }
@@ -225,6 +258,8 @@ interface ScopedAnalyticsProps {
   selectedPair: PairPick | null;
   onSelectPair: (pair: PairPick) => void;
   onShowAll: () => void;
+  /** The scope row's way on to the selected rule's editor, or null to hide it. */
+  tune: TuneLink | null;
 }
 
 /**
@@ -234,11 +269,11 @@ interface ScopedAnalyticsProps {
  * its widest 40. The scatter and the list pick the same pair, so a dot opens
  * its votes as a row does, and the list shows it even below the 40.
  */
-function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, onShowAll}: ScopedAnalyticsProps) {
+function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, onShowAll, tune}: ScopedAnalyticsProps) {
   const scope = scopeOf(data, selected);
   return (
     <>
-      <ScopeRow selected={selected} onShowAll={onShowAll} />
+      <ScopeRow selected={selected} onShowAll={onShowAll} tune={tune} />
       <div style={CHARTS_ROW}>
         <CalibrationScatter
           pairs={scope.pairs}
@@ -320,6 +355,40 @@ function sharedWith(rows: CalibrationRow[], selected: CalibrationRow | null): Ca
 }
 
 /**
+ * The name the Tune link carries: the entry's, as the aside heads it
+ * (Locations for any location-* rule). Without a token the pinned engine's
+ * bundled tuning.json stands in for the live one (pinnedEntryName), as on the
+ * Overview, so a key new on master hides the link until a pin bump, where the
+ * Overview reads "Inspect". Null hides the link: no rule, the aside reading
+ * tuning.json or failing its first read, or a rule with no copy in it.
+ */
+function tuneName(tuning: TuningState | null, selected: CalibrationRow | null): string | null {
+  if (!selected) return null;
+  if (!tuning) return pinnedEntryName(selected);
+  if (tuning.live.status !== 'ready') return null;
+  return tuningEntry(tuning.live.config, selected)?.name ?? null;
+}
+
+/**
+ * The Tune link (C3): from the selected rule straight to its editor, past the
+ * charts and pairs between them (about 90 Tab presses). It scrolls the aside
+ * into view (the page stacks it under the analytics when narrow) and focuses
+ * the gate's field without a token, else the entry's heading, the aside's
+ * first h2. The click is the user's own, so focus moves even off the link,
+ * which focusHandoff's take would refuse.
+ */
+function useTuneLink(tuning: TuningState | null, selected: CalibrationRow | null) {
+  const asideRef = useRef<HTMLElement>(null);
+  const name = tuneName(tuning, selected);
+  const onTune = () => {
+    const aside = asideRef.current;
+    aside?.scrollIntoView({block: 'start'});
+    aside?.querySelector<HTMLElement>(tuning ? 'h2' : 'input')?.focus({preventScroll: true});
+  };
+  return {asideRef, tune: name === null ? null : {name, onTune}};
+}
+
+/**
  * /calibration's body: the calibration analytics in the left column, the
  * tuning editor in the aside. It holds no route state: the rule comes in as
  * `selectedId` (?rule=), so the Overview's link, the sidebar's and a reload
@@ -339,6 +408,7 @@ export function CalibrationWorkspace({
   const {config, edited} = tuningView(tuning);
   const rows = rulesFor(analytics, config);
   const selection = useRuleSelection(rows, selectedId, onSelect);
+  const {asideRef, tune} = useTuneLink(tuning, selection.selected);
   return (
     <div style={COLUMNS}>
       <div style={LEFT}>
@@ -358,10 +428,11 @@ export function CalibrationWorkspace({
             selectedPair={selection.selectedPair}
             onSelectPair={selection.pickPair}
             onShowAll={() => selection.selectRule(null)}
+            tune={tune}
           />
         )}
       </div>
-      <aside aria-label="Tuning editor" style={ASIDE}>
+      <aside ref={asideRef} aria-label="Tuning editor" style={ASIDE}>
         <TuningAside
           tuning={tuning}
           onSaveToken={onSaveToken}

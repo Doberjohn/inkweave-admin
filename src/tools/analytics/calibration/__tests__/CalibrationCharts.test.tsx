@@ -8,8 +8,8 @@ import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {CalibrationScatter} from '../CalibrationScatter';
 import {GapHistogram} from '../GapHistogram';
 import {WeeklyGapTrend} from '../WeeklyGapTrend';
-import {SIX_PAIRS} from '../chartFixtures';
-import {SCATTER_JITTER, SCORE_DOMAIN, SCORE_TICKS, gapDomain, type WeeklyGap} from '../chartData';
+import {SIX_PAIRS, pairOf} from '../chartFixtures';
+import {SCATTER_JITTER, SCORE_DOMAIN, SCORE_TICKS, gapDomain, type VoteSpan, type WeeklyGap} from '../chartData';
 import {pairId} from '../calibrationModel';
 
 // jsdom has no ResizeObserver, so the real useContainerWidth stays at 0 and the
@@ -66,6 +66,11 @@ const WEEKS: WeeklyGap[] = [
   {week: '2026-09-21', meanGap: null, scoreVotes: 0},
   {week: '2026-09-28', meanGap: -1, scoreVotes: 3},
 ];
+/** WEEKS' log runs Monday Sep 14 to Sunday Oct 4: three whole weeks. */
+const WHOLE_WEEKS: VoteSpan = {startDay: '2026-09-14', endDay: '2026-10-04'};
+/** The same weeks with the last vote on Wednesday Sep 30: the last week is a part week. */
+const ENDS_MID_WEEK: VoteSpan = {startDay: '2026-09-14', endDay: '2026-09-30'};
+const WEEKLY_SUBTITLE = "Ramp · each week's mean gap (community − engine) and the score votes behind it";
 
 describe('CalibrationScatter', () => {
   it('reads the leftmost pair, then the shared 7 → 7 spot, and selects it with Enter', async () => {
@@ -267,11 +272,22 @@ describe('GapHistogram: bars, labels, table and rule copy', () => {
     render(<GapHistogram pairs={[]} scopeLabel="Ramp" emptyText="No voted pairs for this rule yet." />);
     expect(screen.getByText('No voted pairs for this rule yet.')).toBeInTheDocument();
   });
+
+  it('reads a near-whole share as >99% in the subtitle and the tooltip, never 100%', async () => {
+    // 399 agreeing pairs and one far above them.
+    const pairs = [...Array.from({length: 399}, (_, i) => pairOf(String(i), `${i}b`, 5, 5)), pairOf('x', 'y', 3, 9)];
+    render(<GapHistogram pairs={pairs} scopeLabel="All pairs" />);
+    expect(screen.getByText('All pairs · >99% within ±0.5, 0% engine higher, <1% community higher')).toBeInTheDocument();
+    const slider = screen.getByRole('slider', {name: 'Pairs by gap, All pairs'});
+    act(() => slider.focus());
+    await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}');
+    expect(tooltip('Gap within ±0.5')).toHaveTextContent(/399\s*pairs\s*399\s*votes\s*>99%\s*of pairs$/);
+  });
 });
 
 describe('WeeklyGapTrend', () => {
   it('hands the gap plot its labelled baseline, its domain, fixed gutters, no dates and a null for the quiet week', () => {
-    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     expect(screen.getByRole('slider', {name: 'Weekly mean gap, Ramp'})).toBeInTheDocument();
     expect(screen.getByRole('slider', {name: 'Score votes per week, Ramp'})).toBeInTheDocument();
     const gap = lineProps.find((p) => p.ariaLabel === 'Weekly mean gap, Ramp');
@@ -288,7 +304,7 @@ describe('WeeklyGapTrend', () => {
   });
 
   it('puts each week at the same x in both plots', () => {
-    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     const firstX = (id: string) => container.querySelector(`path[data-series="${id}"]`)?.getAttribute('d')?.match(/^M([\d.]+),/)?.[1];
     const endX = (id: string) => container.querySelector(`circle[data-end="${id}"]`)?.getAttribute('cx');
     expect(firstX('gap')).toBeDefined();
@@ -298,7 +314,7 @@ describe('WeeklyGapTrend', () => {
   });
 
   it('draws the votes as a neutral area under an accent gap line, and reads each week from the keyboard', async () => {
-    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     expect(container.querySelector('path[data-area="votes"]')).toHaveAttribute('fill', ADMIN_COLORS.barNeutral);
     expect(container.querySelector('path[data-series="votes"]')).toHaveAttribute('stroke', ADMIN_COLORS.barNeutral);
     // Only the votes are a wash: the gap is a line against its baseline.
@@ -320,7 +336,7 @@ describe('WeeklyGapTrend', () => {
   });
 
   it('reads the gap axis as +1.00, No gap, −1.00, and the votes axis in whole numbers', () => {
-    const {container} = render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    const {container} = render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     const [gapPlot, votesPlot] = [...container.querySelectorAll('svg')];
     // The zero tick's label gives way to the baseline's, which sits in the gutter at the same y.
     expect([...gapPlot.querySelectorAll('svg > g:not([data-baseline]) > text')].map((t) => t.textContent)).toEqual(['−1.00', '+1.00']);
@@ -334,35 +350,67 @@ describe('WeeklyGapTrend', () => {
       {week: '2026-09-21', meanGap: 1, scoreVotes: 1},
       {week: '2026-09-28', meanGap: null, scoreVotes: 0},
     ];
-    const {container} = render(<WeeklyGapTrend weeks={lone} scopeLabel="Ramp" />);
+    const {container} = render(<WeeklyGapTrend weeks={lone} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     expect(container.querySelectorAll('circle[data-lone="gap"]')).toHaveLength(1);
   });
 
   it('says a scope has no score votes when no week has one', () => {
     const quiet = WEEKS.map((w) => ({...w, meanGap: null, scoreVotes: 0}));
-    render(<WeeklyGapTrend weeks={quiet} scopeLabel="Locations" />);
+    render(<WeeklyGapTrend weeks={quiet} span={WHOLE_WEEKS} scopeLabel="Locations" />);
     expect(screen.getByText('No score votes in this scope yet.')).toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
   it('says there are not enough weeks for one week of votes', () => {
-    render(<WeeklyGapTrend weeks={WEEKS.slice(0, 1)} scopeLabel="Ramp" />);
+    render(<WeeklyGapTrend weeks={WEEKS.slice(0, 1)} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     expect(screen.getByText('Not enough weeks of votes to draw a trend yet.')).toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
   it('captions both plots and tables every week', async () => {
-    render(<WeeklyGapTrend weeks={WEEKS} scopeLabel="Ramp" />);
+    render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
     expect(screen.getByText('Mean gap')).toBeInTheDocument();
     expect(screen.getByText('Score votes')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', {name: 'Table'}));
     const table = screen.getByRole('table', {name: 'Weekly mean gap and score votes, Ramp. Weeks start on Monday (UTC).'});
     const [head, ...rows] = within(table).getAllByRole('row');
-    expect(cells(head)).toEqual(['Week of', 'Mean gap', 'Score votes']);
+    expect(cells(head)).toEqual(['Week', 'Mean gap', 'Score votes']);
     expect(rows.map(cells)).toEqual([
-      ['Sep 14', '−0.50', '2'],
-      ['Sep 21', '—', '0'],
-      ['Sep 28', '−1.00', '3'],
+      ['Week of Sep 14', '−0.50', '2'],
+      ['Week of Sep 21', '—', '0'],
+      ['Week of Sep 28', '−1.00', '3'],
     ]);
+  });
+});
+
+describe('WeeklyGapTrend: part weeks', () => {
+  it("flags a last week the log ends inside, in the subtitle, both plots' tooltips and sliders, and the table", async () => {
+    render(<WeeklyGapTrend weeks={WEEKS} span={ENDS_MID_WEEK} scopeLabel="Ramp" />);
+    expect(screen.getByText(`${WEEKLY_SUBTITLE}, last week partial`)).toBeInTheDocument();
+    const gap = screen.getByRole('slider', {name: 'Weekly mean gap, Ramp'});
+    act(() => gap.focus());
+    await userEvent.keyboard('{End}');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 28 (to Sep 30): −1.00 Mean gap');
+    expect(tooltip('Week of Sep 28 (to Sep 30)')).toHaveTextContent(/−1\.00\s*Mean gap$/);
+    // A whole week inside the span stays plain.
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 14: −0.50 Mean gap');
+    const votes = screen.getByRole('slider', {name: 'Score votes per week, Ramp'});
+    act(() => votes.focus());
+    await userEvent.keyboard('{End}');
+    expect(votes).toHaveAttribute('aria-valuetext', 'Week of Sep 28 (to Sep 30): 3 Score votes');
+    expect(tooltip('Week of Sep 28 (to Sep 30)')).toHaveTextContent(/3\s*Score votes$/);
+    await userEvent.click(screen.getByRole('button', {name: 'Table'}));
+    expect(screen.getByRole('rowheader', {name: 'Week of Sep 28 (to Sep 30)'})).toBeInTheDocument();
+  });
+
+  it('reads a log that ends on a Sunday as whole weeks', async () => {
+    render(<WeeklyGapTrend weeks={WEEKS} span={WHOLE_WEEKS} scopeLabel="Ramp" />);
+    expect(screen.getByText(WEEKLY_SUBTITLE)).toBeInTheDocument();
+    const gap = screen.getByRole('slider', {name: 'Weekly mean gap, Ramp'});
+    act(() => gap.focus());
+    await userEvent.keyboard('{End}');
+    expect(gap).toHaveAttribute('aria-valuetext', 'Week of Sep 28: −1.00 Mean gap');
+    expect(screen.queryByText(/partial|\(to /)).not.toBeInTheDocument();
   });
 });

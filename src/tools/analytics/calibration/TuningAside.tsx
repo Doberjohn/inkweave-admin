@@ -10,12 +10,12 @@ import {Notice} from '../../../ui/Notice';
 import {PendingTray} from '../../tuning/components/PendingTray';
 import {TierRow} from '../../tuning/components/TierRow';
 import {tuningFailureKind} from '../../tuning/tuningFailure';
-import {pendingLabel, rowsForSelection, tuningKind, tuningName, type RowSpec} from '../../tuning/tuningRows';
+import {pendingLabel, type RowSpec} from '../../tuning/tuningRows';
 import type {UseLiveTuningResult} from '../../tuning/useLiveTuning';
 import type {PendingEdit, StageArgs, UseTuningAdminResult} from '../../tuning/useTuningAdmin';
 import {biasCopy} from '../biasCopy';
 import {gapColor} from '../gapColor';
-import type {CalibrationRow} from './calibrationModel';
+import {tuningEntry, type CalibrationRow} from './calibrationModel';
 import {focusUnmoved, useTakeHandoff, type FocusHandoff} from './focusHandoff';
 import {reloadNote} from './reloadNote';
 
@@ -45,6 +45,13 @@ interface TuningAsideProps {
 
 type Path = (string | number)[];
 
+/**
+ * The aside's tint over the page colour (adminTheme.ts): the aside's own fill,
+ * and the fill of the pinned header and tray, which hide the rows that scroll
+ * under them. The tint alone is translucent, so it would let them show.
+ */
+export const ASIDE_FILL = `linear-gradient(${ADMIN_COLORS.aside}, ${ADMIN_COLORS.aside}), ${ADMIN_COLORS.page}`;
+
 const PADDED: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.md, padding: SPACING.xxl};
 // A failed reload's error, over the tray it keeps on screen (C1).
 const READ_ERROR: React.CSSProperties = {
@@ -57,14 +64,29 @@ const READ_ERROR: React.CSSProperties = {
 // R2-6's <aside> stretches to the row, and this column fills it, so the tray sits at
 // the foot of a short aside and sticks to the bottom of the view on a long page.
 const COLUMN: React.CSSProperties = {display: 'flex', flexDirection: 'column', minHeight: '100%'};
-const BODY: React.CSSProperties = {flex: 1, display: 'flex', flexDirection: 'column', gap: SPACING.xl, padding: SPACING.xxl};
+const BODY_GAP = SPACING.xl;
+const BODY: React.CSSProperties = {flex: 1, display: 'flex', flexDirection: 'column', gap: BODY_GAP, padding: SPACING.xxl};
 const FOOT: React.CSSProperties = {
   position: 'sticky',
   bottom: 0,
   padding: `${SPACING.lg}px ${SPACING.xxl}px`,
   borderTop: `1px solid ${ADMIN_COLORS.border}`,
-  // The rows scroll under the pinned tray, so its fill hides them: the aside's tint over the page (adminTheme.ts).
-  background: `linear-gradient(${ADMIN_COLORS.aside}, ${ADMIN_COLORS.aside}), ${ADMIN_COLORS.page}`,
+  background: ASIDE_FILL,
+};
+// The entry's eyebrow, name, gap and shared-by line stay at the top of the page's
+// scroller as the rows scroll under them. Pinned, it pads md above the eyebrow and sm
+// under its last line. Its margins take that padding back, and the body's gap after
+// it, so unpinned it sits where it did, with the read line sm under it. Nothing in the
+// rows is positioned, so it paints over them with no z-index.
+const HEAD: React.CSSProperties = {
+  position: 'sticky',
+  top: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: SPACING.sm,
+  padding: `${SPACING.md}px 0 ${SPACING.sm}px`,
+  margin: `-${SPACING.md}px 0 -${BODY_GAP}px`,
+  background: ASIDE_FILL,
 };
 
 const TEXT: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, lineHeight: 1.5, color: ADMIN_COLORS.muted};
@@ -118,42 +140,49 @@ function confirmForget(pending: number, onForgetToken: () => void): () => void {
  * (Locations: nine location-* rules) names the rules that share it, and a
  * rule whose entry goes by another name (Location Boost under Locations, Lore
  * Loss under Lore Denial) labels its gap and read line with its own name, so
- * the number never reads as the entry's (R-21).
+ * the number never reads as the entry's (R-21). All but the read line is
+ * pinned (HEAD), so the entry's name stays in view over its rows. A pinned box
+ * stays inside its parent, so it is a child of the aside's body, which runs
+ * the aside's full height, not of a wrapper of its own.
  */
 function EntryHeader({
   eyebrow,
   title,
   row,
   sharedWith,
+  headRef,
 }: {
   eyebrow: string;
   title: string;
   row: CalibrationRow;
   sharedWith: CalibrationRow[];
+  headRef: RefObject<HTMLDivElement | null>;
 }) {
   const gap = row.stat?.meanGap ?? null;
   const own = row.name === title;
   const {read} = biasCopy(gap);
   return (
-    <div style={{display: 'flex', flexDirection: 'column', gap: SPACING.sm}}>
-      <p style={EYEBROW}>{eyebrow}</p>
-      <div style={TITLE_ROW}>
-        {/* Takes focus when the editor arrives after the button that asked for it unmounted (F2). */}
-        <h2 tabIndex={-1} style={TITLE}>
-          {title}
-        </h2>
-        <p style={GAP}>
-          <span style={GAP_LABEL}>{own ? 'Gap' : `${row.name} gap`}</span>{' '}
-          <span style={{...GAP_VALUE, color: gapColor(gap)}}>{fmtGap(gap)}</span>
-        </p>
+    <>
+      <div ref={headRef} style={HEAD}>
+        <p style={EYEBROW}>{eyebrow}</p>
+        <div style={TITLE_ROW}>
+          {/* Takes focus from the Tune link, and when the editor arrives after the button that asked for it unmounted (F2). */}
+          <h2 tabIndex={-1} style={TITLE}>
+            {title}
+          </h2>
+          <p style={GAP}>
+            <span style={GAP_LABEL}>{own ? 'Gap' : `${row.name} gap`}</span>{' '}
+            <span style={{...GAP_VALUE, color: gapColor(gap)}}>{fmtGap(gap)}</span>
+          </p>
+        </div>
+        {sharedWith.length > 1 && (
+          <p style={{...TEXT, fontSize: ADMIN_TYPE.small}}>
+            Shared by {sharedWith.length} rules: {sharedWith.map((shared) => shared.name).join(', ')}
+          </p>
+        )}
       </div>
-      {sharedWith.length > 1 && (
-        <p style={{...TEXT, fontSize: ADMIN_TYPE.small}}>
-          Shared by {sharedWith.length} rules: {sharedWith.map((shared) => shared.name).join(', ')}
-        </p>
-      )}
       <p style={TEXT}>{own ? read : `${row.name}: ${read}`}</p>
-    </div>
+    </>
   );
 }
 
@@ -209,41 +238,52 @@ function EditableRow({
   );
 }
 
-/** The aside's body: a prompt, the "no copy" state (R-20), or the selected entry's rows. */
+/**
+ * The aside's body: a prompt, the "no copy" state (R-20), or the selected
+ * entry's rows. `headRef` takes the pinned header, which focused rows keep clear of.
+ */
 function SelectedEntry({
   config,
   pending,
   selected,
   sharedWith,
   stageEdit,
+  headRef,
 }: {
   config: TuningConfig;
   pending: PendingEdit[];
   selected: CalibrationRow | null;
   sharedWith: CalibrationRow[];
   stageEdit: (args: StageArgs) => void;
+  headRef: RefObject<HTMLDivElement | null>;
 }) {
   if (!selected) return <p style={TEXT}>Pick a playstyle or direct synergy to edit its copy and scores.</p>;
-  const key = selected.tuningKey;
-  const rows = key ? rowsForSelection(config, key) : [];
-  if (!key || rows.length === 0) {
+  const entry = tuningEntry(config, selected);
+  if (!entry) {
     return (
       <>
-        <EntryHeader eyebrow={kindLabel(selected.category)} title={selected.name} row={selected} sharedWith={[]} />
+        <EntryHeader
+          eyebrow={kindLabel(selected.category)}
+          title={selected.name}
+          row={selected}
+          sharedWith={[]}
+          headRef={headRef}
+        />
         <p style={TEXT}>No copy in tuning.json, so {selected.name} has nothing to tune here.</p>
       </>
     );
   }
-  const name = tuningName(config, key);
+  const {section, name, rows} = entry;
   const pendingFor = (path: Path | undefined) =>
     path ? pending.find((edit) => edit.pathKey === JSON.stringify(path)) : undefined;
   return (
     <>
       <EntryHeader
-        eyebrow={`${kindLabel(tuningKind(config, key))} · tuning.json`}
+        eyebrow={`${kindLabel(section)} · tuning.json`}
         title={name}
         row={selected}
         sharedWith={sharedWith}
+        headRef={headRef}
       />
       {rows.map((row) => (
         <EditableRow key={row.label} row={row} name={name} pendingFor={pendingFor} stageEdit={stageEdit} />
@@ -365,6 +405,47 @@ function DroppedNote({dropped, noteRef}: {dropped: number | null; noteRef: RefOb
   );
 }
 
+/** A stretch of the view, from its top to its bottom, in px. */
+type Span = Pick<DOMRect, 'top' | 'bottom'>;
+
+/**
+ * How far to scroll, down being positive, so a field sits in the clear band:
+ * 0 when it is inside already; else centred in the band, or with its top at
+ * the band's top when it is taller than the band, so its start shows.
+ */
+function clearScroll(field: Span, band: Span): number {
+  if (field.top >= band.top && field.bottom <= band.bottom) return 0;
+  const room = band.bottom - band.top;
+  const height = field.bottom - field.top;
+  return field.top - (height > room ? band.top : band.top + (room - height) / 2);
+}
+
+/** The nearest ancestor that scrolls, the one the header and tray pin to: PageLayout's body on the page. */
+function scrollerOf(field: Element): Element {
+  for (let node = field.parentElement; node; node = node.parentElement) {
+    const {overflowY} = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll') return node;
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
+
+/**
+ * The rows scroll under the pinned header and tray, which hide them, so a
+ * field that takes focus outside the clear band between the header's bottom
+ * and the tray's top scrolls into it (WCAG 2.4.11). Centring it in the view
+ * isn't enough: a tall header (a wrapped "Shared by" line) and a tall tray can
+ * leave the view's middle under one of them.
+ */
+function keepClear(field: Element, head: Element | null, foot: Element | null): void {
+  // With no entry there is no header, and no field to focus.
+  if (!head || !foot) return;
+  // The header's own heading takes focus from the Tune link: it is the header, never under it.
+  if (head.contains(field)) return;
+  const band = {top: head.getBoundingClientRect().bottom, bottom: foot.getBoundingClientRect().top};
+  const by = clearScroll(field.getBoundingClientRect(), band);
+  if (by !== 0) scrollerOf(field).scrollBy({top: by});
+}
+
 /**
  * tuning.json is loaded: the selected entry over the pinned tray. A failed
  * reload keeps both, with its error above the tray (C1), so a publish's commit
@@ -389,6 +470,7 @@ function ReadyAside({
   // How many edits the last "Reload tuning.json" dropped (R-18); null until one runs, and again once a publish starts.
   const [dropped, setDropped] = useState<number | null>(null);
   const columnRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
   const footRef = useRef<HTMLDivElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
   // A pending handoff goes to the first heading, the entry's or else the tray's, once no read error is up.
@@ -414,24 +496,20 @@ function ReadyAside({
       if (focusUnmoved(from)) noteRef.current?.focus();
     });
   };
-  // The rows scroll under the pinned tray, which hides them: a field that takes
-  // focus there scrolls up into view (WCAG 2.4.11).
-  const keepClearOfTray = (event: React.FocusEvent<HTMLDivElement>) => {
-    const trayTop = footRef.current?.getBoundingClientRect().top;
-    if (trayTop !== undefined && event.target.getBoundingClientRect().bottom > trayTop) {
-      event.target.scrollIntoView({block: 'center'});
-    }
-  };
+  // A field that takes focus under the pinned header or tray scrolls into the band between them.
+  const keepClearOfPinned = (event: React.FocusEvent<HTMLDivElement>) =>
+    keepClear(event.target, headRef.current, footRef.current);
 
   return (
     <div ref={columnRef} style={COLUMN}>
-      <div style={BODY} onFocus={keepClearOfTray}>
+      <div style={BODY} onFocus={keepClearOfPinned}>
         <SelectedEntry
           config={config}
           pending={admin.pending}
           selected={selected}
           sharedWith={sharedWith}
           stageEdit={admin.stageEdit}
+          headRef={headRef}
         />
       </div>
       <div ref={footRef} style={FOOT}>

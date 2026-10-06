@@ -1,4 +1,5 @@
-import {getRuleById, type TuningConfig} from 'inkweave-synergy-engine';
+import {getRuleById, TUNING, type TuningConfig} from 'inkweave-synergy-engine';
+import {rowsForSelection, tuningName, type EntryRef, type RowSpec} from '../../tuning/tuningRows';
 import type {PendingEdit} from '../../tuning/useTuningAdmin';
 import {fmtGap} from '../../../ui/format';
 import {countOf} from '../activity/activityModel';
@@ -104,6 +105,40 @@ export function sortCalibrationRows(rows: CalibrationRow[], key: RuleSortKey): C
 export function findRow(rows: CalibrationRow[], id: string | null): CalibrationRow | null {
   if (id == null) return null;
   return rows.find((row) => row.id === id) ?? rows.find((row) => row.tuningKey === id) ?? null;
+}
+
+/** A tuning.json entry the aside can edit: its section and key, its name and its editable rows. */
+export interface TuningEntry extends EntryRef {
+  /** The entry's playstyle title or direct-rule label: the aside's heading, and the Tune link's name. */
+  name: string;
+  rows: RowSpec[];
+}
+
+/**
+ * The entry the aside edits for a row: Locations for any location-* rule.
+ * The row's category is the entry's section, as tuningSlot reads it, so a key
+ * in both sections still gives the row its own entry, and Publish writes to
+ * it. Null when the row has no copy in tuning.json (no key, or a key with no
+ * rows), where the aside says so and the Tune link stays hidden.
+ */
+export function tuningEntry(config: TuningConfig, row: CalibrationRow): TuningEntry | null {
+  if (!row.tuningKey) return null;
+  const ref: EntryRef = {section: row.category, key: row.tuningKey};
+  const rows = rowsForSelection(config, ref);
+  return rows.length === 0 ? null : {...ref, name: tuningName(config, ref), rows};
+}
+
+/**
+ * The name of the entry holding a rule's copy in the pinned engine's bundled
+ * tuning.json, TUNING: the stand-in for the live file before a token reads
+ * it, as the Overview's Tune or Inspect uses it (R-22). Null when the pin has
+ * no copy: a key new on master stays without one until the next pin bump.
+ * Without a token every row has a stat; a row without one has no rule to look up.
+ */
+export function pinnedEntryName(row: CalibrationRow): string | null {
+  // tuningKeyFor looks in the section the row's category names, and tuningEntry reads that section.
+  const tuningKey = row.stat ? tuningKeyFor(row.stat, TUNING) : null;
+  return tuningEntry(TUNING, {...row, tuningKey})?.name ?? null;
 }
 
 /** The analytics rules whose copy is the tuning entry `key` (all nine location rules share location-control). */

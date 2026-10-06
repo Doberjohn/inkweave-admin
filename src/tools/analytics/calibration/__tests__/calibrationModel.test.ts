@@ -5,6 +5,7 @@ import type {GlobalStats, PairStat, RuleStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
 import {
   buildCalibrationRows,
+  type CalibrationRow,
   calibrationSubtitle,
   editedKeys,
   findPair,
@@ -14,8 +15,10 @@ import {
   pairsFor,
   pairsHeading,
   pairsInScope,
+  pinnedEntryName,
   rowsSharingKey,
   sortCalibrationRows,
+  tuningEntry,
   tuningKeyFor,
   votesForPair,
   withSelectedPair,
@@ -311,6 +314,91 @@ describe('rowsSharingKey', () => {
       TUNING,
     );
     expect(rowsSharingKey(all, 'location-control')).toHaveLength(9);
+  });
+});
+
+describe('tuningEntry', () => {
+  const rows = buildCalibrationRows(
+    [
+      stat('location-boost', {ruleName: 'Location Boost', playstyleId: 'location-control'}),
+      stat('singer-songs', {category: 'direct', playstyleId: null}),
+    ],
+    TUNING,
+  );
+  const [boost, singer] = rows;
+
+  it("gives the entry the aside edits for a rule: its key, its name and its rows", () => {
+    const entry = tuningEntry(TUNING, boost);
+    expect(entry?.key).toBe('location-control');
+    // The entry's name, which the aside heads its rows with, not the rule's.
+    expect(entry?.name).toBe(TUNING.playstyles['location-control'].name);
+    expect(entry?.name).not.toBe('Location Boost');
+    expect(entry?.rows.map((row) => row.label)).toEqual(['Title', 'Tagline']);
+  });
+
+  it('gives null for a rule with no copy in tuning.json: no key, or a key with no rows', () => {
+    expect(tuningEntry(TUNING, singer)).toBeNull();
+    // A key from app master that this tuning.json has no entry for (R-17).
+    expect(tuningEntry(TUNING, {...singer, tuningKey: 'ghost-key'})).toBeNull();
+  });
+
+  it("reads the row's own section when a key sits in both, with that key's ruleTexts rows", () => {
+    // tuning.json never does this; if it did, a direct rule must never edit the playstyle.
+    const both: TuningConfig = {
+      playstyles: {'shift-targets': {name: 'Shift (playstyle)', tagline: 'Shift wide'}},
+      directRules: {'shift-targets': {name: 'Shift Targets', description: 'Shift onto a target'}},
+      ruleTexts: {'shift-targets': {'curve.gap3': {score: 5, text: 'Wide gap'}}, ramp: {scores: {}, templates: {}}},
+    };
+    const row = (category: CalibrationRow['category']): CalibrationRow => ({
+      id: 'shift-targets',
+      name: 'Shift Targets',
+      category,
+      stat: null,
+      tuningKey: 'shift-targets',
+    });
+
+    const direct = tuningEntry(both, row('direct'));
+    expect(direct).toMatchObject({section: 'direct', key: 'shift-targets', name: 'Shift Targets'});
+    expect(direct?.rows.map((r) => [r.label, r.textPath?.[0]])).toEqual([
+      ['Label', 'directRules'],
+      ['Description', 'directRules'],
+      ['curve.gap3', 'ruleTexts'],
+    ]);
+
+    const playstyle = tuningEntry(both, row('playstyle'));
+    expect(playstyle).toMatchObject({section: 'playstyle', key: 'shift-targets', name: 'Shift (playstyle)'});
+    expect(playstyle?.rows.map((r) => [r.label, r.textPath?.[0]])).toEqual([
+      ['Title', 'playstyles'],
+      ['Tagline', 'playstyles'],
+      ['curve.gap3', 'ruleTexts'],
+    ]);
+  });
+});
+
+describe('pinnedEntryName', () => {
+  // No token: the rows carry no tuning key, since the live tuning.json is unread.
+  const [boost, singer, lore] = buildCalibrationRows(
+    [
+      stat('location-boost', {ruleName: 'Location Boost'}),
+      stat('singer-songs', {ruleName: 'Singer + Songs', category: 'direct'}),
+      stat('lore-loss', {ruleName: 'Lore Loss', playstyleId: 'lore-denial'}),
+    ],
+    null,
+  );
+
+  it("names the entry the pinned tuning.json holds a rule's copy in, as the aside heads it", () => {
+    expect(boost.tuningKey).toBeNull();
+    expect(pinnedEntryName(boost)).toBe(TUNING.playstyles['location-control'].name);
+    // The artifact's playstyleId first (R-17).
+    expect(pinnedEntryName(lore)).toBe(TUNING.playstyles['lore-denial'].name);
+  });
+
+  it('gives null for a rule the pinned tuning.json has no copy of, and for a row with no rule', () => {
+    expect(pinnedEntryName(singer)).toBeNull();
+    // A key that is new on master: no copy here until a pin bump.
+    const [fresh] = buildCalibrationRows([stat('lore-loss', {playstyleId: 'brand-new-playstyle'})], null);
+    expect(pinnedEntryName(fresh)).toBeNull();
+    expect(pinnedEntryName({...boost, stat: null, tuningKey: 'location-control'})).toBeNull();
   });
 });
 

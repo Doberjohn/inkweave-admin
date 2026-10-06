@@ -3,7 +3,8 @@ import {eachDay, weekStart, type Day} from '../../../charts/scale';
 import type {ScatterPoint} from '../../../charts/ScatterChart';
 import type {SeriesDef} from '../../../charts/series';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
-import {fmtDay, fmtGap, fmtInt, fmtScore} from '../../../ui/format';
+import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
+import {bucketTitle, partialWeeks} from '../activity/activityChart';
 import {countOf} from '../activity/activityModel';
 import {CALIBRATION_BAND} from '../verdict';
 import type {PairStat} from '../voteAnalyticsTypes';
@@ -170,14 +171,14 @@ export function gapBins(pairs: readonly PairStat[]): GapBin[] {
 }
 
 /** A bin's axis label: "≤−5", "−3", "0", "+3", "≥+5". */
-export function binLabel(center: number): string {
+export function binLabel({center}: Pick<GapBin, 'center'>): string {
   if (center <= -GAP_BIN_LIMIT) return `≤${signed(-GAP_BIN_LIMIT)}`;
   if (center >= GAP_BIN_LIMIT) return `≥${signed(GAP_BIN_LIMIT)}`;
   return signed(center);
 }
 
 /** The gaps a bin holds, in words: "−3.5 to −2.5", "within ±0.5", "−4.5 or lower". */
-export function binRange(center: number): string {
+export function binRange({center}: Pick<GapBin, 'center'>): string {
   if (center === 0) return `within ±${BAND}`;
   if (center <= -GAP_BIN_LIMIT) return `${signed(center + 0.5)} or lower`;
   if (center >= GAP_BIN_LIMIT) return `${signed(center - 0.5)} or higher`;
@@ -195,10 +196,13 @@ export function gapShares(bins: readonly GapBin[]): Record<GapSide, number> {
 /**
  * A share of the pairs as a whole percentage: 1 / 3 -> "33%". A share above
  * zero that would round to 0 prints "<1%", so a bin with pairs never reads
- * "0%". The histogram's subtitle, tooltip and table use it.
+ * "0%"; one below 1 that would round to 100 prints ">99%", so a bin without
+ * every pair never reads "100%". The histogram's subtitle, tooltip and table
+ * use it.
  */
 export function sharePercent(fraction: number): string {
   if (fraction > 0 && fraction < 0.005) return '<1%';
+  if (fraction < 1 && fraction >= 0.995) return '>99%';
   return `${Math.round(fraction * 100)}%`;
 }
 
@@ -209,7 +213,7 @@ export function histogramTable(bins: readonly GapBin[], scopeLabel: string): Cha
     caption: `Pairs by gap (community − engine), ${scopeLabel}. A gap on a half point counts in the bin further from zero.`,
     columns: ['Gap', 'Pairs', 'Votes', 'Share of pairs'],
     rows: bins.map((bin) => [
-      binRange(bin.center),
+      binRange(bin),
       fmtInt(bin.pairs),
       fmtInt(bin.votes),
       sharePercent(total === 0 ? 0 : bin.pairs / total),
@@ -293,11 +297,52 @@ export function gapDomain(weeks: readonly WeeklyGap[]): [number, number] {
   return [-edge, edge];
 }
 
-/** The weekly trend's table view: every week of the span, quiet ones included, oldest first. */
-export function weeklyTable(weeks: readonly WeeklyGap[], scopeLabel: string): ChartTable {
+/**
+ * The vote log's first and last UTC days: activityWindow(votes, 'all'), the
+ * range Vote activity reads at "All". weeklyGaps' weeks run from the first's
+ * Monday to the last's, so a log that starts after a Monday or ends before a
+ * Sunday has a part week at that end.
+ */
+export interface VoteSpan {
+  startDay: Day;
+  endDay: Day;
+}
+
+/** What the weekly trend's words read: the scope it covers and the log's span. */
+export interface WeeklyScope {
+  /** "All pairs" or the selected rule's name. */
+  scopeLabel: string;
+  /**
+   * The log's first and last vote days (activityWindow(votes, 'all')), which
+   * say whether an end week is a part week; null for an empty log.
+   */
+  span: VoteSpan | null;
+}
+
+/**
+ * A week as the trend's tooltips, sliders and table name it, in Vote
+ * activity's words (bucketTitle): "Week of Sep 21", and a week the log's span
+ * clips says so, "Week of Sep 28 (to Sep 30)". No span (an empty log) gives the
+ * plain form.
+ */
+export function weekTitle({week}: Pick<WeeklyGap, 'week'>, span: VoteSpan | null): string {
+  return bucketTitle(week, 'week', span?.startDay, span?.endDay);
+}
+
+/** The trend's subtitle: the scope, what it plots, and Vote activity's clause for the part weeks at either end. */
+export function weeklySubtitle({scopeLabel, span}: WeeklyScope): string {
+  const partial = span ? partialWeeks(span.startDay, span.endDay) : '';
+  return `${scopeLabel} · each week's mean gap (community − engine) and the score votes behind it${partial}`;
+}
+
+/**
+ * The weekly trend's table view: every week of the span, quiet ones included,
+ * oldest first, each named as its tooltip names it.
+ */
+export function weeklyTable(weeks: readonly WeeklyGap[], {scopeLabel, span}: WeeklyScope): ChartTable {
   return {
     caption: `Weekly mean gap and score votes, ${scopeLabel}. Weeks start on Monday (UTC).`,
-    columns: ['Week of', 'Mean gap', 'Score votes'],
-    rows: weeks.map((w) => [fmtDay(w.week), fmtGap(w.meanGap), fmtInt(w.scoreVotes)]),
+    columns: ['Week', 'Mean gap', 'Score votes'],
+    rows: weeks.map((w) => [weekTitle(w, span), fmtGap(w.meanGap), fmtInt(w.scoreVotes)]),
   };
 }

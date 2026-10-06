@@ -3,6 +3,7 @@ import {act, render, screen, waitFor, waitForElementToBeRemoved, within} from '@
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import type {TuningConfig} from 'inkweave-synergy-engine';
+import {SPACING} from '../../../../app-bridge';
 import {applyTuningEdits, commitTuning} from '../../../tuning/githubClient';
 import type {PairStat, RuleStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from '../../voteLogTypes';
@@ -416,9 +417,12 @@ describe('CalibrationPage: what the rule scopes', () => {
     expect(
       within(screen.getByRole('region', {name: 'Dimension participation'})).getByText('All votes, whatever the rule'),
     ).toBeInTheDocument();
+    // The log runs from Tuesday Sep 15 to Tuesday Sep 29, so both its end weeks are part weeks, as Vote activity says.
+    expect(figure('Weekly gap').getByText(/, first and last weeks partial$/)).toBeInTheDocument();
     // The week of Sep 28 holds one vote, on a Lore Loss pair: under Ramp it has none.
     await user.click(figure('Weekly gap').getByRole('button', {name: 'Table'}));
-    const lastWeek = within(figure('Weekly gap').getByRole('row', {name: /^Sep 28 /}));
+    expect(figure('Weekly gap').getByRole('rowheader', {name: 'Week of Sep 14 (from Sep 15)'})).toBeInTheDocument();
+    const lastWeek = within(figure('Weekly gap').getByRole('row', {name: /^Week of Sep 28 \(to Sep 29\) /}));
     expect(lastWeek.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['—', '0']);
   });
 
@@ -642,6 +646,101 @@ describe('CalibrationPage: the tuning aside', () => {
     await waitFor(() => expect(aside().queryByRole('alert')).not.toBeInTheDocument());
     expect(aside().getByRole('link', {name: 'View commit'})).toBeInTheDocument();
     await waitFor(() => expect(aside().getByRole('heading', {level: 2, name: 'Live Ramp'})).toHaveFocus());
+  });
+});
+
+describe('CalibrationPage: the Tune link', () => {
+  // jsdom has no scrollIntoView. A spy stands in, so the aside's scroll shows up rather than throwing.
+  const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+  const scrollIntoView = vi.fn();
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {configurable: true, writable: true, value: scrollIntoView});
+  });
+  afterEach(() => {
+    if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+    else delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  /** Any Tune link, whatever it names. */
+  const tuneLink = () => screen.queryByRole('button', {name: /^Tune\b/});
+
+  it("names the selected rule's entry, and hands focus to its heading in the aside, scrolled into view", async () => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    const {user} = renderPage('/calibration?rule=location-boost', 'tok');
+    // Location Boost keeps its copy in the shared Locations entry: the link names what the aside heads.
+    const tune = await screen.findByRole('button', {name: 'Tune Locations'});
+    expect(tune).toHaveTextContent('Tune Locations');
+    // Beside "Show all pairs", in the scope row, and like it a 24px target (2.5.8).
+    const showAll = screen.getByRole('button', {name: 'Show all pairs'});
+    expect(tune.parentElement).toContainElement(showAll);
+    expect(tune).toHaveStyle({minHeight: `${SPACING.xxl}px`});
+    expect(showAll).toHaveStyle({minHeight: `${SPACING.xxl}px`});
+
+    await user.click(tune);
+    expect(aside().getByRole('heading', {level: 2, name: 'Locations'})).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('complementary', {name: 'Tuning editor'}));
+    expect(scrollIntoView).toHaveBeenCalledWith({block: 'start'});
+  });
+
+  it.each([
+    ['Ramp', 'ramp', 'Tune Ramp'],
+    // Location Boost's copy is the shared Locations entry, as the aside names it once the token is saved.
+    ['Location Boost', 'location-boost', 'Tune Locations'],
+  ])("names %s's entry in the pinned tuning.json without a token, and hands focus to the gate's field", async (_, id, name) => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    const {user} = renderPage(`/calibration?rule=${id}`);
+    // Reading the live tuning.json takes the token, so the engine's bundled copy stands in, as on the Overview (R-22).
+    await user.click(await screen.findByRole('button', {name}));
+    expect(aside().getByLabelText('GitHub token')).toHaveFocus();
+    expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('complementary', {name: 'Tuning editor'}));
+  });
+
+  it.each([
+    ['with a token', 'tok', /^Pick a playstyle/],
+    ['without one', undefined, 'Tuning editor'],
+  ])('shows none with no rule selected, %s', async (_, token, asideSays) => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    renderPage('/calibration', token);
+    expect(await aside().findByText(asideSays)).toBeInTheDocument();
+    expect(await screen.findByText('All pairs', {selector: 'p'})).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  // Singer + Songs has no copy in the live tuning.json, nor in the pinned one that stands in without a token.
+  it.each([
+    ['with a token', 'tok', 'No copy in tuning.json, so Singer + Songs has nothing to tune here.'],
+    ['without one', undefined, 'Tuning editor'],
+  ])('shows none for a rule with no copy in tuning.json, %s', async (_, token, asideSays) => {
+    const singer: RuleStat = {...rule('singer-songs', 'Singer + Songs', 0.4, 5), category: 'direct'};
+    stubFetch({analytics: () => json({...ANALYTICS, rules: [...RULES, singer]})});
+    renderPage('/calibration?rule=singer-songs', token);
+    expect(await aside().findByText(asideSays)).toBeInTheDocument();
+    expect(await screen.findByText('Singer + Songs · gap +0.40 · 5 votes')).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['while tuning.json loads', never, 'Reading tuning.json from master…'],
+    ['after the first read of tuning.json fails', () => new Response('Bad gateway', {status: 502}), /^Could not read tuning\.json: GitHub 502/],
+  ])('shows none %s', async (_, tuning, says) => {
+    stubFetch({analytics: () => json(ANALYTICS), tuning});
+    renderPage('/calibration?rule=ramp', 'tok');
+    expect(await aside().findByText(says)).toBeInTheDocument();
+    expect(screen.getByText('Ramp · gap −0.57 · 557 votes')).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  it('shows it once the editor arrives after a failed first read', async () => {
+    let reads = 0;
+    stubFetch({
+      analytics: () => json(ANALYTICS),
+      tuning: () => (++reads === 1 ? new Response('Bad gateway', {status: 502}) : json(LIVE)),
+    });
+    const {user} = renderPage('/calibration?rule=ramp', 'tok');
+    await user.click(await aside().findByRole('button', {name: 'Read tuning.json again'}));
+    expect(await screen.findByRole('button', {name: 'Tune Live Ramp'})).toBeInTheDocument();
   });
 });
 

@@ -37,7 +37,7 @@ export function groupVotesByDay(votes: VoteLogRow[]): DayGroup[] {
 }
 
 /** The newest vote's day (`YYYY-MM-DD`), whatever order the log is in; undefined for an empty log. */
-export function latestVoteDay(votes: VoteLogRow[]): string | undefined {
+export function latestVoteDay(votes: readonly VoteLogRow[]): string | undefined {
   let latest: VoteLogRow | undefined;
   for (const row of votes) {
     if (!latest || Date.parse(row.ts) > Date.parse(latest.ts)) latest = row;

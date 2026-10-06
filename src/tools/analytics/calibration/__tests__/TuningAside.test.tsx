@@ -3,12 +3,13 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {TuningConfig} from 'inkweave-synergy-engine';
+import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {applyTuningEdits, type TuningEdit} from '../../../tuning/githubClient';
 import {useTuningAdmin} from '../../../tuning/useTuningAdmin';
 import type {RuleStat} from '../../voteAnalyticsTypes';
 import type {CalibrationRow} from '../calibrationModel';
 import {useFocusHandoff} from '../focusHandoff';
-import {TuningAside, type TuningState} from '../TuningAside';
+import {ASIDE_FILL, TuningAside, type TuningState} from '../TuningAside';
 
 // Publishes go through commitTuning; each test decides how it settles. The
 // rest of githubClient stays real, so applyTuningEdits gives its own refusal.
@@ -102,17 +103,20 @@ type ReloadResult = TuningConfig | Error | null;
 function Harness({
   selected = null,
   sharedWith = [],
+  config = CONFIG,
   live,
-  reloadTo = () => CONFIG,
+  reloadTo = () => config,
   onForgetToken = () => {},
 }: {
   selected?: CalibrationRow | null;
   sharedWith?: CalibrationRow[];
+  /** The first read's tuning.json. */
+  config?: TuningConfig;
   live?: Live;
   reloadTo?: () => ReloadResult | Promise<ReloadResult>;
   onForgetToken?: () => void;
 }) {
-  const [read, setRead] = useState<{config: TuningConfig; reloadError?: string}>({config: CONFIG});
+  const [read, setRead] = useState<{config: TuningConfig; reloadError?: string}>({config});
   const admin = useTuningAdmin('tok');
   const handoff = useFocusHandoff();
   const ready: Live = {
@@ -351,6 +355,30 @@ describe('TuningAside, editing', () => {
     expect(score).toHaveValue(7);
     expect(tray().getByText('Shift Targets · curve.gap3 · score')).toBeInTheDocument();
     expect(tray().getByText('5 → 7')).toBeInTheDocument();
+  });
+
+  it("edits a direct rule's own entry when a playstyle shares its key, and publishes under directRules", async () => {
+    // tuning.json never does this; if it did, a direct rule's edit must never land on the playstyle.
+    const both: TuningConfig = {
+      ...CONFIG,
+      playstyles: {...CONFIG.playstyles, 'shift-targets': {name: 'Shift (playstyle)', tagline: 'Shift wide'}},
+    };
+    commitTuning.mockResolvedValue({commitUrl: COMMIT_URL});
+    render(<Harness config={both} selected={SHIFT} sharedWith={[SHIFT]} />);
+    expect(screen.getByText('Direct synergy · tuning.json')).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 2, name: 'Shift Targets'})).toBeInTheDocument();
+    // The direct rule's rows and its tiers, none of the playstyle's.
+    expect(screen.queryByRole('textbox', {name: 'Title text'})).not.toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', {name: 'curve.gap3 score'})).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('textbox', {name: 'Label text'}), '!');
+    expect(tray().getByText('Shift Targets · Label · text')).toBeInTheDocument();
+    await userEvent.click(publishButton());
+    expect(commitTuning).toHaveBeenCalledWith({
+      token: 'tok',
+      edits: [{path: ['directRules', 'shift-targets', 'name'], value: 'Shift Targets!', expected: 'Shift Targets'}],
+    });
+    await screen.findByRole('link', {name: 'View commit'});
   });
 });
 
@@ -598,24 +626,128 @@ describe('TuningAside, publishing', () => {
   });
 });
 
-describe('TuningAside, the pinned tray', () => {
-  /** A box from `top` to `bottom` in the view, all getBoundingClientRect's callers here read. */
-  const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+/** A box from `top` to `bottom` in the view, all getBoundingClientRect's callers here read. */
+const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+/** The pinned header: the box the eyebrow sits in. */
+const pinnedHead = (eyebrow: string) => screen.getByText(eyebrow).parentElement as HTMLElement;
+/** The pinned tray: the box the Pending changes region sits in. */
+const pinnedFoot = () => screen.getByRole('region', {name: 'Pending changes'}).parentElement as HTMLElement;
+/** A background as jsdom writes it back once set on an element. */
+function styledBackground(background: string): string {
+  const probe = document.createElement('div');
+  probe.style.background = background;
+  return probe.style.background;
+}
 
+/**
+ * The aside inside a scroller, as PageLayout's body holds it. jsdom lays
+ * nothing out, so each box is stubbed: `pin` fixes a pinned box in the view,
+ * and `place` puts a field there, which the scroller's scrollBy moves as a real
+ * scroll would (scrolling down by 100 lifts it by 100).
+ */
+function renderInScroller(selected: CalibrationRow) {
+  render(
+    <div data-testid="scroller" style={{overflowY: 'auto'}}>
+      <Harness selected={selected} />
+    </div>,
+  );
+  const scroller = screen.getByTestId('scroller');
+  let scrolled = 0;
+  const scrollBy = vi.fn((options: ScrollToOptions) => {
+    scrolled += options.top ?? 0;
+  });
+  Object.defineProperty(scroller, 'scrollBy', {value: scrollBy});
+  return {
+    scrollBy,
+    pin: (el: Element, top: number, bottom: number) =>
+      vi.spyOn(el, 'getBoundingClientRect').mockReturnValue(box(top, bottom)),
+    place: (el: Element, top: number, bottom: number) =>
+      vi.spyOn(el, 'getBoundingClientRect').mockImplementation(() => box(top - scrolled, bottom - scrolled)),
+  };
+}
+
+describe('TuningAside, the pinned tray', () => {
   it('brings a field that takes focus under the pinned tray up into view (WCAG 2.4.11)', () => {
-    render(<Harness selected={RAMP} />);
-    const foot = screen.getByRole('region', {name: 'Pending changes'}).parentElement as HTMLElement;
-    vi.spyOn(foot, 'getBoundingClientRect').mockReturnValue(box(600, 730));
+    const {scrollBy, pin, place} = renderInScroller(RAMP);
+    pin(pinnedHead('Playstyle · tuning.json'), 0, 120);
+    pin(pinnedFoot(), 600, 730);
     // The title sits clear of the tray; the tagline has scrolled under its top edge.
-    vi.spyOn(title(), 'getBoundingClientRect').mockReturnValue(box(400, 476));
-    vi.spyOn(tagline(), 'getBoundingClientRect').mockReturnValue(box(580, 656));
-    title().scrollIntoView = vi.fn();
-    tagline().scrollIntoView = vi.fn();
+    place(title(), 400, 476);
+    place(tagline(), 580, 656);
 
     act(() => title().focus());
-    expect(title().scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollBy).not.toHaveBeenCalled();
 
     act(() => tagline().focus());
-    expect(tagline().scrollIntoView).toHaveBeenCalledWith({block: 'center'});
+    expect(scrollBy).toHaveBeenCalledOnce();
+    // Centred between the header's bottom and the tray's top.
+    expect(tagline().getBoundingClientRect()).toMatchObject({top: 322, bottom: 398});
+  });
+});
+
+describe('TuningAside, the pinned entry header', () => {
+  it('pins the eyebrow, the name, the gap and the shared-by line to the top, on the aside tint, and lets the read line go', () => {
+    render(<Harness selected={BOOST} sharedWith={LOCATIONS} />);
+    const head = pinnedHead('Playstyle · tuning.json');
+    expect(head).toHaveStyle({position: 'sticky', top: '0px'});
+    // Opaque: the aside's fill, as the tray's, so the rows scroll under it unseen. jsdom writes a
+    // background's last colour back as "transparent", so the header is held to ASIDE_FILL, and
+    // ASIDE_FILL to its layers: the tint, which alone is translucent, over a page-colour backing.
+    expect(head.style.background).toBe(styledBackground(ASIDE_FILL));
+    expect(pinnedFoot().style.background).toBe(styledBackground(ASIDE_FILL));
+    expect(ASIDE_FILL).toMatch(/^linear-gradient\(/);
+    expect(ASIDE_FILL.split('), ').at(-1)).toBe(ADMIN_COLORS.page);
+    expect(head).toContainElement(screen.getByRole('heading', {level: 2, name: 'Locations'}));
+    expect(head).toContainElement(screen.getByText('Location Boost gap'));
+    expect(head).toContainElement(screen.getByText(/^Shared by 9 rules:/));
+    expect(head).not.toContainElement(screen.getByText(/^Location Boost: The engine rates pairs/));
+    expect(head).not.toContainElement(title());
+  });
+
+  it('brings a field that takes focus under the pinned header down into view, and leaves the heading itself be', () => {
+    const {scrollBy, pin, place} = renderInScroller(RAMP);
+    const heading = screen.getByRole('heading', {level: 2, name: 'Ramp'});
+    pin(pinnedHead('Playstyle · tuning.json'), 0, 120);
+    pin(pinnedFoot(), 600, 730);
+    // The tagline sits clear of both; the title has scrolled up under the header's bottom edge.
+    pin(heading, 30, 60);
+    place(title(), 90, 166);
+    place(tagline(), 200, 276);
+
+    act(() => tagline().focus());
+    expect(scrollBy).not.toHaveBeenCalled();
+
+    act(() => title().focus());
+    expect(scrollBy).toHaveBeenCalledOnce();
+    expect(title().getBoundingClientRect()).toMatchObject({top: 322, bottom: 398});
+
+    // The heading takes focus from the Tune link and the handoffs: it is the header, never under it.
+    act(() => heading.focus());
+    expect(scrollBy).toHaveBeenCalledOnce();
+  });
+
+  it('centres a field between a tall header and the tray, where centring in the view would leave it under the header', () => {
+    const {scrollBy, pin, place} = renderInScroller(BOOST);
+    // A shared entry's header, its "Shared by" line wrapped, over a short scroller with a tall tray.
+    pin(pinnedHead('Playstyle · tuning.json'), 80, 380);
+    pin(pinnedFoot(), 580, 760);
+    place(title(), 300, 380);
+
+    act(() => title().focus());
+    expect(scrollBy).toHaveBeenCalledOnce();
+    const {top, bottom} = title().getBoundingClientRect();
+    expect(top).toBeGreaterThanOrEqual(380);
+    expect(bottom).toBeLessThanOrEqual(580);
+    expect({top, bottom}).toEqual({top: 440, bottom: 520});
+  });
+
+  it('puts the top of a field taller than the clear band at the header, so its start shows', () => {
+    const {pin, place} = renderInScroller(BOOST);
+    pin(pinnedHead('Playstyle · tuning.json'), 80, 380);
+    pin(pinnedFoot(), 580, 760);
+    place(title(), 520, 800);
+
+    act(() => title().focus());
+    expect(title().getBoundingClientRect()).toMatchObject({top: 380, bottom: 660});
   });
 });

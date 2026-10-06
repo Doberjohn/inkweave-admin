@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest';
 import {TUNING, type TuningConfig} from 'inkweave-synergy-engine';
-import {pendingLabel, rowsForSelection, tuningKind, tuningName} from '../tuningRows';
+import {pendingLabel, rowsForSelection, tuningName} from '../tuningRows';
 
-// `both` sits in both sections, which tuning.json never does: it pins which one wins.
+// `both` sits in both sections, which tuning.json never does: each section reads its own entry.
 const CONFIG: TuningConfig = {
   playstyles: {ramp: {name: 'Ramp', tagline: 'Ink fast'}, both: {name: 'Both (playstyle)', tagline: 't'}},
   directRules: {
@@ -18,15 +18,22 @@ const CONFIG: TuningConfig = {
 const SHIFT = ['ruleTexts', 'shift-targets'];
 
 describe('rowsForSelection', () => {
-  it('gives a playstyle its title and tagline', () => {
-    expect(rowsForSelection(CONFIG, 'both').slice(0, 2)).toEqual([
+  it("gives a playstyle its title and tagline, and no direct rule's rows under the same key", () => {
+    expect(rowsForSelection(CONFIG, {section: 'playstyle', key: 'both'})).toEqual([
       {label: 'Title', textPath: ['playstyles', 'both', 'name'], textValue: 'Both (playstyle)'},
       {label: 'Tagline', textPath: ['playstyles', 'both', 'tagline'], textValue: 't'},
     ]);
   });
 
-  it('gives a direct rule its label and description, and Shift Targets a row per tier', () => {
-    expect(rowsForSelection(CONFIG, 'shift-targets')).toEqual([
+  it("gives a direct rule its label and description, and no playstyle's rows under the same key", () => {
+    expect(rowsForSelection(CONFIG, {section: 'direct', key: 'both'})).toEqual([
+      {label: 'Label', textPath: ['directRules', 'both', 'name'], textValue: 'Both (direct)'},
+      {label: 'Description', textPath: ['directRules', 'both', 'description'], textValue: 'd'},
+    ]);
+  });
+
+  it('gives Shift Targets its label and description, then a row per tier', () => {
+    expect(rowsForSelection(CONFIG, {section: 'direct', key: 'shift-targets'})).toEqual([
       {label: 'Label', textPath: ['directRules', 'shift-targets', 'name'], textValue: 'Shift Targets'},
       {
         label: 'Description',
@@ -45,8 +52,8 @@ describe('rowsForSelection', () => {
     ]);
   });
 
-  it('adds the Ramp scores, then the Ramp templates', () => {
-    expect(rowsForSelection(CONFIG, 'ramp')).toEqual([
+  it('adds the Ramp scores, then the Ramp templates, to the Ramp playstyle', () => {
+    expect(rowsForSelection(CONFIG, {section: 'playstyle', key: 'ramp'})).toEqual([
       {label: 'Title', textPath: ['playstyles', 'ramp', 'name'], textValue: 'Ramp'},
       {label: 'Tagline', textPath: ['playstyles', 'ramp', 'tagline'], textValue: 'Ink fast'},
       {label: 'score · density', scorePath: ['ruleTexts', 'ramp', 'scores', 'density'], scoreValue: 5},
@@ -54,12 +61,14 @@ describe('rowsForSelection', () => {
     ]);
   });
 
-  it('gives an unknown key no rows', () => {
-    expect(rowsForSelection(CONFIG, 'nope')).toEqual([]);
+  it('gives an unknown or inherited key no rows', () => {
+    expect(rowsForSelection(CONFIG, {section: 'playstyle', key: 'nope'})).toEqual([]);
+    expect(rowsForSelection(CONFIG, {section: 'direct', key: 'nope'})).toEqual([]);
+    expect(rowsForSelection(CONFIG, {section: 'playstyle', key: 'constructor'})).toEqual([]);
   });
 
   it('gives every tier of the bundled tuning.json a row, with a score path only where it has a score', () => {
-    const tiers = rowsForSelection(TUNING, 'shift-targets').slice(2);
+    const tiers = rowsForSelection(TUNING, {section: 'direct', key: 'shift-targets'}).slice(2);
     expect(tiers.map((row) => row.label)).toEqual(Object.keys(TUNING.ruleTexts['shift-targets']));
     for (const row of tiers) {
       expect(row.scorePath !== undefined).toBe(TUNING.ruleTexts['shift-targets'][row.label].score !== undefined);
@@ -67,22 +76,21 @@ describe('rowsForSelection', () => {
   });
 });
 
-describe('tuningName and tuningKind', () => {
-  it('read playstyles before direct rules', () => {
-    expect(tuningName(CONFIG, 'both')).toBe('Both (playstyle)');
-    expect(tuningKind(CONFIG, 'both')).toBe('playstyle');
+describe('tuningName', () => {
+  it("reads the entry's own section", () => {
+    expect(tuningName(CONFIG, {section: 'playstyle', key: 'both'})).toBe('Both (playstyle)');
+    expect(tuningName(CONFIG, {section: 'direct', key: 'both'})).toBe('Both (direct)');
   });
 
-  it('name and place the bundled entries', () => {
-    expect(tuningName(TUNING, 'location-control')).toBe('Locations');
-    expect(tuningKind(TUNING, 'location-control')).toBe('playstyle');
-    expect(tuningName(TUNING, 'shift-targets')).toBe('Shift Targets');
-    expect(tuningKind(TUNING, 'shift-targets')).toBe('direct');
+  it('names the bundled entries', () => {
+    expect(tuningName(TUNING, {section: 'playstyle', key: 'location-control'})).toBe('Locations');
+    expect(tuningName(TUNING, {section: 'direct', key: 'shift-targets'})).toBe('Shift Targets');
   });
 
-  it('falls back to the key for an unknown or inherited one', () => {
-    expect(tuningName(TUNING, 'nope')).toBe('nope');
-    expect(tuningName(TUNING, 'constructor')).toBe('constructor');
+  it('falls back to the key for an unknown or inherited one, or one in the other section', () => {
+    expect(tuningName(TUNING, {section: 'playstyle', key: 'nope'})).toBe('nope');
+    expect(tuningName(TUNING, {section: 'direct', key: 'constructor'})).toBe('constructor');
+    expect(tuningName(TUNING, {section: 'playstyle', key: 'shift-targets'})).toBe('shift-targets');
   });
 });
 

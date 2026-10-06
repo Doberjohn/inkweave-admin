@@ -1,5 +1,6 @@
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
+import {activityWindow} from '../../activity/activityModel';
 import type {PairStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
 import {
@@ -23,8 +24,11 @@ import {
   sharePercent,
   sharedScores,
   sideColor,
+  weekTitle,
   weeklyGaps,
+  weeklySubtitle,
   weeklyTable,
+  type VoteSpan,
   type WeeklyGap,
 } from '../chartData';
 import {pairId} from '../calibrationModel';
@@ -141,11 +145,11 @@ describe('gapBins', () => {
 
 describe('binLabel and binRange', () => {
   it('label the end bins as open and the rest by their centre', () => {
-    expect([-5, -3, 0, 3, 5].map(binLabel)).toEqual(['≤−5', '−3', '0', '+3', '≥+5']);
+    expect([-5, -3, 0, 3, 5].map((center) => binLabel({center}))).toEqual(['≤−5', '−3', '0', '+3', '≥+5']);
   });
 
   it('say which gaps each bin holds', () => {
-    expect([-5, -3, 0, 3, 5].map(binRange)).toEqual([
+    expect([-5, -3, 0, 3, 5].map((center) => binRange({center}))).toEqual([
       '−4.5 or lower',
       '−3.5 to −2.5',
       'within ±0.5',
@@ -156,7 +160,7 @@ describe('binLabel and binRange', () => {
 
   it('print every minus as U+2212', () => {
     const text = gapBins([])
-      .flatMap((b) => [binLabel(b.center), binRange(b.center)])
+      .flatMap((b) => [binLabel(b), binRange(b)])
       .join(' ');
     expect(text).toContain('−');
     expect(text).not.toContain('-');
@@ -181,6 +185,12 @@ describe('gapShares and sharePercent', () => {
   it('switches from <1% to 1% at the rounding boundary', () => {
     expect(sharePercent(0.0049)).toBe('<1%');
     expect(sharePercent(0.005)).toBe('1%');
+  });
+
+  it('prints >99% for a share short of whole that would round to 100%, and 100% only for all of them', () => {
+    expect(sharePercent(0.994)).toBe('99%');
+    expect(sharePercent(0.995)).toBe('>99%');
+    expect(sharePercent(1)).toBe('100%');
   });
 });
 
@@ -257,27 +267,77 @@ describe('the chart tables', () => {
     expect(histogramTable(gapBins([]), 'All pairs').rows.every((row) => row[3] === '0%')).toBe(true);
   });
 
-  it('histogramTable prints <1% for a one-pair end bin among 400, never 0%', () => {
+  it('histogramTable prints <1% for a one-pair end bin among 400, and >99% for the rest: never 0% or 100% for a part', () => {
     const pairs = [...Array.from({length: 399}, () => withGap(0)), withGap(6)];
     const table = histogramTable(gapBins(pairs), 'All pairs');
     expect(table.rows[10]).toEqual(['+4.5 or higher', '1', '1', '<1%']);
-    expect(table.rows[5][3]).toBe('100%');
+    expect(table.rows[5][3]).toBe('>99%');
   });
 
-  it('weeklyTable has a row per week, a quiet one with "—"', () => {
+  it('weeklyTable has a row per week, named as Vote activity names its weeks, a quiet one with "—"', () => {
     const weeks: WeeklyGap[] = [
       {week: '2026-09-14', meanGap: -0.5, scoreVotes: 2},
       {week: '2026-09-21', meanGap: null, scoreVotes: 0},
       {week: '2026-09-28', meanGap: -1, scoreVotes: 3},
     ];
-    const table = weeklyTable(weeks, 'Ramp');
+    // The log's last vote is on Wednesday Sep 30, so its last week is a part week.
+    const table = weeklyTable(weeks, {scopeLabel: 'Ramp', span: {startDay: '2026-09-14', endDay: '2026-09-30'}});
     expect(table.caption).toBe('Weekly mean gap and score votes, Ramp. Weeks start on Monday (UTC).');
-    expect(table.columns).toEqual(['Week of', 'Mean gap', 'Score votes']);
+    expect(table.columns).toEqual(['Week', 'Mean gap', 'Score votes']);
     expect(table.rows).toEqual([
-      ['Sep 14', '−0.50', '2'],
-      ['Sep 21', '—', '0'],
-      ['Sep 28', '−1.00', '3'],
+      ['Week of Sep 14', '−0.50', '2'],
+      ['Week of Sep 21', '—', '0'],
+      ['Week of Sep 28 (to Sep 30)', '−1.00', '3'],
     ]);
+  });
+});
+
+describe('weekTitle and weeklySubtitle: the part weeks at either end of the log', () => {
+  /** Wednesday Sep 16 to Wednesday Sep 30: both end weeks are part weeks. */
+  const MID_WEEK: VoteSpan = {startDay: '2026-09-16', endDay: '2026-09-30'};
+  /** Monday Sep 14 to Sunday Oct 4: every week runs whole. */
+  const WHOLE: VoteSpan = {startDay: '2026-09-14', endDay: '2026-10-04'};
+  const SUBTITLE = "Ramp · each week's mean gap (community − engine) and the score votes behind it";
+  const subtitle = (span: VoteSpan | null) => weeklySubtitle({scopeLabel: 'Ramp', span});
+
+  it('words a week the log clips as Vote activity does, and a whole one plainly', () => {
+    expect(weekTitle({week: '2026-09-14'}, MID_WEEK)).toBe('Week of Sep 14 (from Sep 16)');
+    expect(weekTitle({week: '2026-09-21'}, MID_WEEK)).toBe('Week of Sep 21');
+    expect(weekTitle({week: '2026-09-28'}, MID_WEEK)).toBe('Week of Sep 28 (to Sep 30)');
+    expect(weekTitle({week: '2026-09-28'}, WHOLE)).toBe('Week of Sep 28');
+    expect(weekTitle({week: '2026-09-28'}, null)).toBe('Week of Sep 28');
+  });
+
+  it("adds Vote activity's part-week clause to the subtitle, and nothing for whole weeks or an empty log", () => {
+    expect(subtitle(WHOLE)).toBe(SUBTITLE);
+    expect(subtitle(null)).toBe(SUBTITLE);
+    expect(subtitle({startDay: '2026-09-14', endDay: '2026-09-30'})).toBe(`${SUBTITLE}, last week partial`);
+    expect(subtitle({startDay: '2026-09-16', endDay: '2026-10-04'})).toBe(`${SUBTITLE}, first week partial`);
+    expect(subtitle(MID_WEEK)).toBe(`${SUBTITLE}, first and last weeks partial`);
+  });
+
+  it('words a log inside one week as that one week: partial once, a single day named once', () => {
+    // A fresh artifact: votes on Tuesday and Wednesday only, or on Wednesday alone.
+    const TWO_DAYS: VoteSpan = {startDay: '2026-09-29', endDay: '2026-09-30'};
+    const ONE_DAY: VoteSpan = {startDay: '2026-09-30', endDay: '2026-09-30'};
+    expect(subtitle(TWO_DAYS)).toBe(`${SUBTITLE}, week partial`);
+    expect(subtitle(ONE_DAY)).toBe(`${SUBTITLE}, week partial`);
+    expect(subtitle({startDay: '2026-09-28', endDay: '2026-10-04'})).toBe(SUBTITLE);
+    expect(weekTitle({week: '2026-09-28'}, TWO_DAYS)).toBe('Week of Sep 28 (Sep 29 to Sep 30)');
+    expect(weekTitle({week: '2026-09-28'}, ONE_DAY)).toBe('Week of Sep 28 (Sep 30 only)');
+  });
+
+  it("reads the span from activityWindow over the whole log, whose ends fall in weeklyGaps' first and last weeks", () => {
+    // Newest first, as buildVoteLog writes it: Tuesday Sep 15 to Tuesday Sep 29.
+    const votes = [
+      vote('1', '2', at('2026-09-29'), 7),
+      vote('1', '2', at('2026-09-22'), 6),
+      vote('1', '2', at('2026-09-15'), 5),
+    ];
+    const span = activityWindow(votes, 'all');
+    expect(span).toEqual({startDay: '2026-09-15', endDay: '2026-09-29'});
+    const weeks = weeklyGaps(votes, [pairOf('1', '2', 6, 6)]).map((w) => weekTitle(w, span));
+    expect(weeks).toEqual(['Week of Sep 14 (from Sep 15)', 'Week of Sep 21', 'Week of Sep 28 (to Sep 29)']);
   });
 });
 
