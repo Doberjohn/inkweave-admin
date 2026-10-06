@@ -3,6 +3,7 @@ import {act, render, screen, waitFor, waitForElementToBeRemoved, within} from '@
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import type {TuningConfig} from 'inkweave-synergy-engine';
+import {SPACING} from '../../../../app-bridge';
 import {applyTuningEdits, commitTuning} from '../../../tuning/githubClient';
 import type {PairStat, RuleStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from '../../voteLogTypes';
@@ -670,8 +671,11 @@ describe('CalibrationPage: the Tune link', () => {
     // Location Boost keeps its copy in the shared Locations entry: the link names what the aside heads.
     const tune = await screen.findByRole('button', {name: 'Tune Locations'});
     expect(tune).toHaveTextContent('Tune Locations');
-    // Beside "Show all pairs", in the scope row.
-    expect(tune.parentElement).toContainElement(screen.getByRole('button', {name: 'Show all pairs'}));
+    // Beside "Show all pairs", in the scope row, and like it a 24px target (2.5.8).
+    const showAll = screen.getByRole('button', {name: 'Show all pairs'});
+    expect(tune.parentElement).toContainElement(showAll);
+    expect(tune).toHaveStyle({minHeight: `${SPACING.xxl}px`});
+    expect(showAll).toHaveStyle({minHeight: `${SPACING.xxl}px`});
 
     await user.click(tune);
     expect(aside().getByRole('heading', {level: 2, name: 'Locations'})).toHaveFocus();
@@ -680,31 +684,40 @@ describe('CalibrationPage: the Tune link', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({block: 'start'});
   });
 
-  it("names the rule without a token, and hands focus to the gate's field", async () => {
+  it.each([
+    ['Ramp', 'ramp', 'Tune Ramp'],
+    // Location Boost's copy is the shared Locations entry, as the aside names it once the token is saved.
+    ['Location Boost', 'location-boost', 'Tune Locations'],
+  ])("names %s's entry in the pinned tuning.json without a token, and hands focus to the gate's field", async (_, id, name) => {
     stubFetch({analytics: () => json(ANALYTICS)});
-    const {user} = renderPage('/calibration?rule=ramp');
-    // Only tuning.json knows the entry's name, and reading it takes the token.
-    await user.click(await screen.findByRole('button', {name: 'Tune Ramp'}));
+    const {user} = renderPage(`/calibration?rule=${id}`);
+    // Reading the live tuning.json takes the token, so the engine's bundled copy stands in, as on the Overview (R-22).
+    await user.click(await screen.findByRole('button', {name}));
     expect(aside().getByLabelText('GitHub token')).toHaveFocus();
     expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('complementary', {name: 'Tuning editor'}));
   });
 
-  it('shows none with no rule selected', async () => {
+  it.each([
+    ['with a token', 'tok', /^Pick a playstyle/],
+    ['without one', undefined, 'Tuning editor'],
+  ])('shows none with no rule selected, %s', async (_, token, asideSays) => {
     stubFetch({analytics: () => json(ANALYTICS)});
-    renderPage('/calibration', 'tok');
-    expect(await aside().findByText(/^Pick a playstyle/)).toBeInTheDocument();
-    expect(screen.getByText('All pairs', {selector: 'p'})).toBeInTheDocument();
+    renderPage('/calibration', token);
+    expect(await aside().findByText(asideSays)).toBeInTheDocument();
+    expect(await screen.findByText('All pairs', {selector: 'p'})).toBeInTheDocument();
     expect(tuneLink()).not.toBeInTheDocument();
   });
 
-  it('shows none for a rule with no copy in tuning.json', async () => {
+  // Singer + Songs has no copy in the live tuning.json, nor in the pinned one that stands in without a token.
+  it.each([
+    ['with a token', 'tok', 'No copy in tuning.json, so Singer + Songs has nothing to tune here.'],
+    ['without one', undefined, 'Tuning editor'],
+  ])('shows none for a rule with no copy in tuning.json, %s', async (_, token, asideSays) => {
     const singer: RuleStat = {...rule('singer-songs', 'Singer + Songs', 0.4, 5), category: 'direct'};
     stubFetch({analytics: () => json({...ANALYTICS, rules: [...RULES, singer]})});
-    renderPage('/calibration?rule=singer-songs', 'tok');
-    expect(
-      await aside().findByText('No copy in tuning.json, so Singer + Songs has nothing to tune here.'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Singer + Songs · gap +0.40 · 5 votes')).toBeInTheDocument();
+    renderPage('/calibration?rule=singer-songs', token);
+    expect(await aside().findByText(asideSays)).toBeInTheDocument();
+    expect(await screen.findByText('Singer + Songs · gap +0.40 · 5 votes')).toBeInTheDocument();
     expect(tuneLink()).not.toBeInTheDocument();
   });
 

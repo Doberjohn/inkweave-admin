@@ -25,6 +25,7 @@ import {
   pairsFor,
   pairsHeading,
   pairsInScope,
+  pinnedEntryName,
   rowsSharingKey,
   tuningEntry,
   votesForPair,
@@ -355,14 +356,15 @@ function sharedWith(rows: CalibrationRow[], selected: CalibrationRow | null): Ca
 
 /**
  * The name the Tune link carries: the entry's, as the aside heads it
- * (Locations for any location-* rule). Without a token only the rule's own is
- * known, since only tuning.json knows the entry's. Null hides the link: no
- * rule, the aside reading tuning.json or failing its first read, or a rule
- * with no copy in it.
+ * (Locations for any location-* rule). Without a token the pinned engine's
+ * bundled tuning.json stands in for the live one (pinnedEntryName), as on the
+ * Overview, so a key new on master hides the link until a pin bump, where the
+ * Overview reads "Inspect". Null hides the link: no rule, the aside reading
+ * tuning.json or failing its first read, or a rule with no copy in it.
  */
 function tuneName(tuning: TuningState | null, selected: CalibrationRow | null): string | null {
   if (!selected) return null;
-  if (!tuning) return selected.name;
+  if (!tuning) return pinnedEntryName(selected);
   if (tuning.live.status !== 'ready') return null;
   return tuningEntry(tuning.live.config, selected)?.name ?? null;
 }

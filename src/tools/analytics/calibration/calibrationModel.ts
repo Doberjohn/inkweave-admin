@@ -1,4 +1,4 @@
-import {getRuleById, type TuningConfig} from 'inkweave-synergy-engine';
+import {getRuleById, TUNING, type TuningConfig} from 'inkweave-synergy-engine';
 import {rowsForSelection, tuningName, type RowSpec} from '../../tuning/tuningRows';
 import type {PendingEdit} from '../../tuning/useTuningAdmin';
 import {fmtGap} from '../../../ui/format';
@@ -125,6 +125,18 @@ export function tuningEntry(config: TuningConfig, row: CalibrationRow): TuningEn
   const rows = key ? rowsForSelection(config, key) : [];
   if (!key || rows.length === 0) return null;
   return {key, name: tuningName(config, key), rows};
+}
+
+/**
+ * The name of the entry holding a rule's copy in the pinned engine's bundled
+ * tuning.json, TUNING: the stand-in for the live file before a token reads
+ * it, as the Overview's Tune or Inspect uses it (R-22). Null when the pin has
+ * no copy: a key new on master stays without one until the next pin bump.
+ * Without a token every row has a stat; a row without one has no rule to look up.
+ */
+export function pinnedEntryName(row: CalibrationRow): string | null {
+  const tuningKey = row.stat ? tuningKeyFor(row.stat, TUNING) : null;
+  return tuningEntry(TUNING, {...row, tuningKey})?.name ?? null;
 }
 
 /** The analytics rules whose copy is the tuning entry `key` (all nine location rules share location-control). */

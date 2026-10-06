@@ -14,6 +14,7 @@ import {
   pairsFor,
   pairsHeading,
   pairsInScope,
+  pinnedEntryName,
   rowsSharingKey,
   sortCalibrationRows,
   tuningEntry,
@@ -338,6 +339,33 @@ describe('tuningEntry', () => {
     expect(tuningEntry(TUNING, singer)).toBeNull();
     // A key from app master that this tuning.json has no entry for (R-17).
     expect(tuningEntry(TUNING, {...singer, tuningKey: 'ghost-key'})).toBeNull();
+  });
+});
+
+describe('pinnedEntryName', () => {
+  // No token: the rows carry no tuning key, since the live tuning.json is unread.
+  const [boost, singer, lore] = buildCalibrationRows(
+    [
+      stat('location-boost', {ruleName: 'Location Boost'}),
+      stat('singer-songs', {ruleName: 'Singer + Songs', category: 'direct'}),
+      stat('lore-loss', {ruleName: 'Lore Loss', playstyleId: 'lore-denial'}),
+    ],
+    null,
+  );
+
+  it("names the entry the pinned tuning.json holds a rule's copy in, as the aside heads it", () => {
+    expect(boost.tuningKey).toBeNull();
+    expect(pinnedEntryName(boost)).toBe(TUNING.playstyles['location-control'].name);
+    // The artifact's playstyleId first (R-17).
+    expect(pinnedEntryName(lore)).toBe(TUNING.playstyles['lore-denial'].name);
+  });
+
+  it('gives null for a rule the pinned tuning.json has no copy of, and for a row with no rule', () => {
+    expect(pinnedEntryName(singer)).toBeNull();
+    // A key that is new on master: no copy here until a pin bump.
+    const [fresh] = buildCalibrationRows([stat('lore-loss', {playstyleId: 'brand-new-playstyle'})], null);
+    expect(pinnedEntryName(fresh)).toBeNull();
+    expect(pinnedEntryName({...boost, stat: null, tuningKey: 'location-control'})).toBeNull();
   });
 });
 
