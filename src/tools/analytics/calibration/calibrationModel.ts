@@ -1,4 +1,5 @@
 import {getRuleById, type TuningConfig} from 'inkweave-synergy-engine';
+import {rowsForSelection, tuningName, type RowSpec} from '../../tuning/tuningRows';
 import type {PendingEdit} from '../../tuning/useTuningAdmin';
 import {fmtGap} from '../../../ui/format';
 import {countOf} from '../activity/activityModel';
@@ -104,6 +105,26 @@ export function sortCalibrationRows(rows: CalibrationRow[], key: RuleSortKey): C
 export function findRow(rows: CalibrationRow[], id: string | null): CalibrationRow | null {
   if (id == null) return null;
   return rows.find((row) => row.id === id) ?? rows.find((row) => row.tuningKey === id) ?? null;
+}
+
+/** A tuning.json entry the aside can edit: its key, its name and its editable rows. */
+export interface TuningEntry {
+  key: string;
+  /** The entry's playstyle title or direct-rule label: the aside's heading, and the Tune link's name. */
+  name: string;
+  rows: RowSpec[];
+}
+
+/**
+ * The entry the aside edits for a row: Locations for any location-* rule.
+ * Null when the row has no copy in tuning.json (no key, or a key with no
+ * rows), where the aside says so and the Tune link stays hidden.
+ */
+export function tuningEntry(config: TuningConfig, row: CalibrationRow): TuningEntry | null {
+  const key = row.tuningKey;
+  const rows = key ? rowsForSelection(config, key) : [];
+  if (!key || rows.length === 0) return null;
+  return {key, name: tuningName(config, key), rows};
 }
 
 /** The analytics rules whose copy is the tuning entry `key` (all nine location rules share location-control). */

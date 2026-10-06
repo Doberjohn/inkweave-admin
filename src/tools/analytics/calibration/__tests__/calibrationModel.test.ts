@@ -16,6 +16,7 @@ import {
   pairsInScope,
   rowsSharingKey,
   sortCalibrationRows,
+  tuningEntry,
   tuningKeyFor,
   votesForPair,
   withSelectedPair,
@@ -311,6 +312,32 @@ describe('rowsSharingKey', () => {
       TUNING,
     );
     expect(rowsSharingKey(all, 'location-control')).toHaveLength(9);
+  });
+});
+
+describe('tuningEntry', () => {
+  const rows = buildCalibrationRows(
+    [
+      stat('location-boost', {ruleName: 'Location Boost', playstyleId: 'location-control'}),
+      stat('singer-songs', {category: 'direct', playstyleId: null}),
+    ],
+    TUNING,
+  );
+  const [boost, singer] = rows;
+
+  it("gives the entry the aside edits for a rule: its key, its name and its rows", () => {
+    const entry = tuningEntry(TUNING, boost);
+    expect(entry?.key).toBe('location-control');
+    // The entry's name, which the aside heads its rows with, not the rule's.
+    expect(entry?.name).toBe(TUNING.playstyles['location-control'].name);
+    expect(entry?.name).not.toBe('Location Boost');
+    expect(entry?.rows.map((row) => row.label)).toEqual(['Title', 'Tagline']);
+  });
+
+  it('gives null for a rule with no copy in tuning.json: no key, or a key with no rows', () => {
+    expect(tuningEntry(TUNING, singer)).toBeNull();
+    // A key from app master that this tuning.json has no entry for (R-17).
+    expect(tuningEntry(TUNING, {...singer, tuningKey: 'ghost-key'})).toBeNull();
   });
 });
 

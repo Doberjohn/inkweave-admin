@@ -250,7 +250,8 @@ describe('calibration routes', () => {
 
   it('opens with the rule from ?rule= selected', async () => {
     routerAt('/calibration?rule=ramp');
-    expect(await screen.findByRole('button', {name: /Ramp/})).toHaveAttribute('aria-pressed', 'true');
+    // The row's name starts with the rule's; "Tune Ramp" in the scope row names it too.
+    expect(await screen.findByRole('button', {name: /^Ramp\b/})).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('All pairs')).not.toBeInTheDocument();
   });
 

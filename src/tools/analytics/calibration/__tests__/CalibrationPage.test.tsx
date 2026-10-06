@@ -648,6 +648,89 @@ describe('CalibrationPage: the tuning aside', () => {
   });
 });
 
+describe('CalibrationPage: the Tune link', () => {
+  // jsdom has no scrollIntoView. A spy stands in, so the aside's scroll shows up rather than throwing.
+  const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+  const scrollIntoView = vi.fn();
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {configurable: true, writable: true, value: scrollIntoView});
+  });
+  afterEach(() => {
+    if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+    else delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  /** Any Tune link, whatever it names. */
+  const tuneLink = () => screen.queryByRole('button', {name: /^Tune\b/});
+
+  it("names the selected rule's entry, and hands focus to its heading in the aside, scrolled into view", async () => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    const {user} = renderPage('/calibration?rule=location-boost', 'tok');
+    // Location Boost keeps its copy in the shared Locations entry: the link names what the aside heads.
+    const tune = await screen.findByRole('button', {name: 'Tune Locations'});
+    expect(tune).toHaveTextContent('Tune Locations');
+    // Beside "Show all pairs", in the scope row.
+    expect(tune.parentElement).toContainElement(screen.getByRole('button', {name: 'Show all pairs'}));
+
+    await user.click(tune);
+    expect(aside().getByRole('heading', {level: 2, name: 'Locations'})).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('complementary', {name: 'Tuning editor'}));
+    expect(scrollIntoView).toHaveBeenCalledWith({block: 'start'});
+  });
+
+  it("names the rule without a token, and hands focus to the gate's field", async () => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    const {user} = renderPage('/calibration?rule=ramp');
+    // Only tuning.json knows the entry's name, and reading it takes the token.
+    await user.click(await screen.findByRole('button', {name: 'Tune Ramp'}));
+    expect(aside().getByLabelText('GitHub token')).toHaveFocus();
+    expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('complementary', {name: 'Tuning editor'}));
+  });
+
+  it('shows none with no rule selected', async () => {
+    stubFetch({analytics: () => json(ANALYTICS)});
+    renderPage('/calibration', 'tok');
+    expect(await aside().findByText(/^Pick a playstyle/)).toBeInTheDocument();
+    expect(screen.getByText('All pairs', {selector: 'p'})).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  it('shows none for a rule with no copy in tuning.json', async () => {
+    const singer: RuleStat = {...rule('singer-songs', 'Singer + Songs', 0.4, 5), category: 'direct'};
+    stubFetch({analytics: () => json({...ANALYTICS, rules: [...RULES, singer]})});
+    renderPage('/calibration?rule=singer-songs', 'tok');
+    expect(
+      await aside().findByText('No copy in tuning.json, so Singer + Songs has nothing to tune here.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Singer + Songs · gap +0.40 · 5 votes')).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['while tuning.json loads', never, 'Reading tuning.json from master…'],
+    ['after the first read of tuning.json fails', () => new Response('Bad gateway', {status: 502}), /^Could not read tuning\.json: GitHub 502/],
+  ])('shows none %s', async (_, tuning, says) => {
+    stubFetch({analytics: () => json(ANALYTICS), tuning});
+    renderPage('/calibration?rule=ramp', 'tok');
+    expect(await aside().findByText(says)).toBeInTheDocument();
+    expect(screen.getByText('Ramp · gap −0.57 · 557 votes')).toBeInTheDocument();
+    expect(tuneLink()).not.toBeInTheDocument();
+  });
+
+  it('shows it once the editor arrives after a failed first read', async () => {
+    let reads = 0;
+    stubFetch({
+      analytics: () => json(ANALYTICS),
+      tuning: () => (++reads === 1 ? new Response('Bad gateway', {status: 502}) : json(LIVE)),
+    });
+    const {user} = renderPage('/calibration?rule=ramp', 'tok');
+    await user.click(await aside().findByRole('button', {name: 'Read tuning.json again'}));
+    expect(await screen.findByRole('button', {name: 'Tune Live Ramp'})).toBeInTheDocument();
+  });
+});
+
 describe('CalibrationPage: unpublished edits (R-19)', () => {
   /** Opens Ramp's copy and stages one edit to its title. */
   async function stageTitleEdit() {

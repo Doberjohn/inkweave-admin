@@ -619,3 +619,50 @@ describe('TuningAside, the pinned tray', () => {
     expect(tagline().scrollIntoView).toHaveBeenCalledWith({block: 'center'});
   });
 });
+
+describe('TuningAside, the pinned entry header', () => {
+  const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+  /** The pinned header: the box the eyebrow sits in. */
+  const pinnedHead = (eyebrow: string) => screen.getByText(eyebrow).parentElement as HTMLElement;
+
+  it('pins the eyebrow, the name, the gap and the shared-by line to the top, on the aside tint, and lets the read line go', () => {
+    render(<Harness selected={BOOST} sharedWith={LOCATIONS} />);
+    const head = pinnedHead('Playstyle · tuning.json');
+    expect(head).toHaveStyle({position: 'sticky', top: '0px'});
+    // Opaque: the aside's own fill, its tint over the page colour, so the rows scroll under it unseen.
+    expect(head.style.background).toBe(
+      (screen.getByRole('region', {name: 'Pending changes'}).parentElement as HTMLElement).style.background,
+    );
+    expect(head.style.background).toMatch(/^linear-gradient\(/);
+    expect(head).toContainElement(screen.getByRole('heading', {level: 2, name: 'Locations'}));
+    expect(head).toContainElement(screen.getByText('Location Boost gap'));
+    expect(head).toContainElement(screen.getByText(/^Shared by 9 rules:/));
+    expect(head).not.toContainElement(screen.getByText(/^Location Boost: The engine rates pairs/));
+    expect(head).not.toContainElement(title());
+  });
+
+  it('brings a field that takes focus under the pinned header down into view, and leaves the heading itself be', () => {
+    render(<Harness selected={RAMP} />);
+    const heading = screen.getByRole('heading', {level: 2, name: 'Ramp'});
+    vi.spyOn(pinnedHead('Playstyle · tuning.json'), 'getBoundingClientRect').mockReturnValue(box(0, 120));
+    const foot = screen.getByRole('region', {name: 'Pending changes'}).parentElement as HTMLElement;
+    vi.spyOn(foot, 'getBoundingClientRect').mockReturnValue(box(600, 730));
+    // The tagline sits clear of both; the title has scrolled up under the header's bottom edge.
+    vi.spyOn(heading, 'getBoundingClientRect').mockReturnValue(box(30, 60));
+    vi.spyOn(title(), 'getBoundingClientRect').mockReturnValue(box(90, 166));
+    vi.spyOn(tagline(), 'getBoundingClientRect').mockReturnValue(box(200, 276));
+    heading.scrollIntoView = vi.fn();
+    title().scrollIntoView = vi.fn();
+    tagline().scrollIntoView = vi.fn();
+
+    act(() => tagline().focus());
+    expect(tagline().scrollIntoView).not.toHaveBeenCalled();
+
+    act(() => title().focus());
+    expect(title().scrollIntoView).toHaveBeenCalledWith({block: 'center'});
+
+    // The heading takes focus from the Tune link and the handoffs: it is the header, never under it.
+    act(() => heading.focus());
+    expect(heading.scrollIntoView).not.toHaveBeenCalled();
+  });
+});
