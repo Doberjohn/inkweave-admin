@@ -42,7 +42,7 @@ describe('OverviewView', () => {
 
   it('reads the calibration verdict and links to Calibration', () => {
     renderView();
-    expect(screen.getByText('well-calibrated')).toBeInTheDocument();
+    expect(screen.getByText('is well-calibrated')).toBeInTheDocument();
     expect(screen.getByText('mean gap').parentElement).toHaveTextContent('−0.30');
     expect(
       screen.getByText('The engine rates pairs about 0.30 points higher than the community on average.'),

@@ -1,10 +1,11 @@
 import {describe, expect, it} from 'vitest';
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
+import {COLORS} from '../../../../app-bridge';
 import {CalibrationCard} from '../CalibrationCard';
 
-// The scale's dot is the card's only round element. Ported from VerdictHero.test.tsx,
-// which retired with the hero (R2-7): the card now draws the only gap scale.
+// The scale's dot is the card's only round element. GapScale.test.tsx covers the track
+// itself; this checks that the card passes its gap through.
 const DOT = '[style*="border-radius: 50%"]';
 
 describe('CalibrationCard', () => {
@@ -20,5 +21,17 @@ describe('CalibrationCard', () => {
 
     rerender(<CalibrationCard meanGap={null} accuracySentiment={null} />);
     expect(container.querySelectorAll(DOT)).toHaveLength(0);
+  });
+
+  // R-50: the headline is a sentence for every gap, never "The engine well-calibrated".
+  it.each<[number | null, string, string]>([
+    [-0.3, 'is well-calibrated', COLORS.success],
+    [-0.93, 'runs generous', COLORS.error],
+    [0.7, 'runs harsh', COLORS.success],
+    [null, 'has too few score votes to judge', COLORS.textMuted],
+  ])('finishes "The engine …" for a gap of %s: %s', (meanGap, phrase, color) => {
+    render(<CalibrationCard meanGap={meanGap} accuracySentiment={null} />, {wrapper: MemoryRouter});
+    expect(screen.getByText('The engine').textContent).toBe(`The engine ${phrase}`);
+    expect(screen.getByText(phrase)).toHaveStyle({color});
   });
 });
