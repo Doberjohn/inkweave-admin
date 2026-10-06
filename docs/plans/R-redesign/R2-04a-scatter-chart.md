@@ -214,6 +214,8 @@ After:
 });
 ```
 
+> **2026-10-06:** R2-4c moved the baseline's label from inside the plot into the y gutter, where a tick within 12px of it prints no label. So the fixed-domain test now finds "0.00" as the baseline's label, not among the ticks.
+
 In `src/charts/__tests__/lineLayout.test.ts`, the import. Before:
 
 ```ts

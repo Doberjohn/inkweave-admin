@@ -16,7 +16,7 @@
 
 **Tracking:** Doberjohn/inkweave-admin#24. Branch: `feature/24-admin-redesign`, one PR per phase.
 
-**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 to R4 are outlined below and detailed when each starts.
+**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built on 2026-10-06; see "R2 as built". Its real-data check waits for the owner's files. R3 and R4 are outlined below and detailed when each starts.
 
 ---
 
@@ -116,7 +116,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 | Phase | Delivers | Owner sees with real data | Detailed |
 |---|---|---|---|
 | **R1** | Banner removal; theme, styles and primitives; shared token state; sidebar shell and page layout; artifact cache; **Overview**, **Vote activity**, **Web analytics**; `/calibration` hosting today's calibration view; old write tools inside the new shell | Everything read-only | Below |
-| **R2** | Calibration & tuning merged at `/calibration` (rules table, pairs, votes, dimension participation, tuning aside with pending tray and publish states); the calibration scatter, gap histogram and weekly gap trend; `/tuning` redirects | Calibration, tuning edits on a rehearsal branch | Outline below; detailed when R2 starts |
+| **R2** | Calibration & tuning merged at `/calibration` (rules table, pairs, votes, dimension participation, tuning aside with pending tray and publish states); the calibration scatter, gap histogram and weekly gap trend; `/tuning` redirects | Calibration, tuning edits on a rehearsal branch | Below (detailed 2026-10-05) |
 | **R3** | Card analytics at `/cards` (`cardStats.ts` + tests, switch-card combobox, engine view from `fetchCardSynergies`, the synergy network diagram) | Per-card pages | Outline below |
 | **R4** | Card studio at `/studio`: New reveal (preview-led layout, validator-driven checklist and errors), Edit card (preview vs released split, `replaceCardInPreviewJson`), image replacement inside Edit; `/reveal` and `/image` redirect; skill and runbook links move | The full redesign | Outline below |
 
@@ -153,11 +153,11 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 | `src/tools/analytics/overview/*` | Overview page, view and `overviewStats.ts` |
 | `src/tools/analytics/activity/*` | Vote activity page, view parts and `activityModel.ts` |
 | `src/tools/analytics/web/*` | Web analytics page, view parts and `webModel.ts` |
-| `src/tools/analytics/CalibrationPage.tsx` | R1 host for the old `CalibrationView`; R2-6 deletes it for `calibration/CalibrationPage.tsx` |
+| ~~`src/tools/analytics/CalibrationPage.tsx`~~ | R1 host for the old `CalibrationView`. Retired in R2: R2-6 deleted it for `calibration/CalibrationPage.tsx` |
 | `src/tools/analytics/verdict.ts` | The verdict thresholds and words, shared by the Overview's calibration card and R2's `calibrationSubtitle` (later R3); `VerdictHero` retired in R2-7 |
 | `src/shell/WriteToolFrame.tsx` | Interim only: R1-6 creates it to frame the old write pages, and R1-7 deletes it |
-| `src/tools/analytics/calibration/*` | R2's `/calibration`: `calibrationModel.ts` (rows, tuning-key mapping, pair scope), `chartData.ts` and `chartFixtures.ts`, `RulesTable`, `CalibrationScatter`, `GapHistogram`, `WeeklyGapTrend`, `TuningAside` and `reloadNote.ts`, `CalibrationWorkspace` and `CalibrationPage` (its `TunedWorkspace` mounts the guard) |
-| `src/tools/tuning/tuningRows.ts`, `src/tools/tuning/tuningFailure.ts` | The editor's rows and names, and the failure kinds (R2-2), beside the kept `useLiveTuning`, `useTuningAdmin` and `githubClient.ts` |
+| `src/tools/analytics/calibration/*` | R2's `/calibration`: `calibrationModel.ts` (rows, tuning-key mapping, pair scope), `chartData.ts` and `chartFixtures.ts`, `RulesTable`, `CalibrationScatter`, `GapHistogram`, `WeeklyGapTrend`, `TuningAside` and `reloadNote.ts`, `CalibrationWorkspace` and `CalibrationPage` (its `TunedWorkspace` mounts the guard), and `focusHandoff.ts` (focus for the aside's next view, R2's final fix wave) |
+| `src/tools/tuning/tuningRows.ts`, `src/tools/tuning/tuningFailure.ts` | The editor's rows and names, and the failure kinds (R2-2), beside the kept `useLiveTuning`, `useTuningAdmin` and `githubClient.ts`, and the restyled `components/PendingTray.tsx` and `components/TierRow.tsx` |
 | `src/github/rejectedToken.ts`, `src/github/ForgetTokenOffer.tsx` | A token GitHub rejects (401): the check, and the "Forget token" offer (R-26), for R4's write pages too |
 | `src/shell/useUnsavedChangesGuard.ts`, `src/shell/UnsavedChangesGuard.tsx` | The unsaved-edits guard (R-19): the hook, its dialog, and the one-line component a page mounts |
 
@@ -352,6 +352,10 @@ export function LineChart(props: {
   yFormat?: (n: number) => string; xFormat?: (x: string) => string;
   xTicks?: readonly string[];               // default: first, quarter points, last
   baseline?: number; baselineLabel?: string;  // a labelled hairline (R2: zero gap); label default yFormat(baseline)
+  // R2-4c moved the baseline's label from inside the plot into the y gutter, at the baseline's y. A tick within 12px of it
+  // (a label's height and the surface gap) keeps its gridline and prints no label. Keep the label short: the gutter grows to fit it.
+  titleFormat?: (x: string) => string;        // R2-4c: the tooltip's title and the slider's lead-in for an x (default xFormat): "Week of Sep 14"
+  missingText?: string;                       // R2's final fix wave: the slider's words for a series with no value at an x ("no score votes"); the tooltip keeps "—"
   emptyText?: string;                         // shown in place of the plot when no series has a point
   yDomain?: readonly [number, number];        // R2-4a: the y domain to span, widened only to keep every value, zero and the baseline on the plot
   fixedGutters?: boolean;                     // R2-4a: lay out between LINE_Y_AXIS_WIDTH and LINE_END_WIDTH (a wider label widens its gutter)
@@ -374,11 +378,13 @@ export function scatterLayout(width: number, xDomain: readonly [number, number],
 export function jitterOffset(key: string, amount: number): [number, number];
 export function diagonalJitter(key: string, along: number, across: number): [number, number]; // y − x moves by at most `across`
 export type JitterAlong = 'both' | 'diagonal';
+export const ACROSS_SHARE = 1 / 5;            // R2-4c: 'diagonal' jitter's spread across y = x, as a share of `jitter`
 export interface PlacedDot {point: ScatterPoint; color: string; px: number; py: number}
 export interface DotOptions {series: readonly SeriesDef[]; jitter: number; jitterAlong: JitterAlong}
 export function placeDots(points: readonly ScatterPoint[], layout: ScatterLayout, opts: DotOptions): PlacedDot[];
-export function nearestPoint(points: ReadonlyArray<{px: number; py: number}>, x: number, y: number, radius: number): number | null;
+export function nearestPoint(points: ReadonlyArray<{px: number; py: number}>, x: number, y: number, radius: number): number | null; // a tie goes to the first
 export function scatterOrder<T extends {key: string; x: number; y: number}>(points: readonly T[]): T[]; // x, then y, then key
+// Jitter keys should be more than a couple of characters long: short keys streak along diagonals. R2's "id|id" pair keys don't.
 
 // src/charts/ScatterChart.tsx (R2-4a): two measures per item on one square plot, through ChartPlot; re-exports ScatterPoint
 export function ScatterChart(props: {
@@ -391,8 +397,15 @@ export function ScatterChart(props: {
   tooltip: (point: ScatterPoint) => TooltipContent;
   selectedKey?: string | null; onSelect?: (key: string) => void; // with onSelect, click and Enter/Space select
   emptyText?: string;                    // default "No data to chart."
+  describedBy?: string;                  // R2's final fix wave: the id of what describes the slider (aria-describedby), passed on to ChartPlot
 }): JSX.Element;
 // Opaque r 4 dots, each on its own r 6 disc in the page colour (R-23); the nearest dot within HIT_RADIUS lifts and shows the tooltip.
+// As built (R2's final fix wave): ScatterChart measures the width and places the dots (scatterLayout, then placeDots for the
+// drawing order and the keyboard walk), and an inner ScatterPlot holds the cursor and the selection and draws. So a hover, an
+// arrow key or a new selection re-renders the plot alone and places no dot again.
+// The stated exception to the global constraint "Every clickable thing is a button or a link": the dots sit in an aria-hidden
+// SVG, so the plot is one slider. ←/→/Home/End walk the dots, Enter or Space selects the dot the slider announces, and the
+// selected dot's value text ends ", selected". R2's scatter describes the slider with its note's instruction (describedBy).
 ```
 
 ### Contract additions from the task drafts
@@ -413,9 +426,12 @@ These came out of drafting and reconciling the R1 tasks. They add names and rena
 // scale.ts: type Day = string ('YYYY-MM-DD'; a name only), taken by the day functions
 // axis.ts: LABEL_SIZE, TICK_GAP, AxisTick, YAxis, px(n), labelWidth(text), labelX(center, width, chartWidth),
 //          wholeTicks(top, integers), yAxis(values, format, y)   // the y axis both charts share
+//          gutterFor(labels) (R2-4c): the room left of the plot that labels need, so LineChart's gutter counts the baseline's label
 // ChartSvg.tsx: ChartSvg({width, height}), AxisGrid({ticks, left, right}), EmptyChart({text?}),
-//               ChartPlot({ariaLabel, cursor, valueText, xs, height, extend?})   // the slider plot every chart renders;
-//               extend (R2-4a) adjusts the slider's props before they are spread (ScatterChart's 2-D pointer and Enter/Space)
+//               ChartPlot({ariaLabel, cursor, valueText, xs, height, extend?, describedBy?})   // the slider plot every chart renders;
+//               extend (R2-4a) adjusts the slider's props before they are spread (ScatterChart's 2-D pointer and Enter/Space);
+//               describedBy (R2's final fix wave) sets the slider's aria-describedby. AxisGrid draws a tick with an empty label
+//               as a gridline alone (R2-4c)
 // series.ts: chartWidth(measured)   // the measured width, or CHART_FALLBACK_WIDTH until there is one
 // barLayout.ts: barLayout(width, data, series, opts): BarLayout; barLayoutOptions(sizing) (BarChart's defaults);
 //               BarDatum, BarSizing, CapLabels and BAR_Y_AXIS_WIDTH live here
@@ -446,7 +462,8 @@ export function WriteToolFrame(props: {children: React.ReactNode}): JSX.Element;
 // {id:'image', label:'Card images', mark:'Im', path:'/image', group:'publish', writes:true}
 // URL contract: /calibration?rule=<RuleStat.ruleId, or a tuning key>. R1-8 wrote it and R1-11 read it; from R2, R2-6's page reads it
 // and writes it (replace: true), and R2-8's Overview link builds it with calibrationHref
-// src/shell/nav.ts: NAV_ITEMS at the end of R2 (R2-6), in order
+// src/shell/nav.ts: NAV_ITEMS at the end of R2 (R2-6; the R2 header's contract addition 13), in order:
+// calibration now writes, and the tuning item is gone
 // {id:'overview', label:'Overview', mark:'Ov', path:'/', group:'main', writes:false}
 // {id:'calibration', label:'Calibration & tuning', mark:'Ca', path:'/calibration', group:'insights', writes:true}
 // {id:'activity', label:'Vote activity', mark:'Ac', path:'/activity', group:'insights', writes:false}
@@ -508,8 +525,8 @@ export function WebAnalyticsPage(): JSX.Element;
 // InkIcon, RaritySymbol, rarityConfigOf, enchantedSymbol, epicSymbol, iconicSymbol (the webps imported with ?no-inline)
 // R2-5a adds DialogShell (for UnsavedChangesDialog); R2-7 removes CAP_LABEL_XS (its last importers retire)
 
-// src/tools/analytics/CalibrationView.tsx, CalibrationPage.tsx (R1-11; retired in R2: R2-6 deletes the page, R2-7 the view)
-// CalibrationViewProps gained: initialRuleId?: string | null  (an id the analytics don't have opens on "All pairs")
+// src/tools/analytics/CalibrationView.tsx, CalibrationPage.tsx (R1-11; retired in R2: R2-6 deleted the page, R2-7 the view)
+// CalibrationViewProps gained: initialRuleId?: string | null  (an id the analytics don't have opens on "All pairs"). Retired in R2 with the view
 // R2's page: src/tools/analytics/calibration/CalibrationPage.tsx, export function CalibrationPage(): JSX.Element;
 
 // src/tools/analytics/voteAnalyticsTypes.ts, RuleStat gains (R2-1, R-17)
@@ -571,6 +588,41 @@ Each task lives in its own file under [R-redesign/](R-redesign/), in order. Ever
 ## Phase R2: Calibration & tuning (detailed)
 
 [R-redesign/R2-calibration-tuning.md](R-redesign/R2-calibration-tuning.md): tasks R2-1 to R2-8, re-based on R1 as built (main @ c92e260) and pin bc877e1 on 2026-10-05. Its decisions are R-17 to R-26 above.
+
+### R2 as built (2026-10-06)
+
+Tasks R2-1 to R2-8, then the final review's fix wave (`a79ecf7`, `dbe6c47`, `8c5fa7e`, `c0ec330`) and a polish commit (`adfc79e`), on `feature/24-redesign-r2`.
+
+- **What shipped:**
+  - **`/calibration`, merged.** The left column holds the rules table, the scope row, the scatter beside the gap histogram, the pair list beside its votes, the weekly gap and dimension participation. The aside holds the token gate, then the selected entry's rows over the pinned pending tray and its publish states. The selected rule lives in `?rule=`. The page writes: the sidebar shows the token box, and the header reads "Tuning writes to Doberjohn/inkweave `master`".
+  - **`/tuning`** redirects to `/calibration`, and the sidebar's `tuning` item is gone (the R2 header's contract addition 13). R2-7 deleted the old calibration and tuning views.
+  - **The chart kit:** `ScatterChart` over `scatter.ts`; `ChartPlot`'s `extend` and `describedBy`; LineChart's `yDomain`, `fixedGutters`, `titleFormat` and `missingText`, with the baseline's label in the y gutter; `ChartLegend`'s `'dot'`; `axis.ts`'s `gutterFor`.
+  - **The guard:** `useUnsavedChangesGuard` and `UnsavedChangesGuard` (`src/shell/`), over the app's `DialogShell`, bridged. `TunedWorkspace` mounts it, once per page.
+  - Also: `playstyleId` in the vote analytics (R-17), `calibrationHref` and the Overview's "Tune" or "Inspect" link (R-22), `PageLayout`'s `flush` and `PAGE_GUTTER`, and `BiasBar`'s `minWidth`.
+- **Departures from the plan:**
+  - **The charts row's track is 376px, not 346px** (R2-6). The scatter and the histogram sit side by side only from a 772px column. Each plot is then 334px or more, so the histogram prints all eleven bin labels. With 346px tracks, a column of 712 to 772px dropped the centre "0". The pairs row keeps 346px, two-up from 712px.
+  - **The baseline's label sits in the y gutter** (R2-4c). Inside the plot, a gap line near zero struck "No gap" through. A tick within 12px of the baseline keeps its gridline and prints no label, so the two never meet. LineChart also gained `titleFormat`, so the gap plot's tooltip says "Week of Sep 14".
+  - **The diagonal's label draws after the dots, with a 3px halo in the page colour** (R2-4c). At the two-up width the dots on the +1 row covered it.
+  - **A failed reload keeps the last good config** (C1). `useLiveTuning`'s ready state carries `reloadError`. So when the read after a publish fails, "Published. View commit", the tray and the pending edits stay, with the read error above the tray. The full error view is only for a first read that failed. While the tray shows a stale-value refusal, its "Reload tuning.json" is the one way out: the read error offers no "Read tuning.json again" beside it.
+  - **A missing path is a stale value** (F6). `applyTuningEdits` met an edit whose entry or Shift tier was gone with a raw TypeError. `githubClient.ts`'s `parentOf` now stops at a missing key, and the refusal reads "… changed since the editor loaded it (now missing)", so the tray offers Reload, which drops the edit.
+  - **Focus moves on when its control goes** (F2, F19, F4). The page holds a focus handoff (`focusHandoff.ts`), which the aside's next view takes:
+    - Save token focuses the aside's first heading, the entry's or else the tray's. After a failed first read, it focuses the error's button: "Read tuning.json again", or "Forget token" for a 401.
+    - Forget token focuses the gate's "GitHub token" field.
+    - "Read tuning.json again" focuses the first heading once a read lands.
+    - "Reload tuning.json" focuses its status line, unless the user moved focus while the read ran.
+    - A field that takes focus under the pinned tray scrolls into view (WCAG 2.4.11).
+  - **The tray names each revert** "Revert {edit}" (F23). After a revert, focus goes to the next row's revert button, else the previous row's, else the tray's heading. Clear all focuses the heading.
+  - **The guard words a publish in flight** (F13): "A publish to {branch} is in progress. Leaving won't stop it, and you won't see whether it landed." Otherwise it keeps the unsaved-edits message.
+  - Smaller ones from the final review: the scatter places its dots once per layout (F1; see "Chart kit (R1-3b)"); its note's instruction describes its slider (F15); and the weekly gap's slider reads "no score votes" for a quiet week (F10).
+- **Held for the owner:**
+  - a skip link from the selected rule to its editor (C3);
+  - the left column's state across a token save: the sort, the picked pair and each chart's view reset, and only `?rule=` survives (F2);
+  - flagging the weekly gap's partial last week (F21), after a look in the real-data check;
+  - ">99%" in place of "100%" for 399 of 400 pairs (`sharePercent`);
+  - a sticky aside header;
+  - an app issue for `useDialogFocus`'s Shift+Tab, which leaves a dialog whose focus opens on the panel;
+  - moving `DataAsOf` into `src/ui` (F12): four pages each write their own "Data as of".
+- **Still to run:** the real-data check ("Before the PR" in the R2 header). It waits for the owner's `/admin-data/` files.
 
 ## Phase R3: Card analytics (outline)
 

@@ -11,7 +11,7 @@
 >    - Every count below was re-run against the engine built at `bc877e17`, and every line reference was re-read. All of them still hold.
 > 2. **R-17.** The mapping reads `playstyleId` from the analytics artifact, and the pinned engine is the fallback. R2-1 now also adds the field to the precompute and to `RuleStat`. The `tuning.json` section now comes from the artifact's `category`, so the outline's test "`{ruleId: 'lore-loss', category: 'direct'}` still maps to `lore-denial`" is inverted.
 > 3. **R-18.** `reset` is gone. `useTuningAdmin` gains `dropStale(config)`, and `useLiveTuning`'s `reload` resolves with the config it read, so the aside can keep the edits that still apply.
-> 4. **R-19.** New task R2-5a: `useUnsavedChangesGuard` and `UnsavedChangesGuard`, a dialog in the app's `DialogShell` (bridged), not `window.confirm`. R2-6 mounts `<UnsavedChangesGuard>` in `TunedWorkspace`. `useBlocker` needs a data router, so the guard is never mounted below the page.
+> 4. **R-19.** New task R2-5a: `useUnsavedChangesGuard` and `UnsavedChangesGuard`, a dialog in the app's `DialogShell` (bridged), not `window.confirm`. R2-6 mounts `<UnsavedChangesGuard>` in `TunedWorkspace`. `useBlocker` needs a data router, so the guard is never mounted below the page. Two owner flags (note 13): bridging `DialogShell`, and first focus on the dialog's message. **Flag this to the owner at review.**
 > 5. **R-22.** New task R2-8: the Overview's link reads "Tune" or "Inspect", built with `calibrationHref`. That makes moving the link onto `calibrationHref` part of R2. It was optional before.
 > 6. **R-26.** A 401 from GitHub becomes a third failure kind. `publishFailure.ts` becomes `tuningFailure.ts`, since it now classifies read errors too, and `isRejectedToken` goes in a new `src/github/rejectedToken.ts`. It stays out of `githubCommit.ts`, where one more string argument fails CodeScene's gate. The aside's read error and the tray's publish error both offer "Forget token", which asks first when edits are pending (note 12).
 > 7. **Chart kit refactor.** R1's final fix wave split the kit, so contract addition 6 now edits `lineLayout.ts` and `LineChart.tsx`, quoting today's code. `axis.ts` needs no edit. `LINE_Y_AXIS_WIDTH` and `LINE_END_WIDTH` live in `lineLayout.ts`, as `BAR_Y_AXIS_WIDTH` lives in `barLayout.ts`. ScatterChart renders through `ChartPlot`, which gains one optional prop, `extend`. Through it the scatter swaps the kit's x-only pointer for the nearest dot, adds click and Enter/Space, and passes focus on to the kit only from the keyboard. `SurfaceRing` stays in `LineChart.tsx`.
@@ -43,7 +43,7 @@
 >     - The R-17 `tuningKeyFor` sketch: lint-clean, `tsc --strict` clean with the `RuleStat` addition, and run in node against the built engine. With the field and without it, all 23 keys are reached, the six direct rules map to null, and 9 rules share `location-control`.
 > 12. **After review (2026-10-05).**
 >     - **Forgetting the token with pending edits asks first.** The aside's and the tray's R-26 "Forget token" call `window.confirm` when edits are pending (contract addition 10), in R-19's spirit. A publish checks each edit's `expected` value against the file, never the token, so a replacement token could have published them: dropping them silently lost work. The sidebar's "Forget token" still drops them without asking (see "Noted limit"). **Flag this to the owner at review.**
->     - **The charts row's track is 346px, not 340px.** Each chart sits in a padded `Panel` (20px a side and a 1px border), so 340px left a 298px plot, under `ChartTooltip`'s 304px floor.
+>     - **The charts row's track is 346px, not 340px.** Each chart sits in a padded `Panel` (20px a side and a 1px border), so 340px left a 298px plot, under `ChartTooltip`'s 304px floor. (2026-10-06: R2-6 widened it to 376px, and the pairs row keeps 346px; see "Width".)
 >     - **The Overview's last two tracks become `48px 48px`.** "Inspect" overflowed the 36px link column (R2-8 measures it).
 >     - **The real-data check runs last**, after R2-8, so it covers the Overview's Tune and Inspect links too.
 >     - **The raw-votes and vote-log states** are named under "Charts", and R2-7 lists every file its deletions break.
@@ -54,6 +54,7 @@
 >     - R2-5: "Read tuning.json again" on a failed read, and the Forget-token confirm (note 12).
 >     - R2-5a: bridging `DialogShell`, and first focus on the dialog's message.
 >     - R2-4c: the gap plot prints no dates (`xTicks={[]}`).
+> 14. **Built (2026-10-06).** R2-1 to R2-8, the final review's fix wave and a polish commit are on the branch. The main plan's "R2 as built" lists what shipped, where it departs from this file, and what is held for the owner. The notes dated 2026-10-06 below correct this file's contracts and layout where the build changed them.
 
 > **Contract additions** (to "Shared interfaces (R1)". These add names and rename nothing; addition 13 removes the `tuning` nav item.)
 > 1. **`src/shell/PageLayout.tsx`: `flush?: boolean` and `PAGE_GUTTER` (R2-6).** Today's `BODY` (`PageLayout.tsx:45`) is both the scroller and the padded grid, with no inner wrapper:
@@ -119,12 +120,14 @@
 >    // src/charts/ChartSvg.tsx: ChartPlot gains
 >    extend?: (props: React.HTMLAttributes<HTMLElement>) => React.HTMLAttributes<HTMLElement>; // adjusts the slider's props before they are spread
 >    ```
+>    - **2026-10-06, the final fix wave.** `ScatterChart` and `ChartPlot` gain `describedBy?: string`, the slider's `aria-describedby` (F15). `ScatterChart` places the dots, and an inner `ScatterPlot` holds the cursor and draws, so a hover or an arrow key places no dot again (F1). The main plan's "Chart kit (R1-3b)" has the contract as built.
 > 6. **`src/charts/lineLayout.ts` and `LineChart.tsx`: what the weekly gap trend (R2-4c) needs.**
 >    - **Already in the kit (R1), so R2-4a only checks for them:** `LinePoint.y` is `number | null` (`lineLayout.ts`). A null keeps its x on the axis, breaks the line and reads "—" in the tooltip. A non-null point with no neighbours gets its own dot (`circle[data-lone]`), and the series' last point the ringed end dot (`circle[data-end]`).
 >    - **Added by R2-4a:** `LineLayoutOptions` and `LineChart`'s props gain `yDomain?: readonly [number, number]` and `fixedGutters?: boolean`, and `lineLayout.ts` exports `LINE_Y_AXIS_WIDTH` and `LINE_END_WIDTH` (48px each, `SPACING.xxxl + SPACING.lg`), which `LineChart.tsx` re-exports.
 >      - **`yDomain`** is the y domain to span, widened only to keep every value, zero and the baseline on the plot. Its ticks follow the computed domain's rule: both ends, and 0 between them when it crosses zero.
 >      - **`fixedGutters`** lays the plot out between the two fixed gutters, so two LineCharts over the same x put each x at the same px. A label wider than its gutter widens it, as with `BAR_Y_AXIS_WIDTH`.
 >      - Existing callers pass neither and draw as before.
+>    - **2026-10-06.** R2-4c moved the baseline's label from inside the plot into the y gutter, and a tick within 12px of the baseline prints no label (`axis.ts` gains `gutterFor`). LineChart also gains `titleFormat` (R2-4c) and `missingText` (the final fix wave, F10). The main plan's "Chart kit (R1-3b)" has them.
 > 7. **`src/charts/ChartLegend.tsx`: `mark: 'rect' | 'line' | 'dot'`.** `'dot'` keys each series with a filled circle (its hatch included), so the scatter's legend mirrors its dots. Existing callers draw as before.
 > 8. **`playstyleId` in the analytics artifact (R2-1, R-17).**
 >    ```ts
@@ -159,6 +162,9 @@
 >    ```
 >    - The stale-value message in `githubClient.ts:42` changes "Reload the page" to "Reload tuning.json", and keeps "changed since the editor loaded it", which `tuningFailureKind` matches.
 >    - R2-2 tests the missing path: an edit under a playstyle key that the reloaded config no longer has gives `stillApplies` false, and `dropStale` drops it and counts it.
+>    - **2026-10-06, the final fix wave.**
+>      - **F6:** `applyTuningEdits`' `parentOf` now stops at a missing own key, as `stillApplies` does, so the TypeError the comment above names is gone. An edit whose entry or Shift tier is gone is refused with the stale-value message, ending "(now missing)", and `tuningFailureKind` reads it as `'stale-value'`.
+>      - **C1:** `LiveTuning`'s ready state gains `reloadError?: string`. A failed reload keeps the config last read; only a first read that fails gives `{status: 'error'}`. `reload` still resolves with the config it read, or null.
 > 10. **The aside and the tray (R2-5, R-18, R-21, R-26):**
 >     ```ts
 >     export interface TuningState {live: ReturnType<typeof useLiveTuning>; admin: UseTuningAdminResult}
@@ -177,6 +183,11 @@
 >     - A failed read that isn't a 401 offers "Read tuning.json again" (`live.reload()`). The pending edits live in `TunedWorkspace`, so a read that succeeds brings them back (R2-5, an owner flag).
 >     - `GithubTokenGate` doesn't change: R1-7 already renders it as an h2 in the body. Inside `<aside aria-label="Tuning editor">` it heads the aside "GitHub token", and the landmark carries the aside's name.
 >     - **R-26's "Forget token" asks before it drops edits.** `TuningAside` wraps `onForgetToken` once and hands the wrapper to both its read error and `PendingTray`, so the tray needs no new logic. With `n = tuning.admin.pending.length > 0`, the wrapper calls ``window.confirm(`Forget the token and drop ${n} unpublished edit${n === 1 ? '' : 's'}?`)`` and calls `onForgetToken` only on OK. With nothing pending it calls `onForgetToken` straight away. R2-5 tests both answers with one pending edit and a publish 401: with `confirm` stubbed to return false, clicking "Forget token" doesn't call `onForgetToken`; stubbed true, it calls it once. It also tests that with no pending edits a read 401's "Forget token" calls `onForgetToken` without asking.
+>     - **2026-10-06, the final fix wave.**
+>       - `TuningState.live` is typed `UseLiveTuningResult` (F12).
+>       - `TuningAside` also takes `handoff?: FocusHandoff` (`calibration/focusHandoff.ts`, F2). The page asks for it when a token is saved or forgotten, and "Read tuning.json again" asks for it once a read lands. The aside's next view takes it ("R2 as built" in the main plan lists where focus goes).
+>       - A failed reload shows its read error above the tray, which stays (C1). While the tray shows a stale-value refusal, that error offers no "Read tuning.json again": the tray's "Reload tuning.json" does the same.
+>       - `PendingTray` names each revert button "Revert {edit's label}", and moves focus on after a revert or Clear all (F23).
 > 11. **`src/shell/useUnsavedChangesGuard.ts` and `src/shell/UnsavedChangesGuard.tsx` (R2-5a, R-19).** The confirm UI is the app's `DialogShell`, bridged (`src/app-bridge.ts` gains `export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';`), not `window.confirm`.
 >     ```ts
 >     export interface UnsavedChangesGuardState {blocked: boolean; stay: () => void; leave: () => void}
@@ -292,16 +303,17 @@
 - **Hooks.**
   - `useLiveTuning`, `useTuningAdmin` and the guard all need the token or the data router. So a small `TunedWorkspace({token, ...rest})` in `CalibrationPage.tsx` does three things:
     - calls `useLiveTuning(token)` and `useTuningAdmin(token)`;
-    - mounts `<UnsavedChangesGuard dirty={admin.pending.length > 0} message={UNSAVED_TUNING} />` (R2-5a, R-19);
+    - mounts `<UnsavedChangesGuard dirty={admin.pending.length > 0} message={UNSAVED_TUNING} />` (R2-5a, R-19). (2026-10-06, F13: the message follows the state, `admin.publishing ? publishingTuning() : UNSAVED_TUNING`, since leaving mid-publish doesn't stop the commit: "A publish to {branch} is in progress. Leaving won't stop it, and you won't see whether it landed.")
     - renders `CalibrationWorkspace` with `tuning={{live, admin}}`.
   - Once a token is saved, the page renders `<TunedWorkspace key={token} …>`. Otherwise it renders `<CalibrationWorkspace tuning={null} …>`. `CalibrationWorkspace` never mounts the guard, so its stories need no data router.
   - **Saving or forgetting a token remounts the left column.** The page swaps `CalibrationWorkspace` for `TunedWorkspace` (or back), a different element type at the same place, so React remounts the whole workspace. The open pair, the rules table's sort and each chart's Chart | Table view reset. Only the selected rule survives, because it lives in `?rule=`.
+    - 2026-10-06: focus no longer falls to `<body>` with the button pressed (F2). The page holds a focus handoff that the aside's next view takes: the gate's field after a forget, and after a save the aside's first heading, or the error's button when the first read fails. Keeping the left column's state is held for the owner.
   - **Noted limit:** `TunedWorkspace`, keyed by the token, owns the pending edits, so forgetting the token unmounts them with it. A publish checks only each edit's `expected` value against the file (`applyTuningEdits`, `githubClient.ts:40`), never the token, so a replacement token could have published them.
     - R-26's "Forget token", in the aside and the tray, asks first when edits are pending (contract addition 10).
     - The sidebar's "Forget token" still drops them without asking: the sidebar belongs to the shell and can't see them. It is not a navigation, so the guard doesn't see it either, the same as on `/tuning` today.
 - **Stale value (R-18).**
   - "Reload tuning.json" runs `live.reload()`. When that resolves with a config, it runs `admin.dropStale(config)`.
-  - The aside then says how many edits it dropped, in a `role="status"` line, or that every pending edit still applies.
+  - The aside then says how many edits it dropped, in a `role="status"` line, or that every pending edit still applies. (2026-10-06, F19: that line takes focus, unless the user moved focus while the read ran.)
   - The kept edits pass `applyTuningEdits`' check against the file they were checked against, because `stillApplies` is that same comparison.
 - **A shared entry (R-21).** The aside heads a key several rules share (Locations: 9 rules) with the tuning name and "Shared by N rules". It labels the gap with the selected rule's name.
 - **Header.**
@@ -315,7 +327,7 @@
   1. the analytics notice;
   2. the rules table;
   3. **the scope row** (new): `pairsHeading(selected)`, plus "Show all pairs" while a rule is selected. It is the one filter row above everything the rule scopes.
-  4. **the charts row** (new): "Engine vs community" (the scatter) beside "Gap distribution" (the histogram). They sit two-up from 712px of column (two 346px tracks and the row's 20px `SPACING.xl` gap) and stack below that.
+  4. **the charts row** (new): "Engine vs community" (the scatter) beside "Gap distribution" (the histogram). They sit two-up from 712px of column (two 346px tracks and the row's 20px `SPACING.xl` gap) and stack below that. (2026-10-06: as built, two-up only from a 772px column, two 376px tracks, so the histogram prints all eleven bin labels; see "Width".)
   5. the pair list and the votes;
   6. **"Weekly gap"** (new), full width;
   7. dimension participation, with the scope line "All votes, whatever the rule". It sits below the scope row, but `global.dimensionFill` can't be scoped by rule, so the panel says it reads every vote (dataviz: a filter scopes what is below it, so anything it doesn't scope says so).
@@ -402,6 +414,11 @@
     - The charts row is `repeat(auto-fit, minmax(min(100%, 346px), 1fr))`. Each chart sits in an untitled, padded `Panel`: 20px (`SPACING.xl`) a side inside a 1px border (`Panel.tsx:64-66`), 42px in all. So a 346px track leaves a 304px plot until the row stacks.
     - 304px is where `ChartTooltip`'s floor stops overflowing (R1-3b's deferred item): its `maxWidth` is `max(width / 2 − 12, 140)`, and 140 > 304 / 2 − 12 only below 304. The outline's 340px track left a 298px plot, under it. R2-4c's story constant follows this track.
     - Phone widths under that stay as R1 left them.
+    - **As built (R2-6, 2026-10-06): the charts row's track is 376px, and the pairs row keeps 346px.**
+      - The histogram prints all eleven bin labels only from a 334px plot (376 − 42). Below that it thins them to every other one.
+      - With 346px tracks, a column of 712 to 772px sat two-up with plots under 334px, and the centre "0" bin lost its label.
+      - So the charts sit two-up only from a 772px column (two 376px tracks and the 20px gap), and stack below it. Side by side, each plot is 334px or more, above `ChartTooltip`'s 304px floor.
+      - The pairs row (the pair list beside the votes) has no bin labels to fit. It keeps 346px, the narrowest track that clears the floor, two-up from 712px.
   - **Scale:** the scatter draws one SVG circle per pair, which is fine at a few thousand pairs. The real-data check gives the real count.
 
 **Decided (2026-10-05).** The outline's twelve open questions are settled in the main plan's "Decisions for R2". All of them follow the recommendations, and R-26 is new.
@@ -506,7 +523,13 @@ R2-6 also wires the guard and tests it at page level: leaving `/calibration` wit
       - with a token saved, the sidebar showing its token box on `/calibration`, and the header reading "Tuning writes to Doberjohn/inkweave `master`" (R2-6);
       - with an edit staged, the sidebar's "Vote activity" link opening "Leave this page?": "Stay on this page" keeps the edit, and a reload gets the browser's own prompt (R2-6);
       - the seam between the columns, side by side and wrapped, and the tray pinned while the left column scrolls (R2-6).
+    - **Added at wrap-up (2026-10-06):**
+      - the charts row's widths (R2-6): with a column of 712 to 772px the two charts stack and the histogram prints all eleven bin labels, the centre "0" included; from 772px they sit side by side, still with all eleven;
+      - `/calibration?rule=location-control` names the location rule `findRow` resolves it to on the scope line and in the chart titles, while the aside says the entry is shared (R2-6);
+      - the scatter at real density: hover and a held arrow key keep up at the real pair count, now that the dots are placed once per layout, not on every move (F1);
+      - the weekly gap's last week: Deploy runs nightly, so that week is usually partial, and its score votes dip at the right edge. Whether to flag it, as Vote activity flags its partial weeks, is the owner's call (F21).
     - **The Overview's "Rules to review":** each link reads "Tune" or "Inspect" as `tuningKeyFor(r, TUNING)` says, "Inspect" stays inside the card's 48px column, and each link opens `/calibration?rule=<ruleId>` with that rule selected (and, with a token, its entry or R-20's "No copy in tuning.json" in the aside).
+      - R2-8's Step 11: every link reads "Tune", except the six rules with no copy (`named-companions`, `singer-songs`, `spike-suit`, `merida-archer`, `merida-wisp`, `free-play`), which read "Inspect". An "Inspect" link opens its rule, and with a token saved the aside says "No copy in tuning.json".
     - **The histogram's ±5 (R-24: "R2's real-data check confirms ±5"; R2-4b).**
       - With the deployment's artifacts in `public/admin-data/`, run this from the repo root. It prints two shares and never a count:
         ```bash
