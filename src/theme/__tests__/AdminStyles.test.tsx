@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {render, screen} from '@testing-library/react';
 import {COLORS, EASING, FONT_SIZES, RADIUS} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
-import {ADMIN_COLORS} from '../adminTheme';
+import {ADMIN_COLORS, ADMIN_RADIUS} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
 const CLASSES = [
@@ -25,6 +25,8 @@ const CLASSES = [
   'adm-chart-label',
   'adm-chart-cursor',
   'adm-chart-tip',
+  // The network diagram's node links (R3-4b).
+  'adm-net-link',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -109,6 +111,13 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-chart-plot:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
     // Bar columns sit flush against each other, so their ring stays inside the column.
     expect(css).toContain(`.adm-chart-hit:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:-2px;}`);
+  });
+
+  it('lets a network node link fill its box, and rings it outside it as the controls are ringed', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-net-link{display:block;width:100%;height:100%;border-radius:${ADMIN_RADIUS.control}px;}`);
+    // Last in the controls' focus-visible list. It has no hover style (a hover shows its tooltip), so FOCUSABLE leaves it out.
+    expect(css).toContain(`.adm-net-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
   });
 
   it('never dims a bar column, so a focused one keeps its full ring while another is picked', () => {

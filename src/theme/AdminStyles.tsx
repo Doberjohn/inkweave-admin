@@ -87,7 +87,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
 
-.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
 .adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
@@ -101,6 +101,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-chart-mark{transition:opacity ${GLIDE},filter ${GLIDE};}
 .adm-chart-mark[data-active="true"]{filter:brightness(1.2);}
 .adm-chart-mark[data-dim="true"]{opacity:.4;}
+.adm-net-link{display:block;width:100%;height:100%;border-radius:${R.control}px;}
 .adm-chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:adm-chart-rise ${ENTER} both;}
 .adm-chart-line{stroke-dasharray:1;animation:adm-chart-draw ${ENTER} both;}
 .adm-chart-area,.adm-chart-label{animation:adm-chart-fade ${ENTER} both;}
