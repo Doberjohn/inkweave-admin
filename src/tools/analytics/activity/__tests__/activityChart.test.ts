@@ -8,6 +8,7 @@ import {
   chartTable,
   chartTitle,
   labelEvery,
+  partialWeeks,
   tooltipFor,
 } from '../activityChart';
 import type {DayStack} from '../activityModel';
@@ -47,6 +48,13 @@ describe('chartTitle and bucketTitle', () => {
     expect(bucketTitle('2026-09-28', 'week', '2026-06-10', '2026-10-04')).toBe('Week of Sep 28');
     expect(bucketTitle('2026-09-30', 'day', '2026-09-01', '2026-09-30')).toBe('Wed Sep 30');
   });
+
+  it('names a one-day range once, wherever in the week it falls, and keeps a two-day one a range', () => {
+    expect(bucketTitle('2026-09-28', 'week', '2026-09-30', '2026-09-30')).toBe('Week of Sep 28 (Sep 30 only)');
+    expect(bucketTitle('2026-09-28', 'week', '2026-09-28', '2026-09-28')).toBe('Week of Sep 28 (Sep 28 only)');
+    expect(bucketTitle('2026-09-28', 'week', '2026-10-04', '2026-10-04')).toBe('Week of Sep 28 (Oct 4 only)');
+    expect(bucketTitle('2026-09-28', 'week', '2026-09-29', '2026-09-30')).toBe('Week of Sep 28 (Sep 29 to Sep 30)');
+  });
 });
 
 describe('chartSubtitle', () => {
@@ -68,6 +76,20 @@ describe('chartSubtitle', () => {
       `Jun 10 – Oct 4, in weeks from Monday, first week partial${pick}`,
     );
     expect(chartSubtitle('week', '2026-06-08', '2026-10-04')).toBe(`Jun 8 – Oct 4, in weeks from Monday${pick}`);
+  });
+
+  it('calls a range inside one week that week, partial or whole, never its first and last', () => {
+    const pick = '. Pick a week to filter the log; pick it again to clear.';
+    expect(chartSubtitle('week', '2026-09-29', '2026-09-30')).toBe(
+      `Sep 29 – Sep 30, in weeks from Monday, week partial${pick}`,
+    );
+    expect(chartSubtitle('week', '2026-09-30', '2026-09-30')).toBe(
+      `Sep 30 – Sep 30, in weeks from Monday, week partial${pick}`,
+    );
+    // Monday to Wednesday clips only the end, Wednesday to Sunday only the start: still the one week.
+    expect(partialWeeks('2026-09-28', '2026-09-30')).toBe(', week partial');
+    expect(partialWeeks('2026-09-30', '2026-10-04')).toBe(', week partial');
+    expect(partialWeeks('2026-09-28', '2026-10-04')).toBe('');
   });
 });
 

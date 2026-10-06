@@ -10,7 +10,7 @@ import {Notice} from '../../../ui/Notice';
 import {PendingTray} from '../../tuning/components/PendingTray';
 import {TierRow} from '../../tuning/components/TierRow';
 import {tuningFailureKind} from '../../tuning/tuningFailure';
-import {pendingLabel, tuningKind, type RowSpec} from '../../tuning/tuningRows';
+import {pendingLabel, type RowSpec} from '../../tuning/tuningRows';
 import type {UseLiveTuningResult} from '../../tuning/useLiveTuning';
 import type {PendingEdit, StageArgs, UseTuningAdminResult} from '../../tuning/useTuningAdmin';
 import {biasCopy} from '../biasCopy';
@@ -273,13 +273,13 @@ function SelectedEntry({
       </>
     );
   }
-  const {key, name, rows} = entry;
+  const {section, name, rows} = entry;
   const pendingFor = (path: Path | undefined) =>
     path ? pending.find((edit) => edit.pathKey === JSON.stringify(path)) : undefined;
   return (
     <>
       <EntryHeader
-        eyebrow={`${kindLabel(tuningKind(config, key))} · tuning.json`}
+        eyebrow={`${kindLabel(section)} · tuning.json`}
         title={name}
         row={selected}
         sharedWith={sharedWith}
@@ -405,16 +405,45 @@ function DroppedNote({dropped, noteRef}: {dropped: number | null; noteRef: RefOb
   );
 }
 
+/** A stretch of the view, from its top to its bottom, in px. */
+type Span = Pick<DOMRect, 'top' | 'bottom'>;
+
 /**
- * Whether a field sits under the pinned header (its top above the header's
- * bottom) or the pinned tray (its bottom below the tray's top). With no entry
- * selected there is no header, so only the tray counts.
+ * How far to scroll, down being positive, so a field sits in the clear band:
+ * 0 when it is inside already; else centred in the band, or with its top at
+ * the band's top when it is taller than the band, so its start shows.
  */
-function underPinned(field: Element, head: Element | null, foot: Element | null): boolean {
-  const box = field.getBoundingClientRect();
-  const headBottom = head?.getBoundingClientRect().bottom ?? -Infinity;
-  const footTop = foot?.getBoundingClientRect().top ?? Infinity;
-  return box.top < headBottom || box.bottom > footTop;
+function clearScroll(field: Span, band: Span): number {
+  if (field.top >= band.top && field.bottom <= band.bottom) return 0;
+  const room = band.bottom - band.top;
+  const height = field.bottom - field.top;
+  return field.top - (height > room ? band.top : band.top + (room - height) / 2);
+}
+
+/** The nearest ancestor that scrolls, the one the header and tray pin to: PageLayout's body on the page. */
+function scrollerOf(field: Element): Element {
+  for (let node = field.parentElement; node; node = node.parentElement) {
+    const {overflowY} = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll') return node;
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
+
+/**
+ * The rows scroll under the pinned header and tray, which hide them, so a
+ * field that takes focus outside the clear band between the header's bottom
+ * and the tray's top scrolls into it (WCAG 2.4.11). Centring it in the view
+ * isn't enough: a tall header (a wrapped "Shared by" line) and a tall tray can
+ * leave the view's middle under one of them.
+ */
+function keepClear(field: Element, head: Element | null, foot: Element | null): void {
+  // With no entry there is no header, and no field to focus.
+  if (!head || !foot) return;
+  // The header's own heading takes focus from the Tune link: it is the header, never under it.
+  if (head.contains(field)) return;
+  const band = {top: head.getBoundingClientRect().bottom, bottom: foot.getBoundingClientRect().top};
+  const by = clearScroll(field.getBoundingClientRect(), band);
+  if (by !== 0) scrollerOf(field).scrollBy({top: by});
 }
 
 /**
@@ -467,13 +496,9 @@ function ReadyAside({
       if (focusUnmoved(from)) noteRef.current?.focus();
     });
   };
-  // The rows scroll under the pinned header and tray, which hide them: a field that takes
-  // focus under either scrolls into view (WCAG 2.4.11). The header's own heading is never under it.
-  const keepClearOfPinned = (event: React.FocusEvent<HTMLDivElement>) => {
-    const head = headRef.current;
-    if (head?.contains(event.target)) return;
-    if (underPinned(event.target, head, footRef.current)) event.target.scrollIntoView({block: 'center'});
-  };
+  // A field that takes focus under the pinned header or tray scrolls into the band between them.
+  const keepClearOfPinned = (event: React.FocusEvent<HTMLDivElement>) =>
+    keepClear(event.target, headRef.current, footRef.current);
 
   return (
     <div ref={columnRef} style={COLUMN}>

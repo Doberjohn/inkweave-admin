@@ -24,7 +24,7 @@ const PLOT_HEIGHT = 180;
 /** The pair count, the votes behind it and its share; the count is keyed in the bin's side colour. */
 function binTooltip(bin: GapBin, total: number): TooltipContent {
   return {
-    title: `Gap ${binRange(bin.center)}`,
+    title: `Gap ${binRange(bin)}`,
     rows: [
       {value: fmtInt(bin.pairs), label: bin.pairs === 1 ? 'pair' : 'pairs', color: sideColor(bin.side)},
       {value: fmtInt(bin.votes), label: bin.votes === 1 ? 'vote' : 'votes'},
@@ -58,7 +58,7 @@ export function GapHistogram({pairs, scopeLabel, emptyText = 'No voted pairs yet
   const byKey = new Map(bins.map((bin) => [String(bin.center), bin]));
   const data: BarDatum[] = bins.map((bin) => ({
     key: String(bin.center),
-    label: binLabel(bin.center),
+    label: binLabel(bin),
     values: {over: 0, agree: 0, under: 0, [bin.side]: bin.pairs},
   }));
   return (
@@ -68,7 +68,7 @@ export function GapHistogram({pairs, scopeLabel, emptyText = 'No voted pairs yet
         subtitle={
           pairs.length === 0
             ? `${scopeLabel} · no pairs`
-            : `${scopeLabel} · ${sharePercent(shares.agree)} ${binRange(0)}, ${sharePercent(shares.over)} engine higher, ${sharePercent(shares.under)} community higher`
+            : `${scopeLabel} · ${sharePercent(shares.agree)} ${binRange({center: 0})}, ${sharePercent(shares.over)} engine higher, ${sharePercent(shares.under)} community higher`
         }
         legend={pairs.length > 0 ? <ChartLegend series={GAP_SERIES} mark="rect" /> : undefined}
         table={histogramTable(bins, scopeLabel)}>

@@ -5,6 +5,7 @@ import type {GlobalStats, PairStat, RuleStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
 import {
   buildCalibrationRows,
+  type CalibrationRow,
   calibrationSubtitle,
   editedKeys,
   findPair,
@@ -339,6 +340,38 @@ describe('tuningEntry', () => {
     expect(tuningEntry(TUNING, singer)).toBeNull();
     // A key from app master that this tuning.json has no entry for (R-17).
     expect(tuningEntry(TUNING, {...singer, tuningKey: 'ghost-key'})).toBeNull();
+  });
+
+  it("reads the row's own section when a key sits in both, with that key's ruleTexts rows", () => {
+    // tuning.json never does this; if it did, a direct rule must never edit the playstyle.
+    const both: TuningConfig = {
+      playstyles: {'shift-targets': {name: 'Shift (playstyle)', tagline: 'Shift wide'}},
+      directRules: {'shift-targets': {name: 'Shift Targets', description: 'Shift onto a target'}},
+      ruleTexts: {'shift-targets': {'curve.gap3': {score: 5, text: 'Wide gap'}}, ramp: {scores: {}, templates: {}}},
+    };
+    const row = (category: CalibrationRow['category']): CalibrationRow => ({
+      id: 'shift-targets',
+      name: 'Shift Targets',
+      category,
+      stat: null,
+      tuningKey: 'shift-targets',
+    });
+
+    const direct = tuningEntry(both, row('direct'));
+    expect(direct).toMatchObject({section: 'direct', key: 'shift-targets', name: 'Shift Targets'});
+    expect(direct?.rows.map((r) => [r.label, r.textPath?.[0]])).toEqual([
+      ['Label', 'directRules'],
+      ['Description', 'directRules'],
+      ['curve.gap3', 'ruleTexts'],
+    ]);
+
+    const playstyle = tuningEntry(both, row('playstyle'));
+    expect(playstyle).toMatchObject({section: 'playstyle', key: 'shift-targets', name: 'Shift (playstyle)'});
+    expect(playstyle?.rows.map((r) => [r.label, r.textPath?.[0]])).toEqual([
+      ['Title', 'playstyles'],
+      ['Tagline', 'playstyles'],
+      ['curve.gap3', 'ruleTexts'],
+    ]);
   });
 });
 

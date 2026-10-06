@@ -35,37 +35,53 @@ function rampRows(config: TuningConfig): RowSpec[] {
   return [...scores, ...templates];
 }
 
-/** Build the editable rows for a selected rule id. */
-export function rowsForSelection(config: TuningConfig, selectedId: string): RowSpec[] {
-  const rows: RowSpec[] = [];
-  const playstyle = config.playstyles[selectedId];
-  if (playstyle) {
-    rows.push({label: 'Title', textPath: ['playstyles', selectedId, 'name'], textValue: playstyle.name});
-    rows.push({label: 'Tagline', textPath: ['playstyles', selectedId, 'tagline'], textValue: playstyle.tagline});
+/**
+ * A tuning.json entry: the section it lives in and its key there. A rule's
+ * section is its category (calibrationModel's tuningSlot), so a key in both
+ * sections still names one entry.
+ */
+export interface EntryRef {
+  section: 'playstyle' | 'direct';
+  key: string;
+}
+
+/** The entry's own rows: a playstyle's title and tagline, or a direct rule's label and description. */
+function sectionRows(config: TuningConfig, {section, key}: EntryRef): RowSpec[] {
+  if (section === 'playstyle') {
+    if (!Object.hasOwn(config.playstyles, key)) return [];
+    const {name, tagline} = config.playstyles[key];
+    return [
+      {label: 'Title', textPath: ['playstyles', key, 'name'], textValue: name},
+      {label: 'Tagline', textPath: ['playstyles', key, 'tagline'], textValue: tagline},
+    ];
   }
-  const direct = config.directRules[selectedId];
-  if (direct) {
-    rows.push({label: 'Label', textPath: ['directRules', selectedId, 'name'], textValue: direct.name});
-    rows.push({label: 'Description', textPath: ['directRules', selectedId, 'description'], textValue: direct.description});
-  }
-  if (selectedId === 'shift-targets') rows.push(...shiftTierRows(config));
-  if (selectedId === 'ramp') rows.push(...rampRows(config));
+  if (!Object.hasOwn(config.directRules, key)) return [];
+  const {name, description} = config.directRules[key];
+  return [
+    {label: 'Label', textPath: ['directRules', key, 'name'], textValue: name},
+    {label: 'Description', textPath: ['directRules', key, 'description'], textValue: description},
+  ];
+}
+
+/**
+ * Build the editable rows for an entry: its section's rows, then its key's
+ * ruleTexts rows (Shift Targets' tiers, Ramp's scores and templates), which
+ * belong to it whichever section it is in.
+ */
+export function rowsForSelection(config: TuningConfig, entry: EntryRef): RowSpec[] {
+  const rows = sectionRows(config, entry);
+  if (entry.key === 'shift-targets') rows.push(...shiftTierRows(config));
+  if (entry.key === 'ramp') rows.push(...rampRows(config));
   return rows;
 }
 
 /**
  * The display name of a tuning.json entry: its playstyle title or direct-rule
- * label, else the key. Inherited keys (`constructor`) don't count.
+ * label, from its own section, else the key. Inherited keys (`constructor`) don't count.
  */
-export function tuningName(config: TuningConfig, key: string): string {
-  if (Object.hasOwn(config.playstyles, key)) return config.playstyles[key].name;
-  if (Object.hasOwn(config.directRules, key)) return config.directRules[key].name;
-  return key;
-}
-
-/** The tuning.json section an entry lives in; a key in both reads as a playstyle, as rowsForSelection lists it first. */
-export function tuningKind(config: TuningConfig, key: string): 'playstyle' | 'direct' {
-  return Object.hasOwn(config.playstyles, key) ? 'playstyle' : 'direct';
+export function tuningName(config: TuningConfig, {section, key}: EntryRef): string {
+  const entries = section === 'playstyle' ? config.playstyles : config.directRules;
+  return Object.hasOwn(entries, key) ? entries[key].name : key;
 }
 
 /** A pending edit's label in the tray: "Shift Targets · curve.gap3 · score". */

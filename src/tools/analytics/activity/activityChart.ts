@@ -50,10 +50,11 @@ function weekEnd(monday: Day): Day {
 
 /**
  * How a range from `startDay` to `endDay` clips the week from `monday`, in
- * words: "from Jun 10", "to Sep 30" or "Jun 10 to Jun 12"; "" when the week
- * runs whole. A missing end doesn't clip.
+ * words: "from Jun 10", "to Sep 30" or "Jun 10 to Jun 12", and "Sep 30 only"
+ * for a one-day range; "" when the week runs whole. A missing end doesn't clip.
  */
 function weekClip(monday: Day, startDay: Day = monday, endDay: Day = weekEnd(monday)): string {
+  if (startDay === endDay) return `${fmtDay(startDay)} only`;
   const from = startDay > monday ? fmtDay(startDay) : '';
   const to = endDay < weekEnd(monday) ? fmtDay(endDay) : '';
   if (from && to) return `${from} to ${to}`;
@@ -69,8 +70,9 @@ export function chartTitle(bucket: ChartBucket): string {
 /**
  * What a bar covers, in words: "Wed Sep 30", or "Week of Sep 28" from the
  * week's Monday. Given the range's days, a week the range clips says so
- * ("Week of Sep 28 (to Sep 30)", "Week of Jun 8 (from Jun 10)"), so a part
- * week at either end never reads as a whole one. Without them, the plain form.
+ * ("Week of Sep 28 (to Sep 30)", "Week of Jun 8 (from Jun 10)", "Week of
+ * Sep 28 (Sep 30 only)"), so a part week at either end never reads as a whole
+ * one. Without them, the plain form.
  */
 export function bucketTitle(key: Day, bucket: ChartBucket, startDay?: Day, endDay?: Day): string {
   if (bucket === 'day') return fmtWeekday(key);
@@ -81,15 +83,17 @@ export function bucketTitle(key: Day, bucket: ChartBucket, startDay?: Day, endDa
 
 /**
  * Which end weeks a weekly range clips, as a clause for the subtitle; "" when
- * it runs Monday to Sunday. /calibration's weekly gap words its part weeks by it too.
+ * it runs Monday to Sunday. A range inside one week has no first and last, so
+ * a clipped one says ", week partial". /calibration's weekly gap words its
+ * part weeks by it too.
  */
 export function partialWeeks(startDay: Day, endDay: Day): string {
   const first = weekStart(startDay) !== startDay;
   const last = weekEnd(weekStart(endDay)) !== endDay;
+  if (!first && !last) return '';
+  if (weekStart(startDay) === weekStart(endDay)) return ', week partial';
   if (first && last) return ', first and last weeks partial';
-  if (first) return ', first week partial';
-  if (last) return ', last week partial';
-  return '';
+  return first ? ', first week partial' : ', last week partial';
 }
 
 /** The chart's subtitle: the range's days, how a weekly chart cuts them, and how to pick a bar. */

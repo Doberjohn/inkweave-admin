@@ -145,11 +145,11 @@ describe('gapBins', () => {
 
 describe('binLabel and binRange', () => {
   it('label the end bins as open and the rest by their centre', () => {
-    expect([-5, -3, 0, 3, 5].map(binLabel)).toEqual(['≤−5', '−3', '0', '+3', '≥+5']);
+    expect([-5, -3, 0, 3, 5].map((center) => binLabel({center}))).toEqual(['≤−5', '−3', '0', '+3', '≥+5']);
   });
 
   it('say which gaps each bin holds', () => {
-    expect([-5, -3, 0, 3, 5].map(binRange)).toEqual([
+    expect([-5, -3, 0, 3, 5].map((center) => binRange({center}))).toEqual([
       '−4.5 or lower',
       '−3.5 to −2.5',
       'within ±0.5',
@@ -160,7 +160,7 @@ describe('binLabel and binRange', () => {
 
   it('print every minus as U+2212', () => {
     const text = gapBins([])
-      .flatMap((b) => [binLabel(b.center), binRange(b.center)])
+      .flatMap((b) => [binLabel(b), binRange(b)])
       .join(' ');
     expect(text).toContain('−');
     expect(text).not.toContain('-');
@@ -281,7 +281,7 @@ describe('the chart tables', () => {
       {week: '2026-09-28', meanGap: -1, scoreVotes: 3},
     ];
     // The log's last vote is on Wednesday Sep 30, so its last week is a part week.
-    const table = weeklyTable(weeks, 'Ramp', {startDay: '2026-09-14', endDay: '2026-09-30'});
+    const table = weeklyTable(weeks, {scopeLabel: 'Ramp', span: {startDay: '2026-09-14', endDay: '2026-09-30'}});
     expect(table.caption).toBe('Weekly mean gap and score votes, Ramp. Weeks start on Monday (UTC).');
     expect(table.columns).toEqual(['Week', 'Mean gap', 'Score votes']);
     expect(table.rows).toEqual([
@@ -298,21 +298,33 @@ describe('weekTitle and weeklySubtitle: the part weeks at either end of the log'
   /** Monday Sep 14 to Sunday Oct 4: every week runs whole. */
   const WHOLE: VoteSpan = {startDay: '2026-09-14', endDay: '2026-10-04'};
   const SUBTITLE = "Ramp · each week's mean gap (community − engine) and the score votes behind it";
+  const subtitle = (span: VoteSpan | null) => weeklySubtitle({scopeLabel: 'Ramp', span});
 
   it('words a week the log clips as Vote activity does, and a whole one plainly', () => {
-    expect(weekTitle('2026-09-14', MID_WEEK)).toBe('Week of Sep 14 (from Sep 16)');
-    expect(weekTitle('2026-09-21', MID_WEEK)).toBe('Week of Sep 21');
-    expect(weekTitle('2026-09-28', MID_WEEK)).toBe('Week of Sep 28 (to Sep 30)');
-    expect(weekTitle('2026-09-28', WHOLE)).toBe('Week of Sep 28');
-    expect(weekTitle('2026-09-28', null)).toBe('Week of Sep 28');
+    expect(weekTitle({week: '2026-09-14'}, MID_WEEK)).toBe('Week of Sep 14 (from Sep 16)');
+    expect(weekTitle({week: '2026-09-21'}, MID_WEEK)).toBe('Week of Sep 21');
+    expect(weekTitle({week: '2026-09-28'}, MID_WEEK)).toBe('Week of Sep 28 (to Sep 30)');
+    expect(weekTitle({week: '2026-09-28'}, WHOLE)).toBe('Week of Sep 28');
+    expect(weekTitle({week: '2026-09-28'}, null)).toBe('Week of Sep 28');
   });
 
   it("adds Vote activity's part-week clause to the subtitle, and nothing for whole weeks or an empty log", () => {
-    expect(weeklySubtitle('Ramp', WHOLE)).toBe(SUBTITLE);
-    expect(weeklySubtitle('Ramp', null)).toBe(SUBTITLE);
-    expect(weeklySubtitle('Ramp', {startDay: '2026-09-14', endDay: '2026-09-30'})).toBe(`${SUBTITLE}, last week partial`);
-    expect(weeklySubtitle('Ramp', {startDay: '2026-09-16', endDay: '2026-10-04'})).toBe(`${SUBTITLE}, first week partial`);
-    expect(weeklySubtitle('Ramp', MID_WEEK)).toBe(`${SUBTITLE}, first and last weeks partial`);
+    expect(subtitle(WHOLE)).toBe(SUBTITLE);
+    expect(subtitle(null)).toBe(SUBTITLE);
+    expect(subtitle({startDay: '2026-09-14', endDay: '2026-09-30'})).toBe(`${SUBTITLE}, last week partial`);
+    expect(subtitle({startDay: '2026-09-16', endDay: '2026-10-04'})).toBe(`${SUBTITLE}, first week partial`);
+    expect(subtitle(MID_WEEK)).toBe(`${SUBTITLE}, first and last weeks partial`);
+  });
+
+  it('words a log inside one week as that one week: partial once, a single day named once', () => {
+    // A fresh artifact: votes on Tuesday and Wednesday only, or on Wednesday alone.
+    const TWO_DAYS: VoteSpan = {startDay: '2026-09-29', endDay: '2026-09-30'};
+    const ONE_DAY: VoteSpan = {startDay: '2026-09-30', endDay: '2026-09-30'};
+    expect(subtitle(TWO_DAYS)).toBe(`${SUBTITLE}, week partial`);
+    expect(subtitle(ONE_DAY)).toBe(`${SUBTITLE}, week partial`);
+    expect(subtitle({startDay: '2026-09-28', endDay: '2026-10-04'})).toBe(SUBTITLE);
+    expect(weekTitle({week: '2026-09-28'}, TWO_DAYS)).toBe('Week of Sep 28 (Sep 29 to Sep 30)');
+    expect(weekTitle({week: '2026-09-28'}, ONE_DAY)).toBe('Week of Sep 28 (Sep 30 only)');
   });
 
   it("reads the span from activityWindow over the whole log, whose ends fall in weeklyGaps' first and last weeks", () => {
@@ -324,7 +336,7 @@ describe('weekTitle and weeklySubtitle: the part weeks at either end of the log'
     ];
     const span = activityWindow(votes, 'all');
     expect(span).toEqual({startDay: '2026-09-15', endDay: '2026-09-29'});
-    const weeks = weeklyGaps(votes, [pairOf('1', '2', 6, 6)]).map((w) => weekTitle(w.week, span));
+    const weeks = weeklyGaps(votes, [pairOf('1', '2', 6, 6)]).map((w) => weekTitle(w, span));
     expect(weeks).toEqual(['Week of Sep 14 (from Sep 15)', 'Week of Sep 21', 'Week of Sep 28 (to Sep 29)']);
   });
 });

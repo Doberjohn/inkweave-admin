@@ -1,9 +1,10 @@
 import {ChartFrame} from '../../../charts/ChartFrame';
 import {LineChart} from '../../../charts/LineChart';
+import type {Day} from '../../../charts/scale';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
-import {gapDomain, weekTitle, weeklySubtitle, weeklyTable, type VoteSpan, type WeeklyGap} from './chartData';
+import {gapDomain, weekTitle, weeklySubtitle, weeklyTable, type WeeklyGap, type WeeklyScope} from './chartData';
 
 /** The two plots' heights in px: the gap is the story, the score votes its context. */
 const GAP_HEIGHT = 160;
@@ -23,16 +24,10 @@ function emptyReason(weeks: readonly WeeklyGap[]): string | null {
   return weeks.length < 2 ? 'Not enough weeks of votes to draw a trend yet.' : null;
 }
 
-export interface WeeklyGapTrendProps {
+/** The scope's name and the log's span (WeeklyScope), and the weeks to draw. */
+export interface WeeklyGapTrendProps extends WeeklyScope {
   /** weeklyGaps(votes, scope): every week of the log, oldest first. */
   weeks: readonly WeeklyGap[];
-  /**
-   * The log's first and last vote days (activityWindow(votes, 'all')), which
-   * say whether an end week is a part week; null for an empty log.
-   */
-  span: VoteSpan | null;
-  /** "All pairs" or the selected rule's name. */
-  scopeLabel: string;
 }
 
 /**
@@ -47,16 +42,14 @@ export interface WeeklyGapTrendProps {
  * subtitle says so and their tooltips, slider values and table rows name the
  * days they cover ("Week of Sep 28 (to Sep 30)"). The untitled Panel is the card.
  */
-export function WeeklyGapTrend({weeks, span, scopeLabel}: WeeklyGapTrendProps) {
+export function WeeklyGapTrend({weeks, ...scope}: WeeklyGapTrendProps) {
+  const {scopeLabel, span} = scope;
   const empty = emptyReason(weeks);
   // A week's tooltip title and slider text, in full; the axis keeps the short "Sep 14".
-  const title = (week: string) => weekTitle(week, span);
+  const title = (week: Day) => weekTitle({week}, span);
   return (
     <Panel>
-      <ChartFrame
-        title="Weekly gap"
-        subtitle={weeklySubtitle(scopeLabel, span)}
-        table={weeklyTable(weeks, scopeLabel, span)}>
+      <ChartFrame title="Weekly gap" subtitle={weeklySubtitle(scope)} table={weeklyTable(weeks, scope)}>
         {empty ? (
           <p style={MUTED}>{empty}</p>
         ) : (
