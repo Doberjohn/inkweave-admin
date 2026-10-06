@@ -4,6 +4,7 @@ import {LinkButton, SPACING} from '../../../app-bridge';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
+import {activityWindow} from '../activity/activityModel';
 import {DimensionParticipation} from '../DimensionParticipation';
 import {PairList} from '../PairList';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
@@ -193,9 +194,18 @@ function scopeOf(data: VoteAnalytics, selected: CalibrationRow | null): Scope {
   return {pairs, label: selected.name, emptyText: 'No voted pairs for this rule yet.', engineSilentPairs: 0};
 }
 
-/** The weekly gap once the vote log is in; until then, or if it failed, a notice in its place. */
+/**
+ * The weekly gap once the vote log is in; until then, or if it failed, a
+ * notice in its place. The span is the whole log's, as Vote activity reads it
+ * at "All", so the trend can say which end weeks are part weeks.
+ */
 function WeeklyGap({voteLog, scope}: {voteLog: UseVoteLogReturn; scope: Scope}) {
-  if (voteLog.data) return <WeeklyGapTrend weeks={weeklyGaps(voteLog.data.votes, scope.pairs)} scopeLabel={scope.label} />;
+  if (voteLog.data) {
+    const {votes} = voteLog.data;
+    return (
+      <WeeklyGapTrend weeks={weeklyGaps(votes, scope.pairs)} span={activityWindow(votes, 'all')} scopeLabel={scope.label} />
+    );
+  }
   if (voteLog.error) return <Notice tone="error">Could not load the vote log: {voteLog.error.message}</Notice>;
   return <Notice>Loading the vote log…</Notice>;
 }

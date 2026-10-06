@@ -79,8 +79,11 @@ export function bucketTitle(key: Day, bucket: ChartBucket, startDay?: Day, endDa
   return clip ? `${title} (${clip})` : title;
 }
 
-/** Which end weeks a weekly range clips, as a clause for the subtitle; "" when it runs Monday to Sunday. */
-function partialWeeks(startDay: Day, endDay: Day): string {
+/**
+ * Which end weeks a weekly range clips, as a clause for the subtitle; "" when
+ * it runs Monday to Sunday. /calibration's weekly gap words its part weeks by it too.
+ */
+export function partialWeeks(startDay: Day, endDay: Day): string {
   const first = weekStart(startDay) !== startDay;
   const last = weekEnd(weekStart(endDay)) !== endDay;
   if (first && last) return ', first and last weeks partial';

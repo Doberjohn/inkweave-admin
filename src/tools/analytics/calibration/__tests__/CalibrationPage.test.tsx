@@ -416,9 +416,12 @@ describe('CalibrationPage: what the rule scopes', () => {
     expect(
       within(screen.getByRole('region', {name: 'Dimension participation'})).getByText('All votes, whatever the rule'),
     ).toBeInTheDocument();
+    // The log runs from Tuesday Sep 15 to Tuesday Sep 29, so both its end weeks are part weeks, as Vote activity says.
+    expect(figure('Weekly gap').getByText(/, first and last weeks partial$/)).toBeInTheDocument();
     // The week of Sep 28 holds one vote, on a Lore Loss pair: under Ramp it has none.
     await user.click(figure('Weekly gap').getByRole('button', {name: 'Table'}));
-    const lastWeek = within(figure('Weekly gap').getByRole('row', {name: /^Sep 28 /}));
+    expect(figure('Weekly gap').getByRole('rowheader', {name: 'Week of Sep 14 (from Sep 15)'})).toBeInTheDocument();
+    const lastWeek = within(figure('Weekly gap').getByRole('row', {name: /^Week of Sep 28 \(to Sep 29\) /}));
     expect(lastWeek.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['—', '0']);
   });
 

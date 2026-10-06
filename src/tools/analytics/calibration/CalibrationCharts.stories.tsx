@@ -2,6 +2,7 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
 import {FONTS, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
+import {activityWindow} from '../activity/activityModel';
 import type {PairStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import {CalibrationScatter} from './CalibrationScatter';
@@ -45,7 +46,7 @@ function CalibrationCharts({pairs, votes, scopeLabel, engineSilentPairs, emptyTe
         />
         <GapHistogram pairs={pairs} scopeLabel={scopeLabel} emptyText={emptyText} />
       </div>
-      <WeeklyGapTrend weeks={weeklyGaps(votes, pairs)} scopeLabel={scopeLabel} />
+      <WeeklyGapTrend weeks={weeklyGaps(votes, pairs)} span={activityWindow(votes, 'all')} scopeLabel={scopeLabel} />
     </>
   );
 }
@@ -93,7 +94,13 @@ export const OneRule: Story = {
 
 /** The trend alone over a log whose eleventh week has no score votes: the gap line breaks there. */
 export const QuietWeek: Story = {
-  render: () => <WeeklyGapTrend weeks={weeklyGaps(ONE_RULE_VOTES, ONE_RULE)} scopeLabel="Ramp" />,
+  render: () => (
+    <WeeklyGapTrend
+      weeks={weeklyGaps(ONE_RULE_VOTES, ONE_RULE)}
+      span={activityWindow(ONE_RULE_VOTES, 'all')}
+      scopeLabel="Ramp"
+    />
+  ),
 };
 
 /** A fresh artifact: no pairs on "All pairs", and no score votes for the trend. */

@@ -128,7 +128,7 @@ export function votesInRange(votes: VoteLogRow[], startDay: Day, endDay: Day): V
  * newest vote and counts back per the range, never past the log's oldest vote
  * (rangeStartDay). Null for an empty log.
  */
-export function activityWindow(votes: VoteLogRow[], range: RangePreset): {startDay: Day; endDay: Day} | null {
+export function activityWindow(votes: readonly VoteLogRow[], range: RangePreset): {startDay: Day; endDay: Day} | null {
   const endDay = latestVoteDay(votes);
   if (endDay === undefined) return null;
   const firstDay = votes.reduce((first, vote) => (dayOf(vote) < first ? dayOf(vote) : first), endDay);

@@ -3,15 +3,11 @@ import {LineChart} from '../../../charts/LineChart';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
-import {bucketTitle} from '../activity/activityChart';
-import {gapDomain, weeklyTable, type WeeklyGap} from './chartData';
+import {gapDomain, weekTitle, weeklySubtitle, weeklyTable, type VoteSpan, type WeeklyGap} from './chartData';
 
 /** The two plots' heights in px: the gap is the story, the score votes its context. */
 const GAP_HEIGHT = 160;
 const VOTES_HEIGHT = 72;
-
-/** A week's tooltip title and slider text, "Week of Sep 14", as the activity charts word a week. The axis keeps the short "Sep 14". */
-const weekTitle = (week: string) => bucketTitle(week, 'week');
 
 const MUTED: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.label, color: ADMIN_COLORS.muted};
 
@@ -30,6 +26,11 @@ function emptyReason(weeks: readonly WeeklyGap[]): string | null {
 export interface WeeklyGapTrendProps {
   /** weeklyGaps(votes, scope): every week of the log, oldest first. */
   weeks: readonly WeeklyGap[];
+  /**
+   * The log's first and last vote days (activityWindow(votes, 'all')), which
+   * say whether an end week is a part week; null for an empty log.
+   */
+  span: VoteSpan | null;
   /** "All pairs" or the selected rule's name. */
   scopeLabel: string;
 }
@@ -41,16 +42,21 @@ export interface WeeklyGapTrendProps {
  * same weeks with fixed gutters (R2-4a), so a week sits at the same x in both,
  * and a week without score votes breaks the gap line. The dates print once,
  * under the votes plot at the bottom; the gap plot's tooltip and slider value
- * still name each week. The untitled Panel is the card.
+ * still name each week. The log's first and last weeks are often part weeks
+ * (the last is usually the current one), so, as Vote activity does, the
+ * subtitle says so and their tooltips, slider values and table rows name the
+ * days they cover ("Week of Sep 28 (to Sep 30)"). The untitled Panel is the card.
  */
-export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
+export function WeeklyGapTrend({weeks, span, scopeLabel}: WeeklyGapTrendProps) {
   const empty = emptyReason(weeks);
+  // A week's tooltip title and slider text, in full; the axis keeps the short "Sep 14".
+  const title = (week: string) => weekTitle(week, span);
   return (
     <Panel>
       <ChartFrame
         title="Weekly gap"
-        subtitle={`${scopeLabel} · each week's mean gap (community − engine) and the score votes behind it`}
-        table={weeklyTable(weeks, scopeLabel)}>
+        subtitle={weeklySubtitle(scopeLabel, span)}
+        table={weeklyTable(weeks, scopeLabel, span)}>
         {empty ? (
           <p style={MUTED}>{empty}</p>
         ) : (
@@ -69,7 +75,7 @@ export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
               height={GAP_HEIGHT}
               yFormat={fmtGap}
               xFormat={fmtDay}
-              titleFormat={weekTitle}
+              titleFormat={title}
               xTicks={[]}
               baseline={0}
               baselineLabel="No gap"
@@ -93,7 +99,7 @@ export function WeeklyGapTrend({weeks, scopeLabel}: WeeklyGapTrendProps) {
               area
               yFormat={fmtInt}
               xFormat={fmtDay}
-              titleFormat={weekTitle}
+              titleFormat={title}
               fixedGutters
             />
           </>
