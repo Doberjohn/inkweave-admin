@@ -29,7 +29,9 @@ export {
   SET_NAMES,
   SET_TOTAL,
   SPACING,
+  TIER_COLORS,
   TRUNCATE,
+  Z_INDEX,
   blackRgba,
   hexRgba,
   inkBlock,
@@ -43,13 +45,32 @@ export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/Cta
 export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';
 export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
-export {useContainerWidth} from '../upstream/inkweave/apps/web/src/shared/hooks';
+// useAutocomplete is the app's card search combobox (R3-5's switcher): by name,
+// never by id, from two letters, newest set first, after a 150 ms debounce.
+export {
+  useAutocomplete,
+  useContainerWidth,
+  type UseAutocompleteReturn,
+} from '../upstream/inkweave/apps/web/src/shared/hooks';
 export {
   CardDataProvider,
   useCardDataContext,
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
 export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
-export {smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// searchCardsByName is useAutocomplete's own match, run without its debounce
+// (R3-5's "No cards match.").
+export {searchCardsByName, smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
+// path). Each id's result is kept for the session, and a non-OK or non-JSON
+// response is kept as an empty result. A failed fetch or malformed JSON rejects
+// and isn't kept, so the next call fetches again.
+export {fetchCardSynergies} from '../upstream/inkweave/apps/web/src/features/synergies/hooks/usePrecomputedSynergies';
+// The app's synergy tiers: 9.5 and up Perfect, 7 Strong, 4 Moderate, below 4
+// Weak. A tier's color is its TIER_COLORS entry.
+export {
+  getStrengthTier,
+  type StrengthTierLabel,
+} from '../upstream/inkweave/apps/web/src/features/synergies/utils/scoreUtils';
 // RaritySymbol draws Common to Legendary; rarityConfigOf maps a card's rarity
 // ("Super Rare") to the same five keys and returns undefined for any other.
 export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';

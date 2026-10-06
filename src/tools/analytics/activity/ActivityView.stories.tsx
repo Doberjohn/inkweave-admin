@@ -39,10 +39,10 @@ function sampleVote(next: () => number, dayStart: number): VoteLogRow {
   return {
     ...pair,
     score: quick ? null : 1 + Math.floor(next() * 10),
-    accuracy: Math.floor(next() * 3) - 1,
+    accuracy: ([-1, 0, 1] as const)[Math.floor(next() * 3)],
     isReal: quick ? null : next() < 0.9,
     wouldPlay: quick ? null : next() < 0.6,
-    difficulty: quick ? null : 1 + Math.floor(next() * 3),
+    difficulty: quick ? null : ([1, 2, 3] as const)[Math.floor(next() * 3)],
     whoCarries: quick ? null : carriesFor(next),
     ts: new Date(dayStart + Math.floor(next() * DAY_MS)).toISOString(),
     voter: 1 + Math.floor(next() ** 2 * 40),
