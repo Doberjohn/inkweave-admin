@@ -62,8 +62,8 @@ export function CalibrationPage() {
   const {token, setToken, clearToken} = useGithubToken();
   const [params, setParams] = useSearchParams();
   // Saving or forgetting a token swaps the aside's view, and the button pressed goes
-  // with it: the view that replaces it takes focus (F2). The token changes first, so
-  // the view the button was in never takes the handoff.
+  // with it: the view that replaces it takes focus (F2). Both updates land in one render,
+  // so the view the button was in is gone before the handoff is asked for.
   const handoff = useFocusHandoff();
   const workspace = {
     analytics,

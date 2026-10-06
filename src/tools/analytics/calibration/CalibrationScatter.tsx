@@ -112,12 +112,16 @@ export function CalibrationScatter({
               }}
               describedBy={noteId}
             />
-            {/* The slider's description: selecting with Enter is the scatter's own, so a screen reader hears how on focus. */}
-            <p id={noteId} style={NOTE}>
+            <p style={NOTE}>
               Each dot slides a little along the line, so pairs on the same scores stay visible, and its height above
               or below the line stays within {fmtScore(SCATTER_JITTER * ACROSS_SHARE, 2)} of its gap. The tooltip and the
-              table give the exact values. Select a dot, or step through the dots with the arrow keys and press Enter on
-              the one the chart reads out, to open its votes.
+              table give the exact values.{' '}
+              {/* The slider's description: selecting with Enter is the scatter's own, so a screen reader hears how on
+                  focus. Only this sentence, so the jitter's two don't come first every time. */}
+              <span id={noteId}>
+                Select a dot, or step through the dots with the arrow keys and press Enter on the one the chart reads
+                out, to open its votes.
+              </span>
             </p>
           </>
         )}

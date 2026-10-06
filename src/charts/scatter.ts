@@ -110,9 +110,10 @@ function unitHash(key: string, salt: number): number {
 /**
  * A fixed offset of up to ±amount on each axis, seeded by the key. Points that
  * share exact values spread into a small cloud, and each dot stays where it was
- * across renders and reloads. Keys should be a few characters long: the two
- * axes' hashes of a one- or two-character key nearly agree, so short keys
- * streak along a diagonal in place of a cloud (R2's "id|id" pair keys don't).
+ * across renders and reloads. Keys should be more than a couple of characters
+ * long. A one-character key's two hashes nearly agree, and a two-character
+ * key's differ by one of a few fixed amounts, so short keys streak along
+ * diagonals where a cloud was meant. R2's "id|id" pair keys don't.
  */
 export function jitterOffset(key: string, amount: number): [number, number] {
   if (amount <= 0) return [0, 0];

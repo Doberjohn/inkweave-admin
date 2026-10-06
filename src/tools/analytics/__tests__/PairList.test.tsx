@@ -86,7 +86,7 @@ describe('PairList', () => {
       else delete (Element.prototype as Partial<Element>).scrollIntoView;
     });
 
-    /** Renders with nothing picked, puts the list and the second row at the given boxes, and starts the list at `scrollTop`. */
+    /** Renders with nothing picked, puts the list at 100–484 and the second row at `rowBox`, and starts the list at `scrollTop`. */
     function renderUnpicked(rowBox: DOMRect, scrollTop = 0) {
       const view = render(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
       const list = screen.getByRole('list');
@@ -110,6 +110,19 @@ describe('PairList', () => {
       const {list, pickPair} = renderUnpicked(box(60, 96), 200);
       pickPair(pick);
       expect(list.scrollTop).toBe(160);
+    });
+
+    // The likeliest pick: the row is cut off at an edge, and the list has already scrolled.
+    it('scrolls a scrolled list down by the part of the pressed row cut off below it', () => {
+      const {list, pickPair} = renderUnpicked(box(470, 506), 50);
+      pickPair(pick);
+      expect(list.scrollTop).toBe(72);
+    });
+
+    it('scrolls a scrolled list up by the part of the pressed row cut off above it', () => {
+      const {list, pickPair} = renderUnpicked(box(90, 126), 200);
+      pickPair(pick);
+      expect(list.scrollTop).toBe(190);
     });
 
     it('leaves the list where it is for a pressed row already inside it', () => {

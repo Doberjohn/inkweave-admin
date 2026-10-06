@@ -393,6 +393,35 @@ describe('TuningAside, publishing', () => {
     expect(screen.getByRole('heading', {level: 2, name: 'Ramp!'})).toHaveFocus();
   });
 
+  it('leaves no focus waiting when reading again fails, so a later read leaves focus where it is', async () => {
+    commitTuning.mockResolvedValue({commitUrl: COMMIT_URL});
+    const reloadTo = vi.fn<() => ReloadResult>(() => new Error(BAD_GATEWAY));
+    render(<Harness selected={RAMP} reloadTo={reloadTo} />);
+    await renameRamp('Ramp!');
+    await userEvent.click(publishButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(BAD_GATEWAY);
+
+    // Reading again fails too, and its button stays.
+    await userEvent.click(screen.getByRole('button', {name: 'Read tuning.json again'}));
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledTimes(2));
+    await act(async () => {}); // lets the read's .then run
+
+    // The next publish's read lands with <body> focused: the user clicked into the title while
+    // the commit ran, then away. Nothing should take focus from there.
+    let land: () => void = () => {};
+    commitTuning.mockReturnValue(new Promise((resolve) => (land = () => resolve({commitUrl: COMMIT_URL}))));
+    reloadTo.mockReturnValue(PUBLISHED);
+    await userEvent.type(title(), '?');
+    await userEvent.click(publishButton());
+    await userEvent.click(title());
+    await userEvent.click(screen.getByText('Playstyle · tuning.json'));
+    expect(document.body).toHaveFocus();
+    await act(async () => land());
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', {level: 2, name: 'Ramp!'})).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
+  });
+
   it('keeps the values it has when a publish fails, and says why in an alert', async () => {
     commitTuning.mockRejectedValue(new Error('GitHub 422 on /refs: not a fast forward'));
     const reloadTo = vi.fn(() => CONFIG);

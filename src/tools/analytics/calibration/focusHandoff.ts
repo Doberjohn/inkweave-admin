@@ -4,7 +4,8 @@ import {useEffect, useState, type RefObject} from 'react';
  * Focus waiting for the tuning aside's next view (F2). Saving or forgetting a
  * token, and reading tuning.json again, unmount the button pressed, so focus
  * would fall to <body>. The page holds the handoff, since a token change
- * remounts the aside, and the view that replaces the button takes it.
+ * remounts the aside, and the view that replaces the button takes it. Reading
+ * again asks only once a read lands, so a failed read leaves none waiting.
  */
 export interface FocusHandoff {
   /** Asked for, and no view has taken it yet. */

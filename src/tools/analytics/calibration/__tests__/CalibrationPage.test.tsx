@@ -580,6 +580,36 @@ describe('CalibrationPage: the tuning aside', () => {
     await waitFor(() => expect(heading).toHaveFocus());
   });
 
+  it('leaves focus where the user moved it while the read after Save token runs', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    stubFetch({analytics: () => json(ANALYTICS), tuning: () => gate.then(() => json(LIVE))});
+    const {user} = renderPage('/calibration?rule=ramp');
+    await user.type(aside().getByLabelText('GitHub token'), 'tok');
+    await user.click(aside().getByRole('button', {name: 'Save token'}));
+    expect(await aside().findByText('Reading tuning.json from master…')).toBeInTheDocument();
+
+    // A GitHub read takes a moment, and the user moves on to the rules table meanwhile.
+    const loreLoss = await ruleRow('Lore Loss');
+    act(() => loreLoss.focus());
+    await act(async () => release());
+    expect(await aside().findByRole('heading', {level: 2, name: 'Live Ramp'})).toBeInTheDocument();
+    expect(loreLoss).toHaveFocus();
+  });
+
+  it.each([
+    ['fails', () => new Response('Bad gateway', {status: 502}), 'Read tuning.json again'],
+    ['is refused for the token', () => new Response('{"message":"Bad credentials"}', {status: 401}), 'Forget token'],
+  ])("hands focus to the error's way out when the first read after Save token %s", async (_, tuning, control) => {
+    stubFetch({analytics: () => json(ANALYTICS), tuning});
+    const {user} = renderPage('/calibration?rule=ramp');
+    await user.type(aside().getByLabelText('GitHub token'), 'tok');
+    await user.click(aside().getByRole('button', {name: 'Save token'}));
+    expect(await aside().findByRole('alert')).toHaveTextContent('Could not read tuning.json: GitHub');
+    // No editor arrived to take it: the error's own control does, not <body> (F2).
+    await waitFor(() => expect(aside().getByRole('button', {name: control})).toHaveFocus());
+  });
+
   it('hands focus to the loaded editor after reading tuning.json again: its first heading, with no rule picked', async () => {
     let reads = 0;
     stubFetch({tuning: () => (++reads === 1 ? new Response('Bad gateway', {status: 502}) : json(LIVE))});
@@ -702,14 +732,14 @@ describe('CalibrationPage: unpublished edits (R-19)', () => {
     expect(dialog).not.toHaveTextContent('drops them');
   });
 
-  it('keeps every pending edit, and the tray, when the reload after a stale publish fails', async () => {
+  it('keeps every pending edit, and the tray, when the reload after a stale publish fails, with Reload its one way on', async () => {
     // The branch changed Ramp's tagline after the page read it: the publish is refused as stale.
     const onBranch: TuningConfig = {...LIVE, playstyles: {...LIVE.playstyles, ramp: {name: 'Live Ramp', tagline: 'Changed'}}};
     vi.mocked(commitTuning).mockRejectedValue(staleRefusal(onBranch));
     let reads = 0;
     stubFetch({
       analytics: () => json(ANALYTICS),
-      // The page's read, then the Reload's, which fails, then reading again.
+      // The page's read, then the Reload's, which fails, then the Reload's again.
       tuning: () => [json(LIVE), new Response('Bad gateway', {status: 502}), json(onBranch)][reads++],
     });
     const {router, user} = renderPage('/calibration?rule=ramp', 'tok');
@@ -726,8 +756,12 @@ describe('CalibrationPage: unpublished edits (R-19)', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', {name: 'Stay on this page'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
 
-    // Reading again settles them as Reload does: the stale tagline goes, the title stays.
-    await user.click(aside().getByRole('button', {name: 'Read tuning.json again'}));
+    // Both alerts stay, but one button answers them: the read error offers no second one that does the same.
+    expect(aside().getAllByRole('alert')).toHaveLength(2);
+    expect(aside().queryByRole('button', {name: 'Read tuning.json again'})).not.toBeInTheDocument();
+
+    // Reloading again settles them: the stale tagline goes, the title stays.
+    await user.click(aside().getByRole('button', {name: 'Reload tuning.json'}));
     expect(
       await aside().findByText('Reloaded tuning.json. Dropped 1 edit whose value had changed: make it again.'),
     ).toBeInTheDocument();

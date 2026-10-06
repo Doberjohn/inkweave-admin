@@ -1,4 +1,4 @@
-import {useRef, useState} from 'react';
+import {useRef, useState, type RefObject} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {CtaButton, FONTS, LETTER_SPACING, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
@@ -37,8 +37,8 @@ interface TuningAsideProps {
   sharedWith: CalibrationRow[];
   /**
    * Focus waiting for the aside's next view (CalibrationPage's): the token
-   * gate's field takes it, or the first heading of the loaded editor (F2).
-   * Without it, nothing moves focus.
+   * gate's field takes it, the first heading of the loaded editor, or a failed
+   * first read's way out (F2). Without it, nothing moves focus.
    */
   handoff?: FocusHandoff;
 }
@@ -252,20 +252,39 @@ function SelectedEntry({
   );
 }
 
-/** A failed read of tuning.json, and its way out: Forget token when GitHub rejected the token (R-26), else read it again. */
-function ReadError({error, onForget, onReadAgain}: {error: string; onForget: () => void; onReadAgain: () => void}) {
+/**
+ * A failed read of tuning.json, and its way out: Forget token when GitHub
+ * rejected the token (R-26), else reading it again, when that is offered.
+ */
+function ReadError({error, onForget, onReadAgain}: {error: string; onForget: () => void; onReadAgain?: () => void}) {
   return (
     <>
       <Notice tone="error">Could not read tuning.json: {error}</Notice>
       {tuningFailureKind(error) === 'rejected-token' ? (
         <ForgetTokenOffer onForget={onForget} />
       ) : (
-        <CtaButton type="button" variant="neutral" onClick={onReadAgain} style={{alignSelf: 'flex-start'}}>
-          Read tuning.json again
-        </CtaButton>
+        onReadAgain && (
+          <CtaButton type="button" variant="neutral" onClick={onReadAgain} style={{alignSelf: 'flex-start'}}>
+            Read tuning.json again
+          </CtaButton>
+        )
       )}
     </>
   );
+}
+
+/**
+ * "Read tuning.json again". Its button goes once a read lands, so only then
+ * does it ask for the handoff, which the editor's first heading takes (F2). A
+ * failed read keeps the button and asks for nothing, so no later read takes a
+ * stale request.
+ */
+function readAgainWith(reload: () => Promise<TuningConfig | null>, handoff: FocusHandoff | undefined) {
+  return () => {
+    void reload().then((next) => {
+      if (next) handoff?.request();
+    });
+  };
 }
 
 /** No token: the gate. Its field takes a pending handoff, after Forget token unmounted the button pressed (F2). */
@@ -281,7 +300,70 @@ function TokenGate({onSave, handoff}: {onSave: (token: string) => void; handoff?
   );
 }
 
+type FailedLive = Extract<UseLiveTuningResult, {status: 'error'}>;
 type ReadyLive = Extract<UseLiveTuningResult, {status: 'ready'}>;
+
+/**
+ * No read has landed, so there is no editor yet. A handoff still pending from
+ * Save token goes to the error's way out: "Read tuning.json again", or Forget
+ * token for a 401 (F2).
+ */
+function FailedRead({live, onForget, handoff}: {live: FailedLive; onForget: () => void; handoff?: FocusHandoff}) {
+  const errorRef = useRef<HTMLDivElement>(null);
+  useTakeHandoff(handoff, errorRef, 'button');
+  return (
+    <div ref={errorRef} style={PADDED}>
+      <ReadError error={live.error} onForget={onForget} onReadAgain={readAgainWith(live.reload, handoff)} />
+    </div>
+  );
+}
+
+/**
+ * A failed reload, over the tray it keeps on screen (C1), or nothing. While
+ * the tray shows a stale refusal, its Reload reads tuning.json again and
+ * settles the edits, so the read error offers no second button that does the
+ * same (R2-5 M5).
+ */
+function FailedReload({
+  live,
+  publishError,
+  onForget,
+  handoff,
+}: {
+  live: ReadyLive;
+  publishError: string | null;
+  onForget: () => void;
+  handoff?: FocusHandoff;
+}) {
+  if (live.reloadError === undefined) return null;
+  const staleRefusal = publishError !== null && tuningFailureKind(publishError) === 'stale-value';
+  return (
+    <div style={READ_ERROR}>
+      <ReadError
+        error={live.reloadError}
+        onForget={onForget}
+        onReadAgain={staleRefusal ? undefined : readAgainWith(live.reload, handoff)}
+      />
+    </div>
+  );
+}
+
+/**
+ * What the last "Reload tuning.json" did, once one runs (R-18). It is mounted
+ * with the tray, so its text is announced when it arrives, and Reload hands it
+ * focus.
+ */
+function DroppedNote({dropped, noteRef}: {dropped: number | null; noteRef: RefObject<HTMLDivElement | null>}) {
+  return (
+    <div
+      ref={noteRef}
+      role="status"
+      tabIndex={-1}
+      style={{...TEXT, fontSize: ADMIN_TYPE.small, marginBottom: dropped === null ? 0 : SPACING.sm}}>
+      {dropped === null ? null : reloadNote(dropped)}
+    </div>
+  );
+}
 
 /**
  * tuning.json is loaded: the selected entry over the pinned tray. A failed
@@ -332,16 +414,6 @@ function ReadyAside({
       if (focusUnmoved(from)) noteRef.current?.focus();
     });
   };
-  // After a stale refusal, reading again settles the edits as Reload does, so the
-  // refusal goes with the read error (R2-5 M5). Otherwise its button goes once the
-  // read lands, and the first heading takes focus.
-  const readAgain =
-    admin.error && tuningFailureKind(admin.error) === 'stale-value'
-      ? reloadKeepingEdits
-      : () => {
-          handoff?.request();
-          void reload();
-        };
   // The rows scroll under the pinned tray, which hides them: a field that takes
   // focus there scrolls up into view (WCAG 2.4.11).
   const keepClearOfTray = (event: React.FocusEvent<HTMLDivElement>) => {
@@ -363,19 +435,8 @@ function ReadyAside({
         />
       </div>
       <div ref={footRef} style={FOOT}>
-        {reloadError !== undefined && (
-          <div style={READ_ERROR}>
-            <ReadError error={reloadError} onForget={onForgetToken} onReadAgain={readAgain} />
-          </div>
-        )}
-        {/* Mounted with the tray, so its text is announced when it arrives. */}
-        <div
-          ref={noteRef}
-          role="status"
-          tabIndex={-1}
-          style={{...TEXT, fontSize: ADMIN_TYPE.small, marginBottom: dropped === null ? 0 : SPACING.sm}}>
-          {dropped === null ? null : reloadNote(dropped)}
-        </div>
+        <FailedReload live={live} publishError={admin.error} onForget={onForgetToken} handoff={handoff} />
+        <DroppedNote dropped={dropped} noteRef={noteRef} />
         <PendingTray
           pending={admin.pending}
           publishDisabled={admin.publishDisabled}
@@ -398,7 +459,8 @@ function ReadyAside({
  * tuning.json read (loading, or failed before any read landed), then the
  * selected rule's entry over the pinned pending tray. A read or a publish
  * GitHub refused for the token offers "Forget token" (R-26), which asks first
- * when edits are pending; any other failed read offers to read tuning.json again.
+ * when edits are pending. Any other failed read offers to read tuning.json
+ * again, or leaves that to the tray's Reload while a stale refusal is up.
  */
 export function TuningAside({tuning, onSaveToken, onForgetToken, selected, sharedWith, handoff}: TuningAsideProps) {
   if (!tuning) return <TokenGate onSave={onSaveToken} handoff={handoff} />;
@@ -411,18 +473,7 @@ export function TuningAside({tuning, onSaveToken, onForgetToken, selected, share
       </div>
     );
   }
-  if (live.status === 'error') {
-    // No read has landed, so there is no editor yet: once one does, its first heading takes focus.
-    const readAgain = () => {
-      handoff?.request();
-      void live.reload();
-    };
-    return (
-      <div style={PADDED}>
-        <ReadError error={live.error} onForget={forget} onReadAgain={readAgain} />
-      </div>
-    );
-  }
+  if (live.status === 'error') return <FailedRead live={live} onForget={forget} handoff={handoff} />;
   return (
     <ReadyAside
       live={live}

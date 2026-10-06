@@ -187,13 +187,13 @@ describe('CalibrationScatter: scope, selection, table and footnotes', () => {
     expect(screen.queryByText(/within 0\.07 of its gap/)).not.toBeInTheDocument();
   });
 
-  it('describes the slider with the note, so a screen reader hears how to step through the dots and open one', () => {
+  it("describes the slider with the note's keyboard instruction alone, so a screen reader hears how to open a dot", () => {
     render(<CalibrationScatter pairs={PAIRS} scopeLabel="Ramp" selectedPair={null} onSelectPair={vi.fn()} />);
     const slider = screen.getByRole('slider', {name: 'Engine score against community score, Ramp'});
+    // Not the jitter's sentences before it: on every focus, they would come first.
     expect(slider).toHaveAccessibleDescription(
-      /step through the dots with the arrow keys and press Enter on the one the chart reads out, to open its votes\.$/,
+      'Select a dot, or step through the dots with the arrow keys and press Enter on the one the chart reads out, to open its votes.',
     );
-    expect(slider).toHaveAccessibleDescription(/^Each dot slides a little along the line/);
   });
 });
 
