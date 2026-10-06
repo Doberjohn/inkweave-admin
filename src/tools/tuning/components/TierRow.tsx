@@ -1,4 +1,6 @@
-import {COLORS, SPACING, FONT_SIZES, RADIUS} from '../../../app-bridge';
+import {useId} from 'react';
+import {COLORS, SPACING} from '../../../app-bridge';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 
 interface TierRowProps {
   label: string;
@@ -14,29 +16,20 @@ interface TierRowProps {
   onScoreChange: (raw: string) => void;
 }
 
-const labelStyle = {
-  fontSize: FONT_SIZES.xs,
-  color: COLORS.gray600,
-  display: 'block',
-  marginBottom: 4,
-};
+const ROW: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xs};
 
-const fieldStyle = {
-  background: COLORS.surfaceAlt,
-  color: COLORS.text,
-  border: `1px solid ${COLORS.surfaceHover}`,
-  borderRadius: RADIUS.sm,
-  fontSize: FONT_SIZES.sm,
-};
+// The handoff's field label: 12px, muted (R-6: it names data, so never dim).
+const LABEL: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
-const errorStyle = {color: COLORS.error, fontSize: FONT_SIZES.xs, marginTop: 4};
+const ERROR: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.error};
 
 /**
  * Presentational, controlled editor row for a single tuning value. The parent
  * passes the value to show (a pending edit, else the saved value), so a row
  * reused for another rule, or a reverted edit, never keeps stale text. Each
  * keystroke fires `onTextChange` / `onScoreChange` with the raw string for the
- * hook to validate and stage.
+ * hook to validate and stage. The fields are AdminStyles' adm-input, and a
+ * field's error is its description (aria-describedby), so it is read with it.
  */
 export function TierRow({
   label,
@@ -49,33 +42,50 @@ export function TierRow({
   onTextChange,
   onScoreChange,
 }: TierRowProps) {
+  const textErrorId = useId();
+  const scoreErrorId = useId();
   return (
-    <div style={{marginBottom: SPACING.md}}>
-      <label style={labelStyle}>{label}</label>
+    <div style={ROW}>
+      {/* Each field's aria-label carries this text, so the visible label is a plain line (2.5.3: the name contains it). */}
+      <p style={LABEL}>{label}</p>
       {showText && (
         <>
           <textarea
+            className="adm-input"
             aria-label={`${label} text`}
-            style={{...fieldStyle, width: '100%', padding: '8px 10px', minHeight: 60}}
+            aria-invalid={textError ? true : undefined}
+            aria-describedby={textError ? textErrorId : undefined}
+            style={{width: '100%'}}
             value={text}
             onChange={(e) => onTextChange(e.target.value)}
           />
-          {textError && <div style={errorStyle}>{textError}</div>}
+          {textError && (
+            <p id={textErrorId} style={ERROR}>
+              {textError}
+            </p>
+          )}
         </>
       )}
       {showScore && (
         <>
           <input
+            className="adm-input"
             aria-label={`${label} score`}
+            aria-invalid={scoreError ? true : undefined}
+            aria-describedby={scoreError ? scoreErrorId : undefined}
             type="number"
             min={1}
             max={10}
             step={1}
-            style={{...fieldStyle, width: 80, padding: '6px 8px', marginTop: showText ? SPACING.xs : 0}}
+            style={{width: 80}}
             value={score}
             onChange={(e) => onScoreChange(e.target.value)}
           />
-          {scoreError && <div style={errorStyle}>{scoreError}</div>}
+          {scoreError && (
+            <p id={scoreErrorId} style={ERROR}>
+              {scoreError}
+            </p>
+          )}
         </>
       )}
     </div>

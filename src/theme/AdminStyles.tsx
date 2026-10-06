@@ -32,7 +32,14 @@ const ENABLED = ':where(:not(:disabled))';
  * The focus ring is the one gold (ADMIN_COLORS.accent), replacing the app's
  * global legacy-gold ring. Rows draw theirs inside the box (offset -2px): they
  * sit flush in panels that clip overflow, where an outer ring would lose its
- * sides. A focused row also takes the hover fill, as RuleRow does today.
+ * sides. A focused row also takes the hover fill. A selected row keeps one
+ * fill (rowSelected), hovered or not: red gap text on the next step up would
+ * drop under 4.5:1.
+ *
+ * A table row can be a row button too (<tr role="button" className="adm-row-btn">,
+ * the rules table on /calibration). Its first cell draws the selected bar as
+ * well: browsers differ on painting a box-shadow on a <tr> in a collapsed
+ * table, and a cell's always paints, so the two coincide where both do.
  *
  * <button> takes no style prop here (inkweave/no-adhoc-buttons), so the button
  * classes are complete on their own. Lay out a row's or a card's content with
@@ -63,8 +70,9 @@ const CSS = `
 button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;border-radius:0;font:inherit;text-align:left;}
 .adm-row-btn:hover${ENABLED}{background:${C.rowHover};}
 .adm-row-btn:focus-visible{background:${C.rowHover};}
-.adm-row-btn[aria-pressed="true"]{background:${C.accentTintSoft};box-shadow:inset 2px 0 0 ${C.accent};}
-.adm-row-btn[aria-pressed="true"]:hover${ENABLED}{background:${C.accentTint};}
+.adm-row-btn[aria-pressed="true"]{background:${C.rowSelected};box-shadow:inset 2px 0 0 ${C.accent};}
+tr.adm-row-btn[aria-pressed="true"]>td:first-child{box-shadow:inset 2px 0 0 ${C.accent};}
+.adm-row-btn[aria-pressed="true"]:hover${ENABLED}{background:${C.rowSelected};}
 
 .adm-card-btn{display:flex;flex-direction:column;align-items:stretch;gap:${SPACING.xs}px;width:100%;min-width:0;margin:0;padding:${SPACING.lg}px ${SPACING.xl}px;background-color:${C.card};background-clip:padding-box;border:1px solid ${C.border};border-radius:${R.panel}px;color:${C.text};font:inherit;font-size:${T.body}px;text-align:left;cursor:pointer;transition:background-color ${FAST},border-color ${FAST};}
 .adm-card-btn:hover${ENABLED}{border-color:${C.accentBorder};}

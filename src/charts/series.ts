@@ -82,9 +82,10 @@ export function seriesPaint(series: SeriesDef, chartId: string): string {
  * A tooltip's content as one line of text, in the order the tooltip shows it:
  * "Sep 30: 12 votes, 4 voters". It is a bar's accessible name and the value
  * text of a chart's slider, so keyboard and screen-reader users get exactly
- * what hover shows.
+ * what hover shows. A row with an empty label reads as its value alone
+ * (LineChart's missingText).
  */
 export function tooltipText(content: TooltipContent): string {
-  const rows = content.rows.map((row) => `${row.value} ${row.label}`).join(', ');
+  const rows = content.rows.map((row) => (row.label ? `${row.value} ${row.label}` : row.value)).join(', ');
   return rows ? `${content.title}: ${rows}` : content.title;
 }

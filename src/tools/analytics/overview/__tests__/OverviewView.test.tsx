@@ -66,7 +66,8 @@ describe('OverviewView', () => {
       'Tune Discard',
       'Tune Ramp',
       'Tune Shift Targets',
-      'Tune Singer + Songs',
+      // A direct rule with no tuning.json copy (R-22).
+      'Inspect Singer + Songs',
     ]);
     expect(within(list).getByRole('link', {name: 'Tune Ramp'})).toHaveAttribute('href', '/calibration?rule=ramp');
     expect(within(list).queryByText('Location Boost')).not.toBeInTheDocument();

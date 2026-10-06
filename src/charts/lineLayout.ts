@@ -1,5 +1,5 @@
 import {SPACING} from '../app-bridge';
-import {LABEL_SIZE, labelWidth, labelX, wholeTicks, yAxis, type AxisTick} from './axis';
+import {LABEL_SIZE, gutterFor, labelWidth, labelX, wholeTicks, yAxis, type AxisTick, type YAxis} from './axis';
 import {dayIndex, isDay, linear, niceCeiling} from './scale';
 import {SURFACE_GAP, type SeriesDef} from './series';
 
@@ -28,6 +28,15 @@ export interface LineLayoutOptions {
   xTicks?: readonly string[];
   /** A hairline value the y domain must include. */
   baseline?: number;
+  /**
+   * The baseline's label, which prints in the y gutter at the baseline
+   * (default: yFormat(baseline)). Keep it short: the gutter grows to fit it.
+   */
+  baselineLabel?: string;
+  /** The y domain to span in place of a computed one, widened only to keep every value, zero and the baseline on the plot. */
+  yDomain?: readonly [number, number];
+  /** Lay the plot out between LINE_Y_AXIS_WIDTH and LINE_END_WIDTH, so charts over the same x put each x at the same px. */
+  fixedGutters?: boolean;
 }
 
 /** A plotted point, in px. */
@@ -71,8 +80,12 @@ export interface LineLayout {
   points: Array<Array<PlotPoint | null>>;
   /** The y of zero, where the area washes close. */
   zero: number;
-  /** The baseline option's value and its y, or null without one. */
-  baseline: {value: number; y: number} | null;
+  /**
+   * The baseline option's value, its y and its label, or null without one. The
+   * label prints in the y gutter at that y, so a tick whose label would meet it
+   * has none (an empty label in `ticks`), and the gutter counts it.
+   */
+  baseline: {value: number; y: number; label: string} | null;
   /** Empty when two would collide; the legend and the tooltip carry the values then. */
   endLabels: EndLabel[];
   /** Where the end labels start: right of the plot, past the end dots. */
@@ -89,6 +102,16 @@ export const RING = 2;
 const TOP_PAD = SPACING.sm;
 const X_BAND = SPACING.xl;
 const RIGHT_PAD = SPACING.sm;
+/** How far apart two labels' centres must be to read as two: a label's height and the surface gap (the end labels', and the baseline's against the ticks'). */
+const LABEL_CLEARANCE = LABEL_SIZE + SURFACE_GAP;
+/**
+ * fixedGutters' room left of the plot: a six-character tick label ("−10.00",
+ * 36px at the label size) and the gap to the plot. Like BAR_Y_AXIS_WIDTH, a
+ * label that needs more widens it rather than clip.
+ */
+export const LINE_Y_AXIS_WIDTH = SPACING.xxxl + SPACING.lg;
+/** fixedGutters' room right of the plot: the ringed end dot and a six-character end label. A wider label widens it too. */
+export const LINE_END_WIDTH = SPACING.xxxl + SPACING.lg;
 
 /** The y domain: it always includes zero and the baseline, and whether its ticks should be whole numbers. */
 interface YDomain {
@@ -113,12 +136,17 @@ function valueRows(series: readonly LineSeries[], indexOf: ReadonlyMap<string, n
   });
 }
 
-/** A clean domain around the values, zero and the baseline: 0 to 1 when there is nothing but zeros. */
-function yDomain(all: readonly number[], baseline: number | undefined): YDomain {
-  const extra = baseline ?? 0;
+/**
+ * The domain around the values, zero and the baseline: the caller's fixed one,
+ * widened where one of them falls outside it, or else clean ends (0 to 1 when
+ * there is nothing but zeros).
+ */
+function yDomain(all: readonly number[], opts: Pick<LineLayoutOptions, 'baseline' | 'yDomain'>): YDomain {
+  const extra = opts.baseline ?? 0;
   const hi = Math.max(0, ...all, extra);
   const lo = Math.min(0, ...all, extra);
   const integers = all.every(Number.isInteger) && Number.isInteger(extra);
+  if (opts.yDomain) return {bottom: Math.min(opts.yDomain[0], lo), top: Math.max(opts.yDomain[1], hi), integers};
   if (lo < 0) return {bottom: -niceCeiling(-lo), top: hi > 0 ? niceCeiling(hi) : 0, integers};
   return {bottom: 0, top: niceCeiling(hi), integers};
 }
@@ -143,8 +171,26 @@ function endLabelsFor(
     return v == null ? [] : [{id: s.id, text: place.format(v), y: place.y(v)}];
   });
   const sorted = [...ends].sort((a, b) => a.y - b.y);
-  const collide = sorted.some((e, i) => i > 0 && e.y - sorted[i - 1].y < LABEL_SIZE + SURFACE_GAP);
+  const collide = sorted.some((e, i) => i > 0 && e.y - sorted[i - 1].y < LABEL_CLEARANCE);
   return collide ? [] : ends;
+}
+
+/** The baseline option placed by the y scale, with its label (the caller's, or the value as yFormat prints it). */
+function baselineAt(opts: Pick<LineLayoutOptions, 'baseline' | 'baselineLabel' | 'yFormat'>, y: (v: number) => number): LineLayout['baseline'] {
+  if (opts.baseline == null) return null;
+  return {value: opts.baseline, y: y(opts.baseline), label: opts.baselineLabel ?? opts.yFormat(opts.baseline)};
+}
+
+/**
+ * The y axis once the baseline's label shares its gutter. A tick that sits at,
+ * or within a label's height of, the baseline would print its label on top of
+ * the baseline's: it keeps its gridline and loses its label (an empty one). The
+ * gutter then counts what is left, and the baseline's label.
+ */
+function clearBaselineLabel(axis: YAxis, baseline: LineLayout['baseline']): YAxis {
+  if (!baseline) return axis;
+  const ticks = axis.ticks.map((tick) => (Math.abs(tick.y - baseline.y) < LABEL_CLEARANCE ? {...tick, label: ''} : tick));
+  return {ticks, gutter: gutterFor([baseline.label, ...ticks.map((tick) => tick.label)])};
 }
 
 /** The room right of the plot: the widest end label beside its ringed dot, or the plain right pad. */
@@ -152,6 +198,12 @@ function rightRoom(endLabels: readonly EndLabel[]): number {
   if (endLabels.length === 0) return RIGHT_PAD;
   const widest = Math.max(...endLabels.map((e) => labelWidth(e.text)));
   return Math.max(RIGHT_PAD, Math.ceil(widest + DOT_RADIUS + RING + SPACING.xs));
+}
+
+/** The room left and right of the plot: what its labels need, and with fixed gutters at least LINE_Y_AXIS_WIDTH and LINE_END_WIDTH. */
+function gutters(left: number, right: number, fixed: boolean): {left: number; right: number} {
+  if (!fixed) return {left, right};
+  return {left: Math.max(LINE_Y_AXIS_WIDTH, left), right: Math.max(LINE_END_WIDTH, right)};
 }
 
 /** The default x labels: the first, the quarter points and the last, without repeats. */
@@ -202,12 +254,13 @@ export function lineLayout(width: number, series: readonly LineSeries[], opts: L
   const values = valueRows(series, indexOf);
   const plotTop = TOP_PAD;
   const plotBottom = plotTop + opts.height;
-  const domain = yDomain(values.flat().filter((v): v is number => v != null), opts.baseline);
+  const domain = yDomain(values.flat().filter((v): v is number => v != null), opts);
   const y = linear([domain.bottom, domain.top], [plotBottom, plotTop]);
-  const axis = yAxis(yTicks(domain), opts.yFormat, y);
+  const baseline = baselineAt(opts, y);
+  const axis = clearBaselineLabel(yAxis(yTicks(domain), opts.yFormat, y), baseline);
   const endLabels = endLabelsFor(values, series, {y, format: opts.yFormat});
-  const left = axis.gutter;
-  const plotWidth = Math.max(width - left - rightRoom(endLabels), 1);
+  const {left, right} = gutters(axis.gutter, rightRoom(endLabels), opts.fixedGutters ?? false);
+  const plotWidth = Math.max(width - left - right, 1);
   const positions = xs.map((x, i) => (byTime ? (dayIndex(x) ?? i) : i));
   const xPx = positions.map(linear([positions[0] ?? 0, positions[n - 1] ?? 0], [left, left + plotWidth]));
   return {
@@ -223,7 +276,7 @@ export function lineLayout(width: number, series: readonly LineSeries[], opts: L
     xPx,
     points: values.map((row) => row.map((v, i) => (v == null ? null : {x: xPx[i], y: y(v)}))),
     zero: y(0),
-    baseline: opts.baseline == null ? null : {value: opts.baseline, y: y(opts.baseline)},
+    baseline,
     endLabels,
     endLabelX: left + plotWidth + DOT_RADIUS + RING + SPACING.xs,
     xLabels: xLabelsFor({width, xs, xPx}, indexOf, opts),

@@ -4,7 +4,6 @@ import {render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import {ImagePage} from '../image/ImagePage';
 import {RevealPage} from '../reveal/RevealPage';
-import {TuningPage} from '../tuning/TuningPage';
 
 // The token each test hands the pages. The mock's clearToken is a no-op:
 // forgetting the token is the sidebar's job now (router.test.tsx covers that).
@@ -18,14 +17,17 @@ vi.mock('../../app-bridge', async (importOriginal) => ({
   useCardDataContext: () => ({cards: []}),
 }));
 
+// The pages whose whole body sits behind the token gate. /calibration writes
+// too, but only its tuning aside is gated: its page tests and router.test.tsx's
+// WRITE_PAGES cases cover it.
 const PAGES: Array<[title: string, Page: ComponentType, subtitle: string]> = [
   ['Reveal publisher', RevealPage, 'Add a newly revealed card to the preview set.'],
   ['Card images', ImagePage, "Replace an existing card's image."],
-  ['Engine tuning', TuningPage, 'Edit playstyle copy and the Shift and Ramp scores.'],
 ];
 
 beforeEach(() => {
-  // With a token, the tuning page reads tuning.json. That read never settles here.
+  // Neither page fetches on mount. A fetch that slips through stays pending
+  // instead of reaching the network.
   vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
 });
 

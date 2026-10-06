@@ -3,7 +3,7 @@ import {useState} from 'react';
 import {FONTS, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {gapColor} from '../tools/analytics/gapColor';
-import {fmtDay, fmtGap, fmtInt} from '../ui/format';
+import {fmtDay, fmtGap, fmtInt, fmtScore} from '../ui/format';
 import {Panel} from '../ui/Panel';
 import {BarChart, type BarDatum} from './BarChart';
 import {ChartFrame, type ChartTable, type ChartView} from './ChartFrame';
@@ -12,6 +12,7 @@ import {LineChart, type LineSeries} from './LineChart';
 import {RangeControl} from './RangeControl';
 import {bucketFor, rangeStartDay, type RangePreset} from './range';
 import {addDays, eachDay, weekStart} from './scale';
+import {ScatterChart, type ScatterPoint} from './ScatterChart';
 import type {SeriesDef} from './series';
 
 const meta: Meta = {
@@ -287,3 +288,141 @@ export const EmptyStates: Story = {
     </>
   ),
 };
+
+const SCORE_DOMAIN = [0.5, 10.5] as const;
+const SCORE_TICKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/** The calibration scatter's three sides of the agreement band (R2's GAP_SERIES). */
+const SIDES: SeriesDef[] = [
+  {id: 'over', label: 'Engine higher', color: ADMIN_COLORS.over},
+  {id: 'agree', label: 'Within ±0.5', color: ADMIN_COLORS.barNeutral},
+  {id: 'under', label: 'Community higher', color: ADMIN_COLORS.under},
+];
+const RULES: SeriesDef[] = [
+  {id: 'ramp', label: 'Ramp', color: ADMIN_COLORS.accent},
+  {id: 'locations', label: 'Locations', color: ADMIN_COLORS.under},
+];
+
+/** 30 points in two series, off the lattice and apart, so no jitter is needed. */
+const SPREAD: ScatterPoint[] = Array.from({length: 30}, (_, i) => {
+  const x = 1 + ((i * 37) % 90) / 10;
+  const y = 1 + ((i * 59) % 90) / 10;
+  return {
+    key: String(i),
+    x,
+    y,
+    series: i % 2 === 0 ? 'ramp' : 'locations',
+    label: `Pair ${i + 1}: engine ${fmtScore(x)}, community ${fmtScore(y)}`,
+  };
+});
+
+/** A gap's side: |gap| < 0.5 agrees (R2's gapSide). */
+function sideOf(gap: number): string {
+  if (Math.abs(gap) < 0.5) return 'agree';
+  return gap < 0 ? 'over' : 'under';
+}
+
+/**
+ * `count` pairs on whole-number scores, deterministic: engines 1 to 10, the
+ * community within three points, every tenth pair an average half a point off
+ * the lattice. So most spots hold a stack of dots. Narrowest gap first, so the
+ * widest gaps draw on top (R-23).
+ */
+function latticePairs(count: number): ScatterPoint[] {
+  const pairs = Array.from({length: count}, (_, i) => {
+    const engine = 1 + ((i * 7) % 10);
+    const average = i % 10 === 9;
+    const community = Math.min(10, Math.max(1, engine + ((i * 13) % 7) - 3 + (average ? 0.5 : 0)));
+    return {
+      key: `${2 * i + 1}|${2 * i + 2}`,
+      x: engine,
+      y: community,
+      series: sideOf(community - engine),
+      label: `Pair ${i + 1}: engine ${fmtScore(engine, 0)}, community ${fmtScore(community, average ? 2 : 0)}, gap ${fmtGap(community - engine)}`,
+    };
+  });
+  return pairs.sort((p, q) => Math.abs(p.y - p.x) - Math.abs(q.y - q.x));
+}
+
+const LATTICE = latticePairs(600);
+
+interface ScatterCardProps {
+  points: readonly ScatterPoint[];
+  series: readonly SeriesDef[];
+  subtitle: string;
+  /** The lattice: the y = x line, and a jitter along it (R-23). */
+  dense?: boolean;
+  selectedKey?: string | null;
+  onSelect?: (key: string) => void;
+}
+
+/** A scatter in its frame, as R2's calibration scatter sits: the dot legend, the gap first in the tooltip, and the table view. */
+function ScatterCard({points, series, subtitle, dense = false, selectedKey, onSelect}: ScatterCardProps) {
+  const colorOf = new Map(series.map((s) => [s.id, s.color]));
+  return (
+    <Panel>
+      <ChartFrame
+        title="Engine vs community"
+        subtitle={subtitle}
+        legend={<ChartLegend series={series} mark="dot" />}
+        table={{
+          caption: `Every plotted pair (${fmtInt(points.length)})`,
+          columns: ['Pair', 'Engine', 'Community', 'Gap'],
+          rows: points.map((p) => [p.key, fmtScore(p.x, 2), fmtScore(p.y, 2), fmtGap(p.y - p.x)]),
+        }}>
+        <ScatterChart
+          points={points}
+          series={series}
+          ariaLabel="Engine score against community score"
+          xDomain={SCORE_DOMAIN}
+          yDomain={SCORE_DOMAIN}
+          xTicks={SCORE_TICKS}
+          yTicks={SCORE_TICKS}
+          xLabel="Engine score"
+          yLabel="Community score"
+          diagonal={dense ? 'Engine = community' : undefined}
+          jitter={dense ? 0.35 : 0}
+          jitterAlong="diagonal"
+          tooltip={(p) => ({
+            title: p.label.split(':')[0],
+            rows: [
+              {value: fmtGap(p.y - p.x), label: 'gap', color: colorOf.get(p.series)},
+              {value: fmtScore(p.x, 2), label: 'engine'},
+              {value: fmtScore(p.y, 2), label: 'community'},
+            ],
+          })}
+          selectedKey={selectedKey}
+          onSelect={onSelect}
+        />
+      </ChartFrame>
+    </Panel>
+  );
+}
+
+/** Two series off the lattice: the nearest-dot hover (within 24px), the keyboard walk and the dot legend. */
+export const ScatterDefault: Story = {
+  render: () => <ScatterCard points={SPREAD} series={RULES} subtitle="30 pairs in two series, no jitter" />,
+};
+
+/** 600 pairs on whole-number scores: each dot on its own page disc, slid along y = x so a stack reads as a short dash (R-23). */
+export const ScatterDenseLattice: Story = {
+  render: () => (
+    <ScatterCard points={LATTICE} series={SIDES} subtitle="600 pairs on whole-number scores, jittered along the line" dense />
+  ),
+};
+
+function SelectedDemo() {
+  const [picked, setPicked] = useState<string | null>(LATTICE[LATTICE.length - 1].key);
+  return (
+    <ScatterCard
+      points={LATTICE}
+      series={SIDES}
+      subtitle={`Selected: ${picked ?? 'none'}. Click a dot, or press Enter on the one the slider reads, to pick it.`}
+      dense
+      selectedKey={picked}
+      onSelect={setPicked}
+    />
+  );
+}
+
+/** The dense lattice with a pair selected: lifted, with an accent ring outside its disc, and ", selected" in its value text. */
+export const ScatterSelected: Story = {render: () => <SelectedDemo />};

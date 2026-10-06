@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createClient} from '@supabase/supabase-js';
-import {buildAnalytics, buildVoteLog, pairKey} from './lib/voteAnalytics.mjs';
+import {buildAnalytics, buildVoteLog, pairKey, ruleRosterEntry} from './lib/voteAnalytics.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const APP_DIR = path.resolve(ROOT, process.env.APP_DIR ?? 'app-master');
@@ -81,11 +81,11 @@ function loadEngineArtifacts(synDir) {
   return {enginePairs, ruleTotalPairs};
 }
 
-/** Rule roster (labels + zero-vote rules) from the app's built engine. */
+/** Rule roster (labels, zero-vote rules, playstyle ids) from the app's built engine. */
 async function loadRuleRoster() {
   const engine = path.join(APP_DIR, 'packages/synergy-engine/dist/index.js');
   const {getAllRules} = await import(pathToFileURL(engine).href);
-  return getAllRules().map((r) => ({ruleId: r.id, ruleName: r.name, category: r.category}));
+  return getAllRules().map((rule) => ruleRosterEntry(rule));
 }
 
 /** Record a card's display name, keeping the first occurrence (allCards wins). */

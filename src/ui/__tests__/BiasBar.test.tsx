@@ -43,4 +43,9 @@ describe('BiasBar', () => {
     const {container} = render(<BiasBar gap={-1} />);
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });
+
+  it('keeps 64px by default, and shrinks with its track when the caller lifts the floor', () => {
+    expect(render(<BiasBar gap={1} />).container.firstElementChild).toHaveStyle({minWidth: '64px'});
+    expect(render(<BiasBar gap={1} minWidth={0} />).container.firstElementChild).toHaveStyle({minWidth: '0px'});
+  });
 });

@@ -17,37 +17,48 @@ export interface TuningEdit {
 
 type JsonObject = Record<string | number, unknown>;
 
-/** The object holding the value at `path`. */
-function parentOf(obj: JsonObject, path: (string | number)[]): JsonObject {
-  let node = obj;
-  for (const key of path.slice(0, -1)) node = node[key] as JsonObject;
-  return node;
+const isObject = (value: unknown) => typeof value === 'object' && value !== null;
+
+/**
+ * The object holding the value at `path`, or undefined once the path leads
+ * nowhere: the app renamed or removed the entry, or dropped the tier.
+ * Inherited keys don't count, as in useTuningAdmin's valueAt.
+ */
+function parentOf(obj: JsonObject, path: (string | number)[]): JsonObject | undefined {
+  let node: unknown = obj;
+  for (const key of path.slice(0, -1)) {
+    if (!isObject(node) || !Object.hasOwn(node as JsonObject, key)) return undefined;
+    node = (node as JsonObject)[key];
+  }
+  return isObject(node) ? (node as JsonObject) : undefined;
+}
+
+/** The refusal tuningFailureKind reads as 'stale-value', so the tray offers Reload, which drops the edit (R-18). */
+function staleValue(path: (string | number)[], now: unknown): Error {
+  return new Error(
+    `${path.join('.')} changed since the editor loaded it (now ${now === undefined ? 'missing' : JSON.stringify(now)}). Reload tuning.json and make the edit again.`,
+  );
 }
 
 /**
  * Pure JSON edit: applies a list of path/value edits to the parsed tuning
  * document and re-serializes it. Sibling fields at each edited node are left
- * untouched. An edit whose value changed since the editor loaded it is refused:
- * writing it would silently undo that other change. Kept side-effect-free so it
- * can be unit tested without network access; `commitTuning` below is the
- * network-touching wrapper.
+ * untouched. An edit whose value changed since the editor loaded it, or whose
+ * value is gone, is refused: writing it would silently undo that other change.
+ * Kept side-effect-free so it can be unit tested without network access;
+ * `commitTuning` below is the network-touching wrapper.
  */
 export function applyTuningEdits(text: string, edits: TuningEdit[]): string {
   const obj = JSON.parse(text) as JsonObject;
   for (const {path, value, expected} of edits) {
     const node = parentOf(obj, path);
     const key = path[path.length - 1];
-    if (node[key] !== expected) {
-      throw new Error(
-        `${path.join('.')} changed since the editor loaded it (now ${JSON.stringify(node[key])}). Reload the page and make the edit again.`,
-      );
-    }
+    const now = node && Object.hasOwn(node, key) ? node[key] : undefined;
+    if (!node || now !== expected) throw staleValue(path, now);
     node[key] = value;
   }
   return JSON.stringify(obj, null, 2) + '\n';
 }
-
-const isObject = (value: unknown) => typeof value === 'object' && value !== null;
 
 // The parts of tuning.json the editor walks. The file is also edited by hand,
 // so a read checks them rather than trusting the TuningConfig cast.

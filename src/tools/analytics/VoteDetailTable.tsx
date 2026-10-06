@@ -1,17 +1,18 @@
-import {CAP_LABEL_XS, COLORS, EMPTY_BOX, FONTS, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
+import {LETTER_SPACING, SPACING} from '../../app-bridge';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
+import {Panel} from '../../ui/Panel';
+import {ScorePill} from '../../ui/ScorePill';
 import type {VoteLogRow} from './voteLogTypes';
 
 interface VoteDetailTableProps {
   pair: {aName: string; bName: string; engineScore: number} | null;
   votes: VoteLogRow[];
-}
-
-/** High scores read green, low scores red; middling scores stay neutral. */
-function scoreColor(score: number | null): string {
-  if (score == null) return COLORS.textMuted;
-  if (score >= 7) return COLORS.success;
-  if (score <= 4) return COLORS.error;
-  return COLORS.text;
+  /**
+   * Shown in place of the table while the votes can't be: the vote log is
+   * loading, failed, or the artifact has no raw votes. The page's own Notice
+   * announces a failure, so this one stays quiet (no role="alert").
+   */
+  notice?: string;
 }
 
 /** Map the accuracy thumb (-1 / 0 / 1 / null) to its label. */
@@ -27,75 +28,93 @@ function wouldPlayLabel(wouldPlay: boolean | null): string {
   return wouldPlay ? 'yes' : 'no';
 }
 
-const HEAD: React.CSSProperties = {
-  ...CAP_LABEL_XS,
+const MESSAGE: React.CSSProperties = {
+  margin: 0,
+  padding: `${SPACING.xxl}px ${SPACING.lg}px`,
+  textAlign: 'center',
+  fontSize: ADMIN_TYPE.body,
+  color: ADMIN_COLORS.muted,
+};
+
+const HEAD_CELL: React.CSSProperties = {
+  padding: `${SPACING.sm}px ${SPACING.lg}px`,
+  background: ADMIN_COLORS.panel,
   textAlign: 'left',
-  padding: `${SPACING.sm}px ${SPACING.md}px`,
+  fontSize: ADMIN_TYPE.label,
+  fontWeight: 700,
+  letterSpacing: LETTER_SPACING.cap,
+  textTransform: 'uppercase',
+  color: ADMIN_COLORS.muted,
+};
+
+const CELL: React.CSSProperties = {
+  padding: `${SPACING.sm}px ${SPACING.lg}px`,
+  borderTop: `1px solid ${ADMIN_COLORS.divider}`,
+  color: ADMIN_COLORS.muted,
+  verticalAlign: 'middle',
 };
 
 /**
- * The per-pair vote breakdown. With no pair selected it renders a muted empty
- * state; otherwise a heading (names + engine score) and a table of each vote's
- * score, accuracy thumb, would-play flag, and date.
+ * The votes themselves. Rows take no hover fill: nothing in them is
+ * interactive, and the red score pill would dip under 4.5:1 on rowHover.
  */
-export function VoteDetailTable({pair, votes}: VoteDetailTableProps) {
-  if (pair == null) {
-    return (
-      <div
-        style={{
-          ...EMPTY_BOX,
-          fontFamily: FONTS.body,
-          fontSize: FONT_SIZES.base,
-          padding: SPACING.lg,
-        }}>
-        Select a pair to see its votes
-      </div>
-    );
-  }
-
-  const cell: React.CSSProperties = {
-    padding: `${SPACING.sm}px ${SPACING.md}px`,
-    fontSize: FONT_SIZES.base,
-    color: COLORS.text,
-  };
-
+function VoteRows({title, votes}: {title: string; votes: VoteLogRow[]}) {
   return (
-    <div style={{fontFamily: FONTS.body}}>
-      <div style={{fontSize: FONT_SIZES.lg, fontWeight: 700, color: COLORS.text, marginBottom: SPACING.sm}}>
-        {pair.aName} <span style={{color: COLORS.textDim}}>×</span> {pair.bName}
-        <span style={{fontSize: FONT_SIZES.md, color: COLORS.textMuted, fontWeight: 400, marginLeft: SPACING.sm}}>
-          engine {pair.engineScore}
-        </span>
-      </div>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          background: COLORS.surface,
-          border: `1px solid ${COLORS.surfaceBorder}`,
-          borderRadius: RADIUS.lg,
-        }}>
+    <div style={{overflowX: 'auto'}}>
+      <table aria-label={`Votes on ${title}`} style={{width: '100%', borderCollapse: 'collapse', fontSize: ADMIN_TYPE.body}}>
         <thead>
-          <tr style={{borderBottom: `1px solid ${COLORS.surfaceBorder}`}}>
-            <th style={HEAD}>Score</th>
-            <th style={HEAD}>Accuracy</th>
-            <th style={HEAD}>Would play</th>
-            <th style={HEAD}>When</th>
+          <tr>
+            <th scope="col" style={HEAD_CELL}>
+              Score
+            </th>
+            <th scope="col" style={HEAD_CELL}>
+              Accuracy
+            </th>
+            <th scope="col" style={HEAD_CELL}>
+              Would play
+            </th>
+            <th scope="col" style={HEAD_CELL}>
+              When
+            </th>
           </tr>
         </thead>
         <tbody>
           {votes.map((vote, i) => (
-            <tr key={`${vote.voter}-${vote.ts}-${i}`} style={{borderBottom: `1px solid ${COLORS.surfaceBorder}`}}>
-              <td style={{...cell, fontWeight: 700, color: scoreColor(vote.score)}}>
-                {vote.score == null ? '—' : vote.score}
+            <tr key={`${vote.voter}-${vote.ts}-${i}`}>
+              <td style={CELL}>
+                <ScorePill score={vote.score} />
               </td>
-              <td style={{...cell, color: COLORS.textMuted}}>{accuracyLabel(vote.accuracy)}</td>
-              <td style={{...cell, color: COLORS.textMuted}}>{wouldPlayLabel(vote.wouldPlay)}</td>
-              <td style={{...cell, color: COLORS.textDim, fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(0, 10)}</td>
+              <td style={CELL}>{accuracyLabel(vote.accuracy)}</td>
+              <td style={CELL}>{wouldPlayLabel(vote.wouldPlay)}</td>
+              <td style={{...CELL, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(0, 10)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * The selected pair's votes, as a panel. With no pair it is the "Votes" panel
+ * and asks for one. With a pair, the panel is named by it, with the engine
+ * score beside the title, over a table of each vote's score, accuracy thumb,
+ * would-play flag and UTC day. A notice, or a pair the vote log holds no votes
+ * for, replaces the table with one line.
+ */
+export function VoteDetailTable({pair, votes, notice}: VoteDetailTableProps) {
+  if (pair == null) {
+    return (
+      <Panel title="Votes" padded={false}>
+        <p style={MESSAGE}>Select a pair to see its votes</p>
+      </Panel>
+    );
+  }
+  const title = `${pair.aName} × ${pair.bName}`;
+  const message = notice ?? (votes.length === 0 ? 'No votes for this pair in the vote log.' : null);
+  return (
+    <Panel title={title} action={`engine ${pair.engineScore}`} padded={false}>
+      {message === null ? <VoteRows title={title} votes={votes} /> : <p style={MESSAGE}>{message}</p>}
+    </Panel>
   );
 }

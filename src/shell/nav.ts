@@ -19,11 +19,10 @@ export interface NavItem {
 /** Every page the sidebar links, in sidebar order within each group. */
 export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'overview', label: 'Overview', mark: 'Ov', path: '/', group: 'main', writes: false},
-  // Read-only in R1. Tuning moves in with R2, which turns writes on (R-4).
-  {id: 'calibration', label: 'Calibration & tuning', mark: 'Ca', path: '/calibration', group: 'insights', writes: false},
+  // The calibration analytics beside the tuning editor (R2). The editor commits tuning.json, so the page writes (R-4).
+  {id: 'calibration', label: 'Calibration & tuning', mark: 'Ca', path: '/calibration', group: 'insights', writes: true},
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
-  {id: 'tuning', label: 'Engine tuning', mark: 'Tu', path: '/tuning', group: 'publish', writes: true},
   {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
   {id: 'image', label: 'Card images', mark: 'Im', path: '/image', group: 'publish', writes: true},
 ];
@@ -40,4 +39,12 @@ export function navItemFor(pathname: string): NavItem | undefined {
 /** Whether the page at `pathname` commits to the app repo. */
 export function isWritePath(pathname: string): boolean {
   return navItemFor(pathname)?.writes ?? false;
+}
+
+/**
+ * The Calibration & tuning page, opened on a rule when one is given: the URL
+ * its ?rule= reads. The rule is a RuleStat.ruleId or a tuning.json key.
+ */
+export function calibrationHref(ruleId?: string): string {
+  return ruleId ? `/calibration?rule=${encodeURIComponent(ruleId)}` : '/calibration';
 }

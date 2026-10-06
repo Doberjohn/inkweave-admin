@@ -68,6 +68,12 @@ describe('AdminStyles', () => {
     for (const name of PRESSABLE) expect(css).toContain(`.${name}[aria-pressed="true"]`);
   });
 
+  it('keeps a selected row button on one fill, hovered or not', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-row-btn[aria-pressed="true"]{background:${ADMIN_COLORS.rowSelected};`);
+    expect(css).toContain(`.adm-row-btn[aria-pressed="true"]:hover:where(:not(:disabled)){background:${ADMIN_COLORS.rowSelected};}`);
+  });
+
   it('uses token colours only: hexes from COLORS, rgba() from ADMIN_COLORS', () => {
     const css = stylesheet();
     const tokenHexes = new Set(Object.values(COLORS).map((v) => v.toLowerCase()));

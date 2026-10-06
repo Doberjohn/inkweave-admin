@@ -77,6 +77,10 @@ export const ADMIN_COLORS = {
   accentHover: COLORS.primaryHover,
   accentTint: hexRgba(COLORS.primary, 0.1),
   accentTintSoft: hexRgba(COLORS.primary, 0.06),
+  // A selected row button's fill, hovered or not. The over-rates red of 13px gap
+  // text keeps 4.58:1 on it, against 4.50:1 on accentTintSoft and 4.15:1 on
+  // accentTint (axe passes only above 4.5).
+  rowSelected: hexRgba(COLORS.primary, 0.05),
   accentBorder: hexRgba(COLORS.primary, 0.3),
   accentStrong: hexRgba(COLORS.primary, 0.5),
   // Semantic: the engine over-rates (red) or under-rates (green) a pair

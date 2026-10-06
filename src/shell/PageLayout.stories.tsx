@@ -1,6 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
-import {CtaButton} from '../app-bridge';
-import {PageLayout} from './PageLayout';
+import {CtaButton, SPACING} from '../app-bridge';
+import {ADMIN_COLORS} from '../theme/adminTheme';
+import {PAGE_GUTTER, PageLayout} from './PageLayout';
 
 const meta: Meta<typeof PageLayout> = {
   title: 'Admin/PageLayout',
@@ -46,5 +47,21 @@ export const Writes: Story = {
 
 /** A page that writes, with its own notice label. */
 export const WritesWithLabel: Story = {
-  args: {title: 'Calibration & tuning', writes: true, branchLabel: 'Tuning writes to'},
+  args: {title: 'Calibration & tuning', writes: true, branchLabel: 'Tuning writes to Doberjohn/inkweave'},
+};
+
+/** A flush body: no padding and no grid, so the page lays out its own columns edge to edge (R2's aside). */
+export const Flush: Story = {
+  args: {
+    title: 'Calibration & tuning',
+    writes: true,
+    branchLabel: 'Tuning writes to Doberjohn/inkweave',
+    flush: true,
+    children: (
+      <div style={{display: 'flex', flexWrap: 'wrap', minHeight: '100%'}}>
+        <p style={{flex: '999 1 520px', margin: 0, padding: `${SPACING.xxl}px ${PAGE_GUTTER}`}}>The left column.</p>
+        <p style={{flex: '1 1 340px', margin: 0, padding: SPACING.xxl, background: ADMIN_COLORS.aside}}>The aside.</p>
+      </div>
+    ),
+  },
 };

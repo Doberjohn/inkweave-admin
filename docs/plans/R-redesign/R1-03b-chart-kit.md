@@ -24,6 +24,7 @@
   - **It draws no surface.** It is the figure inside a card, so a page puts it in an untitled `Panel` (R1-3), as R1-8, R1-9, R1-10 and R2 do.
   - Its header row is the `<figcaption>`, the figure's first child. It holds the heading and the subtitle, then the actions and the toggle.
 - **`BarChart` and `LineChart`** also take `emptyText?: string` (default "No data to chart."). `LineChart` also takes `baselineLabel?: string` (default `yFormat(baseline)`).
+  - **2026-10-06:** R2-4c moved the baseline's label from inside the plot (Step 27's `<text x={left + SPACING.xs}>`) into the y gutter at the baseline, where a tick within 12px of it prints no label.
 - **`LinePoint.y` is `number | null`.** A null keeps its x on the axis and breaks the line there, for a quiet week in R2's gap trend. A number is still the usual case, so no caller changes.
 - **AdminStyles (R1-2) gains the chart classes:** `adm-chart-plot`, `adm-chart-hit`, `adm-chart-mark` (with `[data-active="true"]` and `[data-dim="true"]`), `adm-chart-bar`, `adm-chart-line`, `adm-chart-area`, `adm-chart-label`, `adm-chart-cursor` and `adm-chart-tip`, plus the keyframes `adm-chart-rise`, `adm-chart-draw` and `adm-chart-fade`. Step 19 has the table.
   - `adm-chart-hit` is deliberately not `adm-bar-btn`. That class's `:has()` rule dims the buttons beside a pressed one to .4, and that would fade a focused bar's ring while another bar is picked. The chart dims its SVG bars itself.

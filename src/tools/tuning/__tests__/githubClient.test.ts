@@ -2,6 +2,7 @@ import {afterEach, describe, it, expect, vi} from 'vitest';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {base64ToUtf8} from '../../../test/base64';
 import {applyTuningEdits, commitTuning, readTuning} from '../githubClient';
+import {tuningFailureKind} from '../tuningFailure';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -35,7 +36,40 @@ describe('applyTuningEdits', () => {
     const before = JSON.stringify({ruleTexts: {ramp: {scores: {density: 7}}}}, null, 2);
     expect(() =>
       applyTuningEdits(before, [{path: ['ruleTexts', 'ramp', 'scores', 'density'], value: 6, expected: 5}]),
-    ).toThrow('ruleTexts.ramp.scores.density changed since the editor loaded it (now 7). Reload the page and make the edit again.');
+    ).toThrow('ruleTexts.ramp.scores.density changed since the editor loaded it (now 7). Reload tuning.json and make the edit again.');
+  });
+
+  // The app renamed or removed the entry, or dropped the tier, after this editor read it.
+  it.each([
+    ['playstyle', {playstyles: {dwarfs: {name: 'Dwarfs'}}}, ['playstyles', 'ramp', 'name'], 'Ramp'],
+    ['Shift tier', {ruleTexts: {'shift-targets': {'curve.gap0': {score: 5}}}}, ['ruleTexts', 'shift-targets', 'curve.gap3', 'score'], 5],
+    // tuning.json is edited by hand too, and a commit reads it as it is, with no readTuning check.
+    ['Shift Targets copy', {ruleTexts: {}}, ['ruleTexts', 'shift-targets', 'curve.gap3', 'score'], 5],
+  ])('refuses an edit whose %s is gone as a stale value, so Reload can drop it', (_, file, path, expected) => {
+    let message = '';
+    try {
+      applyTuningEdits(JSON.stringify(file), [{path, value: 7, expected}]);
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toBe(
+      `${path.join('.')} changed since the editor loaded it (now missing). Reload tuning.json and make the edit again.`,
+    );
+    expect(tuningFailureKind(message)).toBe('stale-value');
+  });
+
+  it('says a removed value is missing, never undefined', () => {
+    const before = JSON.stringify({playstyles: {ramp: {name: 'Ramp'}}});
+    expect(() =>
+      applyTuningEdits(before, [{path: ['playstyles', 'ramp', 'tagline'], value: 'faster', expected: 'x'}]),
+    ).toThrow('playstyles.ramp.tagline changed since the editor loaded it (now missing).');
+  });
+
+  it("doesn't take an inherited key for the entry", () => {
+    const before = JSON.stringify({playstyles: {}});
+    expect(() =>
+      applyTuningEdits(before, [{path: ['playstyles', 'constructor', 'name'], value: 'x', expected: 'Object'}]),
+    ).toThrow('playstyles.constructor.name changed since the editor loaded it (now missing).');
   });
 });
 

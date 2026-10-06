@@ -1,7 +1,15 @@
 import {describe, expect, it} from 'vitest';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../ui/format';
-import {lineLayout, lonePoints, tooltipY, type LineLayoutOptions, type LineSeries} from '../lineLayout';
+import {
+  LINE_END_WIDTH,
+  LINE_Y_AXIS_WIDTH,
+  lineLayout,
+  lonePoints,
+  tooltipY,
+  type LineLayoutOptions,
+  type LineSeries,
+} from '../lineLayout';
 
 // jsdom measures no width, so LineChart's own tests all run at the 640px
 // fallback. These place the lines at the widths a card really has.
@@ -58,7 +66,7 @@ describe('lineLayout', () => {
 
     const above = lineLayout(320, [seriesOf('s', [2, 3])], {...OPTIONS, baseline: -1});
     expect(above.ticks.map((t) => t.value)).toEqual([-1, 0, 3]);
-    expect(above.baseline).toEqual({value: -1, y: above.plotBottom});
+    expect(above.baseline).toEqual({value: -1, y: above.plotBottom, label: '−1'});
     expect(lineLayout(320, [seriesOf('s', [2, 3])], OPTIONS).baseline).toBeNull();
   });
 
@@ -79,6 +87,98 @@ describe('lineLayout', () => {
     expect(layout.xs).toEqual([]);
     expect(layout.xLabels).toEqual([]);
     expect(layout.endLabels).toEqual([]);
+  });
+
+  it('spans a fixed y domain, widened only to keep every value on the plot', () => {
+    // On its own, −0.05 to 1.2 gets ticks at −0.05 and 0 just 7.2px apart: their labels collide.
+    const lopsided = seriesOf('gap', [-0.05, 0.3, 1.2]);
+    const own = lineLayout(320, [lopsided], {...OPTIONS, yFormat: fmtGap});
+    expect(own.ticks.map((t) => t.label)).toEqual(['−0.05', '0.00', '+1.20']);
+    expect(own.ticks[0].y - own.ticks[1].y).toBeCloseTo(7.2, 6);
+    // A symmetric domain (R2's gapDomain) puts zero mid-plot, 90px from each end.
+    const fixed = lineLayout(320, [lopsided], {...OPTIONS, yFormat: fmtGap, yDomain: [-1.5, 1.5]});
+    expect(fixed.ticks.map((t) => [t.label, t.y])).toEqual([
+      ['−1.50', 188],
+      ['0.00', 98],
+      ['+1.50', 8],
+    ]);
+    // A value past a fixed end widens that end; nothing is clipped.
+    const narrow = lineLayout(320, [lopsided], {...OPTIONS, yFormat: fmtGap, yDomain: [-1, 1]});
+    expect(narrow.ticks.map((t) => t.label)).toEqual(['−1.00', '0.00', '+1.20']);
+  });
+
+  it('widens a fixed y domain to hold zero and the baseline too', () => {
+    // 2 to 5 over values of 3 and 4 would leave zero, and the area wash's floor, below the plot.
+    const above = lineLayout(320, [seriesOf('s', [3, 4])], {...OPTIONS, yDomain: [2, 5]});
+    expect(above.ticks.map((t) => t.value)).toEqual([0, 5]);
+    expect(above.zero).toBe(above.plotBottom);
+    // −1 to 1 with a baseline of −2 reaches down to the baseline.
+    const below = lineLayout(320, [seriesOf('s', [0.2, 0.5])], {...OPTIONS, yDomain: [-1, 1], baseline: -2});
+    expect(below.ticks.map((t) => t.value)).toEqual([-2, 0, 1]);
+    expect(below.baseline?.y).toBe(below.plotBottom);
+  });
+
+  it('lays the plot between fixed gutters when asked, whatever its labels need', () => {
+    const gaps = lineLayout(320, [seriesOf('gap', [-0.5, 0.3, 1.2])], {...OPTIONS, yFormat: fmtGap, fixedGutters: true});
+    const votes = lineLayout(320, [seriesOf('votes', [12, 45, 120])], {...OPTIONS, fixedGutters: true});
+    for (const layout of [gaps, votes]) {
+      expect(layout.left).toBe(LINE_Y_AXIS_WIDTH);
+      expect(layout.plotWidth).toBe(320 - LINE_Y_AXIS_WIDTH - LINE_END_WIDTH);
+    }
+    expect(gaps.xPx).toEqual(votes.xPx);
+    // On their own, "−0.50" (30px) needs a wider gutter than "120" (18px).
+    expect(lineLayout(320, [seriesOf('gap', [-0.5, 0.3, 1.2])], {...OPTIONS, yFormat: fmtGap}).left).toBe(38);
+    expect(lineLayout(320, [seriesOf('votes', [12, 45, 120])], OPTIONS).left).toBe(26);
+  });
+
+  it('labels the baseline in the gutter, and blanks the tick label that sits on it', () => {
+    const gaps = seriesOf('gap', [-0.5, 0.3, 1.2]);
+    const layout = lineLayout(320, [gaps], {...OPTIONS, yFormat: fmtGap, baseline: 0, baselineLabel: 'No gap'});
+    expect(layout.baseline).toEqual({value: 0, y: layout.zero, label: 'No gap'});
+    // The 0.00 tick is on the baseline: it keeps its gridline (value and y) and prints nothing.
+    expect(layout.ticks.map((t) => [t.value, t.label])).toEqual([
+      [-0.5, '−0.50'],
+      [0, ''],
+      [1.2, '+1.20'],
+    ]);
+    expect(layout.ticks[1].y).toBe(layout.zero);
+  });
+
+  it('blanks every tick label within a label height of the baseline, and keeps the rest', () => {
+    // On its own, −0.05 to 1.2 gets ticks at −0.05 and 0, 7.2px apart: both are within 12px (a label and the surface gap) of the baseline.
+    const lopsided = seriesOf('gap', [-0.05, 0.3, 1.2]);
+    const near = lineLayout(320, [lopsided], {...OPTIONS, yFormat: fmtGap, baseline: 0});
+    expect(near.ticks.map((t) => t.label)).toEqual(['', '', '+1.20']);
+    // A symmetric domain (R2's gapDomain) puts the ends 90px from it: only the zero tick's label goes.
+    const far = lineLayout(320, [lopsided], {...OPTIONS, yFormat: fmtGap, baseline: 0, yDomain: [-1.5, 1.5]});
+    expect(far.ticks.map((t) => t.label)).toEqual(['−1.50', '', '+1.50']);
+  });
+
+  it('keeps the label of a tick exactly a label height (12px) from the baseline', () => {
+    // 0 to 10 over 120px is 12px a unit: the baseline at 1 sits exactly 12px above the 0 tick, whose label clears it.
+    const layout = lineLayout(320, [seriesOf('s', [2, 3, 10])], {...OPTIONS, height: 120, baseline: 1});
+    expect(layout.ticks[0].y - (layout.baseline?.y ?? 0)).toBe(12);
+    expect(layout.ticks.map((t) => t.label)).toEqual(['0', '5', '10']);
+  });
+
+  it('counts the baseline label in the gutter, and "No gap" fits the fixed one', () => {
+    const gaps = seriesOf('gap', [-0.5, 0.3, 1.2]);
+    const base = {...OPTIONS, yFormat: fmtGap, baseline: 0};
+    // Without a baseline label the widest tick, "−0.50" (30px), sets the gutter: 30 and the gap.
+    expect(lineLayout(320, [gaps], {...OPTIONS, yFormat: fmtGap}).left).toBe(38);
+    // "No gap" is 6 characters (36px): the gutter grows to hold it, 36 and the gap.
+    expect(lineLayout(320, [gaps], {...base, baselineLabel: 'No gap'}).left).toBe(44);
+    expect(lineLayout(320, [gaps], {...base, baselineLabel: 'No gap this week'}).left).toBe(104);
+    // The fixed gutter (48px) holds "No gap" as it is, and widens for a longer label rather than clip it.
+    expect(lineLayout(320, [gaps], {...base, baselineLabel: 'No gap', fixedGutters: true}).left).toBe(LINE_Y_AXIS_WIDTH);
+    expect(lineLayout(320, [gaps], {...base, baselineLabel: 'No gap this week', fixedGutters: true}).left).toBe(104);
+  });
+
+  it('widens a fixed gutter rather than clip a label that needs more', () => {
+    // "150,000" on the axis and "123,456" at the end are seven characters (42px) each.
+    const wide = lineLayout(320, [seriesOf('votes', [1000, 99999, 123456])], {...OPTIONS, fixedGutters: true});
+    expect(wide.left).toBe(50);
+    expect(wide.width - wide.left - wide.plotWidth).toBe(52);
   });
 });
 

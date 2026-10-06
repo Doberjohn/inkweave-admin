@@ -49,4 +49,13 @@ describe('ChartLegend', () => {
     expect(keys[0]).toHaveAttribute('stroke-width', '2');
     expect(container.querySelector('rect')).toBeNull();
   });
+
+  it('keys scatter dots with a filled circle, a hatched series with its pattern', () => {
+    const {container} = render(<ChartLegend series={BANDS} mark="dot" />);
+    const keys = container.querySelectorAll('svg[aria-hidden="true"] > circle');
+    expect(keys).toHaveLength(3);
+    expect(keys[0]).toHaveAttribute('fill', ADMIN_COLORS.under);
+    expect(keys[2]).toHaveAttribute('fill', `url(#${container.querySelector('pattern')!.id})`);
+    expect(container.querySelector('svg[aria-hidden="true"] > rect')).toBeNull();
+  });
 });

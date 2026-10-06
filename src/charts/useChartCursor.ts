@@ -9,7 +9,8 @@ export interface ChartCursor {
   plotProps: (valueText: (i: number) => string, xs: readonly number[]) => React.HTMLAttributes<HTMLElement>;
 }
 
-type PlotProps = React.HTMLAttributes<HTMLElement>;
+/** The props the slider puts on a plot element, and what a plot's `extend` adjusts (ChartPlot). */
+export type PlotProps = React.HTMLAttributes<HTMLElement>;
 
 /** Where each key moves the cursor from the slider's value, `resting`; `last` is the final position. */
 const SLIDER_KEYS = new Map<string, (resting: number, last: number) => number>([

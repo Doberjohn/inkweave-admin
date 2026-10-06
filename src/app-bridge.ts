@@ -14,7 +14,6 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 export {
   ALL_INKS,
-  CAP_LABEL_XS,
   COLORS,
   EASING,
   EMPTY_BOX,
@@ -38,6 +37,10 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/constants';
 export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
+// The app's overlay contract (inkweave#510): portal, scrim, focus trap, Escape, focus
+// restore and scroll lock. inkweave/no-unshelled-dialogs allows aria-modal only
+// through it, so admin's dialogs render in it.
+export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';
 export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
 export {useContainerWidth} from '../upstream/inkweave/apps/web/src/shared/hooks';
