@@ -74,7 +74,7 @@ const READY: TuningState['live'] = {status: 'ready', config: TUNING, reload: () 
 interface WorkspaceStoryProps {
   analytics: UseVoteAnalyticsReturn;
   voteLog: UseVoteLogReturn;
-  /** A saved token: the aside edits the bundled tuning.json with the real edit hook. Publishing needs a real token. */
+  /** A saved token: the aside edits the bundled tuning.json with the real edit hook, and stops at staging. */
   withToken: boolean;
   /** ?rule= as the story opens. */
   rule: string | null;
@@ -83,11 +83,14 @@ interface WorkspaceStoryProps {
 /**
  * The page as CalibrationPage lays it out, with ?rule= held in state. A story
  * has no data router, so it renders the workspace without the page's guard.
+ * The edit hook is the real one, as in the aside's stories, but the token is
+ * no token at all and Publish is held disabled: the hook would otherwise send
+ * a real request to api.github.com, so the stories stop at staging.
  */
 function WorkspaceStory({analytics, voteLog, withToken, rule}: WorkspaceStoryProps) {
   const [selectedId, setSelectedId] = useState(rule);
-  const admin = useTuningAdmin('ghp_example');
-  const tuning: TuningState | null = withToken ? {live: READY, admin} : null;
+  const admin = useTuningAdmin('storybook-no-token');
+  const tuning: TuningState | null = withToken ? {live: READY, admin: {...admin, publishDisabled: true}} : null;
   return (
     // As in the shell's main column: the layout fills the height, and only its body scrolls.
     <div style={{height: '100vh'}}>

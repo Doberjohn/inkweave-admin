@@ -1,6 +1,7 @@
 import {getRuleById, type TuningConfig} from 'inkweave-synergy-engine';
 import type {PendingEdit} from '../../tuning/useTuningAdmin';
-import {fmtGap, fmtInt} from '../../../ui/format';
+import {fmtGap} from '../../../ui/format';
+import {countOf} from '../activity/activityModel';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';
 import {verdictFor} from '../verdict';
 import type {GlobalStats, PairStat, RuleStat} from '../voteAnalyticsTypes';
@@ -163,11 +164,6 @@ export function votesForPair(votes: VoteLogRow[], pair: {a: string; b: string} |
   return votes.filter((vote) => pairId(vote.a, vote.b) === id);
 }
 
-/** "557 votes", "1 vote". */
-function voteCount(n: number): string {
-  return `${fmtInt(n)} ${n === 1 ? 'vote' : 'votes'}`;
-}
-
 /**
  * What the scope row says is in scope: "All pairs", or the rule with its gap
  * and votes ("Ramp · gap −0.57 · 557 votes"). A rule nobody has scored yet,
@@ -176,12 +172,12 @@ function voteCount(n: number): string {
 export function pairsHeading(row: CalibrationRow | null): string {
   if (!row) return 'All pairs';
   if (!row.stat?.scoreVotes) return `${row.name} · no score votes yet`;
-  return `${row.name} · gap ${fmtGap(row.stat.meanGap)} · ${voteCount(row.stat.scoreVotes)}`;
+  return `${row.name} · gap ${fmtGap(row.stat.meanGap)} · ${countOf(row.stat.scoreVotes, 'vote')}`;
 }
 
 /** The page header's summary: "Mean gap −0.30 · well-calibrated · 2,054 votes". */
 export function calibrationSubtitle(global: GlobalStats | null): string {
   // Nothing here says whether tuning.json loaded, so the empty case names only the analytics.
   if (!global) return 'No vote analytics yet';
-  return `Mean gap ${fmtGap(global.meanGap)} · ${verdictFor(global.meanGap).word} · ${voteCount(global.totalVotes)}`;
+  return `Mean gap ${fmtGap(global.meanGap)} · ${verdictFor(global.meanGap).word} · ${countOf(global.totalVotes, 'vote')}`;
 }

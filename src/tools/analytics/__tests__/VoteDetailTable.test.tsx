@@ -44,22 +44,20 @@ describe('VoteDetailTable', () => {
     expect(within(panel).getByText('engine 8')).toBeInTheDocument();
 
     const table = within(panel).getByRole('table', {name: 'Votes on Sisu × Raya'});
-    expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
-      'Score',
-      'Accuracy',
-      'Would play',
-      'When',
-    ]);
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers.map((th) => th.textContent)).toEqual(['Score', 'Accuracy', 'Would play', 'When']);
+    // A <th> maps to columnheader with or without scope, so the scope is asserted on its own.
+    for (const th of headers) expect(th).toHaveAttribute('scope', 'col');
     expect(within(table).getAllByRole('row')).toHaveLength(4);
   });
 
-  it('labels accuracy as too high / right / too low, would-play as yes / no / —, and dates each vote', () => {
+  it('pills each score, labels accuracy as too high / right / too low, would-play as yes / no / —, and dates each vote', () => {
     render(<VoteDetailTable pair={PAIR} votes={VOTES} />);
     const rows = screen.getAllByRole('row').slice(1);
-    expect(rows.map((row) => within(row).getAllByRole('cell').slice(1).map((td) => td.textContent))).toEqual([
-      ['too high', 'yes', '2026-06-28'],
-      ['right', 'no', '2026-06-29'],
-      ['too low', '—', '2026-06-30'],
+    expect(rows.map((row) => within(row).getAllByRole('cell').map((td) => td.textContent))).toEqual([
+      ['8', 'too high', 'yes', '2026-06-28'],
+      ['5', 'right', 'no', '2026-06-29'],
+      ['—', 'too low', '—', '2026-06-30'],
     ]);
   });
 

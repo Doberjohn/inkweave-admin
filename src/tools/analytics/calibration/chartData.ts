@@ -69,10 +69,22 @@ export const SCORE_TICKS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const SCATTER_JITTER = 0.35;
 
 /**
+ * A pair in words: "Card 1 × Card 2: engine 7, community 4.33, gap −2.67,
+ * 3 votes". The pair list names its row by it and the scatter its dot, so a
+ * screen reader hears a pair named one way on the page.
+ */
+export function pairWords(p: PairStat): string {
+  return (
+    `${p.aName} × ${p.bName}: engine ${scoreText(p.engineScore)}, ` +
+    `community ${scoreText(p.communityScore)}, gap ${fmtGap(p.gap)}, ${countOf(p.scoreVotes, 'vote')}`
+  );
+}
+
+/**
  * One point per pair: engine score across, community score up. Narrowest gap
  * first, so the widest draw on top (R-23). The label is the slider's value
- * text, so it carries what the tooltip adds: how many pairs share the dot's
- * exact scores.
+ * text: the pair in words (pairWords), and what the tooltip adds, how many
+ * pairs share the dot's exact scores.
  */
 export function scatterPoints(pairs: readonly PairStat[]): ScatterPoint[] {
   const sharing = sharedScores(pairs);
@@ -86,10 +98,7 @@ export function scatterPoints(pairs: readonly PairStat[]): ScatterPoint[] {
         x: p.engineScore,
         y: p.communityScore,
         series: gapSide(p.gap),
-        label:
-          `${p.aName} × ${p.bName}: engine ${scoreText(p.engineScore)}, ` +
-          `community ${scoreText(p.communityScore)}, gap ${fmtGap(p.gap)}, ${countOf(p.scoreVotes, 'vote')}` +
-          (shared > 1 ? `, ${countOf(shared, 'pair')} on these scores` : ''),
+        label: pairWords(p) + (shared > 1 ? `, ${countOf(shared, 'pair')} on these scores` : ''),
       };
     });
 }
@@ -121,8 +130,9 @@ export function scatterTable(pairs: readonly PairStat[], scopeLabel: string): Ch
 
 /**
  * The histogram's outer bins hold every gap beyond ±GAP_BIN_LIMIT (R-24). A
- * 1–10 scale allows gaps up to ±9; the owner chose ±5, and R2's real-data
- * check confirms it. Change it here only: the bins, labels and ranges follow.
+ * 1–10 scale allows gaps up to ±9; the owner chose ±5 (R-24); the real-data
+ * check is to confirm it. Change it here only: the bins, labels and ranges
+ * follow.
  */
 export const GAP_BIN_LIMIT = 5;
 
@@ -227,6 +237,10 @@ export interface WeeklyGap {
  * first vote to its last whatever the scope, so every scope shares one axis
  * and a quiet week shows as a break in the line. An empty scope (a tuning-only
  * row) gives every week of the log, each with no mean.
+ *
+ * The weekly means are untrimmed. A pair's gap, and so a rule's mean gap,
+ * comes from pair_scores' 10% trimmed mean from 10 score votes up, so a
+ * scope's weeks need not average to its mean gap.
  */
 export function weeklyGaps(votes: readonly VoteLogRow[], pairs: readonly PairStat[]): WeeklyGap[] {
   const engineOf = new Map(pairs.map((p) => [pairId(p.a, p.b), p.engineScore]));

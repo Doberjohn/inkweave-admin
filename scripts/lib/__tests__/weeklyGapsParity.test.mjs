@@ -6,12 +6,16 @@ import {buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
 /*
  * Admin's weeklyGaps against the precompute's bucketWeekly and rollUpByRule.
  * Both sides run on the same raw votes, through the transforms the Deploy runs
- * (buildAnalytics, buildVoteLog), so the Weekly gap chart can't drift from the
- * artifact it sits beside: on "All pairs" it shows global.weekly's mean gap,
- * and a rule's weeks add up to that rule's mean gap. That sum matches to ten
- * places here only because this fixture's averages are exact; the precompute
- * rounds gaps and averages to two places, so on real data it holds to about
- * 0.005.
+ * (buildAnalytics, buildVoteLog), so on "All pairs" the Weekly gap chart can't
+ * drift from global.weekly's mean gap, the artifact it sits beside.
+ *
+ * A rule's weeks add up to its mean gap here only because no pair in this
+ * fixture reaches 10 score votes, and its averages are exact. A pair's gap
+ * comes from pair_scores' avg_score, a 10% trimmed mean from 10 score votes up
+ * (internal.trimmed_mean drops floor(n × 0.1) votes from each end), while the
+ * weekly means are untrimmed: a 10-vote pair's outlier counts in its week but
+ * not in its gap. So on real data a scope's weekly means need not average to
+ * its gap, and the precompute rounds gaps and averages to two places besides.
  */
 
 // The engine's pairs as loadEngineArtifacts keys them (pairKey: ids sorted, ':').
@@ -53,7 +57,8 @@ const RAW_VOTES = [
   raw('2026-09-29T10:00:00.123456+00:00', '4', '3', 3),
   raw('2026-10-12T10:00:00.123456+00:00', '7', '8', 9),
 ];
-// pair_scores for those votes: the scored votes' mean and count, ids in the view's own order.
+// pair_scores for those votes, ids in the view's own order. Every pair has
+// fewer than 10 score votes, so avg_score is the plain mean, untrimmed.
 const SCORE_ROWS = [
   {card_a_id: '2', card_b_id: '1', avg_score: 7, score_votes: 2, total_votes: 3, accuracy_sentiment: null},
   {card_a_id: '3', card_b_id: '4', avg_score: 4.5, score_votes: 2, total_votes: 2, accuracy_sentiment: null},
@@ -95,7 +100,7 @@ describe('weeklyGaps against the precompute', () => {
     ]);
   });
 
-  it("adds up, over a rule's pairs, to that rule's vote-weighted mean gap and score votes", () => {
+  it("adds up, over a rule's pairs, to that rule's score votes, and to its mean gap while no pair is trimmed", () => {
     for (const rule of analytics.rules) {
       // The rule's scope, as pairsInScope (R2-1) picks it.
       const scope = analytics.pairs.filter((p) => p.rules.includes(rule.ruleId));

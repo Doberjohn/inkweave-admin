@@ -1,9 +1,9 @@
 import {SPACING, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {fmtGap, fmtInt} from '../../ui/format';
+import {fmtInt} from '../../ui/format';
 import {Panel} from '../../ui/Panel';
-import {countOf} from './activity/activityModel';
-import {scoreText} from './calibration/chartData';
+import {pairId} from './calibration/calibrationModel';
+import {pairWords, scoreText} from './calibration/chartData';
 import {gapColor} from './gapColor';
 import type {PairStat} from './voteAnalyticsTypes';
 
@@ -56,31 +56,29 @@ const FOOTNOTE: React.CSSProperties = {
   color: ADMIN_COLORS.muted,
 };
 
-/** A selection names its pair either way round, as R2-1's findPair matches it. */
+/** A selection names its pair either way round, as R2-1's findPair matches it (pairId). */
 function isSelected(pair: PairStat, selected: {a: string; b: string} | null): boolean {
-  if (selected == null) return false;
-  return (selected.a === pair.a && selected.b === pair.b) || (selected.a === pair.b && selected.b === pair.a);
+  return selected != null && pairId(selected.a, selected.b) === pairId(pair.a, pair.b);
 }
 
 /**
- * A row's accessible name: what it shows, in words, as the scatter names the
- * same pair's dot. Read from the content, the row would run the numbers into
- * the names ("Card 27 → 41") and leave the vote count without a noun.
+ * The pressed row's ref: it scrolls into view inside the list as it becomes
+ * pressed. A dot picked on the scatter can sit below the rows on show, or past
+ * the widest 40 (withSelectedPair puts it last). 'nearest' leaves a row
+ * already in view where it is.
  */
-function pairLabel(pair: PairStat): string {
-  return (
-    `${pair.aName} × ${pair.bName}: engine ${scoreText(pair.engineScore)}, community ${scoreText(pair.communityScore)}, ` +
-    `gap ${fmtGap(pair.gap)}, ${countOf(pair.scoreVotes, 'vote')}`
-  );
+function scrollIntoList(row: HTMLButtonElement | null) {
+  row?.scrollIntoView({block: 'nearest'});
 }
 
 /**
  * The voted pairs the parent picked (scoped, sorted and capped there), as the
  * "Widest gaps" panel: each row shows the two card names, the engine →
  * community score jump in the gap colour, and the vote count. Rows are
- * adm-row-btn buttons, so the selected one wears the gold bar and says
- * aria-pressed. A footnote reminds the reader that most pairs carry a single
- * vote, so the rule-level trend is what to trust.
+ * adm-row-btn buttons, so the selected one wears the gold bar, says
+ * aria-pressed and scrolls into view (scrollIntoList). A footnote reminds the
+ * reader that most pairs carry a single vote, so the rule-level trend is what
+ * to trust.
  */
 export function PairList({pairs, selectedPair, onSelectPair, emptyText = 'No voted pairs yet.'}: PairListProps) {
   return (
@@ -99,10 +97,14 @@ export function PairList({pairs, selectedPair, onSelectPair, emptyText = 'No vot
                   // The panel header already rules off the first row.
                   style={i === 0 ? undefined : {borderTop: `1px solid ${ADMIN_COLORS.divider}`}}>
                   <button
+                    ref={selected ? scrollIntoList : undefined}
                     type="button"
                     className="adm-row-btn"
                     aria-pressed={selected}
-                    aria-label={pairLabel(pair)}
+                    // What the row shows, in words, as the scatter names the same pair's dot. Read from the
+                    // content, the row would run the numbers into the names ("Card 27 → 41") and leave the
+                    // vote count without a noun.
+                    aria-label={pairWords(pair)}
                     onClick={() => onSelectPair({a: pair.a, b: pair.b})}>
                     {/* The grid lives on a span: a native button takes no style (no-adhoc-buttons). */}
                     <span style={ROW}>

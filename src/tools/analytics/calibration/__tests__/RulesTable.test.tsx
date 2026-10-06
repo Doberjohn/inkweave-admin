@@ -105,9 +105,10 @@ describe('RulesTable', () => {
     expect(onSelect).toHaveBeenCalledTimes(4);
   });
 
-  it('marks a rule with fewer than 10 score votes "low n"', () => {
+  it('marks a rule with fewer than 10 score votes "low n", none included', () => {
     renderTable();
     expect(within(ruleRow(/^Location Boost/)).getByText('low n')).toBeInTheDocument();
+    expect(within(ruleRow(/^Seven Dwarfs/)).getByText('low n')).toBeInTheDocument();
     expect(within(ruleRow(/^Location Lore/)).queryByText('low n')).not.toBeInTheDocument();
     expect(within(ruleRow(/^Questing/)).queryByText('low n')).not.toBeInTheDocument();
   });
@@ -152,8 +153,9 @@ describe('RulesTable', () => {
       'Location Boost, Playstyle, gap +2.44, 9 score votes, low n, pending tuning edit',
     );
     expect(ruleRow(/^Shift Targets/)).toHaveAccessibleName('Shift Targets, Direct, gap +1.20, 214 score votes');
-    // Nobody has scored these, so no "gap —".
-    expect(ruleRow(/^Seven Dwarfs/)).toHaveAccessibleName('Seven Dwarfs, Playstyle, no score votes');
+    // Nobody has scored these, so no "gap —". A rule at 0 votes wears the "low n" tag, so its name says it too;
+    // a tuning-only row has no tag.
+    expect(ruleRow(/^Seven Dwarfs/)).toHaveAccessibleName('Seven Dwarfs, Playstyle, no score votes, low n');
     expect(ruleRow(/^Questing/)).toHaveAccessibleName('Questing, Playstyle, no score votes');
   });
 

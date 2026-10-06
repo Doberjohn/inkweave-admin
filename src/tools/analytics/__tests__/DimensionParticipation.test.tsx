@@ -18,6 +18,11 @@ describe('DimensionParticipation', () => {
       'Would play1.3%',
       'Difficulty1.3%',
     ]);
+    // Each bar fills to its share: the bar is decoration (aria-hidden), so read its fill's width.
+    const widths = within(panel)
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector<HTMLElement>('[aria-hidden="true"] > div')?.style.width);
+    expect(widths).toEqual(['94.9%', '6.3%', '1.3%', '1.3%', '1.3%']);
     expect(within(panel).getByText(/who_carries excluded/)).toBeInTheDocument();
   });
 

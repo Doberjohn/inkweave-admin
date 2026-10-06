@@ -16,6 +16,7 @@ import {
   gapShares,
   gapSide,
   histogramTable,
+  pairWords,
   scatterPoints,
   scatterTable,
   scoreText,
@@ -26,6 +27,7 @@ import {
   weeklyTable,
   type WeeklyGap,
 } from '../chartData';
+import {pairId} from '../calibrationModel';
 import {ALL_PAIRS, ONE_RULE, ONE_RULE_VOTES, SIX_PAIRS, pairOf, seededPairs} from '../chartFixtures';
 
 /** A vote-log row on (a, b) at `ts`. weeklyGaps reads only a, b, score and ts. */
@@ -182,7 +184,7 @@ describe('gapShares and sharePercent', () => {
   });
 });
 
-describe('scatterPoints, sharedScores and scoreText', () => {
+describe('scatterPoints, pairWords, sharedScores and scoreText', () => {
   it('gives one point per pair: engine across, community up, coloured by side, narrowest gap first', () => {
     const points = scatterPoints(SIX_PAIRS);
     // pairId sorts as strings, so the 9 × 10 pair keys as '10|9'.
@@ -196,6 +198,16 @@ describe('scatterPoints, sharedScores and scoreText', () => {
     const label = (key: string) => scatterPoints(SIX_PAIRS).find((p) => p.key === key)?.label;
     expect(label('1|2')).toBe('Card 1 × Card 2: engine 7, community 4, gap −3.00, 1 vote');
     expect(label('10|9')).toBe('Card 9 × Card 10: engine 8, community 7.50, gap −0.50, 2 votes');
+  });
+
+  it('names a pair in words, which the slider and the pair list both read', () => {
+    const [first, , , , averaged] = SIX_PAIRS;
+    expect(pairWords(first)).toBe('Card 1 × Card 2: engine 7, community 4, gap −3.00, 1 vote');
+    expect(pairWords(averaged)).toBe('Card 9 × Card 10: engine 8, community 7.50, gap −0.50, 2 votes');
+    for (const point of scatterPoints(SIX_PAIRS)) {
+      const pair = SIX_PAIRS.find((p) => pairId(p.a, p.b) === point.key);
+      expect(point.label.startsWith(pairWords(pair!)), point.key).toBe(true);
+    }
   });
 
   it('says how many pairs share a dot’s exact scores, as the tooltip does', () => {

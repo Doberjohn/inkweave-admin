@@ -83,12 +83,22 @@ describe('RulesToReviewCard', () => {
       rule('brand-new', 'Brand New', -1.4, {playstyleId: 'brand-new-playstyle'}),
       // A direct rule with no entry, under its own id.
       rule('brand-new-direct', 'Brand New Direct', 1.3, {category: 'direct', playstyleId: null}),
+      // The pinned engine knows ramp, but the artifact names another copy: the artifact wins.
+      rule('ramp', 'Ramp', 1.1, {playstyleId: 'brand-new-playstyle'}),
     ]);
     expect(links(list)).toEqual([
       ['Tune', 'Tune Location New Trigger'],
       ['Inspect', 'Inspect Brand New'],
       ['Inspect', 'Inspect Brand New Direct'],
+      ['Inspect', 'Inspect Ramp'],
     ]);
+  });
+
+  it('lets each bias bar shrink with its grid track (minWidth 0)', () => {
+    const list = renderCard([rule('ramp', 'Ramp', -0.9)]);
+    const [row] = list.getAllByRole('listitem');
+    // The row's grid: name, bias bar, gap, link.
+    expect(row.children[1]).toHaveStyle({minWidth: '0px'});
   });
 
   it('escapes the rule id in the link', () => {

@@ -57,7 +57,15 @@ const NUMBER: React.CSSProperties = {textAlign: 'right', fontVariantNumeric: 'ta
 const START: React.CSSProperties = {paddingLeft: SPACING.lg};
 const END: React.CSSProperties = {paddingRight: SPACING.lg};
 
-/** Under LOW_N score votes a rule's gap is thin evidence. */
+/**
+ * Under LOW_N score votes a rule's gap is thin evidence, and a rule nobody has
+ * scored has none. A tuning-only row has no stat, so no tag.
+ */
+function isLowN(stat: RuleStat | null): boolean {
+  return stat != null && stat.scoreVotes < LOW_N;
+}
+
+/** The "low n" tag (isLowN). The row's name says it too (rowLabel). */
 function LowNTag() {
   return (
     <span
@@ -114,22 +122,22 @@ function RuleName({row, edited}: {row: CalibrationRow; edited: boolean}) {
         }}>
         {row.name}
       </span>
-      {votes !== undefined && votes < LOW_N && <LowNTag />}
+      {isLowN(row.stat) && <LowNTag />}
       {edited && <PendingDot />}
     </span>
   );
 }
 
 /**
- * A rule's numbers in words: "gap −0.57", "557 score votes", then "low n" under
- * LOW_N. A rule nobody has scored says so, as pairsHeading does, rather than
- * "gap —, 0 score votes".
+ * A rule's numbers in words: "gap −0.57", "557 score votes", then "low n"
+ * wherever the tag shows. A rule nobody has scored says so, as pairsHeading
+ * does, rather than "gap —, 0 score votes".
  */
 function scoreWords(stat: RuleStat | null): string[] {
-  if (!stat?.scoreVotes) return ['no score votes'];
-  const votes = stat.scoreVotes;
-  const words = [`gap ${fmtGap(stat.meanGap)}`, `${fmtInt(votes)} score ${votes === 1 ? 'vote' : 'votes'}`];
-  return votes < LOW_N ? [...words, 'low n'] : words;
+  const words = stat?.scoreVotes
+    ? [`gap ${fmtGap(stat.meanGap)}`, `${fmtInt(stat.scoreVotes)} score ${stat.scoreVotes === 1 ? 'vote' : 'votes'}`]
+    : ['no score votes'];
+  return isLowN(stat) ? [...words, 'low n'] : words;
 }
 
 /**

@@ -59,10 +59,10 @@ interface CalibrationCardProps {
 
 /**
  * The Overview's engine-calibration card: the verdict sentence and read line
- * (verdictFor and biasCopy), the mean gap as the hero
- * number, the over/under scale and the accuracy sentiment. The verdict word is
- * marked by colour only: the app ships no italic Tinos face and sets
- * font-synthesis: none, so an italic would render upright anyway.
+ * (verdictFor and biasCopy), the mean gap as the hero number, the over/under
+ * scale and the accuracy sentiment. The verdict word is marked by colour only:
+ * the app ships no italic Tinos face and sets font-synthesis: none, so an
+ * italic would render upright anyway.
  */
 export function CalibrationCard({meanGap, accuracySentiment}: CalibrationCardProps) {
   const verdict = verdictFor(meanGap);

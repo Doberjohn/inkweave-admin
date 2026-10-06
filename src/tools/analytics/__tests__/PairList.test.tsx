@@ -66,6 +66,28 @@ describe('PairList', () => {
     expect(screen.getByRole('button', {name: /Card 3/})).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('scrolls the pressed row into view inside the list as a pair is picked, and only then', () => {
+    // A dot picked on the scatter can sit below the rows on show, or past the widest 40.
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    try {
+      const {rerender} = render(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
+      expect(scroll).not.toHaveBeenCalled();
+
+      rerender(<PairList pairs={PAIRS} selectedPair={{a: '4', b: '3'}} onSelectPair={vi.fn()} />);
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(scroll).toHaveBeenCalledWith({block: 'nearest'});
+      expect(scroll.mock.contexts[0]).toBe(screen.getByRole('button', {pressed: true}));
+      expect(scroll.mock.contexts[0]).toHaveAccessibleName(/^Card 3 × Card 4/);
+
+      // The same pick again, and a list with nothing picked, leave the scroll alone.
+      rerender(<PairList pairs={PAIRS} selectedPair={{a: '3', b: '4'}} onSelectPair={vi.fn()} />);
+      rerender(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} />);
+      expect(scroll).toHaveBeenCalledTimes(1);
+    } finally {
+      scroll.mockRestore();
+    }
+  });
+
   it('shows emptyText in place of the list, and "No voted pairs yet." without it', () => {
     const {rerender} = render(
       <PairList pairs={[]} selectedPair={null} onSelectPair={vi.fn()} emptyText="No voted pairs for this rule yet." />,

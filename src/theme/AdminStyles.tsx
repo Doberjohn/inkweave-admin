@@ -32,9 +32,9 @@ const ENABLED = ':where(:not(:disabled))';
  * The focus ring is the one gold (ADMIN_COLORS.accent), replacing the app's
  * global legacy-gold ring. Rows draw theirs inside the box (offset -2px): they
  * sit flush in panels that clip overflow, where an outer ring would lose its
- * sides. A focused row also takes the hover fill, as RuleRow does today. A
- * selected row keeps one fill (rowSelected), hovered or not: red gap text on
- * the next step up would drop under 4.5:1.
+ * sides. A focused row also takes the hover fill. A selected row keeps one
+ * fill (rowSelected), hovered or not: red gap text on the next step up would
+ * drop under 4.5:1.
  *
  * A table row can be a row button too (<tr role="button" className="adm-row-btn">,
  * the rules table on /calibration). Its first cell draws the selected bar as
