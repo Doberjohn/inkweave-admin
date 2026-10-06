@@ -3,6 +3,7 @@ import {LETTER_SPACING, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap, fmtInt} from '../../../ui/format';
+import {LowNTag} from '../../../ui/LowNTag';
 import {Panel} from '../../../ui/Panel';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {gapColor} from '../gapColor';
@@ -59,30 +60,11 @@ const END: React.CSSProperties = {paddingRight: SPACING.lg};
 
 /**
  * Under LOW_N score votes a rule's gap is thin evidence, and a rule nobody has
- * scored has none. A tuning-only row has no stat, so no tag.
+ * scored has none: the row wears the "low n" tag (LowNTag), and its name says
+ * it too (rowLabel). A tuning-only row has no stat, so no tag.
  */
 function isLowN(stat: RuleStat | null): boolean {
   return stat != null && stat.scoreVotes < LOW_N;
-}
-
-/** The "low n" tag (isLowN). The row's name says it too (rowLabel). */
-function LowNTag() {
-  return (
-    <span
-      title={`Fewer than ${LOW_N} score votes`}
-      style={{
-        flex: 'none',
-        fontSize: ADMIN_TYPE.micro,
-        fontWeight: 500,
-        lineHeight: 1.4,
-        color: ADMIN_COLORS.muted,
-        border: `1px solid ${ADMIN_COLORS.strongBorder}`,
-        borderRadius: ADMIN_RADIUS.tag,
-        padding: `0 ${SPACING.xs}px`,
-      }}>
-      low n
-    </span>
-  );
 }
 
 /** The gold dot of a rule whose tuning.json entry has a pending edit. The row's name says it too (rowLabel). */
@@ -122,7 +104,7 @@ function RuleName({row, edited}: {row: CalibrationRow; edited: boolean}) {
         }}>
         {row.name}
       </span>
-      {isLowN(row.stat) && <LowNTag />}
+      {isLowN(row.stat) && <LowNTag minVotes={LOW_N} />}
       {edited && <PendingDot />}
     </span>
   );

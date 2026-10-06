@@ -4,6 +4,7 @@ import {CtaButton, FONTS, LETTER_SPACING, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {GithubTokenGate} from '../../../github/GithubTokenGate';
 import {targetBranch} from '../../../github/githubCommit';
+import {focusUnmoved, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
 import {Notice} from '../../../ui/Notice';
@@ -16,7 +17,6 @@ import type {PendingEdit, StageArgs, UseTuningAdminResult} from '../../tuning/us
 import {biasCopy} from '../biasCopy';
 import {gapColor} from '../gapColor';
 import {tuningEntry, type CalibrationRow} from './calibrationModel';
-import {focusUnmoved, useTakeHandoff, type FocusHandoff} from './focusHandoff';
 import {reloadNote} from './reloadNote';
 
 /** Both tuning hooks. They need a token, so R2-6's TunedWorkspace calls them and hands them down. */

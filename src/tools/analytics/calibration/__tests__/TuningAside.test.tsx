@@ -3,12 +3,12 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {TuningConfig} from 'inkweave-synergy-engine';
+import {useFocusHandoff} from '../../../../shell/focusHandoff';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {applyTuningEdits, type TuningEdit} from '../../../tuning/githubClient';
 import {useTuningAdmin} from '../../../tuning/useTuningAdmin';
 import type {RuleStat} from '../../voteAnalyticsTypes';
 import type {CalibrationRow} from '../calibrationModel';
-import {useFocusHandoff} from '../focusHandoff';
 import {ASIDE_FILL, TuningAside, type TuningState} from '../TuningAside';
 
 // Publishes go through commitTuning; each test decides how it settles. The

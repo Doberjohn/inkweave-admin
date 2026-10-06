@@ -1,6 +1,7 @@
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
-import {activityWindow} from '../../activity/activityModel';
+import {sharePercent} from '../../../../ui/format';
+import {activityWindow, type VoteSpan} from '../../activity/activityModel';
 import type {PairStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
 import {
@@ -21,14 +22,12 @@ import {
   scatterPoints,
   scatterTable,
   scoreText,
-  sharePercent,
   sharedScores,
   sideColor,
   weekTitle,
   weeklyGaps,
   weeklySubtitle,
   weeklyTable,
-  type VoteSpan,
   type WeeklyGap,
 } from '../chartData';
 import {pairId} from '../calibrationModel';
@@ -167,8 +166,9 @@ describe('binLabel and binRange', () => {
   });
 });
 
-describe('gapShares and sharePercent', () => {
-  it('give each side’s share of the pairs', () => {
+// sharePercent's own cases moved with it to src/ui/__tests__/format.test.ts (R3-1a).
+describe('gapShares', () => {
+  it('gives each side’s share of the pairs, which the histogram prints through sharePercent', () => {
     const shares = gapShares(gapBins(SIX_PAIRS));
     expect(shares.over).toBeCloseTo(1 / 2);
     expect(shares.agree).toBeCloseTo(1 / 3);
@@ -176,21 +176,8 @@ describe('gapShares and sharePercent', () => {
     expect([shares.agree, shares.over, shares.under].map(sharePercent)).toEqual(['33%', '50%', '17%']);
   });
 
-  it('give 0 for every side with no pairs, and never print 0% for a side with some', () => {
+  it('gives 0 for every side with no pairs', () => {
     expect(gapShares(gapBins([]))).toEqual({over: 0, agree: 0, under: 0});
-    expect(sharePercent(0)).toBe('0%');
-    expect(sharePercent(1 / 400)).toBe('<1%');
-  });
-
-  it('switches from <1% to 1% at the rounding boundary', () => {
-    expect(sharePercent(0.0049)).toBe('<1%');
-    expect(sharePercent(0.005)).toBe('1%');
-  });
-
-  it('prints >99% for a share short of whole that would round to 100%, and 100% only for all of them', () => {
-    expect(sharePercent(0.994)).toBe('99%');
-    expect(sharePercent(0.995)).toBe('>99%');
-    expect(sharePercent(1)).toBe('100%');
   });
 });
 

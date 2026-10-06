@@ -1,5 +1,5 @@
 import {PageLayout} from '../../../shell/PageLayout';
-import {ADMIN_COLORS} from '../../../theme/adminTheme';
+import {DataAsOf} from '../../../ui/DataAsOf';
 import {useVercelAnalytics} from '../useVercelAnalytics';
 import {useVoteAnalytics} from '../useVoteAnalytics';
 import {useVoteLog} from '../useVoteLog';
@@ -16,11 +16,7 @@ export function OverviewPage() {
   const {data: voteLog, error: voteLogError} = useVoteLog();
   const {data: vercel, error: vercelError} = useVercelAnalytics();
 
-  const meta = analytics ? (
-    <>
-      Data as of <code style={{color: ADMIN_COLORS.muted}}>{analytics.generatedAt.slice(0, 10)}</code>
-    </>
-  ) : undefined;
+  const meta = analytics ? <DataAsOf generatedAt={analytics.generatedAt} /> : undefined;
 
   return (
     <PageLayout title="Overview" subtitle="Engine calibration, community activity and traffic in one place." meta={meta}>

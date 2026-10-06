@@ -1,8 +1,10 @@
 import {useRef, useState} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {LinkButton, SPACING} from '../../../app-bridge';
+import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
+import {twoUp} from '../../../ui/layout';
 import {Notice} from '../../../ui/Notice';
 import {activityWindow} from '../activity/activityModel';
 import {DimensionParticipation} from '../DimensionParticipation';
@@ -14,7 +16,6 @@ import type {PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
-import type {FocusHandoff} from './focusHandoff';
 import {ASIDE_FILL, TuningAside, type TuningState} from './TuningAside';
 import {WeeklyGapTrend} from './WeeklyGapTrend';
 import {
@@ -80,20 +81,6 @@ const ASIDE: React.CSSProperties = {
   minWidth: 0,
   background: ASIDE_FILL,
 };
-
-/**
- * Two panels side by side once the column holds two tracks and the gap, stacked
- * below that. A chart's padded Panel takes 42px of its track, so the plot is the
- * track less 42px, and ChartTooltip needs 304px of it: no track under 346px.
- */
-function twoUp(track: number): React.CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${track}px), 1fr))`,
-    gap: SPACING.xl,
-    alignItems: 'start',
-  };
-}
 
 // The charts row's track is 376px, two-up from 772px of column, not the 346px
 // the tooltip needs. The histogram prints all eleven bin labels only from a

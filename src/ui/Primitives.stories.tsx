@@ -5,6 +5,7 @@ import {ADMIN_COLORS} from '../theme/adminTheme';
 import {BiasBar} from './BiasBar';
 import {fmtGap, fmtInt} from './format';
 import {KpiCard} from './KpiCard';
+import {LowNTag} from './LowNTag';
 import {MeterBar} from './MeterBar';
 import {Notice} from './Notice';
 import {Panel} from './Panel';
@@ -164,6 +165,24 @@ export const Bars: Story = {
           </div>
         ))}
       </Panel>
+    </Stack>
+  ),
+};
+
+const TAG_ROW: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.sm};
+
+/** The two informative tags: "low n" beside a name with few score votes, "raw" beside a number from the vote log. */
+export const Tags: Story = {
+  render: () => (
+    <Stack>
+      <div style={TAG_ROW}>
+        <span>Location Boost</span>
+        <LowNTag minVotes={10} />
+      </div>
+      <div style={TAG_ROW}>
+        <span>Distinct voters</span>
+        <RawTag />
+      </div>
     </Stack>
   ),
 };
