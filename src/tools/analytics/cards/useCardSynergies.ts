@@ -36,9 +36,15 @@ function asError(err: unknown): Error {
  * with the card and try it answers, and reads as loading until that matches
  * the current ones, as the app's own hook does (stateForCard,
  * usePrecomputedSynergies.ts:190-199). So the render where the id changes, or
- * Retry is pressed, never shows the previous card's file or the old error, and
- * the effect never sets state synchronously (react-hooks/set-state-in-effect).
- * A late answer for a card or try no longer current is dropped.
+ * Retry is pressed, never shows another card's file or error, nor the error
+ * Retry clears, and the effect never sets state synchronously
+ * (react-hooks/set-state-in-effect). A late answer for a card or try no longer
+ * current is dropped.
+ *
+ * One case reads as settled during a fetch: coming back to a card before the
+ * card in between settles shows that card's last outcome, its file or its
+ * error, until the new fetch lands. The last settled fetch still answers that
+ * card and try. The app's stateForCard behaves the same way.
  */
 export function useCardSynergies(cardId: string | null): UseCardSynergiesReturn {
   const [attempt, setAttempt] = useState(0);

@@ -108,6 +108,27 @@ describe('useCardSynergies', () => {
     expect(result.current).toMatchObject({data: ENGINE_FIFTEEN.data, loading: false, error: null});
   });
 
+  it('shows a card’s last outcome when it comes back before the card in between settles, until the new fetch lands', async () => {
+    fetchCardSynergies.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const {result, rerender} = renderHook(({id}) => useCardSynergies(id), {initialProps: {id: '301'}});
+    await waitFor(() => expect(result.current.error?.message).toBe('Failed to fetch'));
+
+    const other = deferred();
+    const back = deferred();
+    fetchCardSynergies.mockReturnValueOnce(other.promise).mockReturnValueOnce(back.promise);
+    rerender({id: '401'});
+    expect(result.current).toMatchObject({data: null, loading: true, error: null});
+    // The last fetch that settled still answers 301 and its try, so it shows
+    // again while the third fetch is in flight.
+    rerender({id: '301'});
+    expect(result.current).toMatchObject({data: null, loading: false});
+    expect(result.current.error?.message).toBe('Failed to fetch');
+
+    await act(async () => back.resolve(ENGINE_FIFTEEN.data));
+    expect(result.current).toMatchObject({data: ENGINE_FIFTEEN.data, loading: false, error: null});
+    expect(fetchCardSynergies.mock.calls).toEqual([['301'], ['401'], ['301']]);
+  });
+
   it('fetches nothing for no card, and drops the file when the card goes', async () => {
     const {result, rerender} = renderHook(({id}) => useCardSynergies(id), {
       initialProps: {id: null as string | null},

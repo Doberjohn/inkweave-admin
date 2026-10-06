@@ -7,9 +7,9 @@ import type {CardSynergies} from './engineView';
  * calibration/chartFixtures.ts is for /calibration's. They live in a plain
  * module: Storybook reads every named export of a .stories.tsx file as a
  * story, and a story can't import a test file. Nothing in the app imports this
- * file, so the build leaves it out. Every builder takes one object, so a
- * fixture names what it sets. R3-3 adds the card's raw votes, and R3-4 its
- * synergy file.
+ * file, so the build leaves it out. Every builder takes one argument, an
+ * object, or for engineFixture a list of objects, so a fixture names what it
+ * sets. R3-3 adds the card's raw votes, and R3-4 its synergy file.
  */
 
 /** What a pairs[] fixture sets. Names default to "Card <id>", score votes to 1 and rules to Ramp. */
@@ -316,7 +316,12 @@ function connectionsOf(partner: FixturePartner): FixtureConnection[] {
   }));
 }
 
-/** One group per rule, in order of first use, listing every partner the rule connects. */
+/**
+ * One group per rule, in order of first use, listing every partner the rule
+ * connects. Each entry carries the pair's connection for that rule, score
+ * included: the engine scores a group entry in one direction, and the
+ * connection keeps the higher of the two, so no entry outscores it.
+ */
 function groupsOf(partners: readonly FixturePartner[]): FixtureGroup[] {
   const rules = [...new Set(partners.flatMap(rulesOf))];
   return rules.map((ruleName) => ({
@@ -325,15 +330,11 @@ function groupsOf(partners: readonly FixturePartner[]): FixtureGroup[] {
     label: ruleName,
     tagline: `${ruleName} pairs.`,
     description: `Cards ${ruleName} connects.`,
-    synergies: partners
-      .filter((partner) => rulesOf(partner).includes(ruleName))
-      .map((partner) => ({
-        cardId: partner.id,
-        score: partner.score,
-        explanation: `${ruleName} connects the two.`,
-        ruleId: ruleIdOf(ruleName),
-        ruleName,
-      })),
+    synergies: partners.flatMap((partner) =>
+      connectionsOf(partner)
+        .filter((connection) => connection.ruleName === ruleName)
+        .map(({ruleId, score, explanation}) => ({cardId: partner.id, score, explanation, ruleId, ruleName})),
+    ),
   }));
 }
 

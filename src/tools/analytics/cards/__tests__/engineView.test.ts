@@ -104,10 +104,18 @@ describe('engineSummary', () => {
   it('is capped once a group lists ENGINE_GROUP_CAP partners, and not one short of it', () => {
     expect(ENGINE_GROUP_CAP).toBe(100);
     expect(summaryOf(ENGINE_CAPPED)).toMatchObject({partners: 142, capped: true});
+    // More than ENGINE_GROUP_CAP partners, but spread over two groups that each
+    // stay under it (99 in Ramp, 5 in Singer): the cap is per group, not per card.
     const underCap = engineFixture(
-      Array.from({length: ENGINE_GROUP_CAP - 1}, (_, i) => ({id: String(i + 1), name: `Card ${i + 1}`, score: 6})),
+      Array.from({length: ENGINE_GROUP_CAP + 4}, (_, i) => ({
+        id: String(i + 1),
+        name: `Card ${i + 1}`,
+        score: 6,
+        rules: [i < ENGINE_GROUP_CAP - 1 ? 'Ramp' : 'Singer'],
+      })),
     );
-    expect(summaryOf(underCap)).toMatchObject({partners: 99, capped: false});
+    expect(underCap.data.groups.map((group) => group.synergies.length)).toEqual([ENGINE_GROUP_CAP - 1, 5]);
+    expect(summaryOf(underCap)).toMatchObject({partners: 104, capped: false});
   });
 
   it('gives 0 partners and no tiers for an empty file', () => {
@@ -116,6 +124,25 @@ describe('engineSummary', () => {
       capped: false,
       tiers: {Perfect: 0, Strong: 0, Moderate: 0, Weak: 0},
     });
+  });
+});
+
+describe('engineFixture', () => {
+  // The engine scores a group entry in one direction (rule.findSynergies(card,
+  // [partner])), and the pair's connection for that rule keeps the higher of
+  // the two directions (SynergyEngine.ts:226-251). So no group entry outscores
+  // its rule's connection; the fixture gives it exactly that score.
+  it("gives each group entry its rule's connection score, never the pair's top score", () => {
+    const entries = ENGINE_FIFTEEN.data.groups.flatMap((group) => group.synergies);
+    expect(entries).toHaveLength(16);
+    for (const entry of entries) {
+      const connection = ENGINE_FIFTEEN.data.pairs[entry.cardId].connections.find(
+        (candidate) => candidate.ruleId === entry.ruleId,
+      );
+      expect(entry).toMatchObject({score: connection?.score, ruleName: connection?.ruleName});
+    }
+    const wrenInRamp = entries.find((entry) => entry.cardId === '301' && entry.ruleName === 'Ramp');
+    expect(wrenInRamp?.score).toBe(9);
   });
 });
 
