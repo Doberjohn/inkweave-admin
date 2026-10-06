@@ -68,9 +68,9 @@ describe('jitterOffset', () => {
 
 describe('diagonalJitter', () => {
   it('moves y − x by at most `across`, and each axis by at most along + across / 2', () => {
-    expect(diagonalJitter('1|2', 0.35, 0.07)).toEqual(diagonalJitter('1|2', 0.35, 0.07));
+    expect(diagonalJitter('1|2', {along: 0.35, across: 0.07})).toEqual(diagonalJitter('1|2', {along: 0.35, across: 0.07}));
     for (const key of KEYS) {
-      const [dx, dy] = diagonalJitter(key, 0.35, 0.07);
+      const [dx, dy] = diagonalJitter(key, {along: 0.35, across: 0.07});
       expect(Math.abs(dy - dx)).toBeLessThanOrEqual(0.07 + 1e-12);
       expect(Math.abs(dx)).toBeLessThanOrEqual(0.385 + 1e-12);
       expect(Math.abs(dy)).toBeLessThanOrEqual(0.385 + 1e-12);
@@ -102,7 +102,7 @@ describe('placeDots', () => {
     const [dx, dy] = jitterOffset('a', 0.25);
     expect([both.px, both.py]).toEqual([layout.x(2 + dx), layout.y(6 + dy)]);
     const [along] = placeDots(points, layout, {series, jitter: 0.35, jitterAlong: 'diagonal'});
-    const [ax, ay] = diagonalJitter('a', 0.35, 0.07);
+    const [ax, ay] = diagonalJitter('a', {along: 0.35, across: 0.07});
     expect(along.px).toBeCloseTo(layout.x(2 + ax), 9);
     expect(along.py).toBeCloseTo(layout.y(6 + ay), 9);
   });
@@ -116,17 +116,17 @@ describe('nearestPoint', () => {
   ];
 
   it('picks the closest point', () => {
-    expect(nearestPoint(points, 126, 101, 24)).toBe(1);
+    expect(nearestPoint(points, {x: 126, y: 101}, 24)).toBe(1);
   });
 
   it('keeps a point exactly at the radius and drops one just past it', () => {
-    expect(nearestPoint([{px: 0, py: 0}], 24, 0, 24)).toBe(0);
-    expect(nearestPoint([{px: 0, py: 0}], 24.01, 0, 24)).toBeNull();
+    expect(nearestPoint([{px: 0, py: 0}], {x: 24, y: 0}, 24)).toBe(0);
+    expect(nearestPoint([{px: 0, py: 0}], {x: 24.01, y: 0}, 24)).toBeNull();
   });
 
   it('gives null with nothing in range, and the first of two equally near points', () => {
-    expect(nearestPoint(points, 300, 300, 24)).toBeNull();
-    expect(nearestPoint(points, 100, 112, 24)).toBe(0);
+    expect(nearestPoint(points, {x: 300, y: 300}, 24)).toBeNull();
+    expect(nearestPoint(points, {x: 100, y: 112}, 24)).toBe(0);
   });
 });
 

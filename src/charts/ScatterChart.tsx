@@ -14,6 +14,7 @@ import {
   scatterOrder,
   scatterWidth,
   type DiagonalLine,
+  type Domain,
   type JitterAlong,
   type PlacedDot,
   type ScatterLayout,
@@ -30,8 +31,8 @@ export interface ScatterChartProps {
   series: readonly SeriesDef[];
   /** Names the plot's slider. */
   ariaLabel: string;
-  xDomain: readonly [number, number];
-  yDomain: readonly [number, number];
+  xDomain: Domain;
+  yDomain: Domain;
   xTicks: readonly number[];
   yTicks: readonly number[];
   xLabel: string;
@@ -238,12 +239,45 @@ function dotText(point: ScatterPoint, selectedKey: string | null): string {
 /** The walk index of the dot nearest the pointer, within HIT_RADIUS of its centre; null when none is. */
 function dotUnder(walk: readonly PlacedDot[], event: React.MouseEvent<HTMLElement>): number | null {
   const box = event.currentTarget.getBoundingClientRect();
-  return nearestPoint(walk, event.clientX - box.left, event.clientY - box.top, HIT_RADIUS);
+  return nearestPoint(walk, {x: event.clientX - box.left, y: event.clientY - box.top}, HIT_RADIUS);
 }
 
 /** The dot at the cursor's walk index, or null when the cursor is on none. */
 function activeDot(walk: readonly PlacedDot[], index: number | null): PlacedDot | null {
   return index == null ? null : (walk[index] ?? null);
+}
+
+/** The kit's focus, passed on only for focus from the keyboard (:focus-visible), so a press keeps what it found. */
+function keyboardFocusOnly(props: PlotProps): PlotProps['onFocus'] {
+  return (event) => {
+    if (event.currentTarget.matches(':focus-visible')) props.onFocus?.(event);
+  };
+}
+
+/** A click that selects the dot under it, with onSelect and a dot within HIT_RADIUS. */
+function selectUnder(walk: readonly PlacedDot[], onSelect?: (key: string) => void): PlotProps['onClick'] {
+  return (event) => {
+    const i = dotUnder(walk, event);
+    if (onSelect && i != null) onSelect(walk[i].point.key);
+  };
+}
+
+/** Selects the dot the slider announces (its aria-valuenow); null without onSelect or a dot announced. */
+function selectAnnounced(walk: readonly PlacedDot[], props: PlotProps, onSelect?: (key: string) => void): (() => void) | null {
+  const announced = props['aria-valuenow'];
+  return onSelect && announced != null ? () => onSelect(walk[announced].point.key) : null;
+}
+
+/** Enter or Space runs `select` when there is one; any other key, or with none, goes to the kit's keys. */
+function selectOnKeys(props: PlotProps, select: (() => void) | null): PlotProps['onKeyDown'] {
+  return (event) => {
+    if (select && SELECT_KEYS.has(event.key)) {
+      event.preventDefault();
+      select();
+    } else {
+      props.onKeyDown?.(event);
+    }
+  };
 }
 
 /**
@@ -261,27 +295,13 @@ function activeDot(walk: readonly PlacedDot[], index: number | null): PlacedDot 
 function scatterInput(walk: readonly PlacedDot[], setIndex: (i: number | null) => void, onSelect?: (key: string) => void) {
   return (props: PlotProps): PlotProps => {
     const follow = (event: React.PointerEvent<HTMLElement>) => setIndex(dotUnder(walk, event));
-    const announced = props['aria-valuenow'];
-    const selectAnnounced = onSelect && announced != null ? () => onSelect(walk[announced].point.key) : null;
     return {
       ...props,
       onPointerMove: follow,
       onPointerDown: follow,
-      onFocus: (event) => {
-        if (event.currentTarget.matches(':focus-visible')) props.onFocus?.(event);
-      },
-      onClick: (event) => {
-        const i = dotUnder(walk, event);
-        if (onSelect && i != null) onSelect(walk[i].point.key);
-      },
-      onKeyDown: (event) => {
-        if (selectAnnounced && SELECT_KEYS.has(event.key)) {
-          event.preventDefault();
-          selectAnnounced();
-        } else {
-          props.onKeyDown?.(event);
-        }
-      },
+      onFocus: keyboardFocusOnly(props),
+      onClick: selectUnder(walk, onSelect),
+      onKeyDown: selectOnKeys(props, selectAnnounced(walk, props, onSelect)),
     };
   };
 }

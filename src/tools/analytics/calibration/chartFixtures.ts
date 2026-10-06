@@ -65,6 +65,17 @@ export function seededPairs(count: number, seed = 1, rules: string[] = ['ramp'])
   });
 }
 
+/** Which weeks seededVotes spreads the votes over, and its seed. */
+export interface SeededVotesOptions {
+  /** How many weeks, ending with the Monday `lastWeek`. */
+  weeks: number;
+  lastWeek: Day;
+  /** The generator's seed (default 1). */
+  seed?: number;
+  /** The index of a week that gets no votes (default none). */
+  quietWeek?: number | null;
+}
+
 /**
  * One score vote per pair vote, spread over the `weeks` weeks that end with the
  * Monday `lastWeek`, on seeded days, at noon UTC in Supabase's microsecond
@@ -73,10 +84,7 @@ export function seededPairs(count: number, seed = 1, rules: string[] = ['ramp'])
  */
 export function seededVotes(
   pairs: readonly PairStat[],
-  weeks: number,
-  lastWeek: Day,
-  seed = 1,
-  quietWeek: number | null = null,
+  {weeks, lastWeek, seed = 1, quietWeek = null}: SeededVotesOptions,
 ): VoteLogRow[] {
   const next = seeded(seed);
   return pairs.flatMap((p) =>
@@ -105,7 +113,12 @@ export function seededVotes(
 
 /** The all-pairs scope at real density, and its 16 weeks of votes, ending the week of Sep 28. */
 export const ALL_PAIRS: readonly PairStat[] = seededPairs(400);
-export const ALL_PAIRS_VOTES: readonly VoteLogRow[] = seededVotes(ALL_PAIRS, 16, '2026-09-28');
+export const ALL_PAIRS_VOTES: readonly VoteLogRow[] = seededVotes(ALL_PAIRS, {weeks: 16, lastWeek: '2026-09-28'});
 /** One rule's scope: 60 pairs, and a log with a quiet week (the eleventh of 16). */
 export const ONE_RULE: readonly PairStat[] = seededPairs(60, 7);
-export const ONE_RULE_VOTES: readonly VoteLogRow[] = seededVotes(ONE_RULE, 16, '2026-09-28', 7, 10);
+export const ONE_RULE_VOTES: readonly VoteLogRow[] = seededVotes(ONE_RULE, {
+  weeks: 16,
+  lastWeek: '2026-09-28',
+  seed: 7,
+  quietWeek: 10,
+});

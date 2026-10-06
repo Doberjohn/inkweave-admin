@@ -226,6 +226,38 @@ export interface WeeklyGap {
   scoreVotes: number;
 }
 
+/** Each week's score votes in scope: the sum of their gaps and how many there are. */
+type GapSums = Map<Day, {total: number; n: number}>;
+
+/**
+ * Sums each week's gaps over the score votes on pairs in scope, in log order.
+ * `weeks[i]` is `votes[i]`'s week.
+ */
+function gapSums(votes: readonly VoteLogRow[], weeks: readonly Day[], pairs: readonly PairStat[]): GapSums {
+  const engineOf = new Map(pairs.map((p) => [pairId(p.a, p.b), p.engineScore]));
+  const sums: GapSums = new Map();
+  votes.forEach((vote, i) => {
+    const engine = engineOf.get(pairId(vote.a, vote.b));
+    if (vote.score == null || engine === undefined) return;
+    const sum = sums.get(weeks[i]) ?? {total: 0, n: 0};
+    sums.set(weeks[i], {total: sum.total + (vote.score - engine), n: sum.n + 1});
+  });
+  return sums;
+}
+
+/** Every Monday from the earliest of `weeks` to the latest, as activityModel's weeklyStacks walks them. `weeks` can't be empty. */
+function mondays(weeks: readonly Day[]): Day[] {
+  const first = weeks.reduce((a, b) => (b < a ? b : a));
+  const last = weeks.reduce((a, b) => (b > a ? b : a));
+  return eachDay(first, last).filter((_, i) => i % 7 === 0);
+}
+
+/** A week's mean gap and score votes; no mean and none for a quiet week. */
+function weekRow(week: Day, sums: GapSums): WeeklyGap {
+  const sum = sums.get(week);
+  return {week, meanGap: sum ? sum.total / sum.n : null, scoreVotes: sum?.n ?? 0};
+}
+
 /**
  * The weekly mean gap of the scope's score votes. A vote's gap is its score
  * minus its pair's engine score, and a week's mean weighs every vote equally:
@@ -243,28 +275,11 @@ export interface WeeklyGap {
  * scope's weeks need not average to its mean gap.
  */
 export function weeklyGaps(votes: readonly VoteLogRow[], pairs: readonly PairStat[]): WeeklyGap[] {
-  const engineOf = new Map(pairs.map((p) => [pairId(p.a, p.b), p.engineScore]));
-  const sums = new Map<Day, {total: number; n: number}>();
-  let first: Day | null = null;
-  let last: Day | null = null;
-  for (const vote of votes) {
-    // Supabase writes UTC (+00:00), so the first ten characters are the vote's UTC day, as activityModel reads it.
-    const week = weekStart(vote.ts.slice(0, 10));
-    if (first === null || week < first) first = week;
-    if (last === null || week > last) last = week;
-    const engine = engineOf.get(pairId(vote.a, vote.b));
-    if (vote.score == null || engine === undefined) continue;
-    const sum = sums.get(week) ?? {total: 0, n: 0};
-    sums.set(week, {total: sum.total + (vote.score - engine), n: sum.n + 1});
-  }
-  if (first === null || last === null) return [];
-  // Every Monday from the first week to the last, as activityModel's weeklyStacks walks them.
-  return eachDay(first, last)
-    .filter((_, i) => i % 7 === 0)
-    .map((week) => {
-      const sum = sums.get(week);
-      return {week, meanGap: sum ? sum.total / sum.n : null, scoreVotes: sum?.n ?? 0};
-    });
+  // Supabase writes UTC (+00:00), so the first ten characters are the vote's UTC day, as activityModel reads it.
+  const weeks = votes.map((vote) => weekStart(vote.ts.slice(0, 10)));
+  if (weeks.length === 0) return [];
+  const sums = gapSums(votes, weeks, pairs);
+  return mondays(weeks).map((week) => weekRow(week, sums));
 }
 
 /**

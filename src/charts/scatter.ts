@@ -1,6 +1,7 @@
 import {SPACING} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {TICK_GAP, labelWidth} from './axis';
+import type {PlotPoint} from './lineLayout';
 import {linear} from './scale';
 import {chartWidth, type SeriesDef} from './series';
 
@@ -21,6 +22,12 @@ export interface ScatterPoint {
   /** The point in words: the slider's value text when the keyboard is on it. */
   label: string;
 }
+
+/** An axis's data range, low end first. */
+export type Domain = readonly [number, number];
+
+/** A data value to px along one axis. */
+type Scale = (v: number) => number;
 
 /** The pointer only has to be the closest to a dot, within this many px of its centre: a 48px target (dataviz: a nearest-point layer). */
 export const HIT_RADIUS = 24;
@@ -58,19 +65,14 @@ export interface ScatterLayout {
   top: number;
   side: number;
   /** Data value to px. */
-  x: (v: number) => number;
-  y: (v: number) => number;
+  x: Scale;
+  y: Scale;
   /** Null when the domains don't overlap. */
   diagonal: DiagonalLine | null;
 }
 
 /** y = x from where both domains start to where the first one ends, placed by the scales. */
-function diagonalLine(
-  x: (v: number) => number,
-  y: (v: number) => number,
-  xDomain: readonly [number, number],
-  yDomain: readonly [number, number],
-): DiagonalLine | null {
+function diagonalLine(x: Scale, y: Scale, xDomain: Domain, yDomain: Domain): DiagonalLine | null {
   const low = Math.max(xDomain[0], yDomain[0]);
   const high = Math.min(xDomain[1], yDomain[1]);
   if (low >= high) return null;
@@ -85,8 +87,8 @@ function diagonalLine(
  */
 export function scatterLayout(
   width: number,
-  xDomain: readonly [number, number],
-  yDomain: readonly [number, number],
+  xDomain: Domain,
+  yDomain: Domain,
   yLabels: readonly string[] = [],
 ): ScatterLayout {
   const {top, right, bottom} = SCATTER_MARGIN;
@@ -97,19 +99,10 @@ export function scatterLayout(
   return {width, height: side + top + bottom, left, top, side, x, y, diagonal: diagonalLine(x, y, xDomain, yDomain)};
 }
 
-/** FNV-1a over the key, salted, as a number from 0 to 1. */
-function unitHash(key: string, salt: number): number {
-  let hash = 0x811c9dc5 ^ salt;
-  for (let i = 0; i < key.length; i += 1) {
-    hash ^= key.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0) / 0xffffffff;
-}
-
 /**
- * A fixed offset of up to ±amount on each axis, seeded by the key. Points that
- * share exact values spread into a small cloud, and each dot stays where it was
+ * A fixed offset of up to ±amount on each axis, seeded by the key: x by its
+ * FNV-1a hash salted with 1, y by the one salted with 2. Points that share
+ * exact values spread into a small cloud, and each dot stays where it was
  * across renders and reloads. Keys should be more than a couple of characters
  * long. A one-character key's two hashes nearly agree, and a two-character
  * key's differ by one of a few fixed amounts, so short keys streak along
@@ -117,19 +110,34 @@ function unitHash(key: string, salt: number): number {
  */
 export function jitterOffset(key: string, amount: number): [number, number] {
   if (amount <= 0) return [0, 0];
-  return [(unitHash(key, 1) * 2 - 1) * amount, (unitHash(key, 2) * 2 - 1) * amount];
+  const [hx, hy] = [1, 2].map((salt) => {
+    // FNV-1a over the key, salted, as a number from 0 to 1.
+    let hash = 0x811c9dc5 ^ salt;
+    for (let i = 0; i < key.length; i += 1) {
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0) / 0xffffffff;
+  });
+  return [(hx * 2 - 1) * amount, (hy * 2 - 1) * amount];
+}
+
+/** How far diagonalJitter moves a dot, in data units: along y = x, and across it. */
+export interface Spread {
+  along: number;
+  across: number;
 }
 
 /**
- * A fixed offset, seeded by the key, that runs mostly along y = x: up to ±along
- * on both axes together, plus up to ±across / 2 on each axis in opposite
- * directions. So y − x moves by at most `across`, and a point's distance from
- * the diagonal stays within `across` of its true value. Each axis moves by at
- * most along + across / 2.
+ * A fixed offset, seeded by the key, that runs mostly along y = x: up to
+ * ±spread.along on both axes together, plus up to ±spread.across / 2 on each
+ * axis in opposite directions. So y − x moves by at most `spread.across`, and a
+ * point's distance from the diagonal stays within `spread.across` of its true
+ * value. Each axis moves by at most along + across / 2.
  */
-export function diagonalJitter(key: string, along: number, across: number): [number, number] {
+export function diagonalJitter(key: string, spread: Spread): [number, number] {
   const [t, s] = jitterOffset(key, 1);
-  return [t * along - (s * across) / 2, t * along + (s * across) / 2];
+  return [t * spread.along - (s * spread.across) / 2, t * spread.along + (s * spread.across) / 2];
 }
 
 /** How a scatter spreads points that share exact values: on each axis apart, or mostly along y = x. */
@@ -159,14 +167,19 @@ export interface DotOptions {
   jitterAlong: JitterAlong;
 }
 
+/** A point's fixed per-key jitter under the options, in data units. */
+function dotOffset(point: ScatterPoint, opts: DotOptions): [number, number] {
+  if (opts.jitterAlong === 'diagonal') {
+    return diagonalJitter(point.key, {along: opts.jitter, across: opts.jitter * ACROSS_SHARE});
+  }
+  return jitterOffset(point.key, opts.jitter);
+}
+
 /** Places each point at its value plus its fixed per-key jitter, in its series' colour, in the order given. */
 export function placeDots(points: readonly ScatterPoint[], layout: ScatterLayout, opts: DotOptions): PlacedDot[] {
   const colorOf = new Map(opts.series.map((s) => [s.id, s.color]));
   return points.map((point) => {
-    const [dx, dy] =
-      opts.jitterAlong === 'diagonal'
-        ? diagonalJitter(point.key, opts.jitter, opts.jitter * ACROSS_SHARE)
-        : jitterOffset(point.key, opts.jitter);
+    const [dx, dy] = dotOffset(point, opts);
     return {
       point,
       color: colorOf.get(point.series) ?? ADMIN_COLORS.barNeutral,
@@ -177,21 +190,21 @@ export function placeDots(points: readonly ScatterPoint[], layout: ScatterLayout
 }
 
 /**
- * The index of the point nearest (x, y) within `radius` px, or null. The first
- * of two equally near points wins. ScatterChart passes its walk (scatterOrder),
- * so of two dots stacked on one spot, the walk's first wins, not the one drawn
- * on top. With jitter on, two dots all but never share a spot.
+ * The index of the point nearest `at` (in px, as the points' px and py) within
+ * `radius` px, or null. The first of two equally near points wins.
+ * ScatterChart passes its walk (scatterOrder), so of two dots stacked on one
+ * spot, the walk's first wins, not the one drawn on top. With jitter on, two
+ * dots all but never share a spot.
  */
 export function nearestPoint(
   points: ReadonlyArray<{px: number; py: number}>,
-  x: number,
-  y: number,
+  at: PlotPoint,
   radius: number,
 ): number | null {
   let best: number | null = null;
   let bestDistance = Infinity;
   points.forEach((point, i) => {
-    const distance = Math.hypot(point.px - x, point.py - y);
+    const distance = Math.hypot(point.px - at.x, point.py - at.y);
     if (distance <= radius && distance < bestDistance) {
       best = i;
       bestDistance = distance;
