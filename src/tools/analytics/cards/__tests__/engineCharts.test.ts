@@ -177,6 +177,11 @@ describe('networkSubtitle', () => {
       `Every partner, ${READ}, the first 5 on the inner ring. Thicker spokes score higher.`,
     ],
     [
+      'twelve partners, all drawn',
+      distinct(12),
+      `Every partner, ${READ}, the first 6 on the inner ring. Thicker spokes score higher.`,
+    ],
+    [
       'a cut between two scores',
       distinct(13),
       `The 12 strongest of 13 partners, ${READ}, the first 6 on the inner ring. Thicker spokes score higher.`,

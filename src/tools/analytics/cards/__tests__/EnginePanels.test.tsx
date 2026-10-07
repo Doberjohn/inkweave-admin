@@ -2,7 +2,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {RouterProvider, createMemoryRouter} from 'react-router-dom';
-import {FONTS, TIER_COLORS} from '../../../../app-bridge';
+import {CtaButton, FONTS, TIER_COLORS} from '../../../../app-bridge';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../../../../theme/adminTheme';
 import {ANALYTICS} from '../../overview/overviewFixtures';
 import type {UseVoteAnalyticsReturn} from '../../useVoteAnalytics';
 import {
@@ -96,10 +97,14 @@ const tierLegend = () =>
     .map((item) => item.textContent);
 
 describe('EnginePanels: the Engine view', () => {
-  it('counts every partner, the number in Tinos, and splits them by tier, every tier shown', () => {
+  it('counts every partner, the number in Tinos at the KPI size beside muted words, and splits them by tier', () => {
     renderPanels();
     expect(engineView()).toHaveTextContent('15 synergy partners');
-    expect(within(engineView()).getByText('15')).toHaveStyle({fontFamily: FONTS.hero});
+    expect(within(engineView()).getByText('15')).toHaveStyle({fontFamily: FONTS.hero, fontSize: `${ADMIN_TYPE.kpi}px`});
+    expect(within(engineView()).getByText('synergy partners')).toHaveStyle({
+      fontSize: `${ADMIN_TYPE.body}px`,
+      color: ADMIN_COLORS.muted,
+    });
     expect(within(engineView()).queryByText(/At least/)).not.toBeInTheDocument();
     expect(within(engineView()).queryByText(/top 100 partners/)).not.toBeInTheDocument();
     expect(tierLegend()).toEqual([
@@ -125,6 +130,7 @@ describe('EnginePanels: the Engine view', () => {
   it('reads "At least" and gives the reason when a group hit the engine’s cap', () => {
     renderPanels({fixture: ENGINE_CAPPED});
     expect(engineView()).toHaveTextContent('At least 142 synergy partners');
+    expect(within(engineView()).getByText('At least')).toHaveStyle({color: ADMIN_COLORS.muted});
     expect(within(engineView()).getByText('A synergy group lists only its top 100 partners.')).toBeInTheDocument();
   });
 
@@ -143,12 +149,21 @@ describe('EnginePanels: the Engine view', () => {
     expect(screen.queryByRole('figure', {name: 'Strongest partners'})).not.toBeInTheDocument();
   });
 
-  it('says why a read failed and offers Retry, which reads the file again (R-45)', async () => {
+  it('says why a read failed and offers a neutral Retry, which reads the file again (R-45)', async () => {
     const retry = vi.fn();
     renderPanels({synergies: {data: null, error: new Error('offline'), retry}});
     expect(screen.getByRole('alert')).toHaveTextContent("Could not load this card's synergies (offline)");
     expect(screen.queryByRole('figure', {name: 'Strongest partners'})).not.toBeInTheDocument();
-    await userEvent.click(within(engineView()).getByRole('button', {name: 'Retry'}));
+    const button = within(engineView()).getByRole('button', {name: 'Retry'});
+    // Neutral, not the filled primary: it looks as the kit's own neutral CtaButton does.
+    render(
+      <CtaButton type="button" variant="neutral">
+        Neutral
+      </CtaButton>,
+    );
+    const neutral = screen.getByRole('button', {name: 'Neutral'});
+    expect([button.style.color, button.style.border]).toEqual([neutral.style.color, neutral.style.border]);
+    await userEvent.click(button);
     expect(retry).toHaveBeenCalledOnce();
   });
 
@@ -160,18 +175,27 @@ describe('EnginePanels: the Engine view', () => {
     ],
     ['loading', NO_ANALYTICS, 'Live engine data from inkweave.ink.'],
     ['failed', {data: null, loading: false, error: new Error('404')}, 'Live engine data from inkweave.ink.'],
-  ])('names its source, and the vote analytics’ engine date once they have %s', (_, analytics, caption) => {
+  ])('names its source last, and the vote analytics’ engine date once they have %s', (_, analytics, caption) => {
     renderPanels({analytics});
-    expect(within(engineView()).getByText(caption)).toBeInTheDocument();
+    expect(engineView().lastElementChild).toBe(within(engineView()).getByText(caption));
   });
 });
 
 describe('EnginePanels: focus after Retry (R-48)', () => {
-  it('moves focus to the panel’s heading once the read lands', async () => {
+  it('moves focus to the panel’s heading once the read lands with partners', async () => {
     fetchCardSynergies.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(ENGINE_FIFTEEN.data);
     renderLive();
     await userEvent.click(await screen.findByRole('button', {name: 'Retry'}));
     expect(await screen.findByText('synergy partners')).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Engine view'})).toHaveFocus();
+    expect(fetchCardSynergies).toHaveBeenCalledTimes(2);
+  });
+
+  it('moves focus to the panel’s heading when the read lands with no synergies', async () => {
+    fetchCardSynergies.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(ENGINE_EMPTY.data);
+    renderLive();
+    await userEvent.click(await screen.findByRole('button', {name: 'Retry'}));
+    expect(await screen.findByText(/^The engine finds no synergies/)).toBeInTheDocument();
     expect(screen.getByRole('heading', {name: 'Engine view'})).toHaveFocus();
     expect(fetchCardSynergies).toHaveBeenCalledTimes(2);
   });

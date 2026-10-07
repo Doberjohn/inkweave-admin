@@ -330,7 +330,7 @@ describe('CardAnalyticsView: the raw-vote panels (R3-6b)', () => {
 });
 
 describe('CardAnalyticsView: the engine panels (R3-6c)', () => {
-  it('ends with the Engine view and, under it, the network, without waiting for the vote files', () => {
+  it('shows the Engine view and, under it, the network, without waiting for the vote files', () => {
     renderView({
       analytics: {data: null, loading: true, error: null},
       voteLog: {data: null, loading: true, error: null},
@@ -339,7 +339,20 @@ describe('CardAnalyticsView: the engine panels (R3-6c)', () => {
     const engine = screen.getByRole('region', {name: 'Engine view'});
     const network = screen.getByRole('figure', {name: 'Strongest partners'});
     expect(engine).toHaveTextContent('15 synergy partners');
-    expect(screen.getAllByRole('figure').at(-1)).toBe(network);
     expect(engine.compareDocumentPosition(network) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders the engine panels after every vote section, the network last of all', () => {
+    renderView({synergies: {data: ENGINE_FIFTEEN.data, loading: false, error: null, retry: vi.fn()}});
+    const engine = screen.getByRole('region', {name: 'Engine view'});
+    // With the vote files loaded, the raw-vote figures are on the page too: the network still comes last.
+    const figures = screen.getAllByRole('figure');
+    expect(figures.length).toBeGreaterThan(1);
+    expect(figures.at(-1)).toHaveAccessibleName('Strongest partners');
+    const before = screen.getAllByRole('region').filter((region) => region !== engine);
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((region) => region.compareDocumentPosition(engine) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(
+      true,
+    );
   });
 });
