@@ -1,5 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
+import {MemoryRouter} from 'react-router-dom';
 import {FONTS, SPACING} from '../../app-bridge';
+import {KnownCardsContext} from '../../shell/knownCards';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {VoteDetailTable} from './VoteDetailTable';
 import type {VoteLogRow} from './voteLogTypes';
@@ -46,7 +48,13 @@ const VOTES: VoteLogRow[] = [
   vote({voter: 4, ts: '2026-07-01T08:30:00Z'}),
 ];
 
-const PAIR = {aName: 'Sisu - Divine Water Dragon', bName: 'Raya - Leader of Heart', engineScore: 8};
+const PAIR = {
+  a: 'crd_a',
+  b: 'crd_b',
+  aName: 'Sisu - Divine Water Dragon',
+  bName: 'Raya - Leader of Heart',
+  engineScore: 8,
+};
 
 export const WithVotes: Story = {args: {pair: PAIR, votes: VOTES}};
 
@@ -58,3 +66,20 @@ export const NoVotes: Story = {args: {pair: PAIR, votes: []}};
 
 /** The vote log is still loading: the notice stands in for the table. */
 export const Loading: Story = {args: {pair: PAIR, votes: [], notice: 'Loading the vote log…'}};
+
+/**
+ * In the shell (R-33): Sisu is in the card list, so its name links to its card
+ * page; Raya isn't (rotated out of Core, say), so its name stays text.
+ */
+export const CardLinks: Story = {
+  args: {pair: PAIR, votes: VOTES},
+  decorators: [
+    (Story) => (
+      <MemoryRouter>
+        <KnownCardsContext value={(id) => id === 'crd_a'}>
+          <Story />
+        </KnownCardsContext>
+      </MemoryRouter>
+    ),
+  ],
+};

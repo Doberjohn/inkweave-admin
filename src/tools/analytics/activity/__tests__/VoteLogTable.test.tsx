@@ -2,6 +2,7 @@ import type {ComponentProps} from 'react';
 import {describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {renderWithCards} from '../../../../test/cardLinks';
 import {VoteLogTable} from '../VoteLogTable';
 import type {VoteLogRow} from '../../voteLogTypes';
 
@@ -94,6 +95,25 @@ describe('VoteLogTable', () => {
   it('names the picked bar in its summary', () => {
     renderTable({votes: VOTES.slice(0, 2), pickedLabel: 'Wed Sep 30'});
     expect(screen.getByText('Wed Sep 30 · 2 votes')).toBeInTheDocument();
+  });
+
+  it('links each card the card list holds to its card page, and leaves the rest as text (R-33)', () => {
+    renderWithCards(
+      <VoteLogTable
+        votes={VOTES.slice(0, 1)}
+        limit={25}
+        pickedLabel={null}
+        voter={null}
+        onShowMore={vi.fn()}
+        onPickVoter={vi.fn()}
+      />,
+      ['1'],
+    );
+    const pair = screen.getByRole('cell', {name: 'Elsa × Anna'});
+    expect(within(pair).getByRole('link', {name: 'Elsa'})).toHaveAttribute('href', '/cards/1');
+    expect(within(pair).queryByRole('link', {name: 'Anna'})).not.toBeInTheDocument();
+    // The whole pair stays the cell's title, for a line cut short.
+    expect(pair).toHaveAttribute('title', 'Elsa × Anna');
   });
 
   it('says when nothing matches, naming the voter when one is picked', () => {

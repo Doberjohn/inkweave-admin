@@ -1,10 +1,11 @@
-import {NAV_ITEMS, calibrationHref, isWritePath, navItemFor} from './nav';
+import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor} from './nav';
 
 describe('navItemFor', () => {
   it.each([
     ['/reveal', 'reveal'],
     ['/reveal/', 'reveal'],
     ['/calibration/anything', 'calibration'],
+    ['/cards/2983', 'cards'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
@@ -20,7 +21,7 @@ describe('isWritePath', () => {
   });
 
   // /tuning is a redirect now, and a redirect writes nothing.
-  it.each(['/tuning', '/no-such-page'])('%s writes nothing', (pathname) => {
+  it.each(['/tuning', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -36,7 +37,8 @@ describe('NAV_ITEMS', () => {
 describe('the Calibration & tuning item', () => {
   it('heads Insights, where the analytics page was', () => {
     const insights = NAV_ITEMS.filter((item) => item.group === 'insights').map((item) => item.id);
-    expect(insights).toEqual(['calibration', 'activity', 'web']);
+    // Card analytics ends the group (R3), as the handoff lists it.
+    expect(insights).toEqual(['calibration', 'activity', 'web', 'cards']);
     expect(NAV_ITEMS.some((item) => item.id === 'analytics')).toBe(false);
   });
 
@@ -57,5 +59,17 @@ describe('calibrationHref', () => {
     ['a b', '/calibration?rule=a%20b'],
   ])('links %s to %s', (ruleId, href) => {
     expect(calibrationHref(ruleId)).toBe(href);
+  });
+});
+
+describe('cardsHref', () => {
+  it('links the bare page when no card is given', () => expect(cardsHref()).toBe('/cards'));
+
+  it.each([
+    ['2983', '/cards/2983'],
+    // Escaped, so an id always stays one path segment.
+    ['a/b c', '/cards/a%2Fb%20c'],
+  ])('links %s to %s', (cardId, href) => {
+    expect(cardsHref(cardId)).toBe(href);
   });
 });

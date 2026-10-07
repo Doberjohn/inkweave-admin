@@ -1,7 +1,9 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
-import {FONTS, SPACING} from '../app-bridge';
+import {MemoryRouter} from 'react-router-dom';
+import {FONTS, SPACING, getStrengthTier} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {TIER_COLOR, TIER_SERIES} from '../tools/analytics/cards/engineView';
 import {gapColor} from '../tools/analytics/gapColor';
 import {fmtDay, fmtGap, fmtInt, fmtScore} from '../ui/format';
 import {Panel} from '../ui/Panel';
@@ -9,6 +11,7 @@ import {BarChart, type BarDatum} from './BarChart';
 import {ChartFrame, type ChartTable, type ChartView} from './ChartFrame';
 import {ChartLegend} from './ChartLegend';
 import {LineChart, type LineSeries} from './LineChart';
+import {NetworkDiagram, type NetworkNode} from './NetworkDiagram';
 import {RangeControl} from './RangeControl';
 import {bucketFor, rangeStartDay, type RangePreset} from './range';
 import {addDays, eachDay, weekStart} from './scale';
@@ -426,3 +429,125 @@ function SelectedDemo() {
 
 /** The dense lattice with a pair selected: lifted, with an accent ring outside its disc, and ", selected" in its value text. */
 export const ScatterSelected: Story = {render: () => <SelectedDemo />};
+
+/**
+ * A card's partners for the network stories, strongest first: whole-number
+ * engine scores with ties, each tie in name order, as R3-4 sorts them (R-37).
+ */
+const PARTNERS: ReadonlyArray<readonly [string, number]> = [
+  ['Anna', 10],
+  ['Olaf', 10],
+  ['Kristoff', 9],
+  ['Grand Pabbie', 8],
+  ['Hans', 8],
+  ['Marshmallow', 8],
+  ['Sven', 8],
+  ['Oaken', 7],
+  ['Bruni', 6],
+  ['Duke of Weselton', 6],
+  ['Iduna', 5],
+  ['Agnarr', 4],
+  ['Honeymaren', 3],
+  ['Ryder', 3],
+  ['Yelana', 2],
+];
+const PARTNER_RULES = ['Ramp', 'Shift Targets', 'Locations'];
+
+/**
+ * The first `count` partners as nodes: the short name printed, and in the
+ * tooltip the full name (the printed one and a version, so label in name
+ * holds), score, tier and rule.
+ */
+function partnerNodes(count: number, label: (name: string) => string = (name) => name): NetworkNode[] {
+  return PARTNERS.slice(0, count).map(([name, score], i) => {
+    const tier = getStrengthTier(score).label;
+    const shown = label(name);
+    return {
+      id: String(i + 1),
+      label: shown,
+      href: `/cards/${i + 1}`,
+      value: score,
+      seriesId: tier,
+      tooltip: {
+        title: `${shown} - Story Version`,
+        rows: [
+          {value: fmtInt(score), label: `engine score · ${tier}`, color: TIER_COLOR[tier]},
+          {value: PARTNER_RULES[i % PARTNER_RULES.length], label: 'rule'},
+        ],
+      },
+    };
+  });
+}
+
+interface NetworkCardProps {
+  nodes: readonly NetworkNode[];
+  subtitle: string;
+  /** The panel's widest, for the phone-width story. */
+  maxWidth?: number;
+}
+
+/**
+ * The network in its frame, as R3-6c's Engine view sets it (R-39): an untitled
+ * Panel, the tier legend, and the table of every partner. The frame's view is
+ * controlled here, so "and K more in the table" opens the table view, which
+ * takes focus.
+ */
+function NetworkCard({nodes, subtitle, maxWidth}: NetworkCardProps) {
+  const [view, setView] = useState<ChartView>('chart');
+  return (
+    <MemoryRouter>
+      <div style={{maxWidth}}>
+        <Panel>
+          <ChartFrame
+            title="Strongest partners"
+            subtitle={subtitle}
+            legend={<ChartLegend series={TIER_SERIES} mark="line" />}
+            table={{
+              caption: 'Synergy partners of Queen Elsa, strongest first',
+              columns: ['Partner', 'Score', 'Tier', 'Rules'],
+              rows: nodes.map((node) => [node.tooltip.title, fmtInt(node.value), node.seriesId, node.tooltip.rows[1].value]),
+            }}
+            view={view}
+            onViewChange={setView}>
+            <NetworkDiagram
+              nodes={nodes}
+              series={TIER_SERIES}
+              ariaLabel="Strongest synergy partners of Queen Elsa"
+              onShowAll={() => setView('table')}
+            />
+          </ChartFrame>
+        </Panel>
+      </div>
+    </MemoryRouter>
+  );
+}
+
+/** Twelve partners on two rings: the stronger six inside. Hover or Tab to a node for its tooltip; the other spokes dim. */
+export const NetworkTwoRings: Story = {
+  render: () => <NetworkCard nodes={partnerNodes(12)} subtitle="The 12 strongest partners, clockwise from 12 o’clock" />,
+};
+
+/** Up to six partners share one ring. */
+export const NetworkOneRing: Story = {
+  render: () => <NetworkCard nodes={partnerNodes(5)} subtitle="Every partner, clockwise from 12 o’clock" />,
+};
+
+/** Fifteen partners: twelve drawn, and "and 3 more in the table" opens the frame's table view and focuses it. */
+export const NetworkMoreInTable: Story = {
+  render: () => <NetworkCard nodes={partnerNodes(15)} subtitle="The 12 strongest of 15 partners" />,
+};
+
+/** Long names: the ones textWidth says won't fit (R-40) stay in their tooltips, the link names and the table. */
+export const NetworkLongNames: Story = {
+  render: () => (
+    <NetworkCard
+      nodes={partnerNodes(12, (name) => `${name} of the Northern Mountains`)}
+      subtitle="Names that don’t fit beside their nodes are left to the tooltip"
+    />
+  ),
+};
+
+/** A phone-width panel: the side names drop first. */
+export const NetworkNarrow: Story = {
+  render: () => <NetworkCard nodes={partnerNodes(12)} subtitle="At 320px" maxWidth={320} />,
+};

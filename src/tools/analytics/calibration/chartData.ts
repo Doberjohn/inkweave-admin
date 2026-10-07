@@ -3,9 +3,9 @@ import {eachDay, weekStart, type Day} from '../../../charts/scale';
 import type {ScatterPoint} from '../../../charts/ScatterChart';
 import type {SeriesDef} from '../../../charts/series';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
-import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
+import {fmtGap, fmtInt, fmtScore, sharePercent} from '../../../ui/format';
 import {bucketTitle, partialWeeks} from '../activity/activityChart';
-import {countOf} from '../activity/activityModel';
+import {countOf, type VoteSpan} from '../activity/activityModel';
 import {CALIBRATION_BAND} from '../verdict';
 import type {PairStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
@@ -193,19 +193,6 @@ export function gapShares(bins: readonly GapBin[]): Record<GapSide, number> {
   return {over: share('over'), agree: share('agree'), under: share('under')};
 }
 
-/**
- * A share of the pairs as a whole percentage: 1 / 3 -> "33%". A share above
- * zero that would round to 0 prints "<1%", so a bin with pairs never reads
- * "0%"; one below 1 that would round to 100 prints ">99%", so a bin without
- * every pair never reads "100%". The histogram's subtitle, tooltip and table
- * use it.
- */
-export function sharePercent(fraction: number): string {
-  if (fraction > 0 && fraction < 0.005) return '<1%';
-  if (fraction < 1 && fraction >= 0.995) return '>99%';
-  return `${Math.round(fraction * 100)}%`;
-}
-
 /** The histogram's table view: every bin, empty ones included, with its pairs, their votes and its share. */
 export function histogramTable(bins: readonly GapBin[], scopeLabel: string): ChartTable {
   const total = bins.reduce((n, bin) => n + bin.pairs, 0);
@@ -297,24 +284,15 @@ export function gapDomain(weeks: readonly WeeklyGap[]): [number, number] {
   return [-edge, edge];
 }
 
-/**
- * The vote log's first and last UTC days: activityWindow(votes, 'all'), the
- * range Vote activity reads at "All". weeklyGaps' weeks run from the first's
- * Monday to the last's, so a log that starts after a Monday or ends before a
- * Sunday has a part week at that end.
- */
-export interface VoteSpan {
-  startDay: Day;
-  endDay: Day;
-}
-
 /** What the weekly trend's words read: the scope it covers and the log's span. */
 export interface WeeklyScope {
   /** "All pairs" or the selected rule's name. */
   scopeLabel: string;
   /**
-   * The log's first and last vote days (activityWindow(votes, 'all')), which
-   * say whether an end week is a part week; null for an empty log.
+   * The log's first and last vote days (activityWindow(votes, 'all'), the
+   * range Vote activity reads at "All"); null for an empty log. weeklyGaps'
+   * weeks run from the first's Monday to the last's, so a log that starts
+   * after a Monday or ends before a Sunday has a part week at that end.
    */
   span: VoteSpan | null;
 }

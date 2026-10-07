@@ -1,16 +1,7 @@
 import {PageLayout} from '../../../shell/PageLayout';
-import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
+import {DataAsOf} from '../../../ui/DataAsOf';
 import {useVoteLog} from '../useVoteLog';
 import {ActivityView} from './ActivityView';
-
-/** "Data as of 2026-10-01": the day admin's Deploy workflow built the vote log. */
-function DataAsOf({generatedAt}: {generatedAt: string}) {
-  return (
-    <span style={{fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>
-      Data as of <code>{generatedAt.slice(0, 10)}</code>
-    </span>
-  );
-}
 
 /**
  * Vote activity (/activity): the raw votes in vote-log.json, filterable by

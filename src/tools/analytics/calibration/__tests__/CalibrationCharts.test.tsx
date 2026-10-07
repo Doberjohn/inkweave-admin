@@ -5,11 +5,12 @@ import userEvent from '@testing-library/user-event';
 import type {LineChart as RealLineChart} from '../../../../charts/LineChart';
 import type {ScatterChart as RealScatterChart} from '../../../../charts/ScatterChart';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
+import type {VoteSpan} from '../../activity/activityModel';
 import {CalibrationScatter} from '../CalibrationScatter';
 import {GapHistogram} from '../GapHistogram';
 import {WeeklyGapTrend} from '../WeeklyGapTrend';
 import {SIX_PAIRS, pairOf} from '../chartFixtures';
-import {SCATTER_JITTER, SCORE_DOMAIN, SCORE_TICKS, gapDomain, type VoteSpan, type WeeklyGap} from '../chartData';
+import {SCATTER_JITTER, SCORE_DOMAIN, SCORE_TICKS, gapDomain, type WeeklyGap} from '../chartData';
 import {pairId} from '../calibrationModel';
 
 // jsdom has no ResizeObserver, so the real useContainerWidth stays at 0 and the

@@ -1,4 +1,4 @@
-import {useEffect} from 'react';
+import {useEffect, useLayoutEffect, useRef} from 'react';
 import {FONTS, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../theme/adminTheme';
 import {BranchNotice} from './BranchNotice';
@@ -70,15 +70,54 @@ interface PageLayoutProps {
   branchLabel?: string;
   /** Children go straight into the scrolling body, with no padding and no grid. */
   flush?: boolean;
+  /**
+   * The tab's name before " · Inkweave admin", when it should say more than the
+   * title: a card page names its card ("Elsa - Snow Queen · Card analytics", R-51).
+   */
+  documentTitle?: string;
+  /**
+   * What the body is showing, for a page whose one route element serves many
+   * things: when it changes, the body scrolls back to the top. The header stays
+   * mounted, so focus stays where it was (a card page passes its card id: R-48).
+   */
+  scrollKey?: string;
   children: React.ReactNode;
+}
+
+/**
+ * Names the browser tab "{name} · Inkweave admin": the page's documentTitle
+ * when it gives one, else its title. Nothing restores the old name on
+ * unmount: the next page sets its own.
+ */
+function useTabTitle({title, documentTitle}: Pick<PageLayoutProps, 'title' | 'documentTitle'>) {
+  const name = documentTitle ?? title;
+  useEffect(() => {
+    document.title = `${name} · Inkweave admin`;
+  }, [name]);
+}
+
+/**
+ * The body's ref, scrolled back to the top when `scrollKey` changes after the
+ * first render, before the next paint. A page that passes none never scrolls.
+ */
+function useScrollReset({scrollKey}: Pick<PageLayoutProps, 'scrollKey'>) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const shownRef = useRef(scrollKey);
+  useLayoutEffect(() => {
+    if (shownRef.current === scrollKey) return;
+    shownRef.current = scrollKey;
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [scrollKey]);
+  return bodyRef;
 }
 
 /**
  * Every admin page's frame: a header with the page's h1, subtitle, meta,
  * actions and (on pages that write) the branch notice, over a scrolling body
  * that stacks the page's sections. It renders the page's only <main>, and
- * names the browser tab after the page ("Vote activity · Inkweave admin").
- * Nothing restores the old title on unmount: the next page sets its own.
+ * names the browser tab after the page ("Vote activity · Inkweave admin"), or
+ * after `documentTitle` when that says more. The body scrolls back to the top
+ * when `scrollKey` changes.
  */
 export function PageLayout({
   title,
@@ -88,11 +127,12 @@ export function PageLayout({
   writes = false,
   branchLabel,
   flush = false,
+  documentTitle,
+  scrollKey,
   children,
 }: PageLayoutProps) {
-  useEffect(() => {
-    document.title = `${title} · Inkweave admin`;
-  }, [title]);
+  useTabTitle({title, documentTitle});
+  const bodyRef = useScrollReset({scrollKey});
   const hasSide = meta != null || actions != null || writes;
   return (
     <main style={MAIN}>
@@ -109,7 +149,9 @@ export function PageLayout({
           </div>
         )}
       </header>
-      <div style={flush ? FLUSH_BODY : BODY}>{children}</div>
+      <div ref={bodyRef} style={flush ? FLUSH_BODY : BODY}>
+        {children}
+      </div>
     </main>
   );
 }

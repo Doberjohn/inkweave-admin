@@ -14,9 +14,9 @@
 
 **Spec:** `docs/redesign/handoff/README.md` plus the prototype `docs/redesign/handoff/Inkweave Admin.dc.html`. The handoff lives outside git, in the owner's working copy only (`.git/info/exclude`), and is deleted once R4 ships (owner, 2026-10-01). Open the prototype with `support.js` next to it, served over HTTP; it doesn't run from `file://`. The spec's own fixtures are sample data. Where this plan and the spec disagree, **this plan wins**: the "Corrections to the spec" section lists every case, and each comes from the 2026-10-01 review of the handoff against the code.
 
-**Tracking:** Doberjohn/inkweave-admin#24. Branch: `feature/24-admin-redesign`, one PR per phase.
+**Tracking:** Doberjohn/inkweave-admin#24. Branch: one per phase: `feature/24-admin-redesign` (R1), `feature/24-redesign-r2` (R2), `feature/24-redesign-r3` (R3); one PR per phase.
 
-**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built on 2026-10-06; see "R2 as built". Its real-data check waits for the owner's files. R3 and R4 are outlined below and detailed when each starts.
+**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built, checked against real data and merged on 2026-10-06 (PRs #27 and #28); see "R2 as built". R3 built and checked against real data on 2026-10-07; see "R3 as built". R4 is outlined below and detailed when it starts.
 
 ---
 
@@ -48,6 +48,42 @@ The R2 outline's open questions, settled before re-basing it. All twelve follow 
 | R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. |
 | R-27 | A fainter fill on selected rows | R2-3's option (a): `ADMIN_COLORS.rowSelected` = `hexRgba(COLORS.primary, 0.05)` fills a pressed `adm-row-btn`, hovered or not, so red gap text on a selected row reaches 4.58:1 (the 0.06 tint gave 4.50:1, and 4.15:1 hovered). R2-3 and R2-4 implement the (a) parts and skip (b). The sidebar's "Forget token" still drops unpublished tuning edits without asking (a noted limit). |
 | R-26 | Rejected token on a write page | When GitHub rejects the saved token (401), the tuning aside's error offers "Forget token" (the shared store), so the gate comes back without a trip to the sidebar. |
+
+## Decisions for R3 (owner, 2026-10-06)
+
+The R3 outline's open questions, re-checked against R1 and R2 as built (audit workflow, 2026-10-06), plus the questions the audit raised. The owner took every recommendation. Q10 (score-band histogram colours) and Q11 (keep the tier split beside the network, zero tiers shown) were already settled by R1 and R2.
+
+| # | Decision | Detail |
+|---|---|---|
+| R-28 | First visit to `/cards` (Q1) | Show a "Pick a card" prompt with a "Cards to review" list under it: the 5 cards with at least 10 score votes on engine-scored pairs, widest mean gap first. The list appears once vote analytics loads. Later visits open the last card viewed, stored under `inkweave-admin.last-card`. Opening a card automatically would make the header wait for the vote files. The list works like the Overview's Rules to review (`rulesToReview`, overviewStats.ts:47-55). On the 2026-10-05 data, 36 cards qualify and 19 of them are outside ±0.5, so the list always has rows. The storage key follows admin's own `inkweave-admin.sidebar-open` (Sidebar.tsx:11). |
+| R-29 | An unknown id that still has votes (Q2) | Show the not-found message only, and forget the id as planned. Copy: "No card has the id N in the current card list. Cards from sets before 9 rotated out of Core, and a preview id changes when its card is released." The files have no names for these ids: all 451 unknown voted ids have `aName === id`, and `pairs[]` never contains them. Vote sections would show bare numbers. |
+| R-30 | Switcher search (Q3, and R3-5's question about ids) | Use the app's `useAutocomplete` as it is: names only, two letters, newest set first, up to 6 results. Add a polite "No cards match." status. It comes from a bridged `searchCardsByName` run on the live query, and shows only while the list is closed. Running the hook's own check on the live query avoids the 150 ms flash. A combobox built in admin would redo R2's focus and ARIA work. An id already works in the URL. R4's full-page search can keep `filterCards`. |
+| R-31 | Engine-silent pairs (Q4) | No KPI. Put a caption in Voted pairs that splits the count in two: pairs whose partner is outside the current card list, and pairs with both cards in Core that the engine still doesn't score. Open a follow-up issue for the Overview KPI's hint. 1,587 of the 1,621 engine-silent pairs involve a card outside Core, so a gold KPI on a Core card mostly counts rotation. R2 used a caption for the same thing (CalibrationScatter.tsx:129-131). The handoff's KPIs don't include it (README.md:85). |
+| R-32 | Where Accuracy sentiment comes from (new) | Compute it from the card's raw accuracy answers: the share of "too low" minus the share of "too high", as the prototype does. Give it the raw tag, with the answer count in the hint. R3-1 then drops its `PairStat.accuracySentiment` edit. `pairs[]` has a sentiment on only 21 of 954 pairs (933 are null), so the planned KPI would read "—" on almost every card. The vote log has 234 accuracy answers across 262 cards, and only 32 of those answers are on `pairs[]`. The prototype tags it raw (README.md:85, dc.html:958). The Overview's own KPI rests on the same 21 pairs, which is another follow-up issue. |
+| R-33 | Links into `/cards` (Q5) | Yes, in a new task R3-8. Add `cardsHref(cardId?)` to `src/shell/nav.ts`, beside `calibrationHref`. Card names become links in Activity's vote log and Most voted pairs, the Overview's Latest votes, and Calibration's vote-detail heading, but only for ids the card list resolves. PairList rows stay buttons. R2 set this pattern (nav.ts:44-50, R-22), and R4 expects a path helper (R4-card-studio.md:23). 60% of log votes involve an id outside the card list, so those names stay plain text. A link can't sit inside PairList's button rows. |
+| R-34 | Links from the card page to `/calibration` (new) | Each rule in the card's rules table links to `/calibration?rule=<id>` through `calibrationHref`. The engine view keeps rule names only, renamed `ruleNames`. It takes one click from a card's badly scored rule to its tuning, and `CardRuleRow.ruleId` already holds the id. Rule links from the engine view can come later. |
+| R-35 | Low-n rules in the card's rules table (new) | Sort them last as planned. Within each group, sort by absolute gap, then score votes, then name. Show R2's "low n" chip, moved into `src/ui`. Most of a card's rules are low n (the median card in `pairs[]` has 2 score votes). Sorted by gap alone, 1-vote rules would top the table. |
+| R-36 | Votes per week (Q6, and R3-3's question about the series) | Cover the vote log's whole span (`activityWindow(votes, 'all')`) in Monday weeks, as one series with the latest week in the accent colour, as the prototype draws it. Name part weeks with `bucketTitle` and `partialWeeks`. A 12-week window holds 17.5% of votes and leaves 29% of voted cards with an empty chart. R2's weekly gap already uses the whole log's span (chartData.ts:265-287), and PR #28 named its part weeks. The prototype draws one series with a gold last bar (dc.html:966). |
+| R-37 | Network size and order (Q7, and R3-4's tie-break) | Keep 12 partners on two rings. Order them by score, then card name, which is how the engine cuts each group (SynergyEngine.ts:124-128). When the 12th place falls inside a tie, the subtitle says so, e.g. "12 of the 30 partners at score 8, by name". As built, a capped card's tie reads "12 of at least 30 partners at score 8, by name", since its file holds only each group's top 100 partners (R3's final fix wave; see "R3 as built"). Scores are whole numbers, and the 12th partner shares its score with a median of 27 others. Breaking ties by id would draw an arbitrary slice and still call it "the 12 strongest". |
+| R-38 | The hub (Q8) | Draw a dot with no name. Two rings are the normal case, and a name in the centre crowds the inner ring's strongest names. The page header and the name of the node list already name the card. |
+| R-39 | Where the network sits (Q12) | In its own untitled `Panel`, full width, directly under the Engine view panel. Every R1 and R2 chart frame sits alone in an untitled Panel, and `titleLevel={3}` is used nowhere yet. Beside another panel, names would get about 40px on each side. |
+| R-40 | Network label widths (new) | Measure labels with the kit's `textWidth` estimate (scale.ts:123-130) instead of the DOM. Check again at the real-data check if too many names drop. The estimate gives the same result in tests and in the browser. It removes the layout effect, the `fonts.ready` branch and the SVG patch in the tests, and much of the complexity. The cost: about 20% more names move to the tooltip and the table. |
+| R-41 | Network interaction (new) | Follow the kit. Hover dims the other spokes (`.adm-chart-mark`, others at 0.4). Each node link's accessible name is its tooltip text (`tooltipText`). Stories go in `Charts.stories.tsx`. A tap follows the link, and on a phone the table view carries the scores. This keeps one emphasis rule and one naming rule across the kit, and no component-level `<style>`, since AdminStyles is the one stylesheet. Showing the tooltip on the first tap would break how links work. |
+| R-42 | The split bar (Q9, and R3-4c's two follow-ups) | Make it a `src/ui` primitive beside MeterBar: one full-width bar over a track, as the prototype draws it. Its legend prints each part's share and count. No tooltip, no Chart/Table toggle, and a "No answers yet" state. CLAUDE.md now requires a keyboard-reachable tooltip and a Chart/Table toggle on every kit chart. R1 and R2 kept meters that print their values in `src/ui`. The planned SplitBar scored 9.44 (cc 20). Only 53 cards have 3 or more accuracy answers, so the centred form adds little. |
+| R-43 | How shares print (new) | Use R2's `sharePercent` everywhere in R3: each part rounds on its own, with "<1%" and ">99%". Move it to `src/ui/format.ts`, and drop largest-remainder rounding. R2 ruled that a part with votes never reads 0% (chartData.ts:197-207). Largest remainder prints "0% (1)", and equal counts can print different shares. |
+| R-44 | Tier legend labels (new) | Keep the app's thresholds as planned ("Strong ≥7"). They are `getStrengthTier`'s own cut-offs (scoreUtils.ts:18-23), and they stay true if scores ever stop being whole numbers. |
+| R-45 | A failed synergy fetch (new) | Offer Retry. The hook returns `retry`, as the card list's error already offers one. A failed fetch isn't cached (usePrecomputedSynergies.ts:63), so a retry fetches again. |
+| R-46 | State when switching cards (new) | Key the whole view by card id (`<CardAnalyticsView key={card.id}>`). Every frame's Chart/Table toggle, the pair list and the network's hover then reset. One route element serves every id, so state would carry over to the next card. In a test, following a partner link left a tooltip on a node that no longer matched anything. |
+| R-47 | Voted pairs beyond 10 rows (new) | Use R2's `PairList` pattern: one list that scrolls inside the panel, with no "Show all" button. There is no button to vanish from under focus, and it matches /calibration. Most cards have few voted pairs anyway. |
+| R-48 | Focus after a card change (new) | Focus moves only when its control disappears. After a switcher pick, it stays in the switcher. After a partner link or a successful Retry, it goes to the new card's `h2`, through R2's focus handoff moved to `src/shell`. This is R2's rule (F2, F19, F4). The switcher stays on the page; a partner link and the Retry button don't. |
+| R-49 | Printings in the card header (new) | Leave them out. Show the base rarity through `rarityConfigOf` and `RaritySymbol`, or nothing for a card without one. R-3: printings aren't rarities, and this page is about the card's pairs. |
+| R-50 | The Overview's verdict headline (new) | Fix it in R3-5b. `Verdict` gains a phrase ("is well-calibrated", "runs generous", "runs harsh", and "has too few score votes to judge" for no data), used by the Overview card and the card page. Today the Overview can read "The engine well-calibrated" or "The engine not enough data" (CalibrationCard.tsx:83). R3-5b already edits that file. |
+| R-51 | The browser tab title on a card (new) | "{card name} · Card analytics · Inkweave admin", through an optional `documentTitle` prop on PageLayout. Today every card page has the same title (PageLayout.tsx:93-95), so tabs and history can't tell cards apart. The change is one optional prop. |
+| R-52 | A scatter or histogram of the card's own pairs (new) | Not in R3. Define `CardPair` as `PairStat` plus `partnerId` and `partnerName`, so R2's pair helpers accept it and a scatter can be added later. R-13 names only the network for R3, and per-card data is thin. |
+| R-53 | Where GapScale lives (R3-5b) | `src/tools/analytics/GapScale.tsx`, beside verdict.ts. No module outside stories and tests in `src/ui`, `src/charts`, `src/theme` or `src/shell` imports from `src/tools`, and both callers are under analytics. |
+| R-54 | DataAsOf (R2's held item F12) | Release it: `src/ui/DataAsOf.tsx`, taking `{generatedAt}` and printing a bare `<code>`. Switch the four existing pages to it in the new shared-pieces task (R3-1a). /cards would otherwise add a fifth copy (ActivityPage.tsx:7-13, CalibrationPage.tsx:25-31, OverviewPage.tsx:19-23, WebAnalyticsPage.tsx:17-23). |
+| R-55 | Bridge only what R3 uses (R3-1) | Drop `type PrecomputedPairData` and `type StrengthTier`. Keep `type UseAutocompleteReturn`, which types the switcher's option row, and add `searchCardsByName` (R-30). No R3 or R4 task uses the two dropped types. R1-12 dropped unused re-exports on the owner's word (R-redesign.md:583). |
+| R-56 | Branch and first commit (R3-1) | Work on `feature/24-redesign-r3`. The re-based plan, split into one file per task as R2's is, and this table go in first, after the owner approves. This is R2's convention (R2-calibration-tuning.md:493-494). R-redesign.md:17 still names the R1 branch. |
 
 ## Decisions made in planning (owner may overrule)
 
@@ -117,7 +153,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 |---|---|---|---|
 | **R1** | Banner removal; theme, styles and primitives; shared token state; sidebar shell and page layout; artifact cache; **Overview**, **Vote activity**, **Web analytics**; `/calibration` hosting today's calibration view; old write tools inside the new shell | Everything read-only | Below |
 | **R2** | Calibration & tuning merged at `/calibration` (rules table, pairs, votes, dimension participation, tuning aside with pending tray and publish states); the calibration scatter, gap histogram and weekly gap trend; `/tuning` redirects | Calibration, tuning edits on a rehearsal branch | Below (detailed 2026-10-05) |
-| **R3** | Card analytics at `/cards` (`cardStats.ts` + tests, switch-card combobox, engine view from `fetchCardSynergies`, the synergy network diagram) | Per-card pages | Outline below |
+| **R3** | Card analytics at `/cards` (the card models `cardStats.ts` and `cardVotes.ts`, the switch-card combobox, the engine view from `fetchCardSynergies`, the synergy network diagram, the split meter); card names on the other insights pages link to it | Per-card pages | Below (detailed 2026-10-06) |
 | **R4** | Card studio at `/studio`: New reveal (preview-led layout, validator-driven checklist and errors), Edit card (preview vs released split, `replaceCardInPreviewJson`), image replacement inside Edit; `/reveal` and `/image` redirect; skill and runbook links move | The full redesign | Outline below |
 
 The owner plans further changes after seeing R1 with real data, so R2–R4 are detailed only when each starts.
@@ -139,29 +175,36 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 |---|---|
 | `src/theme/adminTheme.ts` | `ADMIN_COLORS`, `ADMIN_TYPE`, `ADMIN_RADIUS`, `ADMIN_LAYOUT`: the admin palette and scales, composed only from bridged tokens |
 | `src/theme/AdminStyles.tsx` | `AdminStyles` component: the one scoped stylesheet with every `adm-*` class (hover, focus-visible, selected states) |
-| `src/ui/format.ts` | Number, gap and date formatting shared by every page |
-| `src/ui/*.tsx` | Primitives: `Panel`, `KpiCard`, `SegmentedControl`, `MeterBar`, `BiasBar`, `ScorePill`, `RawTag`, `Notice`, `Sparkline` |
-| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis and plot (`axis.ts`, `ChartSvg.tsx`), take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`), and BarChart draws through `BarDrawing.tsx` and `SelectableBars.tsx`. R2-4a adds `ScatterChart.tsx` over the pure `scatter.ts`, plotted through `ChartPlot`'s `extend` |
+| `src/ui/format.ts` | Number, gap, share and date formatting shared by every page; `sharePercent` moves here from R2's `chartData.ts` in R3-1a (R-43) |
+| `src/ui/*.tsx` | Primitives: `Panel`, `KpiCard`, `SegmentedControl`, `MeterBar`, `BiasBar`, `ScorePill`, `RawTag`, `Notice`, `Sparkline`; from R3, `DataAsOf` (R-54) and `LowNTag` (R-35), which R3-1a moves out of four pages and R2's `RulesTable`, and `SplitMeter` (R3-4c, R-42). R3-6c gives `Panel` `titleFocusable`, and R3-8 widens its `title` to `React.ReactNode` |
+| `src/ui/layout.ts` | `twoUp(track)`, the grid that sets two panels side by side once the column holds two tracks (R3-1a, moved from R2's `CalibrationWorkspace`) |
+| `src/charts/*` | The chart kit (R1-3b): scales (`scale.ts`), range math and `RangeControl` (`range.ts`, `RangeControl.tsx`), series helpers and the hatch (`series.ts`, `HatchPattern.tsx`), legend, tooltip, keyboard cursor, frame with table view, `BarChart`, `LineChart`, one story file (`Charts.stories.tsx`). Since R1's final fix wave the two charts share their y axis and plot (`axis.ts`, `ChartSvg.tsx`), take their geometry from pure layouts (`barLayout.ts`, `lineLayout.ts`), and BarChart draws through `BarDrawing.tsx` and `SelectableBars.tsx`. R2-4a adds `ScatterChart.tsx` over the pure `scatter.ts`, plotted through `ChartPlot`'s `extend`. R3-4b adds `NetworkDiagram.tsx` over the pure `networkLayout.ts`, whose names are measured with `textWidth` (R-40), and moves `LABEL_HALO` into `axis.ts` |
 | `src/github/useGithubToken.ts` | Shared token state (one store for every component), same API as today |
-| `src/shell/nav.ts` | The sidebar's items, groups and which routes write (replaces `tools.ts`) |
+| `src/shell/nav.ts` | The sidebar's items, groups and which routes write (replaces `tools.ts`), and the path helpers `calibrationHref` (R2-6) and `cardsHref` (R3-5, R-33) |
 | `src/shell/Sidebar.tsx` | Sidebar: brand, groups, items, token box, collapse (persisted) |
-| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body; `flush` and `PAGE_GUTTER` for a page that lays out its own columns (R2-6) |
+| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body; `flush` and `PAGE_GUTTER` for a page that lays out its own columns (R2-6); `documentTitle` for a tab name that says more than the title (R3-7, R-51); `scrollKey`, which scrolls the body back to the top when it changes (R3's final fix wave) |
 | `src/shell/BranchNotice.tsx` | "Writes to Doberjohn/inkweave `master`" pill |
-| `src/shell/AdminShell.tsx` | Providers, `AdminStyles`, sidebar + outlet |
+| `src/shell/AdminShell.tsx` | Providers, `AdminStyles`, sidebar + outlet; from R3-8, `KnownCardsProvider` round the outlet, inside `CardDataProvider` |
 | `src/router.tsx` | New routes and redirects |
 | `src/tools/analytics/adminData.ts` | Adds the per-session promise cache |
 | `src/tools/analytics/overview/*` | Overview page, view and `overviewStats.ts` |
-| `src/tools/analytics/activity/*` | Vote activity page, view parts and `activityModel.ts` |
+| `src/tools/analytics/activity/*` | Vote activity page, view parts and `activityModel.ts`, which names `activityWindow`'s span `VoteSpan` (R3-1a) for R2's weekly gap and R3's card votes |
 | `src/tools/analytics/web/*` | Web analytics page, view parts and `webModel.ts` |
 | ~~`src/tools/analytics/CalibrationPage.tsx`~~ | R1 host for the old `CalibrationView`. Retired in R2: R2-6 deleted it for `calibration/CalibrationPage.tsx` |
-| `src/tools/analytics/verdict.ts` | The verdict thresholds and words, shared by the Overview's calibration card and R2's `calibrationSubtitle` (later R3); `VerdictHero` retired in R2-7 |
+| `src/tools/analytics/verdict.ts` | The verdict thresholds, words and phrases (R-50), shared by the Overview's calibration card and R2's `calibrationSubtitle` (later R3); `VerdictHero` retired in R2-7 |
+| `src/tools/analytics/GapScale.tsx` | The over/under gap track (R-53): private to the Overview's calibration card until R3-5b, then shared with R3's card page |
 | `src/shell/WriteToolFrame.tsx` | Interim only: R1-6 creates it to frame the old write pages, and R1-7 deletes it |
-| `src/tools/analytics/calibration/*` | R2's `/calibration`: `calibrationModel.ts` (rows, tuning-key mapping, pair scope), `chartData.ts` and `chartFixtures.ts`, `RulesTable`, `CalibrationScatter`, `GapHistogram`, `WeeklyGapTrend`, `TuningAside` and `reloadNote.ts`, `CalibrationWorkspace` and `CalibrationPage` (its `TunedWorkspace` mounts the guard), and `focusHandoff.ts` (focus for the aside's next view, R2's final fix wave) |
+| `src/tools/analytics/calibration/*` | R2's `/calibration`: `calibrationModel.ts` (rows, tuning-key mapping, pair scope), `chartData.ts` and `chartFixtures.ts`, `RulesTable`, `CalibrationScatter`, `GapHistogram`, `WeeklyGapTrend`, `TuningAside` and `reloadNote.ts`, `CalibrationWorkspace` and `CalibrationPage` (its `TunedWorkspace` mounts the guard). Its `focusHandoff.ts` (focus for the aside's next view, R2's final fix wave) moves to `src/shell/` in R3-1a |
+| `src/tools/analytics/cards/*` | R3's `/cards`: `cardStats.ts` (the card's calibration from `pairs[]`, its rules, `cardsToReview`; R3-2), `cardVotes.ts` (its raw votes, bound once as `CardVote`; R3-3), `engineView.ts` and `useCardSynergies.ts` (the engine's partners by score then name, and the hook with `retry`; R3-4), `lastCard.ts`, `cardSearch.ts` and `CardSwitcher` (R3-5); `CardAnalyticsView` and its parts: `cardView.ts` (the view's pure derivations) and `cardStyles.ts` (the styles its panels share), `CardHeader`, `CardKpis`, `CardCalibrationPanel` and `VotedPairsPanel` (R3-6a), `voteCharts.ts` and `RawVotePanels` with `CommunityScores`, `VoterAnswers` and `VotesPerWeek` (R3-6b), `engineCharts.ts` and `EnginePanels.tsx` (the Engine view and the network panel; R3-6c); `cardPageState.ts`, `CardPageBody.tsx` (the page's states round the view) and `CardAnalyticsPage` (R3-7); and `cardFixtures.ts`, the plain module the tests and stories share. `scripts/lib/__tests__/cardVotesParity.test.mjs` holds the card identity to the precompute's own transforms |
+| `src/tools/analytics/CardName.tsx` | `CardName`, `PairNames` and `PairLine` (R3-8, R-33): a card name that links to `/cards/<id>` only when the card list holds the id, else plain text. Vote activity's log and Most voted pairs, the Overview's Latest votes and Calibration's vote-detail heading print names through them |
 | `src/tools/tuning/tuningRows.ts`, `src/tools/tuning/tuningFailure.ts` | The editor's rows and names, and the failure kinds (R2-2), beside the kept `useLiveTuning`, `useTuningAdmin` and `githubClient.ts`, and the restyled `components/PendingTray.tsx` and `components/TierRow.tsx` |
 | `src/github/rejectedToken.ts`, `src/github/ForgetTokenOffer.tsx` | A token GitHub rejects (401): the check, and the "Forget token" offer (R-26), for R4's write pages too |
 | `src/shell/useUnsavedChangesGuard.ts`, `src/shell/UnsavedChangesGuard.tsx` | The unsaved-edits guard (R-19): the hook, its dialog, and the one-line component a page mounts |
+| `src/shell/focusHandoff.ts` | Focus for the next view when an action unmounts the control that had it (R-48): moved from `calibration/` in R3-1a. The tuning aside and the card page take it |
+| `src/shell/knownCards.ts`, `src/shell/KnownCardsProvider.tsx` | Which card ids the card list holds (R3-8, R-33): `KnownCardsContext` and `useIsKnownCard`, whose default resolves no id, and the provider `AdminShell` mounts round the outlet. `CardName` reads it |
+| `src/test/cardLinks.tsx` | `renderWithCards(ui, known)`: a test's render in a `MemoryRouter`, under a card list of the `known` ids (R3-8) |
 
-Deleted in R1: `src/tools/banner/**`, `scripts/export-banner*.mjs`, `docs/BANNER.md`, `public/art/banner/`, `src/shell/ToolIndex*`, `src/shell/tools.ts`, `src/shell/WriteToolFrame.tsx`, and the top-level `src/tools/analytics/{AnalyticsPage,AdminAnalyticsDashboard,ActivityView,DayGroup,WebAnalyticsView}*` files (not the new `activity/` folder) with their stories and tests. `Scorecard`, `WeeklyActivityChart` and `VerdictHero` stay until R2 (`CalibrationView` uses them). Deleted in R2: R1's `src/tools/analytics/CalibrationPage.tsx` and its test (R2-6); `CalibrationView`, `VerdictHero`, `Scorecard`, `WeeklyActivityChart`, `RuleCalibrationTable` and `RawVotesNotice`, with their stories and tests, and `src/tools/tuning/{TuningPage.tsx,index.ts}` with `components/{TuningEditor,RuleSelector}` and their stories and tests (R2-7).
+Deleted in R1: `src/tools/banner/**`, `scripts/export-banner*.mjs`, `docs/BANNER.md`, `public/art/banner/`, `src/shell/ToolIndex*`, `src/shell/tools.ts`, `src/shell/WriteToolFrame.tsx`, and the top-level `src/tools/analytics/{AnalyticsPage,AdminAnalyticsDashboard,ActivityView,DayGroup,WebAnalyticsView}*` files (not the new `activity/` folder) with their stories and tests. `Scorecard`, `WeeklyActivityChart` and `VerdictHero` stay until R2 (`CalibrationView` uses them). Deleted in R2: R1's `src/tools/analytics/CalibrationPage.tsx` and its test (R2-6); `CalibrationView`, `VerdictHero`, `Scorecard`, `WeeklyActivityChart`, `RuleCalibrationTable` and `RawVotesNotice`, with their stories and tests, and `src/tools/tuning/{TuningPage.tsx,index.ts}` with `components/{TuningEditor,RuleSelector}` and their stories and tests (R2-7). R3 deletes no file. R3-1a moves `focusHandoff.ts` from `calibration/` to `src/shell/`, and drops the private copies of what it shares (`DataAsOf` in four pages, `LowNTag`, `twoUp`, `sharePercent` and `VoteSpan`).
 
 ## Shared interfaces (R1)
 
@@ -196,6 +239,9 @@ export const ADMIN_LAYOUT: {sidebarOpen: 240; sidebarCollapsed: 64; headerMinHei
 // [aria-pressed="true"], never dimmed), adm-chart-mark ([data-active="true"], [data-dim="true"]), adm-chart-bar,
 // adm-chart-line, adm-chart-area, adm-chart-label, adm-chart-cursor, adm-chart-tip; keyframes adm-chart-rise,
 // adm-chart-draw, adm-chart-fade; reduced motion switches all of it off
+// R3 adds: adm-option (a listbox row; [aria-selected="true"] = the active option, the rowHover fill and an inset accent bar; R3-5),
+// adm-net-link (a network node's link: block, full size, a focus ring and no hover; R3-4b),
+// adm-link (a text link in data, a card name: the text colour and a muted underline at rest, gold on hover, the ring 2px out; R3-8)
 export function AdminStyles(): JSX.Element;
 
 // src/ui/format.ts
@@ -204,9 +250,12 @@ export function fmtGap(gap: number | null): string;         // -0.3 -> "−0.30"
 export function fmtScore(n: number | null, digits?: number): string; // null -> "—"
 export function fmtDay(day: string): string;                // "2026-09-30" -> "Sep 30"
 export function fmtWeekday(day: string): string;            // "2026-09-30" -> "Wed Sep 30"
+export function sharePercent(fraction: number): string;     // R3-1a (R-43): 1/3 -> "33%", (0, 0.005) -> "<1%", [0.995, 1) -> ">99%"
 
 // src/ui primitives
-export function Panel(props: {title?: string; action?: React.ReactNode; children: React.ReactNode; padded?: boolean}): JSX.Element;
+export function Panel(props: {title?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; padded?: boolean; titleFocusable?: boolean}): JSX.Element;
+// R3-8 (R-33) widens title from string: it can hold links (VoteDetailTable's card names), and the region is still named by the h2's text
+// R3-6c (R-48): titleFocusable puts tabIndex -1 on the h2, so a focus handoff can land on it
 export function KpiCard(props: {label: string; value: React.ReactNode; hint?: React.ReactNode; tag?: React.ReactNode; valueColor?: string}): JSX.Element;
 export function SegmentedControl<T extends string>(props: {options: ReadonlyArray<{value: T; label: string}>; value: T; onChange: (v: T) => void; ariaLabel: string}): JSX.Element;
 export function MeterBar(props: {fraction: number; color: string; height?: number; label?: string}): JSX.Element;
@@ -215,6 +264,14 @@ export function ScorePill(props: {score: number | null}): JSX.Element;          
 export function RawTag(): JSX.Element;
 export function Notice(props: {tone?: 'info' | 'error'; children: React.ReactNode}): JSX.Element;
 export function Sparkline(props: {data: number[]; color?: string; height?: number}): JSX.Element | null;
+export function DataAsOf(props: {generatedAt: string});              // R3-1a (R-54): "Data as of <code>YYYY-MM-DD</code>", for PageLayout's meta
+export function LowNTag(props: {minVotes: number});                  // R3-1a (R-35): "low n", titled "Fewer than {minVotes} score votes"
+export interface SplitMeterPart {id: string; label: string; color: string; value: number}
+export function SplitMeter(props: {parts: readonly SplitMeterPart[]; ariaLabel: string; emptyText?: string});
+// R3-4c (R-42): one full-width bar (aria-hidden) and a legend list named by ariaLabel, each row "Too high 24% (12)" through
+// sharePercent (R-43); every part 0: the bare track and emptyText (default "No answers yet."). No tooltip and no Table view
+// src/ui/layout.ts (R3-1a)
+export function twoUp(track: number): React.CSSProperties; // two tracks of `track` px and the SPACING.xl gap, stacked below that
 
 // src/github/useGithubToken.ts (same API, shared state)
 export interface UseGithubToken {token: string | null; setToken: (t: string) => void; clearToken: () => void}
@@ -227,6 +284,7 @@ export const NAV_ITEMS: readonly NavItem[];
 export function navItemFor(pathname: string): NavItem | undefined;
 export function isWritePath(pathname: string): boolean;
 export function calibrationHref(ruleId?: string): string; // R2-6: '/calibration', or '/calibration?rule=' + encodeURIComponent(ruleId)
+export function cardsHref(cardId?: string): string;          // R3-5 (R-33): '/cards', or '/cards/' + encodeURIComponent(cardId)
 
 // src/shell/PageLayout.tsx
 export const PAGE_GUTTER: string; // R2-6: the side padding, clamp(16px, 4vw, 32px), for a flush page's own columns
@@ -234,8 +292,22 @@ export function PageLayout(props: {
   title: string; subtitle?: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode;
   writes?: boolean; branchLabel?: string;
   flush?: boolean; // R2-6: children go straight into the scrolling body, with no padding and no grid (R2's aside, R4's studio)
+  documentTitle?: string; // R3-7 (R-51): the tab's name before " · Inkweave admin", when it should say more than `title`
+  scrollKey?: string;     // R3's final fix wave: what the body shows; when it changes, the body scrolls back to the top before the next paint, and the header stays mounted (CardAnalyticsPage passes the card id)
   children: React.ReactNode;
 }): JSX.Element;
+
+// src/shell/focusHandoff.ts (R3-1a, R-48): moved from calibration/; code unchanged. Focus moves only when its control unmounts
+export interface FocusHandoff {pending: boolean; request: () => void; done: () => void}
+export function useFocusHandoff(): FocusHandoff;
+export function focusUnmoved(from?: Element | null): boolean; // focus is still on `from`, or fell to <body>
+export function useTakeHandoff(handoff: FocusHandoff | undefined, container: RefObject<HTMLElement | null>, selector: string, ready?: boolean): void;
+
+// src/shell/knownCards.ts and KnownCardsProvider.tsx (R3-8, R-33): which ids the card list holds, for CardName's links
+export type IsKnownCard = (cardId: string) => boolean;
+export const KnownCardsContext: React.Context<IsKnownCard>; // default: no id resolves, so a view's tests and stories need no card list
+export function useIsKnownCard(): IsKnownCard;
+export function KnownCardsProvider(props: {children: React.ReactNode}); // AdminShell mounts it inside CardDataProvider, round the Outlet
 
 // src/tools/analytics/adminData.ts
 export function fetchAdminData<T>(file: string): Promise<T>;   // now cached per file for the session
@@ -406,6 +478,54 @@ export function ScatterChart(props: {
 // The stated exception to the global constraint "Every clickable thing is a button or a link": the dots sit in an aria-hidden
 // SVG, so the plot is one slider. ←/→/Home/End walk the dots, Enter or Space selects the dot the slider announces, and the
 // selected dot's value text ends ", selected". R2's scatter describes the slider with its note's instruction (describedBy).
+
+// src/charts/networkLayout.ts — the network's pure geometry (R3-4b)
+export interface Size {width: number; height: number}
+export type Box = PlotPoint & Size;                       // PlotPoint: lineLayout.ts
+export interface RingSlot extends PlotPoint {angle: number; radius: number}   // angle: radians clockwise from 3 o'clock
+export interface LabelPlacement extends Box {anchor: 'start' | 'middle' | 'end'; textX: number; textY: number}
+export interface NetworkLayout {size: Size; hub: PlotPoint; slots: RingSlot[]; names: Array<LabelPlacement | null>; links: Box[]}
+export const ONE_RING_MAX = 6;            // up to 6 nodes share one ring; past it the weaker half moves out
+export const INNER_RING_SHARE = 0.55;     // inner radius / outer radius
+export const RING_MARGIN: number;         // 40 (SPACING.xxxl + SPACING.sm): room between the outer ring and the plot edge
+export const NODE_TARGET = 24;            // each node link's square, at least; names start just past it
+export const FOCUS_REACH: number;         // 4 (SPACING.xs): names stay this far inside the plot
+export const NAME_SIZE: number;           // ADMIN_TYPE.label (11): names are set, and measured with textWidth (R-40), at this size
+export const SPOKE_WIDTHS: Domain;        // [1, 4] px across the value domain
+export function ringSizes(count: number): [number, number];                  // [inner, outer]
+export function ringRadii(plot: Size): [number, number];                     // [inner, outer]
+export function ringSlots(count: number, plot: Size): RingSlot[];            // round the plot's centre; strongest at 12 o'clock, clockwise
+export function labelFor(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement;
+export function overlaps(a: Box, b: Box): boolean;                           // shared area only; touching edges, or a float slack under 1e-6, don't count
+export function contains(outer: Box, inner: Box): boolean;
+export function nodeTarget(p: PlotPoint): Box;                               // the NODE_TARGET square centred on p
+export function placeLabels(labels: readonly LabelPlacement[], blocked: readonly Box[], bounds: Box): Array<LabelPlacement | null>;
+export function spokeWidth(value: number, domain: Domain): number;           // SPOKE_WIDTHS across the domain, clamped
+export function networkLayout(plot: Size, names: readonly string[]): NetworkLayout; // names strongest first
+
+// src/charts/NetworkDiagram.tsx — a radial ego network (R3-4b)
+export const NETWORK_MAX_NODES = 12;      // R-37
+export interface NetworkNode {
+  id: string; label: string; href: string; value: number; seriesId: string;
+  tooltip: TooltipContent;                // its tooltipText is the node link's accessible name (R-41)
+  // label prints inside its link where it fits, so tooltip.title must contain it (label in name): a card's name, the full name as the title
+}
+export interface NetworkDiagramProps {
+  nodes: readonly NetworkNode[];          // strongest first; the first NETWORK_MAX_NODES are drawn
+  series: readonly SeriesDef[]; ariaLabel: string;   // ariaLabel names the list of node links
+  valueDomain?: Domain;                   // default [0, 10]: the spoke widths, 1 to 4px
+  height?: number;                        // default 340, names included
+  onShowAll?: () => void;                 // "and K more in the table" calls it
+  emptyText?: string;                     // shown in place of the plot for no nodes (default "No data to chart.")
+}
+export function NetworkDiagram(props: NetworkDiagramProps);
+// No center prop: the hub is an unnamed dot (R-38). The SVG is aria-hidden; each node is a react-router Link in a <ul>
+// named by ariaLabel, covering its 24px target and its printed name (NetworkLayout.links). Hover or focus shows the
+// node's ChartTooltip and dims the other spokes (adm-chart-mark). Escape hides the tooltip and keeps focus.
+// The active node is held by id, so new nodes clear it (R-46). No click hook: the page asks for the focus handoff when
+// the URL names another card (R-48). NetworkDiagram measures and places (networkLayout); an inner NetworkPlot holds
+// the active node, so a hover places nothing again.
+// The stated exception to useChartCursor and ChartPlot: twelve links are twelve Tab stops, not one slider (R3-4b, note 2).
 ```
 
 ### Contract additions from the task drafts
@@ -427,6 +547,7 @@ These came out of drafting and reconciling the R1 tasks. They add names and rena
 // axis.ts: LABEL_SIZE, TICK_GAP, AxisTick, YAxis, px(n), labelWidth(text), labelX(center, width, chartWidth),
 //          wholeTicks(top, integers), yAxis(values, format, y)   // the y axis both charts share
 //          gutterFor(labels) (R2-4c): the room left of the plot that labels need, so LineChart's gutter counts the baseline's label
+//          LABEL_HALO (R3-4b): 3, the page-coloured halo round a label drawn over marks (moved from ScatterChart.tsx; the network's names use it too)
 // ChartSvg.tsx: ChartSvg({width, height}), AxisGrid({ticks, left, right}), EmptyChart({text?}),
 //               ChartPlot({ariaLabel, cursor, valueText, xs, height, extend?, describedBy?})   // the slider plot every chart renders;
 //               extend (R2-4a) adjusts the slider's props before they are spread (ScatterChart's 2-D pointer and Enter/Space);
@@ -471,13 +592,38 @@ export function WriteToolFrame(props: {children: React.ReactNode}): JSX.Element;
 // {id:'reveal', label:'Reveal publisher', mark:'Re', path:'/reveal', group:'publish', writes:true}
 // {id:'image', label:'Card images', mark:'Im', path:'/image', group:'publish', writes:true}
 // /tuning is a route only: <Navigate to="/calibration" replace /> (R-10)
+// src/shell/nav.ts: NAV_ITEMS at the end of R3 (R3-7), in order: cards joins Insights, last
+// {id:'overview', label:'Overview', mark:'Ov', path:'/', group:'main', writes:false}
+// {id:'calibration', label:'Calibration & tuning', mark:'Ca', path:'/calibration', group:'insights', writes:true}
+// {id:'activity', label:'Vote activity', mark:'Ac', path:'/activity', group:'insights', writes:false}
+// {id:'web', label:'Web analytics', mark:'Wa', path:'/web', group:'insights', writes:false}
+// {id:'cards', label:'Card analytics', mark:'Cd', path:'/cards', group:'insights', writes:false}
+// {id:'reveal', label:'Reveal publisher', mark:'Re', path:'/reveal', group:'publish', writes:true}
+// {id:'image', label:'Card images', mark:'Im', path:'/image', group:'publish', writes:true}
+// URL contract: /cards/:cardId? (cardsHref). Bare /cards redirects (replace) to the last card viewed, stored under
+// localStorage['inkweave-admin.last-card'] (cards/lastCard.ts), or shows the "Pick a card" prompt with Cards to review (R-28).
+// R3-8 links card names into it from Vote activity, the Overview and Calibration, for ids the card list resolves (R-33).
+
+// src/tools/analytics/CardName.tsx (R3-8, R-33): every card name on those pages prints through one of these
+export function CardName(props: {id: string; name: string});              // a Link (.adm-link) to cardsHref(id) when the id resolves, else the bare name
+export function PairNames(props: {pair: {a: string; b: string; aName: string; bName: string}}); // "A × B", inline
+export function PairLine(props: {pair: {a: string; b: string; aName: string; bName: string}});  // PairNames on one truncating line, with 4px of ring room
+// src/tools/analytics/VoteDetailTable.tsx: pair: {a; b; aName; bName; engineScore} | null (gains a and b, for the heading's links)
+// src/test/cardLinks.tsx (tests only)
+export function renderWithCards(ui: React.ReactElement, known: readonly string[]): RenderResult; // in a MemoryRouter, under a card list of `known`
 
 // src/tools/analytics/verdict.ts (R1-8)
 export const CALIBRATION_BAND = 0.5;
 export const SCALE_CLAMP = 1.5;
-export interface Verdict {word: string; wordColor: string; numberColor: string}
+export interface Verdict {word: string; phrase: string; wordColor: string; numberColor: string}
+// phrase (R3-5b, R-50) completes "The engine …": "is well-calibrated", "runs generous", "runs harsh", or with no gap
+// "has too few score votes to judge". word stays the bare verdict calibrationSubtitle prints ("not enough data" with no gap)
 export function verdictFor(meanGap: number | null): Verdict;
 export function scalePercent(meanGap: number | null): number | null;
+
+// src/tools/analytics/GapScale.tsx (R3-5b, R-53): the over/under track, moved out of the Overview's CalibrationCard
+export interface GapScaleProps {meanGap: number | null; color: string} // R1-8's prop names; callers pass verdictFor(meanGap).numberColor
+export function GapScale(props: GapScaleProps);                         // the track is aria-hidden: every caller prints the gap as text
 
 // src/tools/analytics/overview/* (R1-8)
 export const MIN_RULE_VOTES = 10;
@@ -503,7 +649,8 @@ export function carriesLabel(vote: VoteLogRow): string;
 export function logPage(votes: VoteLogRow[], limit: number): {days: LogDay[]; hidden: number};
 export const LOG_PAGE_SIZE = 25;                             // VoteLogTable.tsx
 export type ChartBucket = 'day' | 'week';
-export function activityWindow(votes: VoteLogRow[], range: RangePreset): {startDay: string; endDay: string} | null;
+export interface VoteSpan {startDay: Day; endDay: Day}   // R3-1a: activityWindow's span, named; moved from calibration/chartData.ts
+export function activityWindow(votes: readonly VoteLogRow[], range: RangePreset): VoteSpan | null;
 export function chartStacks(votes: VoteLogRow[], startDay: string, endDay: string): {bucket: ChartBucket; stacks: DayStack[]};
 export function votesInBucket(votes: VoteLogRow[], key: string, bucket: ChartBucket): VoteLogRow[];
 // NO_FILTERS.range is '30d'; filterVotes and hasActiveFilters ignore range
@@ -524,6 +671,10 @@ export function WebAnalyticsPage(): JSX.Element;
 // src/app-bridge.ts: R1-1 removes usePrecomputedSynergies; R1-10 adds
 // InkIcon, RaritySymbol, rarityConfigOf, enchantedSymbol, epicSymbol, iconicSymbol (the webps imported with ?no-inline)
 // R2-5a adds DialogShell (for UnsavedChangesDialog); R2-7 removes CAP_LABEL_XS (its last importers retire)
+// R3-1 adds TIER_COLORS, Z_INDEX, useAutocomplete with type UseAutocompleteReturn, searchCardsByName (R-30), fetchCardSynergies,
+// getStrengthTier and type StrengthTierLabel: only what R3 uses (R-55)
+// src/tools/analytics/voteLogTypes.ts (R3-1): VoteLogRow narrows accuracy to -1 | 0 | 1 | null, difficulty to 1 | 2 | 3 | null and
+// whoCarries to 'a' | 'b' | 'both' | 'neither' | null, the votes table's own checks
 
 // src/tools/analytics/CalibrationView.tsx, CalibrationPage.tsx (R1-11; retired in R2: R2-6 deleted the page, R2-7 the view)
 // CalibrationViewProps gained: initialRuleId?: string | null  (an id the analytics don't have opens on "All pairs"). Retired in R2 with the view
@@ -542,6 +693,7 @@ export function UnsavedChangesDialog(props: {open: boolean; message: string; onS
 export function UnsavedChangesGuard(props: {dirty: boolean; message: string; leaves?: LeavesPage}): JSX.Element | null;
 // useBlocker needs a data router, and a router holds one blocker: one guard per page, mounted by the page, never by a view a story renders.
 // R2's calibration model, tuning model and aside: R-redesign/R2-calibration-tuning.md, contract additions 8 to 10.
+// R3's card models, engine model and hook, last card, switcher, view and page: R-redesign/R3-card-analytics.md, contract additions 8 to 14.
 ```
 
 ## Review focus
@@ -614,19 +766,76 @@ Tasks R2-1 to R2-8, then the final review's fix wave (`a79ecf7`, `dbe6c47`, `8c5
   - **The tray names each revert** "Revert {edit}" (F23). After a revert, focus goes to the next row's revert button, else the previous row's, else the tray's heading. Clear all focuses the heading.
   - **The guard words a publish in flight** (F13): "A publish to {branch} is in progress. Leaving won't stop it, and you won't see whether it landed." Otherwise it keeps the unsaved-edits message.
   - Smaller ones from the final review: the scatter places its dots once per layout (F1; see "Chart kit (R1-3b)"); its note's instruction describes its slider (F15); and the weekly gap's slider reads "no score votes" for a quiet week (F10).
-- **Held for the owner:**
-  - a skip link from the selected rule to its editor (C3);
-  - the left column's state across a token save: the sort, the picked pair and each chart's view reset, and only `?rule=` survives (F2);
-  - flagging the weekly gap's partial last week (F21), after a look in the real-data check;
-  - ">99%" in place of "100%" for 399 of 400 pairs (`sharePercent`);
-  - a sticky aside header;
-  - an app issue for `useDialogFocus`'s Shift+Tab, which leaves a dialog whose focus opens on the panel;
-  - moving `DataAsOf` into `src/ui` (F12): four pages each write their own "Data as of".
-- **Still to run:** the real-data check ("Before the PR" in the R2 header). It waits for the owner's `/admin-data/` files.
+- **Held for the owner, and how each was settled (2026-10-06):**
+  - **Shipped in PR #28:**
+    - a "Tune {entry}" link from the selected rule to its editor (C3);
+    - the weekly gap's partial weeks, worded as Vote activity words them (F21);
+    - ">99%" for a share just under 1 (`sharePercent`);
+    - a sticky entry header in the aside.
 
-## Phase R3: Card analytics (outline)
+    Its review added section-aware entry lookups (`EntryRef`), focus kept between the pinned header and the tray, and one-week wording in the shared helpers.
+  - **Filed:** Doberjohn/inkweave#732, for `useDialogFocus`'s Shift+Tab gap.
+  - **Skipped:** keeping the left column's state across a token save (F2).
+  - **Moved to R3 (R-54):** moving `DataAsOf` into `src/ui` (F12).
+- **Real-data check:** run on 2026-10-06 against the files of 2026-10-05. Numbers matched the files, and the layout held at 1440px and 1366px.
 
-[R-redesign/R3-card-analytics.md](R-redesign/R3-card-analytics.md). Detailed when R3 starts.
+## Phase R3: Card analytics (detailed)
+
+[R-redesign/R3-card-analytics.md](R-redesign/R3-card-analytics.md): tasks R3-1 to R3-9, re-based on R2 as built (main @ aea40b4) and pin bc877e1 on 2026-10-06. Its decisions are R-28 to R-56 above.
+
+### R3 as built (2026-10-07)
+
+Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feature/24-redesign-r3`, then the final review's fix wave (`51ec000`, `9757390`).
+
+- **What shipped:**
+  - **`/cards`, Card analytics.**
+    - The page header's Switch card search (R-30), and under it the card header (R-49).
+    - A KPI row, with Accuracy sentiment from raw answers (R-32).
+    - Calibration for the card beside its voted pairs, with an engine-silent caption split in two (R-31).
+    - Community scores and How voters answered two-up, and under them, at full width, Votes per week over the log's whole span (R-36).
+    - The Engine view, and under it the network of the twelve strongest partners (R-37 to R-39). The network's subtitle takes one of three forms (R3-6c): a cut between two scores; a tie below stronger partners ("7 of the 8 partners at score 7 make the cut, by name."); or every drawn partner tied ("12 of at least 30 partners at score 8, by name, of at least 142 in all" on a capped card, with no "Thicker spokes score higher."). After the Engine view's Retry, focus goes to the panel's heading (`Panel`'s `titleFocusable`), or back to Retry when the read fails again (R-45, R-48).
+
+    A bare `/cards` opens the last card viewed, or a "Pick a card" prompt with Cards to review (R-28). The tab names the card (R-51).
+  - **Links.**
+    - In: card names on Vote activity, the Overview and Calibration, through `CardName`, for ids the card list resolves (R-33).
+    - Out: the card's rules link to `/calibration?rule=` (R-34).
+  - **The chart kit.** `NetworkDiagram` over `networkLayout.ts`, with names measured by `textWidth` (R-40), the kit's dimming and naming (R-41), and `LABEL_HALO` in `axis.ts`.
+  - **Shared pieces.**
+    - In `src/ui`: `DataAsOf`, `LowNTag`, `sharePercent` and `twoUp` (R3-1a), and `SplitMeter` (R3-4c).
+    - In `src/shell`: the focus handoff (R3-1a), and `KnownCardsContext` with its provider (R3-8).
+    - In `activityModel.ts`: `VoteSpan`, beside `activityWindow` (R3-1a).
+    - In `src/tools/analytics`: `CardName`, `PairNames` and `PairLine` (R3-8).
+  - **Also:**
+    - `GapScale` in `src/tools/analytics`, and `Verdict.phrase`, which fixed the Overview's "The engine well-calibrated" (R-50, R-53);
+    - `PageLayout`'s `documentTitle` and, from the fix wave, `scrollKey`, and `nav.ts`'s `cardsHref`;
+    - `Panel`'s `titleFocusable` (R3-6c), and its `title` widened to `React.ReactNode` for linked names (R3-8);
+    - `.adm-option`, `.adm-net-link` and `.adm-link`;
+    - the bridge's new names (R-55).
+- **Departures from the plan:**
+  - **Task R3-7, re-base (2026-10-06), against the R3 header's sketch:**
+    - `cardPageState` returns a discriminated `CardPageState` (`{kind: 'card', card}`, `{kind: 'unknown', cardId}`, `{kind: 'failed', error}`, and the prompt and loading kinds) and takes the context's `getCardById`, so `CardPageBody`'s `switch` narrows each state with no checks of its own;
+    - `useRememberCard(state)` takes that state, in place of `useRememberCard({cardId, card, isLoading, error})`;
+    - the page requests the focus handoff from its state, when the URL names another card (never on a REPLACE) or the card list's error clears, and never on click: a router link's click-time request is taken by the old card's heading inside the navigation's transition (found by mutation);
+    - the prompt's line and the not-found line take focus too (`<p tabIndex={-1}>`), so a Retry that lands on either keeps focus;
+    - browser Back and Forward between two cards ask for the handoff too, and the heading takes it only if focus fell to `<body>`.
+  - **The final review's fix wave, `51ec000` (F2):** `PageLayout` gained `scrollKey?: string`, which the plan didn't have. A Switch card pick opened the next card at the previous card's scroll offset: the scrolling body is `PageLayout`'s, outside the view keyed by card (R-46), and focus stays in the switcher (R-48), so nothing scrolled the new card into view. When the key changes, the body now scrolls back to the top before the next paint, and the header stays mounted, so focus stays in the switcher. `CardAnalyticsPage` passes the URL's card id, and no other page passes one. The plan's `PageLayout` lines record it (approved 2026-10-07).
+  - **The final review's fix wave, `9757390`: a capped card's wording.** The engine keeps each group's top `ENGINE_GROUP_CAP` (100) partners, so a capped card's synergy file is partial: its tier split leaves out the weaker partners past the cap, and its tie count at the cut is only a floor (approved 2026-10-07).
+    - The Engine view's cap caption now says so: "A synergy group lists only its top 100 partners, so the split counts only those and undercounts the weaker tiers."
+    - The network's tie count reads "N of at least T partners at score S", where an uncapped card's reads "N of the T partners at score S". On a capped card, a tie below stronger partners ends "make the cut, by name, among those the engine lists."
+    - Uncapped cards read as before. R-37's example gains the capped form.
+- **Held for the owner:** the card list's Retry (R-45, R-48). The Browser pane can't fail the card list once it has loaded, so the check needs DevTools' request blocking in the owner's Chrome (Task R3-9, Step 13). It hasn't run; the page's tests cover the Retry and where focus lands after it.
+- **Follow-up issues:** Doberjohn/inkweave-admin#29 (the Overview's Engine-silent pairs KPI mostly counts rotated-out cards) and #30 (the Overview's accuracy sentiment rests on few pairs), filed 2026-10-06. Filed 2026-10-07: Doberjohn/inkweave#748 (the votes the app left on set 13's preview ids), #32 (`RaritySymbol` and the printing webps), #33 (the minimum-votes filter, R-25), #34 (the final review's polish and test pins) and #35 (a faster test suite: the jsdom tests in a vm pool).
+- **Real-data check:** run on 2026-10-07 against the files of 2026-10-05.
+  - **Numbers.** They matched the files for three cards: the first to review, one with both kinds of engine-silent pairs, and the one with the most accuracy answers. Cards to review, the not-found copy and the links in matched too.
+  - **Network subtitle.** Both tie forms read as R3-6c words them: every drawn partner tied on the first card to review, and a tie below stronger partners on the engine-silent card and on a second card the check found. The all-tied form also showed on a capped card, in the fix wave's capped wording ("12 of at least …").
+  - **Focus and Retry.** Focus landed on the new card's heading after a Voted pairs link, a network node and a Cards to review link, and stayed in the switcher after a pick, which now opens the new card at the top of the page. After the Engine view's Retry it went to the panel's heading. The card list's Retry is held for the owner.
+  - **History.** Back from a card opened from the prompt takes two steps to leave, as R3-7 accepted.
+  - **Layout.** It held at 1440px and 1366px, and stacked on a phone with no sideways scroll. At 1366px with the sidebar open, the KPI row wraps five and one, leaving Accuracy sentiment alone on its row (the follow-up list).
+  - **Network names** dropped by `textWidth` (R-40): on the first card to review, 0 at 1440px, 0 at 1366px and 11 of 12 at phone width; on the engine-silent card, 0, 0 and 6 of 12, the strongest partner's among them (the follow-up list). Twice-printed short names were told apart by the links' full names.
+  - **Votes per week** (R-36): 28 bars, at about 37px a bar at full width at 1440px, 34px at 1366px and 6.5px on a phone.
+  - **Accuracy sentiment.** The Overview's figure (from `pairs[]`) and the raw answers disagree in sign, which follow-up #30 takes up.
+  - **Fetches.** Each analytics file was fetched once across the pages, and each card's synergy file once.
+  - **Code Health.** `analyze_change_set` passed, with no findings. The PR's own CodeScene check is read once the PR opens (Task R3-9, Step 25).
 
 ## Phase R4: Card studio (outline)
 

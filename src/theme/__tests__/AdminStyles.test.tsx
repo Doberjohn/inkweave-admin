@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {render, screen} from '@testing-library/react';
 import {COLORS, EASING, FONT_SIZES, RADIUS} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
-import {ADMIN_COLORS} from '../adminTheme';
+import {ADMIN_COLORS, ADMIN_RADIUS} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
 const CLASSES = [
@@ -15,6 +15,10 @@ const CLASSES = [
   'adm-input',
   'adm-select',
   'adm-hover-row',
+  // The card switcher's options (R3-5).
+  'adm-option',
+  // R3-8's: a card name's link.
+  'adm-link',
   // The chart kit's (R1-3b).
   'adm-chart-plot',
   'adm-chart-hit',
@@ -25,6 +29,8 @@ const CLASSES = [
   'adm-chart-label',
   'adm-chart-cursor',
   'adm-chart-tip',
+  // The network diagram's node links (R3-4b).
+  'adm-net-link',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -34,6 +40,7 @@ const FOCUSABLE = [
   'adm-input',
   'adm-select',
   'adm-chart-hit',
+  'adm-link',
 ];
 const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
@@ -74,6 +81,17 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-row-btn[aria-pressed="true"]:hover:where(:not(:disabled)){background:${ADMIN_COLORS.rowSelected};}`);
   });
 
+  it('marks the active option from aria-selected, with the row fill and the selected bar', () => {
+    const css = stylesheet();
+    expect(css).toContain(
+      `.adm-option[aria-selected="true"]{background:${ADMIN_COLORS.rowHover};box-shadow:inset 2px 0 0 ${ADMIN_COLORS.accent};}`,
+    );
+    // The hook highlights a hovered option too, so the one rule covers the pointer.
+    expect(css).not.toContain('.adm-option:hover');
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduced).toMatch(/[.]adm-option(?![a-z-])[^{]*[{]transition:none;[}]/);
+  });
+
   it('uses token colours only: hexes from COLORS, rgba() from ADMIN_COLORS', () => {
     const css = stylesheet();
     const tokenHexes = new Set(Object.values(COLORS).map((v) => v.toLowerCase()));
@@ -109,6 +127,13 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-chart-plot:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
     // Bar columns sit flush against each other, so their ring stays inside the column.
     expect(css).toContain(`.adm-chart-hit:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:-2px;}`);
+  });
+
+  it('lets a network node link fill its box, and rings it outside it as the controls are ringed', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-net-link{display:block;width:100%;height:100%;border-radius:${ADMIN_RADIUS.control}px;}`);
+    // Last in the controls' focus-visible list. It has no hover style (a hover shows its tooltip), so FOCUSABLE leaves it out.
+    expect(css).toContain(`.adm-net-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
   });
 
   it('never dims a bar column, so a focused one keeps its full ring while another is picked', () => {
@@ -164,5 +189,14 @@ describe('AdminStyles', () => {
     expect(getComputedStyle(screen.getByTestId('dimmed')).opacity).toBe('0.4');
     expect(getComputedStyle(screen.getByTestId('active')).filter).toBe('brightness(1.2)');
     expect(getComputedStyle(screen.getByTestId('plain')).opacity).toBe('1');
+  });
+
+  it('underlines a card link in the muted colour, golds it on hover and rings it 2px out (R3-8)', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-link{color:inherit;text-decoration:underline;text-decoration-color:${ADMIN_COLORS.muted};`);
+    expect(css).toContain(`.adm-link:hover{color:${ADMIN_COLORS.accent};text-decoration-color:${ADMIN_COLORS.accent};}`);
+    expect(css).toContain(`.adm-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduced).toMatch(/[.]adm-link(?![a-z-])[^{]*[{]transition:none;[}]/);
   });
 });

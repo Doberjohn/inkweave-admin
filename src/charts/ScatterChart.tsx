@@ -2,7 +2,7 @@ import {useRef} from 'react';
 import {SPACING, useContainerWidth} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {fmtInt} from '../ui/format';
-import {LABEL_SIZE, labelWidth, labelX, px, yAxis} from './axis';
+import {LABEL_HALO, LABEL_SIZE, labelWidth, labelX, px, yAxis} from './axis';
 import {AxisGrid, ChartPlot, ChartSvg, EmptyChart} from './ChartSvg';
 import {ChartTooltip, type TooltipContent} from './ChartTooltip';
 import {DOT_RADIUS, RING} from './lineLayout';
@@ -80,8 +80,6 @@ const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
 const LIFT_RADIUS = DOT_RADIUS + RING;
 /** The keys that select the dot the slider announces. */
 const SELECT_KEYS = new Set(['Enter', ' ']);
-/** The y = x label's halo: a stroke 3px wide, so 1.5px of page colour shows outside each glyph. */
-const LABEL_HALO = 3;
 
 /** The x axis: a 1px gridline up the plot at each tick (the zero line a step stronger, as AxisGrid draws y), its label below. */
 function XGrid({ticks, layout, format}: {ticks: readonly number[]; layout: ScatterLayout; format: (n: number) => string}) {

@@ -1,9 +1,10 @@
 import type {CSSProperties} from 'react';
-import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
+import {PairLine} from '../CardName';
 import {latestVotes} from './overviewStats';
 import {PanelLink} from './PanelLink';
 import type {VoteLog} from '../voteLogTypes';
@@ -19,7 +20,11 @@ interface LatestVotesCardProps {
   error: Error | null;
 }
 
-/** The card body: vote-log.json's own loading, error and no-raw-votes states, or the newest votes. */
+/**
+ * The card body: vote-log.json's own loading, error and no-raw-votes states,
+ * or the newest votes. A card the card list holds links to its card page
+ * (PairLine, R-33).
+ */
 function LatestVotesBody({voteLog, error}: LatestVotesCardProps) {
   if (error) return <p style={MUTED}>Could not load the vote log ({error.message}).</p>;
   if (!voteLog) return <p style={MUTED}>Loading votes...</p>;
@@ -38,10 +43,8 @@ function LatestVotesBody({voteLog, error}: LatestVotesCardProps) {
           style={{display: 'flex', alignItems: 'center', gap: SPACING.md, padding: `${SPACING.xs}px 0`}}>
           {/* A quick vote has no score: the pill shows "—". */}
           <ScorePill score={v.score} />
-          <div style={{minWidth: 0, flex: 1}}>
-            <div style={{...TRUNCATE, fontSize: ADMIN_TYPE.body}}>
-              {v.aName} × {v.bName}
-            </div>
+          <div style={{minWidth: 0, flex: 1, fontSize: ADMIN_TYPE.body}}>
+            <PairLine pair={v} />
             <div style={{fontSize: ADMIN_TYPE.label, color: ADMIN_COLORS.muted}}>
               voter {v.voter} · {fmtDay(v.ts.slice(0, 10))}
             </div>

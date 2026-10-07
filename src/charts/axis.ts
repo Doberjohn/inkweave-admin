@@ -13,6 +13,12 @@ import {axisTicks, textWidth} from './scale';
 export const LABEL_SIZE = ADMIN_TYPE.micro;
 /** The air between a tick label and the plot. */
 export const TICK_GAP = SPACING.sm;
+/**
+ * The halo round a label drawn over marks: a stroke this wide in the page
+ * colour, painted under the glyphs (paintOrder="stroke"), so 1.5px of page
+ * shows round each one and a line crossing the label never cuts a letter.
+ */
+export const LABEL_HALO = 3;
 
 /** One y tick: its value, its label and its y in px. An empty label keeps the gridline and prints no text (AxisGrid). */
 export interface AxisTick {

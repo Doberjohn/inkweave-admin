@@ -3,7 +3,7 @@ import {ChartFrame} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import type {TooltipContent} from '../../../charts/ChartTooltip';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {fmtInt} from '../../../ui/format';
+import {fmtInt, sharePercent} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
 import type {PairStat} from '../voteAnalyticsTypes';
 import {
@@ -13,7 +13,6 @@ import {
   gapBins,
   gapShares,
   histogramTable,
-  sharePercent,
   sideColor,
   type GapBin,
 } from './chartData';

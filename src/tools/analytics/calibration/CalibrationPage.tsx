@@ -1,15 +1,16 @@
 import {useSearchParams} from 'react-router-dom';
 import {targetBranch} from '../../../github/githubCommit';
 import {useGithubToken} from '../../../github/useGithubToken';
+import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {PageLayout} from '../../../shell/PageLayout';
 import {UnsavedChangesGuard} from '../../../shell/UnsavedChangesGuard';
+import {DataAsOf} from '../../../ui/DataAsOf';
 import {useLiveTuning} from '../../tuning/useLiveTuning';
 import {useTuningAdmin} from '../../tuning/useTuningAdmin';
 import {useVoteAnalytics} from '../useVoteAnalytics';
 import {useVoteLog} from '../useVoteLog';
 import {CalibrationWorkspace, type CalibrationWorkspaceProps} from './CalibrationWorkspace';
 import {calibrationSubtitle} from './calibrationModel';
-import {useFocusHandoff} from './focusHandoff';
 
 /** What leaving /calibration with pending edits loses (R-19). */
 const UNSAVED_TUNING = "Your pending tuning edits aren't published yet. Leaving this page drops them.";
@@ -20,15 +21,6 @@ const publishingTuning = () =>
 
 /** The branch pill: only the page's tuning half writes, and the pill keeps the repo it writes to. */
 const BRANCH_LABEL = 'Tuning writes to Doberjohn/inkweave';
-
-/** "Data as of 2026-09-30": the day admin's Deploy workflow built the analytics. */
-function DataAsOf({generatedAt}: {generatedAt: string}) {
-  return (
-    <>
-      Data as of <code>{generatedAt.slice(0, 10)}</code>
-    </>
-  );
-}
 
 /**
  * Both tuning hooks need a token, so they live below the gate, and so does the

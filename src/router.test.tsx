@@ -68,7 +68,7 @@ describe('admin routes', () => {
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 
-  it.each(['/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
+  it.each(['/cards/2983', '/no-such-page'])('names no branch on %s, which writes nothing', (path) => {
     renderAt(path);
     expect(screen.queryByText(BRANCH_NOTICE)).not.toBeInTheDocument();
   });
@@ -153,6 +153,15 @@ describe('admin routes', () => {
     // The file's fetch stub never settles, so the page waits on the vote log.
     expect(screen.getByText('Loading vote log...')).toBeInTheDocument();
     expect(sidebarNav().getByRole('link', {name: /Vote activity/})).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens Card analytics on a card at /cards/2983, current in the sidebar while Overview is not', () => {
+    renderAt('/cards/2983');
+    expect(screen.getByRole('heading', {level: 1, name: 'Card analytics'})).toBeInTheDocument();
+    // The file's fetch stub never settles, so the card list is still loading.
+    expect(screen.getByText('Loading cards…')).toBeInTheDocument();
+    expect(sidebarNav().getByRole('link', {name: 'Card analytics'})).toHaveAttribute('aria-current', 'page');
+    expect(sidebarNav().getByRole('link', {name: 'Overview'})).not.toHaveAttribute('aria-current');
   });
 
   it('opens web analytics at /web, current in the sidebar and with no branch notice', () => {

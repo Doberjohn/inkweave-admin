@@ -1,6 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {CtaButton, SPACING} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
+import {DataAsOf} from '../ui/DataAsOf';
 import {PAGE_GUTTER, PageLayout} from './PageLayout';
 
 const meta: Meta<typeof PageLayout> = {
@@ -31,11 +32,7 @@ export const ReadOnly: Story = {
   args: {
     title: 'Vote activity',
     subtitle: 'Who votes, and on what.',
-    meta: (
-      <>
-        Data as of <code>2026-09-30</code>
-      </>
-    ),
+    meta: <DataAsOf generatedAt="2026-09-30T04:00:00.000Z" />,
     actions: <CtaButton variant="neutral">Refresh</CtaButton>,
   },
 };

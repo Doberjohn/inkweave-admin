@@ -2,10 +2,12 @@ import {LETTER_SPACING, SPACING} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {Panel} from '../../ui/Panel';
 import {ScorePill} from '../../ui/ScorePill';
+import {PairNames} from './CardName';
 import type {VoteLogRow} from './voteLogTypes';
 
 interface VoteDetailTableProps {
-  pair: {aName: string; bName: string; engineScore: number} | null;
+  /** The selected pair: its cards' ids and names, and the engine's score. Null asks for one. */
+  pair: {a: string; b: string; aName: string; bName: string; engineScore: number} | null;
   votes: VoteLogRow[];
   /**
    * Shown in place of the table while the votes can't be: the vote log is
@@ -99,8 +101,10 @@ function VoteRows({title, votes}: {title: string; votes: VoteLogRow[]}) {
  * The selected pair's votes, as a panel. With no pair it is the "Votes" panel
  * and asks for one. With a pair, the panel is named by it, with the engine
  * score beside the title, over a table of each vote's score, accuracy thumb,
- * would-play flag and UTC day. A notice, or a pair the vote log holds no votes
- * for, replaces the table with one line.
+ * would-play flag and UTC day. In the title, a card the card list holds links
+ * to its card page (R-33): the pair list's rows are buttons, which can't hold
+ * a link. A notice, or a pair the vote log holds no votes for, replaces the
+ * table with one line.
  */
 export function VoteDetailTable({pair, votes, notice}: VoteDetailTableProps) {
   if (pair == null) {
@@ -113,7 +117,7 @@ export function VoteDetailTable({pair, votes, notice}: VoteDetailTableProps) {
   const title = `${pair.aName} × ${pair.bName}`;
   const message = notice ?? (votes.length === 0 ? 'No votes for this pair in the vote log.' : null);
   return (
-    <Panel title={title} action={`engine ${pair.engineScore}`} padded={false}>
+    <Panel title={<PairNames pair={pair} />} action={`engine ${pair.engineScore}`} padded={false}>
       {message === null ? <VoteRows title={title} votes={votes} /> : <p style={MESSAGE}>{message}</p>}
     </Panel>
   );

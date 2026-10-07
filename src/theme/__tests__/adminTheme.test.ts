@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {COLORS, FONT_SIZES, RADIUS} from '../../app-bridge';
+import {COLORS, FONT_SIZES, RADIUS, TIER_COLORS} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
 type Rgb = [number, number, number];
@@ -119,6 +119,11 @@ describe('ADMIN_COLORS', () => {
       '5–6 (barNeutral)': ADMIN_COLORS.barNeutral,
       '≤4 (over)': ADMIN_COLORS.over,
       'No score stripes (muted)': ADMIN_COLORS.muted,
+      // The strength tiers: the network diagram's spokes and dots (R3-4b) and the tier split (R3).
+      'Perfect tier': TIER_COLORS.perfect.color,
+      'Strong tier': TIER_COLORS.strong.color,
+      'Moderate tier': TIER_COLORS.moderate.color,
+      'Weak tier': TIER_COLORS.weak.color,
     };
     for (const [band, fill] of Object.entries(chartMarks)) {
       expect(contrast(over(fill, card), card), `${band} on a card`).toBeGreaterThanOrEqual(3);

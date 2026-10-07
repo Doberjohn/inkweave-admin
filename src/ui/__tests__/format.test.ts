@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {fmtDay, fmtGap, fmtInt, fmtScore, fmtWeekday} from '../format';
+import {fmtDay, fmtGap, fmtInt, fmtScore, fmtWeekday, sharePercent} from '../format';
 
 const MINUS = '−';
 
@@ -78,6 +78,25 @@ describe('fmtScore', () => {
   it('shows a dash for an unscored value', () => {
     expect(fmtScore(null)).toBe('—');
     expect(fmtScore(NaN)).toBe('—');
+  });
+});
+
+// Moved with sharePercent from calibration's chartData.test.ts (R3-1a). A part
+// with any share never reads 0%, and one short of the whole never 100% (R-43).
+describe('sharePercent', () => {
+  it.each([
+    [1 / 3, '33%'],
+    [1 / 2, '50%'],
+    [1 / 6, '17%'],
+    [0, '0%'],
+    [1 / 400, '<1%'],
+    [0.0049, '<1%'],
+    [0.005, '1%'],
+    [0.994, '99%'],
+    [0.995, '>99%'],
+    [1, '100%'],
+  ])('prints %s as %s', (fraction, text) => {
+    expect(sharePercent(fraction)).toBe(text);
   });
 });
 

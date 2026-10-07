@@ -40,6 +40,23 @@ describe('PageLayout', () => {
     expect(document.title).toBe('Web analytics · Inkweave admin');
   });
 
+  it('names the tab after documentTitle when the page gives one, and after its title again without (R-51)', () => {
+    const {rerender} = render(
+      <PageLayout title="Card analytics" documentTitle="Elsa - Snow Queen · Card analytics">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Elsa - Snow Queen · Card analytics · Inkweave admin');
+    // The h1 keeps the page's own title.
+    expect(screen.getByRole('heading', {level: 1, name: 'Card analytics'})).toBeInTheDocument();
+    rerender(
+      <PageLayout title="Card analytics">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Card analytics · Inkweave admin');
+  });
+
   it('names no branch on a page that writes nothing', () => {
     render(
       <PageLayout title="Web analytics">
@@ -78,6 +95,30 @@ describe('PageLayout', () => {
     expect(body).toHaveStyle({overflowY: 'auto'});
     expect(body).not.toHaveStyle({display: 'grid'});
     expect(body?.style.padding).toBe('');
+  });
+
+  it('scrolls the body back to the top when scrollKey changes, and not while it stays the same', () => {
+    const {rerender} = render(
+      <PageLayout title="Card analytics" scrollKey="2983">
+        <p>Elsa</p>
+      </PageLayout>,
+    );
+    const body = screen.getByRole('main').lastElementChild as HTMLElement;
+    body.scrollTop = 500;
+    rerender(
+      <PageLayout title="Card analytics" scrollKey="2983">
+        <p>Elsa, updated</p>
+      </PageLayout>,
+    );
+    expect(body.scrollTop).toBe(500);
+    rerender(
+      <PageLayout title="Card analytics" scrollKey="2984">
+        <p>Anna</p>
+      </PageLayout>,
+    );
+    // The same scroller, kept mounted, back at the top.
+    expect(screen.getByText('Anna').parentElement).toBe(body);
+    expect(body.scrollTop).toBe(0);
   });
 
   it('lays the body out as the padded grid without flush', () => {

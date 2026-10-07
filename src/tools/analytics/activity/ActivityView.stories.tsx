@@ -1,5 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
+import {MemoryRouter} from 'react-router-dom';
 import {FONTS, SPACING} from '../../../app-bridge';
+import {KnownCardsContext} from '../../../shell/knownCards';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import type {VoteLog, VoteLogRow} from '../voteLogTypes';
 import {ActivityView} from './ActivityView';
@@ -39,10 +41,10 @@ function sampleVote(next: () => number, dayStart: number): VoteLogRow {
   return {
     ...pair,
     score: quick ? null : 1 + Math.floor(next() * 10),
-    accuracy: Math.floor(next() * 3) - 1,
+    accuracy: ([-1, 0, 1] as const)[Math.floor(next() * 3)],
     isReal: quick ? null : next() < 0.9,
     wouldPlay: quick ? null : next() < 0.6,
-    difficulty: quick ? null : 1 + Math.floor(next() * 3),
+    difficulty: quick ? null : ([1, 2, 3] as const)[Math.floor(next() * 3)],
     whoCarries: quick ? null : carriesFor(next),
     ts: new Date(dayStart + Math.floor(next() * DAY_MS)).toISOString(),
     voter: 1 + Math.floor(next() ** 2 * 40),
@@ -122,4 +124,25 @@ export const LoadError: Story = {
 /** What a Deploy without SUPABASE_SERVICE_ROLE_KEY writes. */
 export const NoRawVotes: Story = {
   args: {voteLog: {generatedAt: '2026-10-01T04:00:00.000Z', votes: [], voterCount: 0}},
+};
+
+/** Ariel's and Ursula's ids, which this story's card list lacks (rotated out of Core, say). */
+const ROTATED_OUT = ['1530', '1702'];
+
+/**
+ * In the shell (R-33): a card the card list holds links to its card page, in
+ * the log and in Most voted pairs. Ariel and Ursula aren't in the list, so
+ * their names stay text.
+ */
+export const CardLinks: Story = {
+  args: {voteLog: LOG},
+  decorators: [
+    (Story) => (
+      <MemoryRouter>
+        <KnownCardsContext value={(id) => !ROTATED_OUT.includes(id)}>
+          <Story />
+        </KnownCardsContext>
+      </MemoryRouter>
+    ),
+  ],
 };

@@ -1,9 +1,10 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
+import {renderWithCards} from '../../../test/cardLinks';
 import {VoteDetailTable} from '../VoteDetailTable';
 import type {VoteLogRow} from '../voteLogTypes';
 
-const PAIR = {aName: 'Sisu', bName: 'Raya', engineScore: 8};
+const PAIR = {a: '1', b: '2', aName: 'Sisu', bName: 'Raya', engineScore: 8};
 
 function vote(over: Partial<VoteLogRow>): VoteLogRow {
   return {
@@ -49,6 +50,15 @@ describe('VoteDetailTable', () => {
     // A <th> maps to columnheader with or without scope, so the scope is asserted on its own.
     for (const th of headers) expect(th).toHaveAttribute('scope', 'col');
     expect(within(table).getAllByRole('row')).toHaveLength(4);
+  });
+
+  it('links each name in its heading that the card list holds (R-33), still named by the pair', () => {
+    renderWithCards(<VoteDetailTable pair={PAIR} votes={VOTES} />, ['1']);
+    const panel = screen.getByRole('region', {name: 'Sisu × Raya'});
+    const heading = within(panel).getByRole('heading', {level: 2, name: 'Sisu × Raya'});
+    expect(within(heading).getByRole('link', {name: 'Sisu'})).toHaveAttribute('href', '/cards/1');
+    expect(within(heading).queryByRole('link', {name: 'Raya'})).not.toBeInTheDocument();
+    expect(within(panel).getByRole('table', {name: 'Votes on Sisu × Raya'})).toBeInTheDocument();
   });
 
   it('pills each score, labels accuracy as too high / right / too low, would-play as yes / no / —, and dates each vote', () => {
