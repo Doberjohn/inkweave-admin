@@ -69,3 +69,8 @@ Dependabot opens these PRs weekly. CI on them is the bridge's contract test.
 - Branches are `feature/<issue>-<desc>` or `fix/<issue>-<desc>`. Commit messages are semantic and include the issue reference.
 - Commit and push only after the owner explicitly approves, with `USER_APPROVED=1` as the literal first characters of the command. Never pipe a commit or a push. Run them with the Bash tool: the hooks also watch PowerShell, which cannot carry the prefix, so a commit or push there is always blocked.
 - Gates: `.husky` runs lint and tests on commit, and dependency parity plus typecheck on push. `.claude/hooks` provides git safety, the branch check and read-only `upstream/` (file edits, and git writes run there from Bash or PowerShell). When you change a hook, add cases to `scripts/check-hooks.mjs` and run `pnpm check:hooks`.
+
+## Code Health (CodeScene)
+
+- After changing code, run CodeScene's `code_health_review` on the changed files. If Code Health drops, fix it, review again, and confirm with `code_health_score`. Before a commit, run `pre_commit_code_health_safeguard` and stop only when it passes. Before a PR, run `analyze_change_set` against `main`.
+- The PR's CodeScene check is stricter than the local tool: it failed R1 and R2 on files the local tool passed. Keep new code at 10: cyclomatic complexity 8 or less per function, at most 4 arguments, and under 30% primitive arguments per module (`string`, `number`, `boolean` and their aliases, such as `Day`).
