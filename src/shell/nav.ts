@@ -48,3 +48,12 @@ export function isWritePath(pathname: string): boolean {
 export function calibrationHref(ruleId?: string): string {
   return ruleId ? `/calibration?rule=${encodeURIComponent(ruleId)}` : '/calibration';
 }
+
+/**
+ * The Card analytics page, opened on a card when one is given (R-33): what the
+ * switcher, the partner links and other pages' card links navigate to. Bare
+ * /cards opens the last card viewed, or the "Pick a card" prompt.
+ */
+export function cardsHref(cardId?: string): string {
+  return cardId ? `/cards/${encodeURIComponent(cardId)}` : '/cards';
+}

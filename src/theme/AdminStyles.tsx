@@ -26,8 +26,8 @@ const ENABLED = ':where(:not(:disabled))';
  * and the pages share. Inline styles stay the default (the app's house style);
  * these classes exist for what inline styles can't express: :hover,
  * :focus-visible and state selectors. Selection is read from ARIA state
- * (aria-current="page", aria-pressed="true"), never from a class, so the
- * styling and what assistive tech hears can't disagree.
+ * (aria-current="page", aria-pressed="true", aria-selected="true"), never from
+ * a class, so the styling and what assistive tech hears can't disagree.
  *
  * The focus ring is the one gold (ADMIN_COLORS.accent), replacing the app's
  * global legacy-gold ring. Rows draw theirs inside the box (offset -2px): they
@@ -40,6 +40,12 @@ const ENABLED = ':where(:not(:disabled))';
  * the rules table on /calibration). Its first cell draws the selected bar as
  * well: browsers differ on painting a box-shadow on a <tr> in a collapsed
  * table, and a cell's always paints, so the two coincide where both do.
+ *
+ * A listbox option (adm-option, the card switcher's) never takes focus: focus
+ * stays in its field, which points at the active option (aria-activedescendant).
+ * So the option draws no ring. aria-selected marks the active one with the
+ * row fill and the selected bar, the 3:1 cue. The app's useAutocomplete moves
+ * aria-selected on hover too, so one rule serves the pointer and the keys.
  *
  * <button> takes no style prop here (inkweave/no-adhoc-buttons), so the button
  * classes are complete on their own. Lay out a row's or a card's content with
@@ -87,6 +93,9 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
 
+.adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;color:${C.text};font-size:${T.body}px;cursor:pointer;transition:background-color ${FAST};}
+.adm-option[aria-selected="true"]{background:${C.rowHover};box-shadow:inset 2px 0 0 ${C.accent};}
+
 .adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
@@ -112,7 +121,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
 
 @media (prefers-reduced-motion: reduce){
-.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row{transition:none;}
+.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}
 }

@@ -15,6 +15,8 @@ const CLASSES = [
   'adm-input',
   'adm-select',
   'adm-hover-row',
+  // The card switcher's options (R3-5).
+  'adm-option',
   // The chart kit's (R1-3b).
   'adm-chart-plot',
   'adm-chart-hit',
@@ -74,6 +76,17 @@ describe('AdminStyles', () => {
     const css = stylesheet();
     expect(css).toContain(`.adm-row-btn[aria-pressed="true"]{background:${ADMIN_COLORS.rowSelected};`);
     expect(css).toContain(`.adm-row-btn[aria-pressed="true"]:hover:where(:not(:disabled)){background:${ADMIN_COLORS.rowSelected};}`);
+  });
+
+  it('marks the active option from aria-selected, with the row fill and the selected bar', () => {
+    const css = stylesheet();
+    expect(css).toContain(
+      `.adm-option[aria-selected="true"]{background:${ADMIN_COLORS.rowHover};box-shadow:inset 2px 0 0 ${ADMIN_COLORS.accent};}`,
+    );
+    // The hook highlights a hovered option too, so the one rule covers the pointer.
+    expect(css).not.toContain('.adm-option:hover');
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduced).toMatch(/[.]adm-option(?![a-z-])[^{]*[{]transition:none;[}]/);
   });
 
   it('uses token colours only: hexes from COLORS, rgba() from ADMIN_COLORS', () => {

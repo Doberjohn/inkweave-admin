@@ -1,3 +1,4 @@
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {PairStat, RuleStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import type {CardSynergies} from './engineView';
@@ -400,3 +401,48 @@ export const ENGINE_CAPPED: EngineFixture = engineFixture(
     rules: i < 100 ? ['Ramp'] : ['Shift Targets'],
   })),
 );
+
+// ── Switcher fixtures (R3-5) ──
+
+/**
+ * A card in the shape the loader gives the app: `fullName` is "name - version"
+ * (or the bare name), and the rest of what LorcanaCard requires has a plain
+ * default. `seed` names the fields a test or story cares about.
+ */
+export function lorcanaCard(seed: Pick<LorcanaCard, 'id' | 'name'> & Partial<LorcanaCard>): LorcanaCard {
+  const {name, version} = seed;
+  return {
+    fullName: version ? `${name} - ${version}` : name,
+    cost: 3,
+    ink: 'Amber',
+    inkwell: true,
+    type: 'Character',
+    ...seed,
+  };
+}
+
+/**
+ * The switcher's card list. Eight cards match "mi": five from set 10 listed
+ * first, then three from set 11, so newest-set-first moves set 11 to the top
+ * and the sixth result cuts Madam Mim and Magic Mirror. Magic Mirror (an item)
+ * has no version, Miss Bianca (a preview) no collector number, and Minnie Mouse
+ * - Musketeer Champion two inks. Elsa matches nothing in "mi".
+ */
+export const SWITCHER_CARDS: LorcanaCard[] = [
+  lorcanaCard({id: '3001', name: 'Mickey Mouse', version: 'Brave Little Tailor', setCode: '10', setNumber: 115}),
+  lorcanaCard({id: '3002', name: 'Minnie Mouse', version: 'Beloved Princess', setCode: '10', setNumber: 12}),
+  lorcanaCard({id: '3003', name: 'Mirabel Madrigal', version: 'Gift of the Family', setCode: '10', setNumber: 18}),
+  lorcanaCard({id: '3004', name: 'Madam Mim', version: 'Fox', ink: 'Amethyst', setCode: '10', setNumber: 50}),
+  lorcanaCard({id: '3005', name: 'Magic Mirror', type: 'Item', ink: 'Amethyst', setCode: '10', setNumber: 66}),
+  lorcanaCard({id: '3006', name: 'Miss Bianca', version: 'Unwavering Agent', ink: 'Sapphire', setCode: '11'}),
+  lorcanaCard({id: '3007', name: 'Mickey Mouse', version: 'Wayward Sorcerer', ink: 'Amethyst', setCode: '11', setNumber: 40}),
+  lorcanaCard({
+    id: '3008',
+    name: 'Minnie Mouse',
+    version: 'Musketeer Champion',
+    ink2: 'Steel',
+    setCode: '11',
+    setNumber: 120,
+  }),
+  lorcanaCard({id: '3009', name: 'Elsa', version: 'Snow Queen', ink: 'Sapphire', setCode: '10', setNumber: 42}),
+];

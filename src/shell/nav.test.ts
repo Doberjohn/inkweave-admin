@@ -1,4 +1,4 @@
-import {NAV_ITEMS, calibrationHref, isWritePath, navItemFor} from './nav';
+import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor} from './nav';
 
 describe('navItemFor', () => {
   it.each([
@@ -57,5 +57,17 @@ describe('calibrationHref', () => {
     ['a b', '/calibration?rule=a%20b'],
   ])('links %s to %s', (ruleId, href) => {
     expect(calibrationHref(ruleId)).toBe(href);
+  });
+});
+
+describe('cardsHref', () => {
+  it('links the bare page when no card is given', () => expect(cardsHref()).toBe('/cards'));
+
+  it.each([
+    ['2983', '/cards/2983'],
+    // Escaped, so an id always stays one path segment.
+    ['a/b c', '/cards/a%2Fb%20c'],
+  ])('links %s to %s', (cardId, href) => {
+    expect(cardsHref(cardId)).toBe(href);
   });
 });
