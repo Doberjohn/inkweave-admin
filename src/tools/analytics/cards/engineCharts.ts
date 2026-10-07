@@ -137,16 +137,27 @@ function allTied(cut: CutTie | null): cut is CutTie {
   return cut !== null && cut.drawn === NETWORK_MAX_NODES;
 }
 
-/** "7 of the 8 partners at score 7". */
-function tieText(cut: CutTie): string {
-  return `${cut.drawn} of the ${cut.tied} partners at score ${engineScoreText(cut.score)}`;
+/** A tie the cut splits, and whether a group hit the engine's cap. */
+interface TieRead {
+  cut: CutTie;
+  capped: boolean;
+}
+
+/**
+ * "7 of the 8 partners at score 7". On a capped card the tie's count is a
+ * floor, "12 of at least 100 partners at score 7": each group's cut may have
+ * left out more partners at that score, and the file can't show where.
+ */
+function tieText({cut, capped}: TieRead): string {
+  const tied = capped ? `at least ${cut.tied}` : `the ${cut.tied}`;
+  return `${cut.drawn} of ${tied} partners at score ${engineScoreText(cut.score)}`;
 }
 
 /** Which partners the diagram draws. A capped count is a floor, so it reads "at least", as the panel's count does. */
 function whichPartners({summary, cut}: Pick<EngineModel, 'summary' | 'cut'>): string {
   if (summary.partners <= NETWORK_MAX_NODES) return 'Every partner';
   const total = `${summary.capped ? 'at least ' : ''}${fmtInt(summary.partners)}`;
-  if (allTied(cut)) return `${tieText(cut)}, by name, of ${total} in all`;
+  if (allTied(cut)) return `${tieText({cut, capped: summary.capped})}, by name, of ${total} in all`;
   return `The ${NETWORK_MAX_NODES} strongest of ${total} partners`;
 }
 
@@ -156,10 +167,15 @@ function ringClause(summary: EngineSummary): string {
   return outer > 0 ? `, the first ${inner} on the inner ring` : '';
 }
 
-/** R-37: a cut inside a tie below the top score names the tie, whose drawn partners are picked by name. */
-function tieClause(cut: CutTie | null): string {
+/**
+ * R-37: a cut inside a tie below the top score names the tie, whose drawn
+ * partners are picked by name. On a capped card they are picked from the
+ * partners the file lists, which may leave out some at that score.
+ */
+function tieClause({summary, cut}: Pick<EngineModel, 'summary' | 'cut'>): string {
   if (!cut || allTied(cut)) return '';
-  return ` ${tieText(cut)} make the cut, by name.`;
+  const among = summary.capped ? ', among those the engine lists' : '';
+  return ` ${tieText({cut, capped: summary.capped})} make the cut, by name${among}.`;
 }
 
 /** Spoke widths say nothing when every drawn spoke has the same score: one partner, or a drawn set that all tie. */
@@ -176,7 +192,7 @@ function spokesClause(partners: readonly EnginePartner[]): string {
  */
 export function networkSubtitle(model: EngineModel): string {
   const read = `ranked clockwise from 12 o'clock${ringClause(model.summary)}`;
-  return `${whichPartners(model)}, ${read}.${tieClause(model.cut)}${spokesClause(model.partners)}`;
+  return `${whichPartners(model)}, ${read}.${tieClause(model)}${spokesClause(model.partners)}`;
 }
 
 /** The diagram's table view: every partner, not only the drawn ones, with all its tooltip shows. */

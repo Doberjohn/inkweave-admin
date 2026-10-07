@@ -1,5 +1,5 @@
 import {describe, expect, it, vi} from 'vitest';
-import {act, render, screen, within} from '@testing-library/react';
+import {act, isInaccessible, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {RouterProvider, createMemoryRouter, useLocation, useParams} from 'react-router-dom';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
@@ -100,6 +100,14 @@ describe('NetworkDiagram: nodes and links', () => {
     expect(items.map((li) => [li.style.left, li.style.top, li.style.width, li.style.height])).toEqual(
       layout.links.map((box) => [`${box.x}px`, `${box.y}px`, `${box.width}px`, `${box.height}px`]),
     );
+    // Each li holds its link alone, and the link fills it through adm-net-link (display block, full
+    // width and height): without the class it is an empty inline anchor, with nothing to point at.
+    const links = nodeLinks();
+    items.forEach((li, i) => {
+      expect(li.children).toHaveLength(1);
+      expect(li.firstElementChild).toBe(links[i]);
+      expect(links[i]).toHaveClass('adm-net-link');
+    });
   });
 
   it('follows a node’s link, as a click or a tap does', async () => {
@@ -131,6 +139,19 @@ describe('NetworkDiagram: marks', () => {
     const {container} = renderDiagram();
     expect(container.querySelector('circle[data-mark="hub"]')).toHaveAttribute('fill', ADMIN_COLORS.text);
     expect(printedNames(container)).toEqual(['Partner 0', 'Partner 1', 'Partner 2', 'Partner 3']);
+  });
+
+  it('hides the drawing, its printed names included, so each name is read once, by its link (R-41)', () => {
+    const {container} = renderDiagram();
+    const svgs = container.querySelectorAll('svg');
+    expect(svgs).toHaveLength(1);
+    expect(svgs[0]).toHaveAttribute('aria-hidden', 'true');
+    // ByText ignores aria-hidden, so the names are checked for what assistive tech sees.
+    const names = Array.from(container.querySelectorAll('text'));
+    expect(names).toHaveLength(4);
+    expect(names.every((name) => isInaccessible(name))).toBe(true);
+    // The control: the links that carry the names are exposed.
+    expect(nodeLinks().some((link) => isInaccessible(link))).toBe(false);
   });
 
   it('prints the names that fit and leaves out one too wide for the plot, which keeps its accessible name (R-40)', () => {

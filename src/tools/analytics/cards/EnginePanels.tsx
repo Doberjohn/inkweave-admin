@@ -45,7 +45,10 @@ const RETRY: React.CSSProperties = {justifySelf: 'start'};
 /** The focus wrapper is the view's grid item, so it must shrink as the panel would. */
 const PANEL_WRAP: React.CSSProperties = {minWidth: 0};
 
-const CAP_TEXT = `A synergy group lists only its top ${ENGINE_GROUP_CAP} partners.`;
+// The engine cut each group's weakest partners from the file, so a capped card's split is partial.
+const CAP_TEXT =
+  `A synergy group lists only its top ${ENGINE_GROUP_CAP} partners, ` +
+  'so the split counts only those and undercounts the weaker tiers.';
 const EMPTY_TEXT =
   'The engine finds no synergies for this card (or its synergy file could not be read). ' +
   "A card revealed after the app's last deploy has no synergy file yet.";

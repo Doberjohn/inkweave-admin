@@ -35,6 +35,21 @@ function modelOf(fixture: EngineFixture, names = namesOf(fixture)): EngineModel 
 /** One partner the engine names no rule for. */
 const bare = engineFixture([{id: '601', name: 'Quiet Partner', score: 6, rules: []}]);
 
+/** A full group: 100 partners at `score`, "Tied 001" to "Tied 100", whose names sort as they are numbered. */
+const hundredTied = ({score}: {score: number}) =>
+  Array.from({length: 100}, (_, i) => ({id: String(3001 + i), name: `Tied ${String(i + 1).padStart(3, '0')}`, score}));
+
+/**
+ * Ties that reach the engine's cap (F7): one group lists exactly 100 partners, all at one score,
+ * so the engine may have left more at that score out, and the file's tie count is a floor.
+ * In the first every drawn partner ties; in the second, 8 at 9 (another group) come first.
+ */
+const TIED_AT_CAP = engineFixture(hundredTied({score: 7}));
+const CUT_AT_CAP = engineFixture([
+  ...Array.from({length: 8}, (_, i) => ({id: String(3201 + i), name: `Strong ${i + 1}`, score: 9, rules: ['Singer']})),
+  ...hundredTied({score: 6}),
+]);
+
 /** `count` partners, one per score from 10 down in half points: no two tie. */
 const distinct = (count: number) =>
   engineFixture(
@@ -79,6 +94,18 @@ describe('engineState', () => {
       ENGINE_CAPPED,
       {partners: 142, capped: true, tiers: {Perfect: 0, Strong: 30, Moderate: 70, Weak: 42}},
       {score: 8, drawn: 12, tied: 30},
+    ],
+    [
+      'a capped group, all at the tie score, all twelve from it',
+      TIED_AT_CAP,
+      {partners: 100, capped: true, tiers: {Perfect: 0, Strong: 100, Moderate: 0, Weak: 0}},
+      {score: 7, drawn: 12, tied: 100},
+    ],
+    [
+      'a capped group, all at the tie score, the cut inside it',
+      CUT_AT_CAP,
+      {partners: 108, capped: true, tiers: {Perfect: 0, Strong: 8, Moderate: 100, Weak: 0}},
+      {score: 6, drawn: 4, tied: 100},
     ],
     [
       'one partner, no cut',
@@ -196,7 +223,20 @@ describe('networkSubtitle', () => {
       'a capped count, a floor, every drawn partner in the tie',
       ENGINE_CAPPED,
       // Every drawn spoke has the same score, so the subtitle says how they were picked and nothing of widths.
-      `12 of the 30 partners at score 8, by name, of at least 142 in all, ${READ}, the first 6 on the inner ring.`,
+      // Capped, so the tie's count is a floor too: the file can't show that the engine kept every partner at 8.
+      `12 of at least 30 partners at score 8, by name, of at least 142 in all, ${READ}, the first 6 on the inner ring.`,
+    ],
+    [
+      'a capped tie that fills its group, every drawn partner in it (F7)',
+      TIED_AT_CAP,
+      `12 of at least 100 partners at score 7, by name, of at least 100 in all, ${READ}, the first 6 on the inner ring.`,
+    ],
+    [
+      'a capped tie that fills its group, the cut inside it (F7)',
+      CUT_AT_CAP,
+      `The 12 strongest of at least 108 partners, ${READ}, the first 6 on the inner ring. ` +
+        '4 of at least 100 partners at score 6 make the cut, by name, among those the engine lists. ' +
+        'Thicker spokes score higher.',
     ],
   ])('%s', (_, fixture, subtitle) => {
     expect(networkSubtitle(modelOf(fixture))).toBe(subtitle);

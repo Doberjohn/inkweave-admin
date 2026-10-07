@@ -106,7 +106,9 @@ describe('EnginePanels: the Engine view', () => {
       color: ADMIN_COLORS.muted,
     });
     expect(within(engineView()).queryByText(/At least/)).not.toBeInTheDocument();
+    // No cap, so no caption over the split: every partner is in it.
     expect(within(engineView()).queryByText(/top 100 partners/)).not.toBeInTheDocument();
+    expect(within(engineView()).queryByText(/undercounts/)).not.toBeInTheDocument();
     expect(tierLegend()).toEqual([
       'Perfect ≥9.5 7% (1)',
       'Strong ≥7 80% (12)',
@@ -127,11 +129,22 @@ describe('EnginePanels: the Engine view', () => {
     ]);
   });
 
-  it('reads "At least" and gives the reason when a group hit the engine’s cap', () => {
+  it('reads "At least" when a group hit the engine’s cap, and says the split undercounts the weaker tiers', () => {
     renderPanels({fixture: ENGINE_CAPPED});
     expect(engineView()).toHaveTextContent('At least 142 synergy partners');
     expect(within(engineView()).getByText('At least')).toHaveStyle({color: ADMIN_COLORS.muted});
-    expect(within(engineView()).getByText('A synergy group lists only its top 100 partners.')).toBeInTheDocument();
+    expect(
+      within(engineView()).getByText(
+        'A synergy group lists only its top 100 partners, so the split counts only those and undercounts the weaker tiers.',
+      ),
+    ).toBeInTheDocument();
+    // The split itself is as it was: the file's counts, every tier kept.
+    expect(tierLegend()).toEqual([
+      'Perfect ≥9.5 0% (0)',
+      'Strong ≥7 21% (30)',
+      'Moderate ≥4 49% (70)',
+      'Weak <4 30% (42)',
+    ]);
   });
 
   it.each<[string, Setup, string]>([
@@ -235,9 +248,9 @@ describe('EnginePanels: the network (R-39)', () => {
     expect(network()).toHaveTextContent('7 of the 8 partners at score 7 make the cut, by name.');
   });
 
-  it('reads "at least" for a capped count, as the Engine view does, and says all twelve share a score', () => {
+  it('reads "at least" for a capped card’s counts, as the Engine view does, and says all twelve share a score', () => {
     renderPanels({fixture: ENGINE_CAPPED});
-    expect(network()).toHaveTextContent('12 of the 30 partners at score 8, by name, of at least 142 in all');
+    expect(network()).toHaveTextContent('12 of at least 30 partners at score 8, by name, of at least 142 in all');
     expect(network()).not.toHaveTextContent('Thicker spokes');
   });
 
