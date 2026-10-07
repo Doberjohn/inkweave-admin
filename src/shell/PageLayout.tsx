@@ -70,15 +70,32 @@ interface PageLayoutProps {
   branchLabel?: string;
   /** Children go straight into the scrolling body, with no padding and no grid. */
   flush?: boolean;
+  /**
+   * The tab's name before " · Inkweave admin", when it should say more than the
+   * title: a card page names its card ("Elsa - Snow Queen · Card analytics", R-51).
+   */
+  documentTitle?: string;
   children: React.ReactNode;
+}
+
+/**
+ * Names the browser tab "{name} · Inkweave admin": the page's documentTitle
+ * when it gives one, else its title. Nothing restores the old name on
+ * unmount: the next page sets its own.
+ */
+function useTabTitle({title, documentTitle}: Pick<PageLayoutProps, 'title' | 'documentTitle'>) {
+  const name = documentTitle ?? title;
+  useEffect(() => {
+    document.title = `${name} · Inkweave admin`;
+  }, [name]);
 }
 
 /**
  * Every admin page's frame: a header with the page's h1, subtitle, meta,
  * actions and (on pages that write) the branch notice, over a scrolling body
  * that stacks the page's sections. It renders the page's only <main>, and
- * names the browser tab after the page ("Vote activity · Inkweave admin").
- * Nothing restores the old title on unmount: the next page sets its own.
+ * names the browser tab after the page ("Vote activity · Inkweave admin"), or
+ * after `documentTitle` when that says more.
  */
 export function PageLayout({
   title,
@@ -88,11 +105,10 @@ export function PageLayout({
   writes = false,
   branchLabel,
   flush = false,
+  documentTitle,
   children,
 }: PageLayoutProps) {
-  useEffect(() => {
-    document.title = `${title} · Inkweave admin`;
-  }, [title]);
+  useTabTitle({title, documentTitle});
   const hasSide = meta != null || actions != null || writes;
   return (
     <main style={MAIN}>

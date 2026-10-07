@@ -5,6 +5,7 @@ describe('navItemFor', () => {
     ['/reveal', 'reveal'],
     ['/reveal/', 'reveal'],
     ['/calibration/anything', 'calibration'],
+    ['/cards/2983', 'cards'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
@@ -20,7 +21,7 @@ describe('isWritePath', () => {
   });
 
   // /tuning is a redirect now, and a redirect writes nothing.
-  it.each(['/tuning', '/no-such-page'])('%s writes nothing', (pathname) => {
+  it.each(['/tuning', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -36,7 +37,8 @@ describe('NAV_ITEMS', () => {
 describe('the Calibration & tuning item', () => {
   it('heads Insights, where the analytics page was', () => {
     const insights = NAV_ITEMS.filter((item) => item.group === 'insights').map((item) => item.id);
-    expect(insights).toEqual(['calibration', 'activity', 'web']);
+    // Card analytics ends the group (R3), as the handoff lists it.
+    expect(insights).toEqual(['calibration', 'activity', 'web', 'cards']);
     expect(NAV_ITEMS.some((item) => item.id === 'analytics')).toBe(false);
   });
 

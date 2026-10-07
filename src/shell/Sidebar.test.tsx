@@ -29,7 +29,7 @@ describe('Sidebar', () => {
   it('lists the pages under their group labels', () => {
     renderSidebar();
     expect(screen.getByText('Insights')).toBeInTheDocument();
-    expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web']);
+    expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web', '/cards']);
     expect(hrefs('Publish')).toEqual(['/reveal', '/image']);
     // The mark is aria-hidden: the exact name proves it stays out of the link's name.
     expect(nav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('href', '/reveal');

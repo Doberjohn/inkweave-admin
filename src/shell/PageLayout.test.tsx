@@ -40,6 +40,23 @@ describe('PageLayout', () => {
     expect(document.title).toBe('Web analytics · Inkweave admin');
   });
 
+  it('names the tab after documentTitle when the page gives one, and after its title again without (R-51)', () => {
+    const {rerender} = render(
+      <PageLayout title="Card analytics" documentTitle="Elsa - Snow Queen · Card analytics">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Elsa - Snow Queen · Card analytics · Inkweave admin');
+    // The h1 keeps the page's own title.
+    expect(screen.getByRole('heading', {level: 1, name: 'Card analytics'})).toBeInTheDocument();
+    rerender(
+      <PageLayout title="Card analytics">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(document.title).toBe('Card analytics · Inkweave admin');
+  });
+
   it('names no branch on a page that writes nothing', () => {
     render(
       <PageLayout title="Web analytics">
