@@ -52,6 +52,10 @@ export default defineConfig({
     // The app project's vm workers are recycled once their heap passes this.
     // Vitest reads it from the root config only: set in a project, it is ignored.
     vmMemoryLimit: '1GB',
+    // vm workers hold far more memory than forks. Half the cores keeps the speed
+    // and leaves room for a second run, such as the commit hook beside another
+    // session's tests. Two full-width runs drained a 16 GB machine.
+    maxWorkers: '50%',
     // Both projects inherit the options above (#35). 'scripts' takes the test
     // files under scripts/ and 'app' every other one, so each file runs once.
     projects: [
@@ -67,8 +71,11 @@ export default defineConfig({
       },
       {
         // The jsdom tests under src/. vmForks reuses each worker across files, so
-        // jsdom loads once per worker, not once per file. The workers are child
-        // processes sharing the real process.env, so a stubbed TZ still takes effect.
+        // jsdom's modules load once per worker; each file still gets a fresh DOM.
+        // The workers are child processes and tests see the real process, so a
+        // stubbed TZ still takes effect, and a stub left unrestored leaks into the
+        // worker's next file. fetch and the JSON it parses come from Node's realm:
+        // compare fetched data with toEqual, not toStrictEqual.
         extends: true,
         test: {
           name: 'app',

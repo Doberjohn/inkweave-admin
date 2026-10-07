@@ -39,6 +39,10 @@ pnpm check:hooks      # the .claude/hooks case table (CI runs it; minutes on Win
 pnpm storybook        # http://localhost:6007: the shell, pages, primitives, charts and tools
 ```
 
+Vitest runs two projects (`vite.config.ts`, #35). `app` takes the jsdom tests under `src/` on the `vmForks` pool, which reuses each worker across files. `scripts` takes `scripts/` on `forks`, because vite's `runnerImport` fails inside a vm. Pick one with `--project app` or `--project scripts`. In `app`:
+- a test file shares its worker with the files before it, so restore every stub (`vi.stubEnv`, `vi.stubGlobal`, the TZ) in `afterEach` or `afterAll`;
+- `fetch` and the JSON it parses come from Node's realm, so compare fetched data with `toEqual`, not `toStrictEqual`.
+
 ## Updating the app pin
 
 1. `git submodule update --remote upstream/inkweave` (it moves the pin, so a hook requires the owner's approval and the `USER_APPROVED=1` prefix)
