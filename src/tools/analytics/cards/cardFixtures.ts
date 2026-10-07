@@ -692,3 +692,24 @@ export const RAW_PAIRS: readonly PairStat[] = [
  * this log's, and the panels print none of them.
  */
 export const RAW_ANALYTICS: VoteAnalytics = {...VIEW_ANALYTICS, pairs: [...RAW_PAIRS]};
+
+// ── Engine panels (R3-6c) ──
+
+/** The card whose engine panels the R3-6c tests and stories draw. No engine fixture lists it as a partner. */
+export const ENGINE_CARD: LorcanaCard = lorcanaCard({id: '300', name: 'Marlowe Finch', version: 'Clockmaker'});
+
+/**
+ * The card list's lookup for an engine fixture: each partner as a card, its
+ * fixture name split at " - " into name and version, as the loader builds
+ * fullName (so "Wren Ashdown - Keeper of Keys" prints "Wren Ashdown"). Any
+ * other id is a card the list doesn't hold.
+ */
+export function partnerLookup({data, nameOf}: EngineFixture): (id: string) => LorcanaCard | undefined {
+  const cards = new Map(
+    Object.keys(data.pairs).map((id) => {
+      const [name, version] = nameOf(id).split(' - ');
+      return [id, lorcanaCard({id, name, version})] as const;
+    }),
+  );
+  return (id) => cards.get(id);
+}

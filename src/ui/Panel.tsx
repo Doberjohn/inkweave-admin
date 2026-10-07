@@ -13,10 +13,22 @@ interface PanelProps {
    * edge; the header then keeps its own padding and a divider underneath.
    */
   padded?: boolean;
+  /**
+   * The title can take focus from script (tabIndex −1), so a focus handoff can
+   * land on it when the control that had focus goes (R-48). The Engine view's
+   * Retry uses it. Default false: a heading is not a tab stop either way.
+   */
+  titleFocusable?: boolean;
 }
 
 /** The header row: the h2 title on the left, the action on the right. Flush panels pad it and rule it off. */
-function PanelHeader({title, titleId, action, padded}: Omit<PanelProps, 'children'> & {titleId: string}) {
+function PanelHeader({
+  title,
+  titleId,
+  action,
+  padded,
+  titleFocusable,
+}: Omit<PanelProps, 'children'> & {titleId: string}) {
   return (
     <div
       style={{
@@ -30,7 +42,10 @@ function PanelHeader({title, titleId, action, padded}: Omit<PanelProps, 'childre
           : {padding: `${SPACING.section}px ${SPACING.lg}px`, borderBottom: `1px solid ${ADMIN_COLORS.border}`}),
       }}>
       {title && (
-        <h2 id={titleId} style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
+        <h2
+          id={titleId}
+          tabIndex={titleFocusable ? -1 : undefined}
+          style={{margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text}}>
           {title}
         </h2>
       )}
@@ -47,7 +62,7 @@ function PanelHeader({title, titleId, action, padded}: Omit<PanelProps, 'childre
  * titled panel is a named region, so screen-reader users can move between
  * panels the way they move between headings.
  */
-export function Panel({title, action, children, padded = true}: PanelProps) {
+export function Panel({title, action, children, padded = true, titleFocusable}: PanelProps) {
   const titleId = useId();
   return (
     <section
@@ -67,7 +82,9 @@ export function Panel({title, action, children, padded = true}: PanelProps) {
         // A flush table's corners would poke past the radius.
         overflow: padded ? undefined : 'hidden',
       }}>
-      {(Boolean(title) || action != null) && <PanelHeader title={title} titleId={titleId} action={action} padded={padded} />}
+      {(Boolean(title) || action != null) && (
+        <PanelHeader title={title} titleId={titleId} action={action} padded={padded} titleFocusable={titleFocusable} />
+      )}
       {children}
     </section>
   );

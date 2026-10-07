@@ -27,6 +27,25 @@ describe('Panel', () => {
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
   });
 
+  it('lets its title take focus from script, but never from Tab, when asked (R-48)', () => {
+    const {rerender} = render(
+      <Panel title="Engine view">
+        <p>Body</p>
+      </Panel>,
+    );
+    expect(screen.getByRole('heading', {name: 'Engine view'})).not.toHaveAttribute('tabindex');
+
+    rerender(
+      <Panel title="Engine view" titleFocusable>
+        <p>Body</p>
+      </Panel>,
+    );
+    const heading = screen.getByRole('heading', {name: 'Engine view'});
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    heading.focus();
+    expect(heading).toHaveFocus();
+  });
+
   it('pads its body unless told not to, for flush tables', () => {
     const {rerender} = render(
       <Panel title="Vote log">

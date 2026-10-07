@@ -9,13 +9,17 @@ import {CardCalibrationPanel} from './CardCalibrationPanel';
 import {CardHeader} from './CardHeader';
 import {CardKpis} from './CardKpis';
 import {calibrationData, rawVotesFor, silentNote, type CardCalibrationData, type RawVotes} from './cardView';
+import {EnginePanels} from './EnginePanels';
 import {RawVotePanels} from './RawVotePanels';
+import type {UseCardSynergiesReturn} from './useCardSynergies';
 import {VotedPairsPanel} from './VotedPairsPanel';
 
 export interface CardAnalyticsViewProps {
   card: LorcanaCard;
   analytics: UseVoteAnalyticsReturn;
   voteLog: UseVoteLogReturn;
+  /** The page's useCardSynergies(card.id), for the engine panels (R3-6c). */
+  synergies: UseCardSynergiesReturn;
   /** The card list's lookup: R-31's "is the partner listed?" and R-33's links only to cards it holds. */
   getCardById: (id: string) => LorcanaCard | undefined;
   /** The page's focus handoff (R-48): the header's h2 takes it. A story leaves it out. */
@@ -69,7 +73,7 @@ function CalibrationRow({calibration, raw, isListed}: CalibrationRowProps) {
  * below. The page renders it keyed by card id (R-46), so nothing a section
  * holds carries over to the next card. Purely presentational: the page fetches.
  */
-export function CardAnalyticsView({card, analytics, voteLog, getCardById, handoff, headerActions}: CardAnalyticsViewProps) {
+export function CardAnalyticsView({card, analytics, voteLog, synergies, getCardById, handoff, headerActions}: CardAnalyticsViewProps) {
   const calibration = calibrationData(analytics.data, card.id);
   const raw = rawVotesFor({analytics: analytics.data, voteLog: voteLog.data, cardId: card.id});
   const isListed = (id: string) => getCardById(id) !== undefined;
@@ -80,6 +84,7 @@ export function CardAnalyticsView({card, analytics, voteLog, getCardById, handof
       <CardKpis calibration={calibration} raw={raw} />
       {calibration && <CalibrationRow calibration={calibration} raw={raw} isListed={isListed} />}
       <RawVotePanels card={card} analytics={analytics} voteLog={voteLog} />
+      <EnginePanels card={card} synergies={synergies} analytics={analytics} getCardById={getCardById} />
     </div>
   );
 }

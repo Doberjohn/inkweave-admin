@@ -9,6 +9,8 @@ import {
   CARD_500,
   CARD_ID,
   EMPTY_LOG,
+  ENGINE_EMPTY,
+  ENGINE_FIFTEEN,
   LOADING,
   MAUI_CARD,
   NOT_GENERATED,
@@ -25,6 +27,7 @@ const BASE: CardAnalyticsViewProps = {
   card: MAUI_CARD,
   analytics: loaded(VIEW_ANALYTICS),
   voteLog: loaded(VIEW_LOG),
+  synergies: {data: ENGINE_EMPTY.data, loading: false, error: null, retry: vi.fn()},
   getCardById: viewCard,
 };
 
@@ -323,5 +326,20 @@ describe('CardAnalyticsView: the raw-vote panels (R3-6b)', () => {
     expect(screen.getByText('Could not load the vote log. Has the artifact been generated? (HTTP 404)')).toBeInTheDocument();
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('group', {name: 'Mean gap'})).toBeInTheDocument();
+  });
+});
+
+describe('CardAnalyticsView: the engine panels (R3-6c)', () => {
+  it('ends with the Engine view and, under it, the network, without waiting for the vote files', () => {
+    renderView({
+      analytics: {data: null, loading: true, error: null},
+      voteLog: {data: null, loading: true, error: null},
+      synergies: {data: ENGINE_FIFTEEN.data, loading: false, error: null, retry: vi.fn()},
+    });
+    const engine = screen.getByRole('region', {name: 'Engine view'});
+    const network = screen.getByRole('figure', {name: 'Strongest partners'});
+    expect(engine).toHaveTextContent('15 synergy partners');
+    expect(screen.getAllByRole('figure').at(-1)).toBe(network);
+    expect(engine.compareDocumentPosition(network) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

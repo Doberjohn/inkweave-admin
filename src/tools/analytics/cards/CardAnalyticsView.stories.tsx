@@ -8,6 +8,7 @@ import {
   CARD_500,
   CARD_ID,
   EMPTY_LOG,
+  ENGINE_EMPTY,
   LOADING,
   MAUI_CARD,
   NOT_GENERATED,
@@ -42,7 +43,14 @@ const meta: Meta<typeof CardAnalyticsView> = {
       </MemoryRouter>
     ),
   ],
-  args: {card: MAUI_CARD, analytics: loaded(VIEW_ANALYTICS), voteLog: loaded(VIEW_LOG), getCardById: viewCard},
+  args: {
+    card: MAUI_CARD,
+    analytics: loaded(VIEW_ANALYTICS),
+    voteLog: loaded(VIEW_LOG),
+    // No synergies: the Engine view's empty notice. EnginePanels.stories.tsx draws the engine side.
+    synergies: {data: ENGINE_EMPTY.data, loading: false, error: null, retry: () => {}},
+    getCardById: viewCard,
+  },
 };
 export default meta;
 type Story = StoryObj<typeof meta>;
