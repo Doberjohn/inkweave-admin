@@ -97,6 +97,30 @@ describe('PageLayout', () => {
     expect(body?.style.padding).toBe('');
   });
 
+  it('scrolls the body back to the top when scrollKey changes, and not while it stays the same', () => {
+    const {rerender} = render(
+      <PageLayout title="Card analytics" scrollKey="2983">
+        <p>Elsa</p>
+      </PageLayout>,
+    );
+    const body = screen.getByRole('main').lastElementChild as HTMLElement;
+    body.scrollTop = 500;
+    rerender(
+      <PageLayout title="Card analytics" scrollKey="2983">
+        <p>Elsa, updated</p>
+      </PageLayout>,
+    );
+    expect(body.scrollTop).toBe(500);
+    rerender(
+      <PageLayout title="Card analytics" scrollKey="2984">
+        <p>Anna</p>
+      </PageLayout>,
+    );
+    // The same scroller, kept mounted, back at the top.
+    expect(screen.getByText('Anna').parentElement).toBe(body);
+    expect(body.scrollTop).toBe(0);
+  });
+
   it('lays the body out as the padded grid without flush', () => {
     render(
       <PageLayout title="Vote activity">

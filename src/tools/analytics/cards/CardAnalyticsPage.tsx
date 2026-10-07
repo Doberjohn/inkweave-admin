@@ -87,7 +87,9 @@ export function CardAnalyticsPage() {
       subtitle="Votes, calibration and engine data for one card"
       meta={analytics.data ? <DataAsOf generatedAt={analytics.data.generatedAt} /> : undefined}
       actions={<CardSwitcher cards={cardData.cards} />}
-      documentTitle={state.kind === 'card' ? `${state.card.fullName} · Card analytics` : undefined}>
+      documentTitle={state.kind === 'card' ? `${state.card.fullName} · Card analytics` : undefined}
+      // A new card opens at the top of the body; the header stays put, and so does the switcher's focus.
+      scrollKey={cardId}>
       <CardPageBody
         state={state}
         analytics={analytics}

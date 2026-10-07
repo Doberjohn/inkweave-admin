@@ -2,7 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
-import type {useCardDataContext} from '../../../../app-bridge';
+import {COLORS, type useCardDataContext} from '../../../../app-bridge';
 import type {PairStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {CardAnalyticsPage} from '../CardAnalyticsPage';
@@ -81,6 +81,19 @@ const PAIR: PairStat = {
   communityScore: 5.5,
   gap: -1.5,
   scoreVotes: 12,
+  rules: ['ramp'],
+};
+
+// With PAIR, three rows that differ: Olaf +2.00, Elsa −1.50, and Anna (−1.5 × 12 + 2 × 24) / 36 = +0.83.
+const UNDER_PAIR: PairStat = {
+  a: ANNA.id,
+  b: '2985',
+  aName: ANNA.fullName,
+  bName: 'Olaf - Friendly Snowman',
+  engineScore: 5,
+  communityScore: 7,
+  gap: 2,
+  scoreVotes: 24,
   rules: ['ramp'],
 };
 
@@ -179,6 +192,31 @@ describe('CardAnalyticsPage: bare /cards', () => {
     expect(cardHeading('Elsa - Snow Queen')).toHaveFocus();
   });
 
+  it('prints each card’s mean gap in its verdict colour, beside a bias bar leaning the same way', async () => {
+    stubFetch(() => json({...ANALYTICS, pairs: [PAIR, UNDER_PAIR]}));
+    renderPage('/cards');
+    const list = within(await screen.findByRole('list', {name: 'Cards to review'}));
+    const rows = list.getAllByRole('listitem');
+    // Name, then gap: the bias bar between them is aria-hidden decoration with no text. Negatives take U+2212.
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Olaf - Friendly Snowman+2.00',
+      'Elsa - Snow Queen−1.50',
+      'Anna - Heir to Arendelle+0.83',
+    ]);
+    const [olaf, elsa, anna] = rows;
+    // The engine over-rates Elsa: the error colour, and the fill runs left in the over-rates colour.
+    expect(within(elsa).getByText('−1.50')).toHaveStyle({color: COLORS.error});
+    expect(elsa.querySelector('[data-direction]')).toHaveAttribute('data-direction', 'over');
+    // It under-rates Olaf and Anna: the success colour, and the fill runs right.
+    for (const [row, gap] of [
+      [olaf, '+2.00'],
+      [anna, '+0.83'],
+    ] as const) {
+      expect(within(row).getByText(gap)).toHaveStyle({color: COLORS.success});
+      expect(row.querySelector('[data-direction]')).toHaveAttribute('data-direction', 'under');
+    }
+  });
+
   it('lists no card under 10 score votes', async () => {
     stubFetch(() => json({...ANALYTICS, pairs: [{...PAIR, scoreVotes: 9}]}));
     renderPage('/cards');
@@ -249,14 +287,18 @@ describe('CardAnalyticsPage: a card', () => {
     expect(document.title).toBe('Card analytics · Inkweave admin');
   });
 
-  it.each<[string, Partial<CardList>]>([
-    ['loads', {cards: [], isLoading: true}],
-    ['has failed', {cards: [], error: new Error('HTTP 503')}],
-  ])('keeps the remembered id while the card list %s', (_case, list) => {
-    localStorage.setItem(KEY, ELSA.id);
+  // A slow or failed list never costs a good id (R-28): the page neither forgets the remembered id
+  // (its own URL) nor writes over it with a URL's id it can't check yet (another one, here a rotated id).
+  it.each<[string, string, Partial<CardList>]>([
+    ['loads', '/cards/2984', {cards: [], isLoading: true}],
+    ['has failed', '/cards/2984', {cards: [], error: new Error('HTTP 503')}],
+    ['loads', '/cards/999999', {cards: [], isLoading: true}],
+    ['has failed', '/cards/999999', {cards: [], error: new Error('HTTP 503')}],
+  ])('keeps the remembered id while the card list %s, on %s', (_case, path, list) => {
+    localStorage.setItem(KEY, ANNA.id);
     setCardList(list);
-    renderPage('/cards/2983');
-    expect(localStorage.getItem(KEY)).toBe('2983');
+    renderPage(path);
+    expect(localStorage.getItem(KEY)).toBe('2984');
   });
 });
 
@@ -282,6 +324,36 @@ describe('CardAnalyticsPage: moving between cards', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/cards/2984'));
     expect(cardHeading('Anna - Heir to Arendelle')).toBeInTheDocument();
     expect(input).toHaveFocus();
+  });
+
+  it('opens a switcher pick at the top of the page, with focus still in the switcher (R-48)', async () => {
+    const {router, user} = renderPage('/cards/2983');
+    // PageLayout's scrolling body, read down to the lower panels.
+    const body = screen.getByRole('main').lastElementChild as HTMLElement;
+    body.scrollTop = 500;
+    const input = screen.getByRole('combobox', {name: 'Switch card'});
+    await user.type(input, 'an');
+    await user.click(await screen.findByRole('option', {name: /Anna/}));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/cards/2984'));
+    expect(cardHeading('Anna - Heir to Arendelle')).toBeInTheDocument();
+    // The same scroller, back at the top: the header stays mounted, so the switcher keeps focus.
+    expect(screen.getByRole('main').lastElementChild).toBe(body);
+    expect(body.scrollTop).toBe(0);
+    expect(input).toHaveFocus();
+  });
+
+  it('focuses the card h2 after Back and Forward between cards (R-48)', async () => {
+    const {router, user} = renderPage('/cards/2983');
+    await user.click(screen.getByRole('link', {name: 'Partner'}));
+    expect(cardHeading('Anna - Heir to Arendelle')).toHaveFocus();
+    // Back: Anna's view goes with its focused h2, and the switcher never had focus.
+    await act(() => router.navigate(-1));
+    expect(router.state.historyAction).toBe('POP');
+    expect(router.state.location.pathname).toBe('/cards/2983');
+    expect(cardHeading('Elsa - Snow Queen')).toHaveFocus();
+    await act(() => router.navigate(1));
+    expect(router.state.historyAction).toBe('POP');
+    expect(cardHeading('Anna - Heir to Arendelle')).toHaveFocus();
   });
 });
 
