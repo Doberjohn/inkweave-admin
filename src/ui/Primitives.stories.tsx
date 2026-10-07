@@ -1,6 +1,6 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
-import {FONTS, LinkButton, SPACING} from '../app-bridge';
+import {FONTS, LinkButton, SPACING, TIER_COLORS} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {BiasBar} from './BiasBar';
 import {fmtGap, fmtInt} from './format';
@@ -13,6 +13,7 @@ import {RawTag} from './RawTag';
 import {ScorePill} from './ScorePill';
 import {SegmentedControl} from './SegmentedControl';
 import {Sparkline} from './Sparkline';
+import {SplitMeter, type SplitMeterPart} from './SplitMeter';
 
 const meta: Meta = {
   title: 'Admin/UI/Primitives',
@@ -164,6 +165,54 @@ export const Bars: Story = {
             <BiasBar gap={gap} />
           </div>
         ))}
+      </Panel>
+    </Stack>
+  ),
+};
+
+const ANSWERS = [
+  {id: 'tooHigh', label: 'Too high', color: ADMIN_COLORS.over},
+  {id: 'right', label: 'Right', color: ADMIN_COLORS.barNeutral},
+  {id: 'tooLow', label: 'Too low', color: ADMIN_COLORS.under},
+] as const;
+
+/** The three accuracy answers with these counts, too high to too low. */
+function answers(counts: Record<(typeof ANSWERS)[number]['id'], number>): SplitMeterPart[] {
+  return ANSWERS.map((part) => ({...part, value: counts[part.id]}));
+}
+
+/** A card's partners by strength tier: the app's tier colours, its getStrengthTier thresholds. */
+const TIERS: SplitMeterPart[] = [
+  {id: 'Perfect', label: 'Perfect ≥9.5', color: TIER_COLORS.perfect.color, value: 6},
+  {id: 'Strong', label: 'Strong ≥7', color: TIER_COLORS.strong.color, value: 41},
+  {id: 'Moderate', label: 'Moderate ≥4', color: TIER_COLORS.moderate.color, value: 77},
+  {id: 'Weak', label: 'Weak <4', color: TIER_COLORS.weak.color, value: 18},
+];
+
+const ACCURACY_NAME = 'Is the engine’s score right?';
+
+export const SplitMeters: Story = {
+  render: () => (
+    <Stack>
+      <Panel title="SplitMeter: the accuracy answers">
+        <SplitMeter parts={answers({tooHigh: 12, right: 30, tooLow: 8})} ariaLabel={ACCURACY_NAME} />
+      </Panel>
+      <Panel title="A part with no answers keeps its legend row">
+        <SplitMeter parts={answers({tooHigh: 0, right: 9, tooLow: 3})} ariaLabel={ACCURACY_NAME} />
+      </Panel>
+      <Panel title="One answer in 400: a 4px sliver that reads <1%">
+        <SplitMeter parts={answers({tooHigh: 1, right: 399, tooLow: 0})} ariaLabel={ACCURACY_NAME} />
+      </Panel>
+      <Panel title="Partners by strength tier">
+        <SplitMeter parts={TIERS} ariaLabel="Partners by strength tier" />
+      </Panel>
+      <div style={{maxWidth: 376}}>
+        <Panel title="At R3’s two-up chart track, 376px: the legend wraps">
+          <SplitMeter parts={TIERS} ariaLabel="Partners by strength tier" />
+        </Panel>
+      </div>
+      <Panel title="No answers yet">
+        <SplitMeter parts={answers({tooHigh: 0, right: 0, tooLow: 0})} ariaLabel={ACCURACY_NAME} />
       </Panel>
     </Stack>
   ),
