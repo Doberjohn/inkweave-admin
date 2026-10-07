@@ -49,5 +49,40 @@ export default defineConfig({
     // A rehearsal sets VITE_ADMIN_TARGET_BRANCH in .env.local, which Vitest also
     // loads. Pin it empty (master) here; tests that need a branch stub it.
     env: {VITE_ADMIN_TARGET_BRANCH: ''},
+    // The app project's vm workers are recycled once their heap passes this.
+    // Vitest reads it from the root config only: set in a project, it is ignored.
+    vmMemoryLimit: '1GB',
+    // vm workers hold far more memory than forks. Half the cores keeps the speed
+    // and leaves room for a second run, such as the commit hook beside another
+    // session's tests. Two full-width runs drained a 16 GB machine.
+    maxWorkers: '50%',
+    // Both projects inherit the options above (#35). 'scripts' takes the test
+    // files under scripts/ and 'app' every other one, so each file runs once.
+    projects: [
+      {
+        // The Node tests stay on forks: in a vm pool, vite's runnerImport hands
+        // rolldown a RegExp from another realm and scripts/reveal-sync/web.test.mjs fails.
+        extends: true,
+        test: {
+          name: 'scripts',
+          include: ['scripts/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+          pool: 'forks',
+        },
+      },
+      {
+        // The jsdom tests under src/. vmForks reuses each worker across files, so
+        // jsdom's modules load once per worker; each file still gets a fresh DOM.
+        // The workers are child processes and tests see the real process, so a
+        // stubbed TZ still takes effect, and a stub left unrestored leaks into the
+        // worker's next file. fetch and the JSON it parses come from Node's realm:
+        // compare fetched data with toEqual, not toStrictEqual.
+        extends: true,
+        test: {
+          name: 'app',
+          exclude: ['scripts/**'],
+          pool: 'vmForks',
+        },
+      },
+    ],
   },
 });

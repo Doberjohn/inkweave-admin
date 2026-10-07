@@ -130,8 +130,9 @@ describe('fmtDay and fmtWeekday', () => {
     });
 
     // UTC+14 and UTC−11, neither with daylight time: mixing local and UTC date
-    // getters moves the day by one in one of them. Vitest's default forks pool
-    // runs each file in a process where a TZ change takes effect.
+    // getters moves the day by one in one of them. The app project's vmForks
+    // workers are processes, so a TZ change takes effect; afterEach restores the
+    // host zone, because the worker runs other files next.
     it.each(['Pacific/Kiritimati', 'Pacific/Pago_Pago'])('label the same day in %s', (zone) => {
       vi.stubEnv('TZ', zone);
       expect(fmtDay('2026-09-30')).toBe('Sep 30');
