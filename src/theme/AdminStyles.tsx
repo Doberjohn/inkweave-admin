@@ -58,6 +58,13 @@ const ENABLED = ':where(:not(:disabled))';
  *
  * Nav items pad 8px, not the handoff's 6 (off the spacing scale): in the 64px
  * rail, 12px gutters leave 40px, and 8 + 24 + 8 centres the mark exactly.
+ *
+ * A text link inside data (adm-link: a card name in a log row, a list or a
+ * heading) keeps its text colour and takes a muted underline: gold sits at
+ * 1.41:1 against the text beside it, under the 3:1 that colour alone would
+ * need (WCAG 1.4.1), so the underline is what tells a linked name from a
+ * plain one. Hover golds it. Its ring sits 2px out, as a control's does, and
+ * a line that clips keeps room for it (CardName's PairLine).
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -96,6 +103,10 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;color:${C.text};font-size:${T.body}px;cursor:pointer;transition:background-color ${FAST};}
 .adm-option[aria-selected="true"]{background:${C.rowHover};box-shadow:inset 2px 0 0 ${C.accent};}
 
+.adm-link{color:inherit;text-decoration:underline;text-decoration-color:${C.muted};transition:color ${FAST},text-decoration-color ${FAST};}
+.adm-link:hover{color:${C.accent};text-decoration-color:${C.accent};}
+.adm-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
+
 .adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
@@ -121,6 +132,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
 
 @media (prefers-reduced-motion: reduce){
+.adm-link{transition:none;}
 .adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}

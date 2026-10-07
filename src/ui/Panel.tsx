@@ -3,8 +3,11 @@ import {SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
 
 interface PanelProps {
-  /** The panel's h2, which also names it as a region. */
-  title?: string;
+  /**
+   * The panel's h2, which also names it as a region: text, or text with links
+   * in it (VoteDetailTable's card names). The region's name is the text.
+   */
+  title?: React.ReactNode;
   /** The right end of the header row: a link, a control or a caption. */
   action?: React.ReactNode;
   children: React.ReactNode;

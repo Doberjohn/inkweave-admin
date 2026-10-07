@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
+import {renderWithCards} from '../../../../test/cardLinks';
 import {OverviewView, type OverviewViewProps} from '../OverviewView';
 import {
   ANALYTICS,
@@ -85,6 +86,15 @@ describe('OverviewView', () => {
     expect(rows[1]).toHaveTextContent('—');
     expect(rows[3]).toHaveTextContent('Cogsworth × Beast’s Castle');
     expect(screen.getByRole('link', {name: 'Open activity →'})).toHaveAttribute('href', '/activity');
+  });
+
+  it('links a latest vote’s card to its card page when the card list holds it (R-33)', () => {
+    renderWithCards(<OverviewView {...LOADED} />, ['crd-Maui']);
+    const rows = within(screen.getByRole('list', {name: 'Latest votes'})).getAllByRole('listitem');
+    expect(within(rows[0]).getByRole('link', {name: 'Maui'})).toHaveAttribute('href', '/cards/crd-Maui');
+    expect(within(rows[0]).queryByRole('link', {name: 'Fishhook'})).not.toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent('Maui × Fishhook');
+    expect(within(rows[3]).queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('lists web events busiest first, with all-time totals and the trend window', () => {

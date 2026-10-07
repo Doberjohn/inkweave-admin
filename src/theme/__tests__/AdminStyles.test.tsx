@@ -17,6 +17,8 @@ const CLASSES = [
   'adm-hover-row',
   // The card switcher's options (R3-5).
   'adm-option',
+  // R3-8's: a card name's link.
+  'adm-link',
   // The chart kit's (R1-3b).
   'adm-chart-plot',
   'adm-chart-hit',
@@ -38,6 +40,7 @@ const FOCUSABLE = [
   'adm-input',
   'adm-select',
   'adm-chart-hit',
+  'adm-link',
 ];
 const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
@@ -186,5 +189,14 @@ describe('AdminStyles', () => {
     expect(getComputedStyle(screen.getByTestId('dimmed')).opacity).toBe('0.4');
     expect(getComputedStyle(screen.getByTestId('active')).filter).toBe('brightness(1.2)');
     expect(getComputedStyle(screen.getByTestId('plain')).opacity).toBe('1');
+  });
+
+  it('underlines a card link in the muted colour, golds it on hover and rings it 2px out (R3-8)', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-link{color:inherit;text-decoration:underline;text-decoration-color:${ADMIN_COLORS.muted};`);
+    expect(css).toContain(`.adm-link:hover{color:${ADMIN_COLORS.accent};text-decoration-color:${ADMIN_COLORS.accent};}`);
+    expect(css).toContain(`.adm-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduced).toMatch(/[.]adm-link(?![a-z-])[^{]*[{]transition:none;[}]/);
   });
 });

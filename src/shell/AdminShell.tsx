@@ -4,12 +4,15 @@ import {CardDataProvider, COLORS, FONTS} from '../app-bridge';
 import {useGithubToken} from '../github/useGithubToken';
 import {AdminStyles} from '../theme/AdminStyles';
 import {ADMIN_COLORS} from '../theme/adminTheme';
+import {KnownCardsProvider} from './KnownCardsProvider';
 import {Sidebar} from './Sidebar';
 
 /**
  * The layout every admin route renders in: the sidebar beside the page, the
  * app's card data and admin's scoped styles. Unlike the public app's layout it
  * has no public nav, Vercel Analytics or Speed Insights (docs/PLAN.md, 4.1).
+ * The pages also get the card list's id check (KnownCardsProvider), so a card
+ * name links to /cards only when the list holds the card (R-33).
  */
 export function AdminShell() {
   // The token store is shared, so Forget token in the sidebar also sends the
@@ -33,7 +36,9 @@ export function AdminShell() {
           {/* PageLayout fills this column and scrolls its own body. A page
               outside it scrolls the column. */}
           <div style={{flex: 1, minWidth: 0, overflowY: 'auto'}}>
-            <Outlet />
+            <KnownCardsProvider>
+              <Outlet />
+            </KnownCardsProvider>
           </div>
         </div>
       </CardDataProvider>
