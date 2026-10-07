@@ -22,7 +22,7 @@ export interface Verdict {
  * (biasCopy) is finer on purpose: it names a lean from +/-0.25, so a -0.3 gap
  * reads "well-calibrated" with the lean noted underneath. The calibration
  * page's subtitle (calibrationSubtitle) reads the word, and the Overview's
- * calibration card the phrase.
+ * calibration card and the card page's calibration panel the phrase.
  */
 export function verdictFor(meanGap: number | null): Verdict {
   if (meanGap == null) {

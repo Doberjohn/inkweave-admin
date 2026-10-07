@@ -1,6 +1,6 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import type {PairStat, RuleStat} from '../voteAnalyticsTypes';
-import type {VoteLogRow} from '../voteLogTypes';
+import type {PairStat, RuleStat, VoteAnalytics} from '../voteAnalyticsTypes';
+import type {VoteLog, VoteLogRow} from '../voteLogTypes';
 import type {CardSynergies} from './engineView';
 
 /*
@@ -446,3 +446,134 @@ export const SWITCHER_CARDS: LorcanaCard[] = [
   }),
   lorcanaCard({id: '3009', name: 'Elsa', version: 'Snow Queen', ink: 'Sapphire', setCode: '10', setNumber: 42}),
 ];
+
+/*
+ * The card page's view (R3-6a): the cards it opens, Maui's raw votes, and the
+ * two vote files and the card list it reads. Maui (CARD_ID) has enough score
+ * votes to judge, and card 500 (VOTED_CARD) too few. Maui has three
+ * engine-silent pairs, two of them with a partner outside the card list, so
+ * the caption's two counts differ; card 500 has one of each.
+ */
+
+/** A hook's settled state, as useVoteAnalytics and useVoteLog return it. */
+export function loaded<T>(data: T): {data: T; loading: false; error: null} {
+  return {data, loading: false, error: null};
+}
+
+/** A vote file still loading. */
+export const LOADING = {data: null, loading: true, error: null} as const;
+
+/** A vote file that couldn't be read: the 404 of an artifact Deploy hasn't written (local dev). */
+export const NOT_GENERATED = {data: null, loading: false, error: new Error('HTTP 404')} as const;
+
+/** Maui, as the card list has it: a Super Rare (R-49), whose thumbnail URL isn't an AVIF, so smallImageUrl keeps it. */
+export const MAUI_CARD = lorcanaCard({
+  id: CARD_ID,
+  name: 'Maui',
+  version: 'Hero to All',
+  ink: 'Ruby',
+  cost: 8,
+  rarity: 'Super Rare',
+  setCode: '1',
+  setNumber: 113,
+  imageUrl: 'https://placehold.co/64x90/1a1a2e/d4af37?text=Maui',
+});
+
+/** Card 500: a preview with no version, rarity, collector number or image, in two inks. */
+export const CARD_500 = lorcanaCard({id: VOTED_CARD, name: 'Card 500', ink2: 'Sapphire', inkwell: false, type: 'Action'});
+
+/** Maui's partners outside the card list: cards that rotated out of Core. */
+export const MAUI_UNLISTED: readonly string[] = ['412', '418'];
+
+/** One of Maui's raw votes with `partner`, the lower id on side a as the votes table stores it. */
+function mauiVote({partner, ...rest}: Partial<VoteLogRow> & Pick<VoteLogRow, 'ts'> & {partner: string}): VoteLogRow {
+  const [a, b] = partner < CARD_ID ? [partner, CARD_ID] : [CARD_ID, partner];
+  return voteRow({a, b, ...rest});
+}
+
+/**
+ * Maui's 18 raw votes from 10 voters. The 14 on its pairs[] partners match
+ * CARD_PAIRS (Moana's six average 5.5, Heihei's four 7.25), one Heihei vote is
+ * a quick vote, and three are engine-silent: Kakamora (1050) is in the card
+ * list, the two MAUI_UNLISTED partners aren't. Five votes answer the accuracy
+ * question: three "too high", one "right", one "too low", so the sentiment is
+ * −0.40.
+ */
+export const MAUI_LOG: readonly VoteLogRow[] = [
+  mauiVote({partner: '1012', ts: '2026-09-01T10:00:00.123456+00:00', score: 5, accuracy: -1, voter: 11}),
+  mauiVote({partner: '1012', ts: '2026-09-03T10:00:00.123456+00:00', score: 6, accuracy: -1, voter: 12}),
+  mauiVote({partner: '1012', ts: '2026-09-09T10:00:00.123456+00:00', score: 5, accuracy: -1, voter: 13}),
+  mauiVote({partner: '1012', ts: '2026-09-15T10:00:00.123456+00:00', score: 6, accuracy: 0, voter: 14}),
+  mauiVote({partner: '1012', ts: '2026-09-21T10:00:00.123456+00:00', score: 5, voter: 15}),
+  mauiVote({partner: '1012', ts: '2026-09-29T10:00:00.123456+00:00', score: 6, voter: 16}),
+  mauiVote({partner: '1033', ts: '2026-09-10T10:00:00.123456+00:00', score: 4, voter: 11}),
+  mauiVote({partner: '1102', ts: '2026-09-05T10:00:00.123456+00:00', score: 7, voter: 11}),
+  mauiVote({partner: '1102', ts: '2026-09-12T10:00:00.123456+00:00', score: 7, voter: 12}),
+  mauiVote({partner: '1102', ts: '2026-09-19T10:00:00.123456+00:00', score: 7, accuracy: 1, voter: 13}),
+  mauiVote({partner: '1102', ts: '2026-09-26T10:00:00.123456+00:00', score: 8, voter: 14}),
+  mauiVote({partner: '1102', ts: '2026-10-02T10:00:00.123456+00:00', score: null, voter: 17}),
+  mauiVote({partner: '1187', ts: '2026-09-17T10:00:00.123456+00:00', score: 7, voter: 15}),
+  mauiVote({partner: '2001', ts: '2026-09-22T10:00:00.123456+00:00', score: 9, voter: 16}),
+  mauiVote({partner: '2001', ts: '2026-09-30T10:00:00.123456+00:00', score: 9, voter: 17}),
+  mauiVote({partner: '1050', ts: '2026-10-01T10:00:00.123456+00:00', score: 6, voter: 18}),
+  mauiVote({partner: MAUI_UNLISTED[0], ts: '2026-10-05T10:00:00.123456+00:00', score: 3, voter: 19}),
+  mauiVote({partner: MAUI_UNLISTED[1], ts: '2026-10-05T11:00:00.123456+00:00', score: 2, voter: 20}),
+];
+
+const VIEW_VOTES: readonly VoteLogRow[] = [...VOTED_CARD_LOG, ...MAUI_LOG];
+const VIEW_VOTERS = new Set(VIEW_VOTES.map((vote) => vote.voter)).size;
+
+/** vote-log.json for the view: card 500's log and Maui's votes. */
+export const VIEW_LOG: VoteLog = {generatedAt: '2026-10-06T09:00:00Z', votes: [...VIEW_VOTES], voterCount: VIEW_VOTERS};
+
+/**
+ * vote-analytics.json for the view: Maui's pairs and card 500's, and the rules
+ * they name. The global numbers only have to be plausible: the view prints
+ * none of them.
+ */
+export const VIEW_ANALYTICS: VoteAnalytics = {
+  generatedAt: '2026-10-06T09:00:00Z',
+  hasRawVotes: true,
+  global: {
+    totalVotes: VIEW_VOTES.length,
+    distinctPairs: 14,
+    distinctVoters: VIEW_VOTERS,
+    meanGap: -0.62,
+    accuracySentiment: null,
+    engineSilentPairs: 5,
+    weekly: [],
+    dimensionFill: null,
+  },
+  rules: [...CARD_RULES],
+  pairs: [...CARD_PAIRS, ...VOTED_CARD_PAIRS],
+};
+
+/** The same deploy without the service-role key: no raw votes, an empty log. */
+export const NO_RAW_ANALYTICS: VoteAnalytics = {...VIEW_ANALYTICS, hasRawVotes: false};
+export const EMPTY_LOG: VoteLog = {generatedAt: VIEW_LOG.generatedAt, votes: [], voterCount: 0};
+
+/**
+ * The current card list. Gramma Tala (2001) is missing, as a card is around a
+ * release: its pair keeps a plain name. So are MAUI_UNLISTED and UNLISTED_IDS,
+ * the engine-silent partners outside Core.
+ */
+export const VIEW_CARDS: readonly LorcanaCard[] = [
+  MAUI_CARD,
+  CARD_500,
+  lorcanaCard({id: '1012', name: 'Moana', version: 'Of Motunui', ink: 'Amber'}),
+  lorcanaCard({id: '1033', name: 'Tamatoa', version: 'So Shiny!', ink: 'Steel'}),
+  lorcanaCard({id: '1050', name: 'Kakamora', version: 'Boarding Party', ink: 'Steel'}),
+  lorcanaCard({id: '1102', name: 'Heihei', version: 'Boat Snack', ink: 'Ruby'}),
+  lorcanaCard({id: '1187', name: 'Pua', version: 'Potbellied Buddy', ink: 'Amber'}),
+  lorcanaCard({id: '120', name: 'Card 120'}),
+  lorcanaCard({id: '640', name: 'Card 640'}),
+  lorcanaCard({id: '710', name: 'Card 710'}),
+  lorcanaCard({id: '880', name: 'Card 880'}),
+];
+
+const VIEW_CARDS_BY_ID = new Map(VIEW_CARDS.map((card) => [card.id, card]));
+
+/** The card list's getCardById over VIEW_CARDS. */
+export function viewCard(id: string): LorcanaCard | undefined {
+  return VIEW_CARDS_BY_ID.get(id);
+}

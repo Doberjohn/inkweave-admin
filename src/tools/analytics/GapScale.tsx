@@ -20,8 +20,9 @@ export interface GapScaleProps {
 /**
  * The diverging over/under scale: a centre tick, and a dot at the mean gap
  * (clamped by scalePercent), left out when there is no gap. Every caller
- * prints the gap as text beside the track (the Overview card's hero number,
- * for one), so the track is hidden from assistive tech.
+ * prints the gap as text beside the track (the Overview card's hero number;
+ * on a card page, the Mean gap KPI and the read line), so the track is hidden
+ * from assistive tech.
  */
 export function GapScale({meanGap, color}: GapScaleProps) {
   const dot = scalePercent(meanGap);
