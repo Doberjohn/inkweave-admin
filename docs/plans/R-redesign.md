@@ -16,7 +16,7 @@
 
 **Tracking:** Doberjohn/inkweave-admin#24. Branch: one per phase: `feature/24-admin-redesign` (R1), `feature/24-redesign-r2` (R2), `feature/24-redesign-r3` (R3); one PR per phase.
 
-**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built, checked against real data and merged on 2026-10-06 (PRs #27 and #28); see "R2 as built". R3 is detailed below (decisions R-28 to R-56) and being built on `feature/24-redesign-r3`; R4 is outlined below and detailed when it starts.
+**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built, checked against real data and merged on 2026-10-06 (PRs #27 and #28); see "R2 as built". R3 built and checked against real data on 2026-10-07; see "R3 as built". R4 is outlined below and detailed when it starts.
 
 ---
 
@@ -64,7 +64,7 @@ The R3 outline's open questions, re-checked against R1 and R2 as built (audit wo
 | R-34 | Links from the card page to `/calibration` (new) | Each rule in the card's rules table links to `/calibration?rule=<id>` through `calibrationHref`. The engine view keeps rule names only, renamed `ruleNames`. It takes one click from a card's badly scored rule to its tuning, and `CardRuleRow.ruleId` already holds the id. Rule links from the engine view can come later. |
 | R-35 | Low-n rules in the card's rules table (new) | Sort them last as planned. Within each group, sort by absolute gap, then score votes, then name. Show R2's "low n" chip, moved into `src/ui`. Most of a card's rules are low n (the median card in `pairs[]` has 2 score votes). Sorted by gap alone, 1-vote rules would top the table. |
 | R-36 | Votes per week (Q6, and R3-3's question about the series) | Cover the vote log's whole span (`activityWindow(votes, 'all')`) in Monday weeks, as one series with the latest week in the accent colour, as the prototype draws it. Name part weeks with `bucketTitle` and `partialWeeks`. A 12-week window holds 17.5% of votes and leaves 29% of voted cards with an empty chart. R2's weekly gap already uses the whole log's span (chartData.ts:265-287), and PR #28 named its part weeks. The prototype draws one series with a gold last bar (dc.html:966). |
-| R-37 | Network size and order (Q7, and R3-4's tie-break) | Keep 12 partners on two rings. Order them by score, then card name, which is how the engine cuts each group (SynergyEngine.ts:124-128). When the 12th place falls inside a tie, the subtitle says so, e.g. "12 of the 30 partners at score 8, by name". Scores are whole numbers, and the 12th partner shares its score with a median of 27 others. Breaking ties by id would draw an arbitrary slice and still call it "the 12 strongest". |
+| R-37 | Network size and order (Q7, and R3-4's tie-break) | Keep 12 partners on two rings. Order them by score, then card name, which is how the engine cuts each group (SynergyEngine.ts:124-128). When the 12th place falls inside a tie, the subtitle says so, e.g. "12 of the 30 partners at score 8, by name". As built, a capped card's tie reads "12 of at least 30 partners at score 8, by name", since its file holds only each group's top 100 partners (R3's final fix wave; see "R3 as built"). Scores are whole numbers, and the 12th partner shares its score with a median of 27 others. Breaking ties by id would draw an arbitrary slice and still call it "the 12 strongest". |
 | R-38 | The hub (Q8) | Draw a dot with no name. Two rings are the normal case, and a name in the centre crowds the inner ring's strongest names. The page header and the name of the node list already name the card. |
 | R-39 | Where the network sits (Q12) | In its own untitled `Panel`, full width, directly under the Engine view panel. Every R1 and R2 chart frame sits alone in an untitled Panel, and `titleLevel={3}` is used nowhere yet. Beside another panel, names would get about 40px on each side. |
 | R-40 | Network label widths (new) | Measure labels with the kit's `textWidth` estimate (scale.ts:123-130) instead of the DOM. Check again at the real-data check if too many names drop. The estimate gives the same result in tests and in the browser. It removes the layout effect, the `fonts.ready` branch and the SVG patch in the tests, and much of the complexity. The cost: about 20% more names move to the tooltip and the table. |
@@ -153,7 +153,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 |---|---|---|---|
 | **R1** | Banner removal; theme, styles and primitives; shared token state; sidebar shell and page layout; artifact cache; **Overview**, **Vote activity**, **Web analytics**; `/calibration` hosting today's calibration view; old write tools inside the new shell | Everything read-only | Below |
 | **R2** | Calibration & tuning merged at `/calibration` (rules table, pairs, votes, dimension participation, tuning aside with pending tray and publish states); the calibration scatter, gap histogram and weekly gap trend; `/tuning` redirects | Calibration, tuning edits on a rehearsal branch | Below (detailed 2026-10-05) |
-| **R3** | Card analytics at `/cards` (`cardStats.ts` + tests, switch-card combobox, engine view from `fetchCardSynergies`, the synergy network diagram) | Per-card pages | Below |
+| **R3** | Card analytics at `/cards` (the card models `cardStats.ts` and `cardVotes.ts`, the switch-card combobox, the engine view from `fetchCardSynergies`, the synergy network diagram, the split meter); card names on the other insights pages link to it | Per-card pages | Below (detailed 2026-10-06) |
 | **R4** | Card studio at `/studio`: New reveal (preview-led layout, validator-driven checklist and errors), Edit card (preview vs released split, `replaceCardInPreviewJson`), image replacement inside Edit; `/reveal` and `/image` redirect; skill and runbook links move | The full redesign | Outline below |
 
 The owner plans further changes after seeing R1 with real data, so R2–R4 are detailed only when each starts.
@@ -182,7 +182,7 @@ Never commit those files. The repo is private now, but the vote log holds raw vo
 | `src/github/useGithubToken.ts` | Shared token state (one store for every component), same API as today |
 | `src/shell/nav.ts` | The sidebar's items, groups and which routes write (replaces `tools.ts`), and the path helpers `calibrationHref` (R2-6) and `cardsHref` (R3-5, R-33) |
 | `src/shell/Sidebar.tsx` | Sidebar: brand, groups, items, token box, collapse (persisted) |
-| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body; `flush` and `PAGE_GUTTER` for a page that lays out its own columns (R2-6); `documentTitle` for a tab name that says more than the title (R3-7, R-51) |
+| `src/shell/PageLayout.tsx` | Page header (title, subtitle, meta, actions, branch notice) and scrolling body; `flush` and `PAGE_GUTTER` for a page that lays out its own columns (R2-6); `documentTitle` for a tab name that says more than the title (R3-7, R-51); `scrollKey`, which scrolls the body back to the top when it changes (R3's final fix wave) |
 | `src/shell/BranchNotice.tsx` | "Writes to Doberjohn/inkweave `master`" pill |
 | `src/shell/AdminShell.tsx` | Providers, `AdminStyles`, sidebar + outlet; from R3-8, `KnownCardsProvider` round the outlet, inside `CardDataProvider` |
 | `src/router.tsx` | New routes and redirects |
@@ -293,6 +293,7 @@ export function PageLayout(props: {
   writes?: boolean; branchLabel?: string;
   flush?: boolean; // R2-6: children go straight into the scrolling body, with no padding and no grid (R2's aside, R4's studio)
   documentTitle?: string; // R3-7 (R-51): the tab's name before " · Inkweave admin", when it should say more than `title`
+  scrollKey?: string;     // R3's final fix wave: what the body shows; when it changes, the body scrolls back to the top before the next paint, and the header stays mounted (CardAnalyticsPage passes the card id)
   children: React.ReactNode;
 }): JSX.Element;
 
@@ -781,6 +782,60 @@ Tasks R2-1 to R2-8, then the final review's fix wave (`a79ecf7`, `dbe6c47`, `8c5
 ## Phase R3: Card analytics (detailed)
 
 [R-redesign/R3-card-analytics.md](R-redesign/R3-card-analytics.md): tasks R3-1 to R3-9, re-based on R2 as built (main @ aea40b4) and pin bc877e1 on 2026-10-06. Its decisions are R-28 to R-56 above.
+
+### R3 as built (2026-10-07)
+
+Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feature/24-redesign-r3`, then the final review's fix wave (`51ec000`, `9757390`).
+
+- **What shipped:**
+  - **`/cards`, Card analytics.**
+    - The page header's Switch card search (R-30), and under it the card header (R-49).
+    - A KPI row, with Accuracy sentiment from raw answers (R-32).
+    - Calibration for the card beside its voted pairs, with an engine-silent caption split in two (R-31).
+    - Community scores and How voters answered two-up, and under them, at full width, Votes per week over the log's whole span (R-36).
+    - The Engine view, and under it the network of the twelve strongest partners (R-37 to R-39). The network's subtitle takes one of three forms (R3-6c): a cut between two scores; a tie below stronger partners ("7 of the 8 partners at score 7 make the cut, by name."); or every drawn partner tied ("12 of at least 30 partners at score 8, by name, of at least 142 in all" on a capped card, with no "Thicker spokes score higher."). After the Engine view's Retry, focus goes to the panel's heading (`Panel`'s `titleFocusable`), or back to Retry when the read fails again (R-45, R-48).
+
+    A bare `/cards` opens the last card viewed, or a "Pick a card" prompt with Cards to review (R-28). The tab names the card (R-51).
+  - **Links.**
+    - In: card names on Vote activity, the Overview and Calibration, through `CardName`, for ids the card list resolves (R-33).
+    - Out: the card's rules link to `/calibration?rule=` (R-34).
+  - **The chart kit.** `NetworkDiagram` over `networkLayout.ts`, with names measured by `textWidth` (R-40), the kit's dimming and naming (R-41), and `LABEL_HALO` in `axis.ts`.
+  - **Shared pieces.**
+    - In `src/ui`: `DataAsOf`, `LowNTag`, `sharePercent` and `twoUp` (R3-1a), and `SplitMeter` (R3-4c).
+    - In `src/shell`: the focus handoff (R3-1a), and `KnownCardsContext` with its provider (R3-8).
+    - In `activityModel.ts`: `VoteSpan`, beside `activityWindow` (R3-1a).
+    - In `src/tools/analytics`: `CardName`, `PairNames` and `PairLine` (R3-8).
+  - **Also:**
+    - `GapScale` in `src/tools/analytics`, and `Verdict.phrase`, which fixed the Overview's "The engine well-calibrated" (R-50, R-53);
+    - `PageLayout`'s `documentTitle` and, from the fix wave, `scrollKey`, and `nav.ts`'s `cardsHref`;
+    - `Panel`'s `titleFocusable` (R3-6c), and its `title` widened to `React.ReactNode` for linked names (R3-8);
+    - `.adm-option`, `.adm-net-link` and `.adm-link`;
+    - the bridge's new names (R-55).
+- **Departures from the plan:**
+  - **Task R3-7, re-base (2026-10-06), against the R3 header's sketch:**
+    - `cardPageState` returns a discriminated `CardPageState` (`{kind: 'card', card}`, `{kind: 'unknown', cardId}`, `{kind: 'failed', error}`, and the prompt and loading kinds) and takes the context's `getCardById`, so `CardPageBody`'s `switch` narrows each state with no checks of its own;
+    - `useRememberCard(state)` takes that state, in place of `useRememberCard({cardId, card, isLoading, error})`;
+    - the page requests the focus handoff from its state, when the URL names another card (never on a REPLACE) or the card list's error clears, and never on click: a router link's click-time request is taken by the old card's heading inside the navigation's transition (found by mutation);
+    - the prompt's line and the not-found line take focus too (`<p tabIndex={-1}>`), so a Retry that lands on either keeps focus;
+    - browser Back and Forward between two cards ask for the handoff too, and the heading takes it only if focus fell to `<body>`.
+  - **The final review's fix wave, `51ec000` (F2):** `PageLayout` gained `scrollKey?: string`, which the plan didn't have. A Switch card pick opened the next card at the previous card's scroll offset: the scrolling body is `PageLayout`'s, outside the view keyed by card (R-46), and focus stays in the switcher (R-48), so nothing scrolled the new card into view. When the key changes, the body now scrolls back to the top before the next paint, and the header stays mounted, so focus stays in the switcher. `CardAnalyticsPage` passes the URL's card id, and no other page passes one. The plan's `PageLayout` lines record it (approved 2026-10-07).
+  - **The final review's fix wave, `9757390`: a capped card's wording.** The engine keeps each group's top `ENGINE_GROUP_CAP` (100) partners, so a capped card's synergy file is partial: its tier split leaves out the weaker partners past the cap, and its tie count at the cut is only a floor (approved 2026-10-07).
+    - The Engine view's cap caption now says so: "A synergy group lists only its top 100 partners, so the split counts only those and undercounts the weaker tiers."
+    - The network's tie count reads "N of at least T partners at score S", where an uncapped card's reads "N of the T partners at score S". On a capped card, a tie below stronger partners ends "make the cut, by name, among those the engine lists."
+    - Uncapped cards read as before. R-37's example gains the capped form.
+- **Held for the owner:** the card list's Retry (R-45, R-48). The Browser pane can't fail the card list once it has loaded, so the check needs DevTools' request blocking in the owner's Chrome (Task R3-9, Step 13). It hasn't run; the page's tests cover the Retry and where focus lands after it.
+- **Follow-up issues:** Doberjohn/inkweave-admin#29 (the Overview's Engine-silent pairs KPI mostly counts rotated-out cards) and #30 (the Overview's accuracy sentiment rests on few pairs), filed 2026-10-06. Drafted in R3-9, not filed: the votes the app left on set 13's preview ids, `RaritySymbol` and the printing webps, the minimum-votes filter (R-25), and the final review's follow-up list.
+- **Real-data check:** run on 2026-10-07 against the files of 2026-10-05.
+  - **Numbers.** They matched the files for three cards: the first to review, one with both kinds of engine-silent pairs, and the one with the most accuracy answers. Cards to review, the not-found copy and the links in matched too.
+  - **Network subtitle.** Both tie forms read as R3-6c words them, each on a card the check found. The all-tied one was on a capped card, so it read in the fix wave's capped wording ("12 of at least …").
+  - **Focus and Retry.** Focus landed on the new card's heading after a Voted pairs link, a network node and a Cards to review link, and stayed in the switcher after a pick, which now opens the new card at the top of the page. After the Engine view's Retry it went to the panel's heading. The card list's Retry is held for the owner.
+  - **History.** Back from a card opened from the prompt takes two steps to leave, as R3-7 accepted.
+  - **Layout.** It held at 1440px and 1366px, and stacked on a phone with no sideways scroll. At 1366px with the sidebar open, the KPI row wraps five and one, leaving Accuracy sentiment alone on its row (the follow-up list).
+  - **Network names** dropped by `textWidth` (R-40): on the first card to review, 0 at 1440px, 0 at 1366px and 11 of 12 at phone width; on the engine-silent card, 0, 0 and 6 of 12, the strongest partner's among them (the follow-up list). Twice-printed short names were told apart by the links' full names.
+  - **Votes per week** (R-36): 28 bars, at about 37px a bar at full width at 1440px, 34px at 1366px and 6.5px on a phone.
+  - **Accuracy sentiment.** The Overview's figure (from `pairs[]`) and the raw answers disagree in sign, which follow-up #30 takes up.
+  - **Fetches.** Each analytics file was fetched once across the pages, and each card's synergy file once.
+  - **Code Health.** `analyze_change_set` passed, with no findings. The PR's own CodeScene check is read once the PR opens (Task R3-9, Step 25).
 
 ## Phase R4: Card studio (outline)
 
