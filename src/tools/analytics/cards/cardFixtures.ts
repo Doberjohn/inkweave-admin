@@ -577,3 +577,118 @@ const VIEW_CARDS_BY_ID = new Map(VIEW_CARDS.map((card) => [card.id, card]));
 export function viewCard(id: string): LorcanaCard | undefined {
   return VIEW_CARDS_BY_ID.get(id);
 }
+
+/*
+ * The raw-vote panels (R3-6b): a small vote log, written to be read by eye.
+ * Card 8001 has 16 votes on four partners, from Monday Aug 17 to Tuesday
+ * Sep 29: 13 scored (7 four times, so one clear peak) and 3 quick votes, which
+ * answer the accuracy question as real quick votes do. It sits on the b side
+ * of 7990's rows. One vote lands late on a Sunday (Sep 13), and every
+ * timestamp has Supabase's microsecond +00:00 form. The log's newest vote, on
+ * another pair, is on Wednesday Sep 30, so the log's last week is a part week.
+ * Card 8020 has two scored votes with nothing else answered, the last on
+ * Sep 9. Card 8010 has only quick votes. Card 8030 has none.
+ */
+
+/** Card 8001's partners, each pair with the lower id on side a, as the votes table stores it. */
+const WITH_7990 = {a: '7990', b: '8001'} as const;
+const WITH_8002 = {a: '8001', b: '8002'} as const;
+const WITH_8003 = {a: '8001', b: '8003'} as const;
+const WITH_8004 = {a: '8001', b: '8004'} as const;
+
+/** Card 8001: every panel has data. */
+export const RAW_CARD: Pick<LorcanaCard, 'id' | 'fullName'> = {id: '8001', fullName: 'Card 8001'};
+/** Card 8020: two scored votes, a point apart, and no answers. */
+export const THIN_CARD: Pick<LorcanaCard, 'id' | 'fullName'> = {id: '8020', fullName: 'Card 8020'};
+/** Card 8010: two quick votes, so nothing to score. */
+export const QUICK_ONLY_CARD: Pick<LorcanaCard, 'id' | 'fullName'> = {id: '8010', fullName: 'Card 8010'};
+/** Card 8030: in the card list, with no raw votes. */
+export const UNVOTED_CARD: Pick<LorcanaCard, 'id' | 'fullName'> = {id: '8030', fullName: 'Card 8030'};
+
+/**
+ * Card 8001's answers, counted: accuracy too high 2, right 6, too low 2; real
+ * 3 of 4; would play 1 of 3; carry named 2 of 3 that named one card, both 9,
+ * neither 1; difficulty easy 2, situational 1, hard 1. Weeks from Aug 17: 2,
+ * 0, 3, 1, 5, 3, 2.
+ */
+const RAW_VOTES: readonly VoteLogRow[] = [
+  voteRow({
+    ...WITH_7990,
+    ts: '2026-08-17T10:00:00.123456+00:00',
+    score: 7,
+    voter: 1,
+    accuracy: 0,
+    isReal: true,
+    difficulty: 1,
+    whoCarries: 'both',
+  }),
+  voteRow({...WITH_8002, ts: '2026-08-19T10:00:00.123456+00:00', score: 7, voter: 2, whoCarries: 'both'}),
+  voteRow({...WITH_8002, ts: '2026-09-01T10:00:00.123456+00:00', score: 8, voter: 3, accuracy: -1, wouldPlay: true, whoCarries: 'a'}),
+  voteRow({...WITH_8003, ts: '2026-09-03T10:00:00.123456+00:00', score: 6, voter: 1, whoCarries: 'both'}),
+  voteRow({...WITH_8002, ts: '2026-09-04T10:00:00.123456+00:00', score: null, voter: 4, accuracy: 0}),
+  // Sunday night: still the week of Sep 7.
+  voteRow({
+    ...WITH_7990,
+    ts: '2026-09-13T23:30:00.123456+00:00',
+    score: 7,
+    voter: 2,
+    accuracy: 1,
+    isReal: true,
+    difficulty: 2,
+    whoCarries: 'b',
+  }),
+  voteRow({
+    ...WITH_8002,
+    ts: '2026-09-14T10:00:00.123456+00:00',
+    score: 8,
+    voter: 5,
+    accuracy: 0,
+    isReal: false,
+    wouldPlay: false,
+    difficulty: 3,
+    whoCarries: 'both',
+  }),
+  voteRow({...WITH_8002, ts: '2026-09-15T10:00:00.123456+00:00', score: 10, voter: 6, whoCarries: 'both'}),
+  // 'a' is 7990 here: the other card.
+  voteRow({...WITH_7990, ts: '2026-09-16T10:00:00.123456+00:00', score: 6, voter: 3, accuracy: -1, whoCarries: 'a'}),
+  voteRow({...WITH_8004, ts: '2026-09-17T10:00:00.123456+00:00', score: 9, voter: 2, whoCarries: 'both'}),
+  voteRow({...WITH_8003, ts: '2026-09-18T10:00:00.123456+00:00', score: null, voter: 5, accuracy: 0}),
+  voteRow({...WITH_8002, ts: '2026-09-21T10:00:00.123456+00:00', score: 5, voter: 7, accuracy: 1, whoCarries: 'neither'}),
+  voteRow({
+    ...WITH_7990,
+    ts: '2026-09-23T10:00:00.123456+00:00',
+    score: 8,
+    voter: 4,
+    isReal: true,
+    difficulty: 1,
+    whoCarries: 'both',
+  }),
+  voteRow({...WITH_8003, ts: '2026-09-24T10:00:00.123456+00:00', score: 3, voter: 6, whoCarries: 'both'}),
+  voteRow({...WITH_8002, ts: '2026-09-28T10:00:00.123456+00:00', score: 7, voter: 8, accuracy: 0, wouldPlay: false, whoCarries: 'both'}),
+  voteRow({...WITH_7990, ts: '2026-09-29T10:00:00.123456+00:00', score: null, voter: 9, accuracy: 0}),
+  voteRow({a: '8020', b: '8021', ts: '2026-08-26T10:00:00.123456+00:00', score: 5, voter: 3}),
+  voteRow({a: '8020', b: '8021', ts: '2026-09-09T10:00:00.123456+00:00', score: 6, voter: 4}),
+  voteRow({a: '8010', b: '8011', ts: '2026-09-22T10:00:00.123456+00:00', score: null, voter: 1, accuracy: 0}),
+  // The log's newest vote, on a Wednesday.
+  voteRow({a: '8010', b: '8011', ts: '2026-09-30T14:20:00.123456+00:00', score: null, voter: 2, accuracy: 1}),
+];
+
+/** The vote log the raw-vote panels read: 20 votes by 9 voters, generated with the view's log, after its newest vote. */
+export const RAW_LOG: VoteLog = {generatedAt: VIEW_LOG.generatedAt, voterCount: 9, votes: [...RAW_VOTES]};
+
+/**
+ * pairs[] for that log: the pairs the engine scores. Card 8001's engine
+ * average is (6 × 4 + 8 × 6) / 10 = 7.2; 8003 and 8004 are engine-silent.
+ */
+export const RAW_PAIRS: readonly PairStat[] = [
+  pairStat({...WITH_7990, engineScore: 6, communityScore: 7, scoreVotes: 4}),
+  pairStat({...WITH_8002, engineScore: 8, communityScore: 7.5, scoreVotes: 6, rules: ['ramp', 'shift-targets']}),
+  pairStat({a: '8020', b: '8021', engineScore: 7, communityScore: 5.5, scoreVotes: 2}),
+];
+
+/**
+ * Vote analytics with those pairs: the view's otherwise (VIEW_ANALYTICS), raw
+ * votes on. Its rules name ramp and shift-targets; its global numbers aren't
+ * this log's, and the panels print none of them.
+ */
+export const RAW_ANALYTICS: VoteAnalytics = {...VIEW_ANALYTICS, pairs: [...RAW_PAIRS]};

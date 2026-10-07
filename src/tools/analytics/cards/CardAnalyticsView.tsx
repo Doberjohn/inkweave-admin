@@ -9,6 +9,7 @@ import {CardCalibrationPanel} from './CardCalibrationPanel';
 import {CardHeader} from './CardHeader';
 import {CardKpis} from './CardKpis';
 import {calibrationData, rawVotesFor, silentNote, type CardCalibrationData, type RawVotes} from './cardView';
+import {RawVotePanels} from './RawVotePanels';
 import {VotedPairsPanel} from './VotedPairsPanel';
 
 export interface CardAnalyticsViewProps {
@@ -78,6 +79,7 @@ export function CardAnalyticsView({card, analytics, voteLog, getCardById, handof
       <AnalyticsNotice analytics={analytics} />
       <CardKpis calibration={calibration} raw={raw} />
       {calibration && <CalibrationRow calibration={calibration} raw={raw} isListed={isListed} />}
+      <RawVotePanels card={card} analytics={analytics} voteLog={voteLog} />
     </div>
   );
 }

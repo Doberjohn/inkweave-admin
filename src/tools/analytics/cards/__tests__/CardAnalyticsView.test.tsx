@@ -311,3 +311,17 @@ describe('CardAnalyticsView', () => {
     });
   });
 });
+
+describe('CardAnalyticsView: the raw-vote panels (R3-6b)', () => {
+  it('shows the vote log’s state where the raw-vote panels go', () => {
+    renderView({voteLog: LOADING});
+    expect(screen.getByText('Loading vote log...')).toBeInTheDocument();
+  });
+
+  it('says why the vote log failed, in the raw section alone', () => {
+    renderView({voteLog: NOT_GENERATED});
+    expect(screen.getByText('Could not load the vote log. Has the artifact been generated? (HTTP 404)')).toBeInTheDocument();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('group', {name: 'Mean gap'})).toBeInTheDocument();
+  });
+});
