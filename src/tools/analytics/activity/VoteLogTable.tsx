@@ -3,6 +3,7 @@ import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtWeekday} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
+import {PairLine} from '../CardName';
 import type {VoteLogRow} from '../voteLogTypes';
 import {carriesLabel, countOf, logPage, type LogDay} from './activityModel';
 
@@ -47,14 +48,19 @@ const DAY_CELL: React.CSSProperties = {
   color: ADMIN_COLORS.text,
 };
 
-/** One vote: its time, the pair, the score, who carries, and the voter, who filters the log when picked. */
+/**
+ * One vote: its time, the pair, the score, who carries, and the voter, who
+ * filters the log when picked. A card the card list holds links to its card
+ * page (PairLine, R-33). The cell's title keeps the whole pair, for a line
+ * cut short.
+ */
 function VoteRow({vote, onPickVoter}: {vote: VoteLogRow; onPickVoter: (voter: number) => void}) {
   const pair = `${vote.aName} × ${vote.bName}`;
   return (
     <tr className="adm-hover-row">
       <td style={{...CELL, color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(11, 16)}</td>
-      <td style={{...CELL, ...TRUNCATE}} title={pair}>
-        {pair}
+      <td style={CELL} title={pair}>
+        <PairLine pair={vote} />
       </td>
       <td style={{...CELL, textAlign: 'center'}}>
         <ScorePill score={vote.score} />

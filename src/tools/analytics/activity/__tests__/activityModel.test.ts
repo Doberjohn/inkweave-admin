@@ -478,7 +478,7 @@ describe('topPairs', () => {
 describe('carriesLabel', () => {
   const vote = row({ts: '2026-09-30T08:00:00Z', voter: 1});
 
-  it.each<[string | null, string]>([
+  it.each<[VoteLogRow['whoCarries'], string]>([
     ['a', 'Elsa'],
     ['b', 'Anna'],
     ['both', 'Both'],

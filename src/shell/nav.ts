@@ -23,6 +23,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'calibration', label: 'Calibration & tuning', mark: 'Ca', path: '/calibration', group: 'insights', writes: true},
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
+  {id: 'cards', label: 'Card analytics', mark: 'Cd', path: '/cards', group: 'insights', writes: false},
   {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
   {id: 'image', label: 'Card images', mark: 'Im', path: '/image', group: 'publish', writes: true},
 ];
@@ -47,4 +48,13 @@ export function isWritePath(pathname: string): boolean {
  */
 export function calibrationHref(ruleId?: string): string {
   return ruleId ? `/calibration?rule=${encodeURIComponent(ruleId)}` : '/calibration';
+}
+
+/**
+ * The Card analytics page, opened on a card when one is given (R-33): what the
+ * switcher, the partner links and other pages' card links navigate to. Bare
+ * /cards opens the last card viewed, or the "Pick a card" prompt.
+ */
+export function cardsHref(cardId?: string): string {
+  return cardId ? `/cards/${encodeURIComponent(cardId)}` : '/cards';
 }

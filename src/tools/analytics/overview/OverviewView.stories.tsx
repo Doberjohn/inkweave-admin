@@ -1,6 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {MemoryRouter} from 'react-router-dom';
 import {FONTS, SPACING} from '../../../app-bridge';
+import {KnownCardsContext} from '../../../shell/knownCards';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {OverviewView} from './OverviewView';
 import {
@@ -102,4 +103,15 @@ export const WebAnalyticsError: Story = {
 
 export const VoteLogError: Story = {
   args: {voteLog: null, voteLogError: new Error('vote-log.json: HTTP 500')},
+};
+
+/** In the shell (R-33): Maui and Cogsworth are in the card list, so their names link to their card pages. */
+export const CardLinks: Story = {
+  decorators: [
+    (Story) => (
+      <KnownCardsContext value={(id) => id === 'crd-Maui' || id === 'crd-Cogsworth'}>
+        <Story />
+      </KnownCardsContext>
+    ),
+  ],
 };

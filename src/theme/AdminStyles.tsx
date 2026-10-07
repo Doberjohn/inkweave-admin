@@ -26,8 +26,8 @@ const ENABLED = ':where(:not(:disabled))';
  * and the pages share. Inline styles stay the default (the app's house style);
  * these classes exist for what inline styles can't express: :hover,
  * :focus-visible and state selectors. Selection is read from ARIA state
- * (aria-current="page", aria-pressed="true"), never from a class, so the
- * styling and what assistive tech hears can't disagree.
+ * (aria-current="page", aria-pressed="true", aria-selected="true"), never from
+ * a class, so the styling and what assistive tech hears can't disagree.
  *
  * The focus ring is the one gold (ADMIN_COLORS.accent), replacing the app's
  * global legacy-gold ring. Rows draw theirs inside the box (offset -2px): they
@@ -41,6 +41,12 @@ const ENABLED = ':where(:not(:disabled))';
  * well: browsers differ on painting a box-shadow on a <tr> in a collapsed
  * table, and a cell's always paints, so the two coincide where both do.
  *
+ * A listbox option (adm-option, the card switcher's) never takes focus: focus
+ * stays in its field, which points at the active option (aria-activedescendant).
+ * So the option draws no ring. aria-selected marks the active one with the
+ * row fill and the selected bar, the 3:1 cue. The app's useAutocomplete moves
+ * aria-selected on hover too, so one rule serves the pointer and the keys.
+ *
  * <button> takes no style prop here (inkweave/no-adhoc-buttons), so the button
  * classes are complete on their own. Lay out a row's or a card's content with
  * an inner <span style={...}>.
@@ -52,6 +58,13 @@ const ENABLED = ':where(:not(:disabled))';
  *
  * Nav items pad 8px, not the handoff's 6 (off the spacing scale): in the 64px
  * rail, 12px gutters leave 40px, and 8 + 24 + 8 centres the mark exactly.
+ *
+ * A text link inside data (adm-link: a card name in a log row, a list or a
+ * heading) keeps its text colour and takes a muted underline: gold sits at
+ * 1.41:1 against the text beside it, under the 3:1 that colour alone would
+ * need (WCAG 1.4.1), so the underline is what tells a linked name from a
+ * plain one. Hover golds it. Its ring sits 2px out, as a control's does, and
+ * a line that clips keeps room for it (CardName's PairLine).
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -87,7 +100,14 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
 
-.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;color:${C.text};font-size:${T.body}px;cursor:pointer;transition:background-color ${FAST};}
+.adm-option[aria-selected="true"]{background:${C.rowHover};box-shadow:inset 2px 0 0 ${C.accent};}
+
+.adm-link{color:inherit;text-decoration:underline;text-decoration-color:${C.muted};transition:color ${FAST},text-decoration-color ${FAST};}
+.adm-link:hover{color:${C.accent};text-decoration-color:${C.accent};}
+.adm-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
+
+.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
 .adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
@@ -101,6 +121,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-chart-mark{transition:opacity ${GLIDE},filter ${GLIDE};}
 .adm-chart-mark[data-active="true"]{filter:brightness(1.2);}
 .adm-chart-mark[data-dim="true"]{opacity:.4;}
+.adm-net-link{display:block;width:100%;height:100%;border-radius:${R.control}px;}
 .adm-chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:adm-chart-rise ${ENTER} both;}
 .adm-chart-line{stroke-dasharray:1;animation:adm-chart-draw ${ENTER} both;}
 .adm-chart-area,.adm-chart-label{animation:adm-chart-fade ${ENTER} both;}
@@ -111,7 +132,8 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
 
 @media (prefers-reduced-motion: reduce){
-.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row{transition:none;}
+.adm-link{transition:none;}
+.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}
 }

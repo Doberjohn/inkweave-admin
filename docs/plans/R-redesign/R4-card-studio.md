@@ -1024,7 +1024,7 @@ USER_APPROVED=1 git commit -m "docs(studio): point the runbook, skills and revea
    - R4 shows any unlisted code as its own option and writes it back unchanged.
    - Adding French to `SCAN_LANGUAGES` would mean editing `constants.ts`, a reveal-sync contract file, and checking the app's `reveal-set-integrity` code check.
 3. **Released cards.** R4 shows their fields as a read-only `<dl>` with the LorcanaJSON note, not as a disabled copy of the form. Is that acceptable?
-4. **"View card analytics".** R4 links to `/cards/{id}`. Align this with the path R3 ships, and with its path helper if it has one.
+4. **"View card analytics".** Settled in R3 (R-33): link with `cardsHref(id)` from `src/shell/nav.ts`, which builds `/cards/{id}`. R3 shipped no "Edit in Card studio" link, because `/studio` didn't exist yet. So R4-6 adds it rather than moving it: `CardAnalyticsView` takes it as `headerActions` and puts it in the card header. `CardAnalyticsPage` renders the view through `CardPageBody` (R3-7), which doesn't forward `headerActions` yet, so R4-6 adds that prop there too (see "Modify R3's 'Edit in Card studio' link" above, which R4's re-base rewrites).
 5. **App-repo docs.** These need an app-repo docs PR, or can be left:
    - `START_REVEAL_SEASON.md:128` in the app links `/reveal`, and the redirect covers it.
    - The app's `CLAUDE.md` lists every module admin bridges, and the icons and `enchanted.webp` join that list in R4-5.

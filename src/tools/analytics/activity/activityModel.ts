@@ -124,11 +124,22 @@ export function votesInRange(votes: VoteLogRow[], startDay: Day, endDay: Day): V
 }
 
 /**
+ * A run of UTC days, both ends included: the window activityWindow gives. At
+ * 'all' it is the vote log's first and last vote days, which say whether a
+ * weekly chart's end weeks are part weeks (R2's weekly gap). Moved here from
+ * calibration/chartData.ts (R3-1a).
+ */
+export interface VoteSpan {
+  startDay: Day;
+  endDay: Day;
+}
+
+/**
  * The days the page reads for a range. The window ends on the whole log's
  * newest vote and counts back per the range, never past the log's oldest vote
  * (rangeStartDay). Null for an empty log.
  */
-export function activityWindow(votes: readonly VoteLogRow[], range: RangePreset): {startDay: Day; endDay: Day} | null {
+export function activityWindow(votes: readonly VoteLogRow[], range: RangePreset): VoteSpan | null {
   const endDay = latestVoteDay(votes);
   if (endDay === undefined) return null;
   const firstDay = votes.reduce((first, vote) => (dayOf(vote) < first ? dayOf(vote) : first), endDay);

@@ -3,6 +3,7 @@ import {AdminShell} from './shell/AdminShell';
 import {NotFound} from './shell/NotFound';
 import {ActivityPage} from './tools/analytics/activity/ActivityPage';
 import {CalibrationPage} from './tools/analytics/calibration/CalibrationPage';
+import {CardAnalyticsPage} from './tools/analytics/cards/CardAnalyticsPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ImagePage} from './tools/image/ImagePage';
@@ -17,6 +18,8 @@ export const routes: RouteObject[] = [
       {path: 'activity', element: <ActivityPage />},
       {path: 'web', element: <WebAnalyticsPage />},
       {path: 'calibration', element: <CalibrationPage />},
+      // One element for every card: bare /cards opens the last card viewed, or the "Pick a card" prompt.
+      {path: 'cards/:cardId?', element: <CardAnalyticsPage />},
       // The old analytics page split into the insights pages; a bookmark lands on the Overview (R-10).
       {path: 'analytics', element: <Navigate to="/" replace />},
       {path: 'reveal', element: <RevealPage />},

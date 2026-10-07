@@ -1,5 +1,5 @@
 import {PageLayout} from '../../../shell/PageLayout';
-import {ADMIN_COLORS} from '../../../theme/adminTheme';
+import {DataAsOf} from '../../../ui/DataAsOf';
 import {useVercelAnalytics} from '../useVercelAnalytics';
 import {WebAnalyticsBody} from './WebAnalyticsBody';
 
@@ -14,13 +14,7 @@ export function WebAnalyticsPage() {
     <PageLayout
       title="Web analytics"
       subtitle="Vercel custom events from inkweave.ink"
-      meta={
-        data ? (
-          <>
-            Data as of <code style={{color: ADMIN_COLORS.muted}}>{data.generatedAt.slice(0, 10)}</code>
-          </>
-        ) : undefined
-      }>
+      meta={data ? <DataAsOf generatedAt={data.generatedAt} /> : undefined}>
       <WebAnalyticsBody analytics={data} error={error} />
     </PageLayout>
   );

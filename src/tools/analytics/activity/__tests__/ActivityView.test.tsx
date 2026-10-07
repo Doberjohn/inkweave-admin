@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {renderWithCards} from '../../../../test/cardLinks';
 import {ActivityView} from '../ActivityView';
 import type {VoteLog, VoteLogRow} from '../../voteLogTypes';
 
@@ -97,6 +98,17 @@ describe('ActivityView', () => {
     ).toEqual(['Elsa × Anna', 'Maui × Moana', 'Scar × Simba']);
     expect(screen.getByRole('button', {name: '#1, 2 votes'})).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Clear filters'})).not.toBeInTheDocument();
+  });
+
+  it('links the cards the card list holds, in Most voted pairs and in the log (R-33)', () => {
+    // Elsa is card 1 and Moana card 4; Anna, Maui, Scar and Simba are outside the card list.
+    renderWithCards(<ActivityView voteLog={LOG} />, ['1', '4']);
+    const top = within(screen.getByRole('table', {name: 'Most voted pairs'}));
+    expect(top.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Elsa', '/cards/1'],
+      ['Moana', '/cards/4'],
+    ]);
+    expect(within(logTable()).getAllByRole('link').map((a) => a.textContent)).toEqual(['Elsa', 'Moana', 'Elsa']);
   });
 
   it('narrows to 7 days and widens to 90, charting each day', async () => {

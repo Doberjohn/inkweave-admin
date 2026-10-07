@@ -1,8 +1,8 @@
 /**
- * Number and date text shared by every admin page. Negative numbers carry the
- * true minus sign (U+2212) and a missing value reads as an em dash. Days are
- * 'YYYY-MM-DD' strings read as UTC calendar days, so a label never shifts with
- * the viewer's time zone.
+ * Number, share and date text shared by every admin page. Negative numbers
+ * carry the true minus sign (U+2212) and a missing value reads as an em dash.
+ * Days are 'YYYY-MM-DD' strings read as UTC calendar days, so a label never
+ * shifts with the viewer's time zone.
  */
 
 const MINUS = '−';
@@ -60,4 +60,18 @@ export function fmtDay(day: string): string {
 export function fmtWeekday(day: string): string {
   const date = parseDay(day);
   return date ? `${WEEKDAYS[date.getUTCDay()]} ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}` : day;
+}
+
+/**
+ * A share, from 0 to 1, as a whole percentage: 1 / 3 -> "33%". Each part
+ * rounds on its own (R-43). A share above zero that would round to 0 prints
+ * "<1%", so a part with any never reads "0%"; one below 1 that would round to
+ * 100 prints ">99%", so a part short of the whole never reads "100%". Moved
+ * from calibration/chartData.ts (R3-1a), so R2's gap histogram and R3's card
+ * page share one rule.
+ */
+export function sharePercent(fraction: number): string {
+  if (fraction > 0 && fraction < 0.005) return '<1%';
+  if (fraction < 1 && fraction >= 0.995) return '>99%';
+  return `${Math.round(fraction * 100)}%`;
 }

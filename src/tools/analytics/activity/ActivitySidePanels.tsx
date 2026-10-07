@@ -1,9 +1,10 @@
-import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
 import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
+import {PairLine} from '../CardName';
 import type {VoteLogRow} from '../voteLogTypes';
 import {countOf, topPairs, topVoters} from './activityModel';
 
@@ -69,7 +70,11 @@ export function TopVotersPanel({votes, selectedVoter, onToggleVoter}: TopVotersP
   );
 }
 
-/** Most voted pairs: the top five in the range, under the filters, each with its average over scored votes. */
+/**
+ * Most voted pairs: the top five in the range, under the filters, each with
+ * its average over scored votes. A card the card list holds links to its card
+ * page (PairLine, R-33).
+ */
 export function TopPairsPanel({votes}: {votes: VoteLogRow[]}) {
   const pairs = topPairs(votes, 5);
   return (
@@ -98,8 +103,8 @@ export function TopPairsPanel({votes}: {votes: VoteLogRow[]}) {
               const name = `${pair.aName} × ${pair.bName}`;
               return (
                 <tr key={`${pair.a}:${pair.b}`}>
-                  <td style={{...CELL, ...TRUNCATE}} title={name}>
-                    {name}
+                  <td style={CELL} title={name}>
+                    <PairLine pair={pair} />
                   </td>
                   <td style={{...CELL, textAlign: 'right', color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>
                     {fmtInt(pair.count)}
