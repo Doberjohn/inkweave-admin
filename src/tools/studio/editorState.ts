@@ -125,6 +125,8 @@ export interface Draft {
    * image and nothing calls upload.choose(null) during render.
    */
   image: File | null;
+  /** How many edits the last "Load it again" dropped (R-68, R4-4c); unset until one lands on this draft. */
+  dropped?: number;
 }
 
 /** What the draft opens with: the fields of an editable entry, the reason for any other card, null while it waits. */

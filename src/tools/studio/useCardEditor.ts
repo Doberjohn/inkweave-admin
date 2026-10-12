@@ -8,6 +8,7 @@ import type {ValidationResult} from '../reveal/validateForm';
 import {hasEdits, type ImageOnlyReason} from './cardEdit';
 import {changeRows, type ChangeRow} from './changeRows';
 import type {CardTag} from './editSearch';
+import {reseeded} from './editSave';
 import {
   discardDraft,
   draftChanges,
@@ -30,7 +31,8 @@ import {
   type PreviewFileView,
 } from './editorState';
 import type {PreviewCardsFile} from './previewCardsFile';
-import {usePreviewCardsFile} from './usePreviewCardsFile';
+import {usePreviewCardsFile, type UsePreviewCardsFileResult} from './usePreviewCardsFile';
+import {useEditSave, type EditSave} from './useEditSave';
 
 export interface CardEditorInput {
   /** The saved GitHub token: the studio renders the editor only under the token gate. */
@@ -39,15 +41,15 @@ export interface CardEditorInput {
   cardId: string | null;
 }
 
-export interface CardEditorController {
+export interface CardEditorController extends EditSave {
   /** The open card, in cardPageState's order (editorState.ts). */
   lookup: EditLookup;
   /**
-   * Reads again what failed: the card list (its retryLoad) and a failed first
-   * read of previewCards.json. A failed reload is read again through
-   * previewFile.reload (R4-4c or R4-6b take it, addition 11).
+   * Reads again what failed: the card list (its retryLoad), and
+   * previewCards.json whenever the search shows a file error (a failed first
+   * read, or a later read's reloadError). Resolves as retryReads says.
    */
-  retry: () => void;
+  retry: () => Promise<boolean>;
   /** previewCards.json for the search, whatever card is open (R-71); `reload` reads it again. */
   previewFile: PreviewFileView & {reload: () => void};
   /** The open card's tag, as the search tags it (cardTag); null until it is ready. */
@@ -81,6 +83,25 @@ export interface CardEditorController {
   revertImage: () => void;
 }
 
+/** What Retry reads again: the shell's card list, and previewCards.json. */
+interface RetryInput {
+  list: Pick<ReturnType<typeof useCardDataContext>, 'error' | 'retryLoad'>;
+  file: UsePreviewCardsFileResult;
+}
+
+/**
+ * Reads again what failed: the card list (its retryLoad) and previewCards.json.
+ * Resolves true once the file's re-read lands, false when the read fails, or
+ * when the search shows no file error (a failed first read, or a later read's
+ * reloadError). The card list's retry can't be awaited (retryLoad returns
+ * nothing), so the page watches its error clear, as R3-7 does (R-59).
+ */
+function retryReads({list, file}: RetryInput): Promise<boolean> {
+  if (list.error) list.retryLoad();
+  if (previewFileView(file).error === null) return Promise.resolve(false);
+  return file.reload().then((cards) => cards !== null);
+}
+
 /**
  * The draft for the card on screen. Another card, or the first read its card
  * waits for, seeds a new one during render (no effect, no ref), as
@@ -89,7 +110,7 @@ export interface CardEditorController {
  */
 function useEditDraft(input: {cardId: string | null; lookup: EditLookup; file: PreviewCardsFile}) {
   const [draft, setDraft] = useState<Draft>(() => seedDraft({...input, seed: 0}));
-  if (needsSeed({...input, draft})) setDraft(seedDraft({...input, seed: draft.seed + 1}));
+  if (needsSeed({...input, draft})) setDraft(reseeded({...input, draft}));
   return [draft, setDraft] as const;
 }
 
@@ -111,6 +132,7 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
       setDraft(discardDraft);
       void upload.choose(null);
     },
+    clearIf: upload.clearIf,
   };
 }
 
@@ -133,14 +155,21 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
   const validation = draftValidation({draft, imageName: staged.name});
   const previewCard = editPreview({card: openCard(lookup), draft, dataUrl: staged.dataUrl});
 
-  function retry() {
-    if (list.error) list.retryLoad();
-    if (file.status === 'error') void file.reload();
-  }
+  const save = useEditSave({
+    token,
+    draft,
+    setDraft,
+    card: openCard(lookup),
+    changes,
+    validation,
+    staged,
+    clearIf: image.clearIf,
+    file,
+  });
 
   return {
     lookup,
-    retry,
+    retry: () => retryReads({list, file}),
     previewFile: {...previewFileView(file), reload: () => void file.reload()},
     tag: openTag(lookup),
     form: view.form,
@@ -157,5 +186,6 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     imageError: imageErrorOf(staged, validation),
     onImageChange: image.onImageChange,
     revertImage: image.revertImage,
+    ...save,
   };
 }

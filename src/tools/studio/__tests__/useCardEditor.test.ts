@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {act, renderHook} from '@testing-library/react';
+import {act, renderHook, waitFor} from '@testing-library/react';
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import type {useCardDataContext} from '../../../app-bridge';
 import {DeferredReader} from '../../../test/DeferredReader';
@@ -160,8 +160,10 @@ describe('useCardEditor: the open card', () => {
     await first.fail('GitHub 500 on previewCards.json');
     expect(result.current.lookup).toEqual({kind: 'fileFailed', error: 'GitHub 500 on previewCards.json'});
 
-    await act(async () => result.current.retry());
-    expect(result.current.form?.name).toBe('Mei');
+    act(() => {
+      void result.current.retry();
+    });
+    await waitFor(() => expect(result.current.form?.name).toBe('Mei'));
     expect({reads: readPreviewCards.mock.calls.length, listRetries: cardList.retryLoad.mock.calls.length}).toEqual({
       reads: 2,
       listRetries: 0,
@@ -173,11 +175,39 @@ describe('useCardEditor: the open card', () => {
     const {result} = await renderEditor({cardId: null});
     expect(result.current.lookup).toMatchObject({kind: 'listFailed'});
 
-    act(() => result.current.retry());
+    let retried: Promise<boolean> = Promise.resolve(true);
+    act(() => {
+      retried = result.current.retry();
+    });
+    // The card list's retry can't be awaited, and the file hadn't failed (R-59: the page watches the list's error).
+    await expect(retried).resolves.toBe(false);
     expect({reads: readPreviewCards.mock.calls.length, listRetries: cardList.retryLoad.mock.calls.length}).toEqual({
       reads: 1,
       listRetries: 1,
     });
+  });
+
+  it('Retry reads previewCards.json again after a later read failed, and resolves once it lands', async () => {
+    const {result} = await renderEditor({cardId: idOf(MEI)});
+    const second = deferRead();
+    act(() => result.current.previewFile.reload());
+    await second.fail('GitHub 502 on previewCards.json');
+    // The search shows the failed read beside the cards it keeps (R4-4a's reloadError), and the card stays open.
+    expect(result.current.previewFile).toMatchObject({status: 'ready', error: 'GitHub 502 on previewCards.json'});
+    expect(result.current.form?.name).toBe('Mei');
+
+    const third = deferRead();
+    let retried: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      retried = result.current.retry();
+    });
+    await third.land();
+    await expect(retried).resolves.toBe(true);
+    expect({
+      error: result.current.previewFile.error,
+      reads: readPreviewCards.mock.calls.length,
+      listRetries: cardList.retryLoad.mock.calls.length,
+    }).toEqual({error: null, reads: 3, listRetries: 0});
   });
 
   it('waits for the card list, then opens the card, or says the id is missing', async () => {
