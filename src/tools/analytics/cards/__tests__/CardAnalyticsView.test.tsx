@@ -178,10 +178,10 @@ describe('CardAnalyticsView', () => {
     }
 
     it.each([
-      ['runs generous', -0.8, '−0.80', COLORS.error, COLORS.error],
-      ['is well-calibrated', -0.2, '−0.20', COLORS.success, COLORS.textMuted],
-      ['runs harsh', 1.25, '+1.25', COLORS.success, COLORS.success],
-    ])('reads "%s" for a %s gap on 10 score votes, in the verdict colours (R-50)', (phrase, gap, printed, word, number) => {
+      {phrase: 'runs generous', gap: -0.8, printed: '−0.80', word: COLORS.error, number: COLORS.error},
+      {phrase: 'is well-calibrated', gap: -0.2, printed: '−0.20', word: COLORS.success, number: COLORS.textMuted},
+      {phrase: 'runs harsh', gap: 1.25, printed: '+1.25', word: COLORS.success, number: COLORS.success},
+    ])('reads "$phrase" for a $gap gap on 10 score votes, in the verdict colours (R-50)', ({phrase, gap, printed, word, number}) => {
       renderView({analytics: onePair({gap, scoreVotes: 10})});
       expect(panel()).toHaveTextContent(`The engine ${phrase} on this card`);
       // One verdict colours each part: the phrase in its word colour, the scale's dot and the Mean gap KPI in its number colour.

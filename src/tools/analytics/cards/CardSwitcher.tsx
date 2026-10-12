@@ -120,7 +120,8 @@ export function CardSwitcher({cards}: CardSwitcherProps) {
     maxResults: MAX_RESULTS,
   });
   // Old news once the user types again or leaves the field: back in it, nothing repeats.
-  if (opened && (query !== '' || !isFocused)) setOpened(null);
+  const pickIsOld = query !== '' || !isFocused;
+  if (opened && pickIsOld) setOpened(null);
   const note = switcherStatus({cards, query, listOpen: isOpen, focused: isFocused});
   return (
     <div style={WRAP}>
