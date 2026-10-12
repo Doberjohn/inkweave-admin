@@ -1,15 +1,4 @@
-import {
-  ALL_INKS,
-  INK_COLORS,
-  InkIcon,
-  RaritySymbol,
-  SPACING,
-  TRUNCATE,
-  enchantedSymbol,
-  epicSymbol,
-  iconicSymbol,
-  rarityConfigOf,
-} from '../../../app-bridge';
+import {ALL_INKS, INK_COLORS, InkIcon, RaritySymbol, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
@@ -21,11 +10,11 @@ import {breakdownShares} from './webModel';
 /** eventData props that carry an ink name: their rows get the ink's icon, and their bars the ink's colour. */
 const INK_PROPS = new Set(['ink', 'clickedCardInk', 'cardAInk', 'cardBInk']);
 
-/** The eventData prop that carries a card's rarity (reveal_card_click sends `card.rarity ?? null`). */
+/**
+ * The eventData prop that carries a rarity. reveal_card_click sends the card's, or for
+ * a special printing the printing's: `printing?.rarity ?? card.rarity ?? null`.
+ */
 const RARITY_PROP = 'rarity';
-
-/** Printings RaritySymbol doesn't draw; the app shows them from these webps (PrintingPills). */
-const PRINTING_SYMBOLS: Record<string, string> = {enchanted: enchantedSymbol, epic: epicSymbol, iconic: iconicSymbol};
 
 /** Row icon size in px. */
 const ICON_SIZE = 18;
@@ -36,30 +25,18 @@ function inkOf(prop: string, value: string) {
 }
 
 /**
- * The icon in front of a row's value: the app's ink icon on ink props. On the
- * rarity prop, RaritySymbol draws Common to Legendary (the five keys
- * rarityConfigOf knows) and the printing webps cover Enchanted, Epic and
- * Iconic. "Others" and any other value show their text alone. A blank value
+ * The icon in front of a row's value: the app's ink icon on ink props, and
+ * RaritySymbol's glyph on the rarity prop. RaritySymbol is keyed by the rarity
+ * lowercased, as the app keys it ("Super Rare" is "super rare"), and draws the
+ * five rarities and the Enchanted, Epic and Iconic printings. It draws nothing
+ * for any other key, so "Others" shows its text alone. A blank value
  * (NOT_SET_LABEL) never gets here: it has no ink or rarity to look up.
  */
 function ValueIcon({prop, value}: {prop: string; value: string}) {
   const ink = inkOf(prop, value);
   if (ink) return <InkIcon ink={ink} size={ICON_SIZE} />;
   if (prop !== RARITY_PROP) return null;
-  const rarity = rarityConfigOf(value);
-  if (rarity) return <RaritySymbol rarity={rarity.key} size={ICON_SIZE} />;
-  const printing = PRINTING_SYMBOLS[value.trim().toLowerCase()];
-  if (!printing) return null;
-  return (
-    <img
-      src={printing}
-      alt=""
-      aria-hidden
-      width={ICON_SIZE}
-      height={ICON_SIZE}
-      style={{display: 'block', flexShrink: 0, objectFit: 'contain'}}
-    />
-  );
+  return <RaritySymbol rarity={value.trim().toLowerCase()} size={ICON_SIZE} />;
 }
 
 function BreakdownCard({breakdown}: {breakdown: Breakdown}) {

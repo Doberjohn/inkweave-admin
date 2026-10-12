@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {act, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {RaritySymbol} from '../../../../app-bridge';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {WebAnalyticsBody} from '../WebAnalyticsBody';
 import type {BreakdownRow, VercelAnalytics, VercelEvent} from '../../vercelAnalyticsTypes';
@@ -34,7 +35,15 @@ const REVEALS = event('reveal_card_click', 'Reveal card clicks', 9340, {
     {
       prop: 'rarity',
       label: 'By rarity',
-      rows: [row('Others', 50), row('Common', 30), row('Enchanted', 10), row('Super Rare', 20)],
+      // A special printing's click reports the printing's rarity: Enchanted, Epic or Iconic.
+      rows: [
+        row('Others', 50),
+        row('Common', 30),
+        row('Enchanted', 10),
+        row('Super Rare', 20),
+        row('Epic', 6),
+        row('Iconic', 4),
+      ],
     },
     // A blank value, as the real export has: the events that sent no franchise.
     {prop: 'franchise', label: 'By franchise', rows: [row('Frozen', 12), row('', 6), row('Moana', 4)]},
@@ -313,19 +322,34 @@ describe('WebAnalyticsBody', () => {
     expect(within(inkList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
   });
 
-  it('puts the rarity symbol on every rarity, and text alone on Others', () => {
+  it('lists the rarities and printings, and keeps "Others" last, as text alone', () => {
     render(<WebAnalyticsBody analytics={ANALYTICS} />);
     expect(rowsAround('Common')).toEqual([
-      'Common: 30 (27%)',
-      'Enchanted: 10 (9%)',
-      'Super Rare: 20 (18%)',
-      'Others: 50 (45%)',
+      'Common: 30 (25%)',
+      'Enchanted: 10 (8%)',
+      'Super Rare: 20 (17%)',
+      'Epic: 6 (5%)',
+      'Iconic: 4 (3%)',
+      'Others: 50 (42%)',
     ]);
-    expect(screen.getByText('Common').closest('li')!.querySelector('img')).not.toBeNull();
-    expect(screen.getByText('Super Rare').closest('li')!.querySelector('img')).not.toBeNull();
-    expect(screen.getByText('Enchanted').closest('li')!.querySelector('img')).not.toBeNull();
     const rarityList = screen.getByText('Common').closest('ul')!;
     expect(within(rarityList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
+  });
+
+  // RaritySymbol draws the three printings as well as the five rarities (R-83, admin#32),
+  // keyed by the value lowercased, as the app keys them (rarity.ts).
+  it.each([
+    {value: 'Common', key: 'common'},
+    {value: 'Super Rare', key: 'super rare'},
+    {value: 'Enchanted', key: 'enchanted'},
+    {value: 'Epic', key: 'epic'},
+    {value: 'Iconic', key: 'iconic'},
+  ])("draws the $value row's icon as RaritySymbol's '$key' glyph", ({value, key}) => {
+    const glyph = render(<RaritySymbol rarity={key} size={18} />).container.querySelector('img');
+    expect(glyph, `RaritySymbol draws nothing for '${key}'`).not.toBeNull();
+    render(<WebAnalyticsBody analytics={ANALYTICS} />);
+    const icon = screen.getByText(value).closest('li')!.querySelector('img');
+    expect(icon).toHaveAttribute('src', glyph!.getAttribute('src'));
   });
 
   it('names a row with a blank value "(not set)", in its text and its title, with no icon', () => {
