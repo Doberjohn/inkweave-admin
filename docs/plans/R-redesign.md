@@ -14,9 +14,9 @@
 
 **Spec:** `docs/redesign/handoff/README.md` plus the prototype `docs/redesign/handoff/Inkweave Admin.dc.html`. The handoff lives outside git, in the owner's working copy only (`.git/info/exclude`), and is deleted once R4 ships (owner, 2026-10-01). Open the prototype with `support.js` next to it, served over HTTP; it doesn't run from `file://`. The spec's own fixtures are sample data. Where this plan and the spec disagree, **this plan wins**: the "Corrections to the spec" section lists every case, and each comes from the 2026-10-01 review of the handoff against the code.
 
-**Tracking:** Doberjohn/inkweave-admin#24. Branch: one per phase: `feature/24-admin-redesign` (R1), `feature/24-redesign-r2` (R2), `feature/24-redesign-r3` (R3); one PR per phase.
+**Tracking:** Doberjohn/inkweave-admin#24. Branch: one per phase: `feature/24-admin-redesign` (R1), `feature/24-redesign-r2` (R2), `feature/24-redesign-r3` (R3), `claude/admin-card-studio-r4-cxya50` (R4, a cloud thread's branch); one PR per phase.
 
-**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built, checked against real data and merged on 2026-10-06 (PRs #27 and #28); see "R2 as built". R3 built and checked against real data on 2026-10-07; see "R3 as built". R4 is outlined below and detailed when it starts.
+**Status:** R1 built and checked against real data on 2026-10-02; see "R1 as built". R2 built, checked against real data and merged on 2026-10-06 (PRs #27 and #28); see "R2 as built". R3 built and checked against real data on 2026-10-07; see "R3 as built". R4 started on 2026-10-12: its tasks are detailed in R-redesign/R4-card-studio.md, whose re-base notes say what changed against main @ a97d99c.
 
 ---
 
@@ -850,4 +850,4 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
 
 ## Phase R4: Card studio (outline)
 
-[R-redesign/R4-card-studio.md](R-redesign/R4-card-studio.md). Detailed when R4 starts.
+[R-redesign/R4-card-studio.md](R-redesign/R4-card-studio.md): tasks R4-1 to R4-7, re-based on R3 and wave 1 as built (main @ a97d99c) and pin 16283a1 on 2026-10-12.

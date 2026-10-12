@@ -1,5 +1,29 @@
 > Part of [R: Admin redesign](../R-redesign.md). Read its decisions, corrections to the spec, global constraints and shared interfaces first.
 
+> **Re-base notes (R4, 2026-10-12).** Checked against `main` @ `a97d99c` (wave 1 merged: #40, #41, #42) and the pin `upstream/inkweave` @ `16283a1`, whose `previewCards.json` holds 204 cards, all set 14 and numbered. The branch is `claude/admin-card-studio-r4-cxya50`, a cloud thread's, in place of `feature/24-redesign-r4`. R4-1 to R4-4 are built on the recommended answers to the open questions below, which went to the owner on 2026-10-12 (Q1 to Q6 in the thread's question file; Q6 is open question 8 here). The owner's answers become R4's decisions in R-redesign.md.
+> - **Bridge (contract addition 1).** R3 already bridges `InkIcon` and `RaritySymbol`. #32 removed the printing webps, and `RaritySymbol` draws Enchanted itself, so `enchantedSymbol` isn't added and the rarity picker draws every rarity with `RaritySymbol`. Only `InkwellIcon` is new.
+> - **R4-1** as written. `StagedImage` names `commitCardEdit`'s `image` type.
+> - **R4-2.**
+>   - `editKindOf` also requires the form to hold the entry exactly: `buildPreviewCard(formFromPreviewCard(entry))` gives every editable key as it is. An entry edited by hand into a shape the form can't write back (a named ability, a stat its type doesn't print, an untrimmed name) opens image-only, so a save never rewrites what the form doesn't show. Every pinned card passes.
+>   - `searchCards` takes no `limit`: `SEARCH_LIMIT` is 40.
+>   - New: `withBranchPreviews(cards, entries)`, the search list with the branch's preview cards the live list lacks (open question 8, recommended yes), and `canSaveEdit(gate)` with `SaveGate` and `StagedImageState`, so the save rule lives here and the hook stays wiring.
+>   - `changeRows` takes `null` for a released card, which has no entry and only ever an Image row.
+> - **R4-3** as written, with two changes.
+>   - New reveal counts the branch file (open question 8): `useRevealAdmin(branch?: BranchPreviewCards)` adds the branch's ids to the "already exists" check and re-reads the file after a publish. Called with nothing, it behaves as before.
+>   - `sectionStatus` counts an error only on a field that holds a value. The validator also errors on a blank required field ("Name is required"), so with its real errors no section could read `incomplete` (the tests below pass none). A blank field leaves its section incomplete; a wrong value (a number of 0, a negative stat) is still an error.
+> - **R4-4.**
+>   - `usePreviewCardsFile` moves up to the page, so both modes share one read: `useCardEditor({token, cardId, file})`. Retrying a file that never loaded shows loading again; a failed reload keeps the last read and sets `reloadError`, which the next request clears.
+>   - The draft holds `fields: {before, form} | null` in place of `before` and `form`.
+>   - `dirty` is a field change `previewCards.json` would take, or a staged image. Whitespace-only typing that builds to the same card isn't dirty, so Save never sends `replaceCardInPreviewJson` an empty change set, which it refuses.
+>   - An image-only save of a preview card doesn't need the form to pass its checks: it leaves the card's data as it is.
+>   - The controller adds `cards` (the search list), `loadingAgain` and `reloadError`. `stale` stays set until the re-read lands and re-seeds the draft. If that read fails, `loadingAgain` turns off and `reloadError` says why. `lookup` also waits for the card list and reports its error, and `retry` re-reads whichever failed, a failed reload included.
+>   - A save's outcome (`result`, `saveError`, `stale`) belongs to the draft that made it. One that lands after its card was left, or after Load it again, reports nothing, so another card never shows it.
+> - **R4-6.**
+>   - R2 built the unsaved guard as `UnsavedChangesGuard` (`src/shell/`, R-19), so `useUnsavedGuard.ts` isn't created: the studio mounts the guard with `dirty={reveal.dirty || edit.dirty}` and a `leaves` built on `shouldBlockStudioNavigation`.
+>   - Today's write pages render `PageLayout` with `GithubTokenGate` inside it (it takes only `onSave`), and the studio does the same.
+>   - The publish note says Vercel takes 10 to 20 minutes, not "~2-3 min": the last 8 Deploy runs took 9 to 19.
+>   - R3 shipped no "Edit in Card studio" link, so R4-6 adds it through `CardPageBody`'s `headerActions` (open question 4).
+
 ## Phase R4: Card studio (outline)
 
 > **Contract additions.** R4 builds on the R1 contract as it stands. It renames nothing and adds four things:
