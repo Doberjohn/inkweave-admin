@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {PINNED_PREVIEW_CARDS_JSON, REVEAL_ID_BASE, REVEAL_SET_CODE, inkBlock} from '../../../app-bridge';
 import {buildPreviewCard, type RevealCardForm} from '../../reveal/buildPreviewCard';
-import {EDITABLE_CARD_KEYS, type PreviewCardChanges} from '../../reveal/replaceCardInPreviewJson';
+import {EDITABLE_CARD_KEYS, mergeCardChanges, type PreviewCardChanges} from '../../reveal/replaceCardInPreviewJson';
 import {validateRevealCardForm} from '../../reveal/validateForm';
 import {
   FIELD_KEYS,
@@ -42,8 +42,36 @@ const BARE: LorcanaJSONCard = {
   number: AMBER_NUMBER,
 };
 
+/** A Location, the one type that prints a move cost. */
+const LOCATION_ENTRY = previewEntry({type: 'Location', strength: undefined, moveCost: 2});
+
 const FORM = formFromPreviewCard(PREVIEW_ENTRY);
 const FIELDS: CardKind = {kind: 'fields'};
+
+/**
+ * One edit per form field but the locked number, each to a value that builds a
+ * different card, on an entry that prints the field. Each edits its field alone,
+ * so a field FIELD_KEYS maps to the wrong keys, or to none, emits the wrong change.
+ */
+const ONE_FIELD_EDITS: readonly [string, Partial<RevealCardForm>, LorcanaJSONCard][] = [
+  ['name', {name: 'Mei Lee'}, PREVIEW_ENTRY],
+  ['version', {version: 'Panda Form'}, PREVIEW_ENTRY],
+  ['rarity', {rarity: 'Common'}, PREVIEW_ENTRY],
+  ['franchise', {franchise: 'Pixar Shorts'}, PREVIEW_ENTRY],
+  ['cost', {cost: '6'}, PREVIEW_ENTRY],
+  ['ink', {ink: 'Amber'}, PREVIEW_ENTRY],
+  ['ink2', {ink2: 'Sapphire'}, PREVIEW_ENTRY],
+  ['inkwell', {inkwell: false}, PREVIEW_ENTRY],
+  ['type', {type: 'Location'}, PREVIEW_ENTRY],
+  ['strength', {strength: '7'}, PREVIEW_ENTRY],
+  ['willpower', {willpower: '8'}, PREVIEW_ENTRY],
+  ['lore', {lore: '3'}, PREVIEW_ENTRY],
+  ['moveCost', {moveCost: '4'}, LOCATION_ENTRY],
+  ['subtypes', {subtypes: 'Storyborn, Villain'}, PREVIEW_ENTRY],
+  ['keywords', {keywords: 'Evasive'}, PREVIEW_ENTRY],
+  ['fullText', {fullText: 'Evasive'}, PREVIEW_ENTRY],
+  ['scanLanguage', {scanLanguage: 'ja'}, PREVIEW_ENTRY],
+];
 
 /** The loaded card's form with `patch` typed over it, diffed against the card. */
 function changesTo(patch: Partial<RevealCardForm>, loaded: LorcanaJSONCard = PREVIEW_ENTRY): PreviewCardChanges {
@@ -172,8 +200,30 @@ describe('editKindOf and roundTrips', () => {
     ["sections that aren't the text's lines", previewEntry({fullTextSections: ['Singer 5 PANDA POWER']}), {kind: 'image', reason: 'unrepresentable'}],
     ["a stat its type doesn't print", previewEntry({type: 'Action'}), {kind: 'image', reason: 'unrepresentable'}],
     ['an English mark', previewEntry({scanLanguage: 'en'}), {kind: 'image', reason: 'unrepresentable'}],
+    // The reasons are checked in order: released, other set, unnumbered, then unrepresentable.
+    ['another set with no number: the set comes first', {...OTHER_SET_ENTRY, number: undefined}, {kind: 'image', reason: 'other-set'}],
+    [
+      'another set with a named ability: the set comes first',
+      {...OTHER_SET_ENTRY, abilities: NAMED_ABILITY_ENTRY.abilities},
+      {kind: 'image', reason: 'other-set'},
+    ],
+    [
+      'no number and a named ability: the number comes first',
+      {...UNNUMBERED_ENTRY, abilities: NAMED_ABILITY_ENTRY.abilities},
+      {kind: 'image', reason: 'unnumbered'},
+    ],
   ])('%s', (_case, entry, kind) => {
     expect(editKindOf(entry)).toEqual(kind);
+  });
+
+  // A hand edit can break the entry's own type, which the form can't read.
+  it.each<[string, LorcanaJSONCard]>([
+    ['no color', previewEntry({color: undefined})],
+    ['no name', previewEntry({name: undefined})],
+    ['subtypes that are not a list', previewEntry({subtypes: 'Storyborn' as unknown as string[]})],
+  ])('fails closed on an entry with %s: image-only, never a throw', (_case, entry) => {
+    expect(roundTrips(entry)).toBe(false);
+    expect(editKindOf(entry)).toEqual({kind: 'image', reason: 'unrepresentable'});
   });
 
   it('round-trips an entry the form holds whole, whatever its set or number', () => {
@@ -194,6 +244,18 @@ describe('editKindOf and roundTrips', () => {
 describe('cardChanges', () => {
   it('reaches every editable key from some form field', () => {
     expect(new Set(Object.values(FIELD_KEYS).flat())).toEqual(new Set(EDITABLE_CARD_KEYS));
+  });
+
+  it('edits every field but the locked number alone below', () => {
+    const edited = ONE_FIELD_EDITS.flatMap(([, patch]) => Object.keys(patch));
+    expect(edited).toEqual(Object.keys(FIELD_KEYS).filter((field) => field !== 'collectorNumber'));
+  });
+
+  it.each(ONE_FIELD_EDITS)('turns an edit of %s alone into the card the form builds', (_field, patch, loaded) => {
+    const after = {...formFromPreviewCard(loaded), ...patch};
+    const changes = changesTo(patch, loaded);
+    expect(changes).not.toEqual({});
+    expect(editable(mergeCardChanges(loaded, changes))).toBe(editable(buildPreviewCard(after)));
   });
 
   it.each<[string, LorcanaJSONCard, Partial<RevealCardForm>, PreviewCardChanges]>([
@@ -225,7 +287,7 @@ describe('cardChanges', () => {
     ['subtypes one per line', PREVIEW_ENTRY, {subtypes: 'Storyborn\nHero'}],
     ['spaces round the name and the cost', PREVIEW_ENTRY, {name: ' Mei ', cost: ' 4 '}],
     ['doubled spaces in the text', PREVIEW_ENTRY, {fullText: 'Singer  5\nPANDA POWER  When you play this character, draw a card. '}],
-    ['the type switched away and back, the hidden stats kept', PREVIEW_ENTRY, {type: 'Character'}],
+    ['the same type picked again', PREVIEW_ENTRY, {type: 'Character'}],
     ['a stat its type hides', BARE, {strength: '3'}],
   ])('emits nothing for typing that builds the same card: %s', (_case, loaded, patch) => {
     expect(changesTo(patch, loaded)).toEqual({});

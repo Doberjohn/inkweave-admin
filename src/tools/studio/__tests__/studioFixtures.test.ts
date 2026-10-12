@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
-import {REVEAL_ID_BASE, REVEAL_SET_CODE} from '../../../app-bridge';
+import {REVEAL_ID_BASE, REVEAL_SET_CODE, REVEAL_SET_NUMBER, SET_NAMES} from '../../../app-bridge';
 import {
   CURLY_APOSTROPHE_CARD,
   DUAL_INK_ENTRY,
@@ -13,6 +13,7 @@ import {
   UNNUMBERED_ENTRY,
   VARIANTS_ENTRY,
   cardOf,
+  previewEntry,
   previewFileText,
 } from '../studioFixtures';
 
@@ -21,8 +22,11 @@ const NUMBERED = [PREVIEW_ENTRY, DUAL_INK_ENTRY, VARIANTS_ENTRY, JA_SCAN_ENTRY, 
 describe('studioFixtures', () => {
   it('lays a file out as the app writes it, so it round-trips', () => {
     const text = previewFileText(NUMBERED);
-    const parsed = JSON.parse(text) as {cards: LorcanaJSONCard[]};
+    const parsed = JSON.parse(text) as {metadata: unknown; sets: unknown; cards: LorcanaJSONCard[]};
     expect(JSON.stringify(parsed, null, 2) + '\n').toBe(text);
+    expect(Object.keys(parsed)).toEqual(['metadata', 'sets', 'cards']);
+    expect(parsed.metadata).toEqual({language: 'en'});
+    expect(parsed.sets).toEqual({[REVEAL_SET_CODE]: {name: SET_NAMES[REVEAL_SET_CODE], number: REVEAL_SET_NUMBER}});
     expect(parsed.cards).toEqual(NUMBERED);
   });
 
@@ -41,5 +45,9 @@ describe('studioFixtures', () => {
     });
     expect(RELEASED_CARD).toMatchObject({fullName: 'Lantern Keeper - Night Watch', setCode: '9'});
     expect(CURLY_APOSTROPHE_CARD.fullName).toBe('Peter Pan’s Shadow - Elusive Prankster');
+  });
+
+  it('refuses an entry the engine would drop from the card list', () => {
+    expect(() => cardOf(previewEntry({color: 'Teal'}))).toThrow(/refuses/);
   });
 });

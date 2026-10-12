@@ -119,11 +119,17 @@ export function formFromPreviewCard(entry: LorcanaJSONCard): RevealCardForm {
  * of every key Edit can write (R-65). One that doesn't (a named ability, a keyword
  * value that isn't a number, sections that aren't the text's lines, a stat its
  * type doesn't print) opens image-only, so a field edit can never rewrite data
- * the form dropped.
+ * the form dropped. So does a hand edit that breaks the entry's own type (no
+ * color or name, subtypes that aren't a list): the form can't read it, so it
+ * doesn't round-trip, rather than throw.
  */
 export function roundTrips(entry: LorcanaJSONCard): boolean {
-  const built = buildPreviewCard(formFromPreviewCard(entry));
-  return EDITABLE_CARD_KEYS.every((key) => sameValue(built[key], entry[key]));
+  try {
+    const built = buildPreviewCard(formFromPreviewCard(entry));
+    return EDITABLE_CARD_KEYS.every((key) => sameValue(built[key], entry[key]));
+  } catch {
+    return false;
+  }
 }
 
 /** Why the entry opens image-only, or null when its fields are editable. Fails closed. */
