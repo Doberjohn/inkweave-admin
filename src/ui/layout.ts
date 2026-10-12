@@ -17,3 +17,19 @@ export function twoUp(track: number): CSSProperties {
     alignItems: 'start',
   };
 }
+
+/**
+ * Hides text on screen and keeps it for screen readers: a table's caption, or
+ * the word that says a studio section's status beside its coloured dot. Moved
+ * from VoteLogTable (R4-5b).
+ */
+export const SR_ONLY: CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  margin: -1,
+  padding: 0,
+  overflow: 'hidden',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+};
