@@ -13,6 +13,8 @@ import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
 import {VoteDetailTable} from '../VoteDetailTable';
 import type {EngineSilentSplit, PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
+import {VotesFilterControl} from '../VotesFilterControl';
+import {filterNote, useVotesFilter, type VotesFilter} from '../votesFilter';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
@@ -28,6 +30,7 @@ import {
   pairsInScope,
   pinnedEntryName,
   rowsSharingKey,
+  scopeWords,
   tuningEntry,
   votesForPair,
   withSelectedPair,
@@ -98,6 +101,8 @@ const SCOPE_ROW: React.CSSProperties = {display: 'flex', alignItems: 'baseline',
 const SCOPE_LINE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, fontWeight: 700, color: ADMIN_COLORS.text};
 // A 24px target (2.5.8): LinkButton's size sm is about 15px tall, and base alone about 19px.
 const SCOPE_BUTTON: React.CSSProperties = {minHeight: SPACING.xxl};
+// The votes filter keeps to the row's far end, and to its own line's end once the row wraps.
+const FILTER_SLOT: React.CSSProperties = {marginLeft: 'auto'};
 
 /** Dimension participation sits under the scope row, but reads every vote, so it says so. */
 const ALL_VOTES = 'All votes, whatever the rule';
@@ -138,9 +143,10 @@ interface TuneLink {
 /**
  * The one filter row above everything the rule scopes (dataviz: filters sit
  * above what they scope): what is in scope, the way back to every pair and,
- * when the aside can take it, the way on to the rule's editor. "Show all
- * pairs" unmounts as it clears the rule, so it hands focus to the scope line
- * first, not to <body>.
+ * when the aside can take it, the way on to the rule's editor, then the votes
+ * filter (#33), which narrows the same charts and list to pairs with more
+ * score votes. "Show all pairs" unmounts as it clears the rule, so it hands
+ * focus to the scope line first, not to <body>.
  */
 function ScopeRow({
   selected,
@@ -174,6 +180,9 @@ function ScopeRow({
           Tune {tune.name}
         </LinkButton>
       )}
+      <div style={FILTER_SLOT}>
+        <VotesFilterControl />
+      </div>
     </div>
   );
 }
@@ -185,10 +194,11 @@ function voteNotice(data: VoteAnalytics, voteLog: UseVoteLogReturn): string | un
   return voteLog.error ? 'Could not load the vote log.' : 'Loading the vote log…';
 }
 
-/** What the selected rule scopes, what to call it, and what an empty scope says. */
+/** What the selected rule and the votes filter scope, what to call it, and what an empty scope says. */
 interface Scope {
   /** Every voted pair in scope, widest gap first and uncapped (pairsInScope): what the charts plot. */
   pairs: PairStat[];
+  /** scopeWords: the rule or all pairs, and the votes filter's step once it is on. */
   label: string;
   emptyText: string;
   /** Voted pairs with no engine score: counted on all pairs only, since no rule fired on them. */
@@ -197,14 +207,15 @@ interface Scope {
   engineSilentSplit?: EngineSilentSplit;
 }
 
-/** The selected rule's scope, or every pair's. */
-function scopeOf(data: VoteAnalytics, selected: CalibrationRow | null): Scope {
-  const pairs = pairsInScope(data.pairs, selected);
+/** The selected rule's scope, or every pair's, narrowed by the votes filter. */
+function scopeOf(data: VoteAnalytics, selected: CalibrationRow | null, filter: VotesFilter): Scope {
+  const pairs = pairsInScope(data.pairs, selected, filter);
+  const words = scopeWords(selected, filter);
   if (!selected) {
     const {engineSilentPairs, engineSilentSplit} = data.global;
-    return {pairs, label: 'All pairs', emptyText: 'No voted pairs yet.', engineSilentPairs, engineSilentSplit};
+    return {pairs, ...words, engineSilentPairs, engineSilentSplit};
   }
-  return {pairs, label: selected.name, emptyText: 'No voted pairs for this rule yet.', engineSilentPairs: 0};
+  return {pairs, ...words, engineSilentPairs: 0};
 }
 
 /**
@@ -253,14 +264,18 @@ interface ScopedAnalyticsProps {
 }
 
 /**
- * Everything the selected rule scopes, under the scope row that says what that
- * is: the scatter beside the histogram, the widest pairs beside the selected
- * pair's votes, then the weekly gap. The charts read the whole scope, the list
- * its widest 40. The scatter and the list pick the same pair, so a dot opens
- * its votes as a row does, and the list shows it even below the 40.
+ * Everything the selected rule and the votes filter scope, under the scope row
+ * that says what that is: the scatter beside the histogram, the widest pairs
+ * beside the selected pair's votes, then the weekly gap. The charts read the
+ * whole scope, the list its widest 40. The scatter and the list pick the same
+ * pair, so a dot opens its votes as a row does, and the list shows it even
+ * below the 40. A pair the filter leaves out shows as no pick at all, and
+ * comes back with its votes when the filter lets it in again.
  */
 function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, onShowAll, tune}: ScopedAnalyticsProps) {
-  const scope = scopeOf(data, selected);
+  const {filter} = useVotesFilter();
+  const scope = scopeOf(data, selected, filter);
+  const picked = findPair(scope.pairs, selectedPair);
   return (
     <>
       <ScopeRow selected={selected} onShowAll={onShowAll} tune={tune} />
@@ -268,7 +283,7 @@ function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, o
         <CalibrationScatter
           pairs={scope.pairs}
           scopeLabel={scope.label}
-          selectedPair={selectedPair}
+          selectedPair={picked}
           onSelectPair={onSelectPair}
           engineSilentPairs={scope.engineSilentPairs}
           engineSilentSplit={scope.engineSilentSplit}
@@ -278,14 +293,15 @@ function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, o
       </div>
       <div style={PAIRS_ROW}>
         <PairList
-          pairs={withSelectedPair(pairsFor(data.pairs, selected), scope.pairs, selectedPair)}
-          selectedPair={selectedPair}
+          pairs={withSelectedPair(pairsFor(data.pairs, selected, filter), scope.pairs, picked)}
+          selectedPair={picked}
           onSelectPair={onSelectPair}
           emptyText={scope.emptyText}
+          footnote={filterNote(filter)}
         />
         <VoteDetailTable
-          pair={findPair(scope.pairs, selectedPair)}
-          votes={votesForPair(voteLog.data?.votes ?? [], selectedPair)}
+          pair={picked}
+          votes={votesForPair(voteLog.data?.votes ?? [], picked)}
           notice={voteNotice(data, voteLog)}
         />
       </div>

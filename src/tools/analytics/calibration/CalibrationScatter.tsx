@@ -24,9 +24,12 @@ import {
 } from './chartData';
 
 export interface CalibrationScatterProps {
-  /** The scope, uncapped (pairsInScope): every voted pair the selected rule fired on, or every pair. */
+  /**
+   * The scope, uncapped (pairsInScope): every voted pair the selected rule
+   * fired on, or every pair, that the votes filter keeps.
+   */
   pairs: readonly PairStat[];
-  /** "All pairs" or the selected rule's name. */
+  /** "All pairs" or the selected rule's name, with the votes filter's step once it is on (scopeWords). */
   scopeLabel: string;
   selectedPair: {a: string; b: string} | null;
   onSelectPair: (pair: {a: string; b: string}) => void;

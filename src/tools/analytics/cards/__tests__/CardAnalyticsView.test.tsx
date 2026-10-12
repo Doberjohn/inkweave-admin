@@ -6,6 +6,7 @@ import {COLORS} from '../../../../app-bridge';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {AdminStyles} from '../../../../theme/AdminStyles';
 import type {FocusHandoff} from '../../../../shell/focusHandoff';
+import {VotesFilterControl} from '../../VotesFilterControl';
 import {CardAnalyticsView, type CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {
   CARD_500,
@@ -319,6 +320,60 @@ describe('CardAnalyticsView', () => {
       unmount();
       renderView({voteLog: LOADING});
       expect(within(panel()).queryByText(/engine-silent/)).not.toBeInTheDocument();
+    });
+
+    describe('the votes filter (#33)', () => {
+      /** The partner names in the table's rows, top to bottom. */
+      const partners = () =>
+        within(panel())
+          .getAllByRole('row')
+          .slice(1)
+          .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+      it('keeps the pairs with 2+ score votes, counts them, and says the filter is on in place of the caveat', async () => {
+        renderView();
+        expect(within(panel()).getByRole('button', {name: 'Any'})).toHaveAttribute('aria-pressed', 'true');
+        await userEvent.click(within(panel()).getByRole('button', {name: '2+'}));
+        expect(within(panel()).getByText('3 of 5 pairs · widest gap first')).toBeInTheDocument();
+        expect(
+          within(panel()).getByRole('table', {name: 'Voted pairs with 2+ score votes, widest gap first'}),
+        ).toBeInTheDocument();
+        expect(partners()).toEqual(['Moana - Of Motunui', 'Heihei - Boat Snack', 'Gramma Tala - Storyteller']);
+        expect(within(panel()).getByText('The Votes filter is on: only pairs with 2+ score votes show.')).toBeInTheDocument();
+        expect(within(panel()).queryByText(/Most pairs have a single vote/)).not.toBeInTheDocument();
+        // The engine-silent caption counts every vote, whatever the step.
+        expect(within(panel()).getByText(/^Not listed: 3 engine-silent pairs/)).toBeInTheDocument();
+      });
+
+      it('says so when the step leaves the card no pairs', async () => {
+        renderView({analytics: onePair({gap: -0.8, scoreVotes: 4})});
+        await userEvent.click(within(panel()).getByRole('button', {name: '5+'}));
+        expect(within(panel()).getByText('No pairs with 5+ score votes for this card yet.')).toBeInTheDocument();
+        expect(within(panel()).getByText('0 of 1 pair')).toBeInTheDocument();
+        expect(within(panel()).queryByRole('table')).not.toBeInTheDocument();
+        // The empty line already names the step.
+        expect(within(panel()).queryByText(/The Votes filter is on/)).not.toBeInTheDocument();
+      });
+
+      it('leaves the KPIs and the calibration panel on every vote', async () => {
+        renderView();
+        await userEvent.click(within(panel()).getByRole('button', {name: '5+'}));
+        expect(partners()).toEqual(['Moana - Of Motunui']);
+        expect(kpi('Score votes').getByText('14')).toBeInTheDocument();
+        expect(kpi('Pairs voted').getByText('5')).toBeInTheDocument();
+        expect(screen.getByRole('region', {name: 'Calibration for this card'})).toHaveTextContent(
+          "The engine rates this card's pairs about 1.00 points higher than the community.",
+        );
+      });
+
+      it("opens on the step /calibration's filter was left at: one setting for the session", async () => {
+        const calibration = render(<VotesFilterControl />);
+        await userEvent.click(screen.getByRole('button', {name: '2+'}));
+        calibration.unmount();
+        renderView();
+        expect(within(panel()).getByRole('button', {name: '2+'})).toHaveAttribute('aria-pressed', 'true');
+        expect(within(panel()).getByText('3 of 5 pairs · widest gap first')).toBeInTheDocument();
+      });
     });
   });
 

@@ -513,6 +513,65 @@ describe('CalibrationPage: what the rule scopes', () => {
   });
 });
 
+describe('CalibrationPage: the votes filter (#33)', () => {
+  const votesFilter = () => within(screen.getByRole('group', {name: 'Filter pairs by score votes'}));
+  const widestGaps = () => within(screen.getByRole('region', {name: 'Widest gaps'}));
+
+  it('narrows the charts, the pair list and the weekly gap to pairs with 2+ score votes, and each says so', async () => {
+    stubFetch({analytics: () => json(RAW), voteLog: () => json(VOTE_LOG)});
+    const {user} = renderPage('/calibration');
+    await screen.findByRole('slider', {name: 'Weekly mean gap, All pairs'});
+    expect(votesFilter().getByRole('button', {name: 'Any'})).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(votesFilter().getByRole('button', {name: '2+'}));
+    // Card 3 × Card 4 has a single score vote.
+    expect(figure('Engine vs community').getByText(/^All pairs with 2\+ score votes · 2 pairs\./)).toBeInTheDocument();
+    expect(figure('Gap distribution').getByText(/^All pairs with 2\+ score votes · /)).toBeInTheDocument();
+    expect(pairButtons().map((b) => b.getAttribute('aria-label')?.split(':')[0])).toEqual([
+      'Card 1 × Card 2',
+      'Card 5 × Card 6',
+    ]);
+    expect(widestGaps().getByText('The Votes filter is on: only pairs with 2+ score votes show.')).toBeInTheDocument();
+    expect(screen.getByRole('slider', {name: 'Weekly mean gap, All pairs with 2+ score votes'})).toBeInTheDocument();
+    // The week of Sep 21 had two score votes: 9 on Card 3 × Card 4 (engine 3) and 4 on Card 1 × Card 2 (engine 7).
+    await user.click(figure('Weekly gap').getByRole('button', {name: 'Table'}));
+    const week = within(figure('Weekly gap').getByRole('row', {name: /^Week of Sep 21 /}));
+    expect(week.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['−3.00', '1']);
+    // The rules table sums every vote, whatever the step.
+    expect(await ruleRow('Ramp')).toHaveAccessibleName(/, 557 score votes$/);
+  });
+
+  it("narrows a rule's scope too, and says what an empty one lacks", async () => {
+    stubFetch({analytics: () => json(RAW), voteLog: () => json(VOTE_LOG)});
+    const {user} = renderPage('/calibration?rule=ramp');
+    await screen.findByRole('slider', {name: 'Weekly mean gap, Ramp'});
+
+    await user.click(votesFilter().getByRole('button', {name: '5+'}));
+    const empty = 'No pairs with 5+ score votes under this rule yet.';
+    expect(figure('Engine vs community').getByText(empty)).toBeInTheDocument();
+    expect(figure('Gap distribution').getByText(empty)).toBeInTheDocument();
+    expect(widestGaps().getByText(empty)).toBeInTheDocument();
+    expect(figure('Weekly gap').getByText('No score votes in this scope yet.')).toBeInTheDocument();
+    // The scope line still gives the rule's own numbers, on every vote.
+    expect(screen.getByText('Ramp · gap −0.57 · 557 votes')).toBeInTheDocument();
+  });
+
+  it('hides a picked pair the filter leaves out, and brings it back, votes and all, when the filter lets it in', async () => {
+    stubFetch({analytics: () => json(RAW), voteLog: () => json(VOTE_LOG)});
+    const {user} = renderPage('/calibration');
+    await user.click(await screen.findByRole('button', {name: /^Card 3 × Card 4:/}));
+    expect(await screen.findByRole('table', {name: 'Votes on Card 3 × Card 4'})).toBeInTheDocument();
+
+    await user.click(votesFilter().getByRole('button', {name: '2+'}));
+    expect(screen.queryByRole('button', {name: /^Card 3 × Card 4:/})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: 'Card 3 × Card 4'})).not.toBeInTheDocument();
+
+    await user.click(votesFilter().getByRole('button', {name: 'Any'}));
+    expect(screen.getByRole('button', {name: /^Card 3 × Card 4:/})).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('table', {name: 'Votes on Card 3 × Card 4'})).toBeInTheDocument();
+  });
+});
+
 describe('CalibrationPage: the votes panel', () => {
   // The weekly gap's Notice says the same while the log loads, so the text is read inside the pair's region.
   it.each([

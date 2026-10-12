@@ -3,6 +3,7 @@ import {MemoryRouter} from 'react-router-dom';
 import {CtaButton} from '../../../app-bridge';
 import {PageLayout} from '../../../shell/PageLayout';
 import {DataAsOf} from '../../../ui/DataAsOf';
+import {VOTES_FILTERS, setVotesFilter} from '../votesFilter';
 import {CardAnalyticsView} from './CardAnalyticsView';
 import {
   CARD_500,
@@ -81,6 +82,31 @@ export const HeaderActions: Story = {
       </CtaButton>
     ),
   },
+};
+
+const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+
+/*
+ * The votes filter is one setting for the whole page, so the docs page, which
+ * renders every story at once, leaves these two out (!autodocs): each would
+ * set it for all the others.
+ */
+
+/**
+ * The votes filter at 2+ (#33), as /calibration may have left it: Voted pairs
+ * keeps three of Maui's five and says the filter is on. The KPIs and the
+ * calibration stay on every vote.
+ */
+export const VotesFilterOn: Story = {
+  tags: ['!autodocs'],
+  beforeEach: () => setVotesFilter(TWO_PLUS),
+};
+
+/** Card 500 at 5+: none of its pairs has five score votes, and Voted pairs says so in place of its rows. */
+export const VotesFilterEmpty: Story = {
+  tags: ['!autodocs'],
+  args: {card: CARD_500},
+  beforeEach: () => setVotesFilter(FIVE_PLUS),
 };
 
 /** Fourteen more partners for Maui, none of them in the card list, at gaps from 0 to −1.5. */
