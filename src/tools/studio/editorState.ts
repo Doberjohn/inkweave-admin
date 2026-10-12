@@ -170,10 +170,16 @@ function newerRead({draft, file}: {draft: Draft; file: PreviewCardsFile}): boole
 /**
  * Whether this render must seed a new draft: the URL names another card, or
  * the draft follows reads and its card is now ready on a newer one. A later
- * read never touches a draft that doesn't follow, so edits survive a reload.
+ * read never touches a draft that doesn't follow, so edits survive a reload,
+ * unless it leaves the card gone (R-66, branchLookup): gone has no form and no
+ * save, so a draft that still holds an edit is seeded once more, which drops
+ * the edit (keepEdits counts it), clears the outcome and keeps a staged image.
+ * The draft then holds nothing, so the next render settles, and it follows
+ * reads again, so the card's fields come back if the file holds it again.
  */
 export function needsSeed({draft, cardId, lookup, file}: Omit<SeedInput, 'seed'> & {draft: Draft}): boolean {
   if (draft.cardId !== cardId) return true;
+  if (lookup.kind === 'gone') return draft.edit !== null;
   if (!draft.follow || lookup.kind !== 'ready') return false;
   return newerRead({draft, file});
 }

@@ -4,6 +4,7 @@ import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {REVEAL_SET_CODE, type useCardDataContext} from '../../../app-bridge';
 import {DeferredReader} from '../../../test/DeferredReader';
 import {pngFile} from '../../../test/images';
+import {StaleCardError} from '../../reveal/githubClient';
 import {searchCards} from '../editSearch';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, previewEntry, studioCard} from '../studioFixtures';
 import {useCardEditor} from '../useCardEditor';
@@ -166,5 +167,52 @@ describe('useCardEditor: cards only the branch file holds (R-66)', () => {
     rerender({token: 'tok', cardId: BRANCH_ONLY_ID});
     await waitFor(() => expect(result.current.lookup).toMatchObject({kind: 'ready', card: {id: BRANCH_ONLY_ID}}));
     expect(result.current.deployed).toBe(false);
+  });
+});
+
+// A card that turns gone once it is open drops its draft once: gone has no form and no save (R-66).
+describe('useCardEditor: an open card that leaves the branch file', () => {
+  const STALE = `Card ${LISTED_PREVIEW.id} is no longer in previewCards.json on master. Load it again.`;
+
+  /** Mei open, with her cost edited. */
+  async function editedMei() {
+    setCardList([LISTED_PREVIEW]);
+    const first = nextRead();
+    const editor = renderEditor(LISTED_PREVIEW.id);
+    await first.land([PREVIEW_ENTRY]);
+    act(() => editor.result.current.patchForm({cost: '5'}));
+    expect(editor.result.current).toMatchObject({form: {cost: '5'}, dirty: true});
+    return editor;
+  }
+
+  it('ends a save refused as stale on gone once Load it again lands without the card (R-68, R-69)', async () => {
+    const {result} = await editedMei();
+    commitCardEdit.mockRejectedValueOnce(new StaleCardError(STALE));
+    await act(() => result.current.save());
+    expect(result.current).toMatchObject({failure: 'stale', saveError: STALE});
+
+    const again = nextRead();
+    let loaded: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      loaded = result.current.loadAgain();
+    });
+    await again.land([]);
+    await expect(loaded).resolves.toBe(true);
+    expect(result.current).toMatchObject({lookup: {kind: 'gone', card: LISTED_PREVIEW}, form: null, dirty: false, changes: []});
+    expect(result.current).toMatchObject({failure: null, saveError: null, dropped: 1, canSave: false});
+  });
+
+  it('drops the edit when reloadFile lands without the card, and seeds its fields again once the file holds it', async () => {
+    const {result} = await editedMei();
+    const second = nextRead();
+    act(() => result.current.reloadFile());
+    await second.land([]);
+    expect(result.current).toMatchObject({lookup: {kind: 'gone'}, form: null, changes: [], dirty: false});
+
+    const third = nextRead();
+    act(() => result.current.reloadFile());
+    await third.land([PREVIEW_ENTRY]);
+    expect(result.current).toMatchObject({lookup: {kind: 'ready', entry: PREVIEW_ENTRY}, form: {name: 'Mei'}, changes: []});
+    expect(result.current.form?.cost).not.toBe('5');
   });
 });

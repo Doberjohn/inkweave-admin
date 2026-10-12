@@ -164,6 +164,15 @@ describe('needsSeed', () => {
     const lookup = editLookup({cardId, list: cardList(), file});
     expect(needsSeed({draft, cardId, lookup, file})).toBe(expected);
   });
+
+  // R4-4d (R-66): branchLookup's gone, for a card the newer read no longer holds.
+  it.each<{name: string; draft: Draft; expected: boolean}>([
+    {name: 'a gone card with an edit in its draft, even one that does not follow: once, to drop it', draft: settled.draft, expected: true},
+    {name: 'a gone card whose draft holds nothing: it settles', draft: waiting.draft, expected: false},
+  ])('$name', ({draft, expected}) => {
+    const lookup: EditLookup = {kind: 'gone', card: listCard(MEI)};
+    expect(needsSeed({draft, cardId: MEI_ID, lookup, file: readFile({cards: [], read: 2})})).toBe(expected);
+  });
 });
 
 describe('the draft’s edits', () => {

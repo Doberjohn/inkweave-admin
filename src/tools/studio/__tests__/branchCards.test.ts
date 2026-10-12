@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {PINNED_PREVIEW_CARDS_JSON, REVEAL_ID_BASE, REVEAL_SET_CODE, transformRawCards} from '../../../app-bridge';
 import {
@@ -178,11 +178,21 @@ describe('deployedOf', () => {
 });
 
 describe('goneNote', () => {
-  it('names the card and the branch, and says nothing can be saved', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // Gone is graduation's, or a rehearsal branch's: a preview card published to master after the branch was cut (R-86).
+  it('names the card and the branch, says nothing can be saved, and leaves the cause open', () => {
     expect(goneNote(LISTED_PREVIEW)).toBe(
       "Mei - Red Panda is no longer in previewCards.json on master, so it can't be saved here. " +
-        'A released card takes a new id: once inkweave.ink deploys the release, reload admin and find the card by name.',
+        'If its set was released, inkweave.ink lists the card under a new id once the release deploys: reload admin then, and find it by name.',
     );
+  });
+
+  it('names the target branch, not master, while the tools rehearse on another', () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'rehearsal');
+    expect(goneNote(LISTED_PREVIEW)).toMatch(/^Mei - Red Panda is no longer in previewCards\.json on rehearsal, /);
   });
 });
 

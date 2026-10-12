@@ -79,7 +79,12 @@ function branchOnlyCards({list, file}: {list: CardListView; file: PreviewCardsFi
   return transformRawCards(file.cards.filter((entry) => !list.getCardById(String(entry.id))));
 }
 
-/** The card list with the branch-only cards first: they are the newest, so a blank query lists them first (R-76). */
+/**
+ * The card list with the branch-only cards first: they are the newest, so a
+ * blank query lists them first (R-76). While there are any, every call builds
+ * them, the cards array and getCardById anew, so key an effect on card ids,
+ * never on these values.
+ */
 function withBranchCards<L extends CardListView>({list, file}: {list: L; file: PreviewCardsFile}): L & BranchOnly {
   const extra = branchOnlyCards({list, file});
   if (extra.length === 0) return {...list, branchOnlyIds: NONE};
@@ -152,10 +157,15 @@ export function branchLookup({lookup, file}: {lookup: EditLookup; file: PreviewC
   return lookup;
 }
 
-/** What Edit card shows for a gone card, in place of its form and Save. */
+/**
+ * What Edit card shows for a gone card, in place of its form and Save. It
+ * leaves the cause open: graduation released the card under a new id, or, on
+ * a rehearsal branch, the card was published to master after the branch was
+ * cut (R-86), and is not released at all.
+ */
 export function goneNote(card: Pick<LorcanaCard, 'fullName'>): string {
   return (
     `${card.fullName} is no longer in previewCards.json on ${targetBranch()}, so it can't be saved here. ` +
-    'A released card takes a new id: once inkweave.ink deploys the release, reload admin and find the card by name.'
+    'If its set was released, inkweave.ink lists the card under a new id once the release deploys: reload admin then, and find it by name.'
   );
 }

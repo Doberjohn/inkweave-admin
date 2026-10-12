@@ -55,7 +55,7 @@ export interface CardEditorController extends EditSave {
   previewFile: PreviewFileView & {reload: () => void};
   /** The open card's tag, as the search tags it (cardTag); null until it is ready. */
   tag: CardTag | null;
-  /** The form now; null for an image-only card, and until the card is ready. */
+  /** The form now; null for an image-only card, for a gone one (R-66), and until the card is ready. */
   form: RevealCardForm | null;
   /**
    * Why the open card is image-only (R-61, R-65), or null: what the page
@@ -82,7 +82,12 @@ export interface CardEditorController extends EditSave {
   /** Stage a file for this card (null clears it). Resolves once its bytes are read. */
   onImageChange: (file: File | null) => Promise<void>;
   revertImage: () => void;
-  /** R4-4d (R-66): every card the search can open: the cards only the branch file holds, then the card list. */
+  /**
+   * R4-4d (R-66): every card the search can open: the cards only the branch
+   * file holds, then the card list. While any card is branch-only, this array
+   * and each branch-only card (lookup.card, when one is open) are new on every
+   * render: key an effect on card ids, never on these.
+   */
   searchCards: LorcanaCard[];
   /** R4-4d (R-66): the ids only the branch file holds, for searchCards' rows. */
   branchOnlyIds: ReadonlySet<number>;
@@ -147,10 +152,13 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
 
 /**
  * Edit card's controller (R4-4b: loading and editing; R4-4c adds saving).
- * The card comes from the shell's card list, its entry and kind from
- * previewCards.json on the target branch (R-71: only a card of the reveal set
- * waits for it), and the draft from both. Every rule lives in editorState.ts;
- * this hook is wiring.
+ * The card comes from the shell's card list plus the cards only the branch
+ * file holds (editSources, R-66), its entry and kind from previewCards.json on
+ * the target branch (R-71: only a card of the reveal set waits for it), and
+ * the draft from both. branchLookup refines the lookup with what only the file
+ * can say: an id neither source holds waits for the file before it reads
+ * missing, and a reveal-set preview card the file no longer holds is gone.
+ * Every rule lives in editorState.ts and branchCards.ts; this hook is wiring.
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
   // R4-4d (R-66): the card list with the cards only the branch file holds, and the file less allCards' ids.
