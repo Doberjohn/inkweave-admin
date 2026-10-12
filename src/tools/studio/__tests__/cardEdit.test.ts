@@ -51,7 +51,10 @@ const FIELDS: CardKind = {kind: 'fields'};
 /**
  * One edit per form field but the locked number, each to a value that builds a
  * different card, on an entry that prints the field. Each edits its field alone,
- * so a field FIELD_KEYS maps to the wrong keys, or to none, emits the wrong change.
+ * so a key the edit changes that FIELD_KEYS leaves off its field goes missing
+ * from the change. A row pins only the keys its own edit changes: the type row
+ * pins strength, which a Location drops, and the cardChanges table's type rows
+ * pin willpower, lore and moveCost.
  */
 const ONE_FIELD_EDITS: readonly [string, Partial<RevealCardForm>, LorcanaJSONCard][] = [
   ['name', {name: 'Mei Lee'}, PREVIEW_ENTRY],
@@ -271,6 +274,8 @@ describe('cardChanges', () => {
     ['a cleared rarity', PREVIEW_ENTRY, {rarity: ''}, {rarity: null}],
     ['Character to Action', PREVIEW_ENTRY, {type: 'Action'}, {type: 'Action', strength: null, willpower: null, lore: null}],
     ['Character to Location', PREVIEW_ENTRY, {type: 'Location', moveCost: '1'}, {type: 'Location', strength: null, moveCost: 1}],
+    // The type field alone drops the move cost: an Action that kept it would reopen image-only.
+    ['Location to Action', LOCATION_ENTRY, {type: 'Action'}, {type: 'Action', willpower: null, lore: null, moveCost: null}],
     ['Action to Item, neither with stats', BARE, {type: 'Item'}, {type: 'Item'}],
     ['emptied keywords', PREVIEW_ENTRY, {keywords: ''}, {abilities: null}],
     ['a second ink', PREVIEW_ENTRY, {ink2: 'Sapphire'}, {color: 'Ruby-Sapphire'}],
