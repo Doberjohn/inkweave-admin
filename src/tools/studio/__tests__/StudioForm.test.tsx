@@ -39,6 +39,8 @@ function Harness({layout = 'wide', initial = {}, locked}: HarnessProps) {
 
 /** A narrow section's toggle, by the start of its name: its title. */
 const toggle = (title: RegExp) => screen.getByRole('button', {name: title});
+/** The second-ink tiles (R4-5c), shown while Dual-ink is on. */
+const secondInk = () => screen.getByRole('group', {name: 'Second ink'});
 
 describe('StudioForm, ported from RevealAdminForm', () => {
   // The old test passed a blank name's "Name is required". Under R-72 a blank
@@ -102,8 +104,8 @@ describe('StudioForm: what shows red (R-72)', () => {
     const amber = inkBlock('Amber').first;
     render(<Harness initial={revealForm({collectorNumber: String(amber), name: ''})} />);
 
-    const ink = screen.getByLabelText('Ink');
-    expect(ink).toHaveAttribute('aria-invalid', 'true');
+    // The ink is a group of tiles (R4-5c): its error describes it. A group takes no aria-invalid.
+    const ink = screen.getByRole('group', {name: 'Ink'});
     expect(ink).toHaveAccessibleDescription(expect.stringMatching(new RegExp(`^#${amber} is in the Amber block`)));
     expect(screen.getByRole('heading', {name: 'Ink & rarity, has an error'})).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).not.toHaveAttribute('aria-invalid');
@@ -225,13 +227,13 @@ describe('StudioForm: Dual-ink, the state it lifts', () => {
     await user.click(dual);
     expect(dual).toBeChecked();
     expect(dual).toHaveAccessibleDescription(SINGLE_INK_HINT);
-    await user.selectOptions(screen.getByLabelText('Second ink'), 'Steel');
+    await user.click(within(secondInk()).getByRole('button', {name: 'Steel'}));
     expect(dual).not.toHaveAccessibleDescription();
 
     await user.click(dual);
-    expect(screen.queryByLabelText('Second ink')).toBeNull();
+    expect(screen.queryByRole('group', {name: 'Second ink'})).toBeNull();
     await user.click(dual);
-    expect(screen.getByLabelText('Second ink')).toHaveValue('');
+    expect(within(secondInk()).queryAllByRole('button', {pressed: true})).toHaveLength(0);
   });
 
   it('stays on while the narrow accordion closes its section', async () => {

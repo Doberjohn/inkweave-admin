@@ -1,11 +1,10 @@
 import {useId} from 'react';
-import type {Ink} from 'inkweave-synergy-engine';
-import {ALL_INKS, SPACING} from '../../../app-bridge';
+import {SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {RARITIES} from '../../reveal/constants';
 import {SINGLE_INK_HINT, type SectionProps} from '../formSections';
 import {HINT} from '../studioStyles';
-import {Field} from './Field';
+import {InkPicker, SecondInkPicker} from './InkPicker';
+import {RarityPicker} from './RarityPicker';
 
 const SWITCH_ROW: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xs};
 const SWITCH_LABEL: React.CSSProperties = {
@@ -50,55 +49,17 @@ function DualInkSwitch({form, dual}: Pick<SectionProps, 'form' | 'dual'>) {
 }
 
 /**
- * The ink, Dual-ink and the second ink, and the rarity. The three selects are
- * RevealAdminForm's, ported onto admin's classes until R4-5c's pickers replace
- * them (R-74, R-75, R-83). The Dual-ink switch is the studio's own.
+ * The ink, the Dual-ink switch and the second ink, and the rarity: the
+ * handoff's pickers (R-74, R-75, R-83). Each is a view over the form (ink,
+ * ink2, rarity), and the switch's state is StudioForm's (SectionProps.dual).
  */
 export function InkRaritySection({form, errors, onChange, dual}: SectionProps) {
   return (
     <>
-      <Field label="Ink" name="ink" errors={errors}>
-        {(control) => (
-          <select {...control} className="adm-select" value={form.ink} onChange={(e) => onChange({ink: e.target.value as Ink})}>
-            {ALL_INKS.map((ink) => (
-              <option key={ink} value={ink}>
-                {ink}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+      <InkPicker form={form} errors={errors} onChange={onChange} />
       <DualInkSwitch form={form} dual={dual} />
-      {dual.on && (
-        <Field label="Second ink" name="ink2" errors={errors}>
-          {(control) => (
-            <select
-              {...control}
-              className="adm-select"
-              value={form.ink2}
-              onChange={(e) => onChange({ink2: e.target.value as '' | Ink})}>
-              <option value="">None</option>
-              {ALL_INKS.map((ink) => (
-                <option key={ink} value={ink}>
-                  {ink}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
-      )}
-      <Field label="Rarity" name="rarity" errors={errors}>
-        {(control) => (
-          <select {...control} className="adm-select" value={form.rarity} onChange={(e) => onChange({rarity: e.target.value})}>
-            <option value="">None</option>
-            {RARITIES.map((rarity) => (
-              <option key={rarity} value={rarity}>
-                {rarity}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+      {dual.on && <SecondInkPicker form={form} errors={errors} onChange={onChange} />}
+      <RarityPicker form={form} errors={errors} onChange={onChange} />
     </>
   );
 }

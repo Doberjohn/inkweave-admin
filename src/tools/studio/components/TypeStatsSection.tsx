@@ -3,8 +3,8 @@ import {SPACING} from '../../../app-bridge';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {CARD_TYPES, STAT_FIELDS, STAT_LABELS} from '../../reveal/constants';
 import {COST_SLIDER_MAX, costSlider, type SectionProps} from '../formSections';
-import {FIELD_LABEL} from '../studioStyles';
 import {Field, TextField} from './Field';
+import {InkwellPicker} from './InkwellPicker';
 
 const TYPE_OPTIONS = CARD_TYPES.map((type) => ({value: type, label: type}));
 
@@ -24,7 +24,6 @@ const COST_BOX_WIDTH = 64;
 const COST_ROW: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.md};
 const COST_BOX: React.CSSProperties = {flex: 'none', width: COST_BOX_WIDTH};
 const STATS_ROW: React.CSSProperties = {display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SPACING.sm};
-const CHECK_ROW: React.CSSProperties = {...FIELD_LABEL, display: 'inline-flex', alignItems: 'center', gap: SPACING.sm};
 
 /**
  * The cost: a box that holds exactly what was typed, so the validator still
@@ -72,9 +71,8 @@ function CostField({form, errors, onChange}: SectionProps) {
 }
 
 /**
- * The card's type, whether it is inkable, its cost and the stats its type
- * prints (STAT_FIELDS). R4-5c replaces the Inkable checkbox with the
- * handoff's Inkable and Uninkable buttons, first in the section.
+ * The card's type, then Inkable or Uninkable, its cost and the stats its type
+ * prints (STAT_FIELDS), in the handoff's order (dc.html:224-227).
  */
 export function TypeStatsSection(section: SectionProps) {
   const {form, onChange} = section;
@@ -87,10 +85,7 @@ export function TypeStatsSection(section: SectionProps) {
         onChange={(type) => onChange({type})}
         ariaLabel="Type"
       />
-      <label style={CHECK_ROW}>
-        <input type="checkbox" checked={form.inkwell} onChange={(e) => onChange({inkwell: e.target.checked})} />
-        Inkable (can go in inkwell)
-      </label>
+      <InkwellPicker form={form} onChange={onChange} />
       <CostField {...section} />
       {stats.length > 0 && (
         <div style={STATS_ROW}>

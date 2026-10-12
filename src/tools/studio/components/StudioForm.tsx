@@ -43,7 +43,9 @@ interface StudioFormProps {
  */
 export function StudioForm({form, errors, onChange, layout, locked = NO_LOCKS}: StudioFormProps) {
   const [openId, setOpenId] = useState<SectionId | null>('identity');
-  const [dualOpen, setDualOpen] = useState(false);
+  // Open from the start for a card that has a second ink (R-75): a primary pick
+  // that takes the second ink clears it, and the switch stays on for the next.
+  const [dualOpen, setDualOpen] = useState(() => form.ink2 !== '');
   const statuses = sectionStatuses(form, errors);
   const section: SectionProps = {
     form,
