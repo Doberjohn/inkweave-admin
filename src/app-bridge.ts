@@ -44,6 +44,8 @@ export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/Cta
 // through it, so admin's dialogs render in it.
 export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';
 export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
+// Inkable or Uninkable, as the app draws them (Card studio's Inkable buttons).
+export {InkwellIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkwellIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): by name,
 // never by id, from two letters, newest set first, after a 150 ms debounce.

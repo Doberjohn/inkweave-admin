@@ -31,6 +31,14 @@ const CLASSES = [
   'adm-chart-tip',
   // The network diagram's node links (R3-4b).
   'adm-net-link',
+  // Card studio's controls (R4-5a).
+  'adm-acc-head',
+  'adm-ink-tile',
+  'adm-pick-btn',
+  'adm-switch',
+  'adm-file-btn',
+  'adm-file-cover',
+  'adm-range',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -41,8 +49,12 @@ const FOCUSABLE = [
   'adm-select',
   'adm-chart-hit',
   'adm-link',
+  'adm-acc-head',
+  'adm-pick-btn',
+  'adm-switch',
+  'adm-range',
 ];
-const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit'];
+const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit', 'adm-pick-btn'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
 
 function stylesheet(): string {
@@ -109,16 +121,18 @@ describe('AdminStyles', () => {
     for (const [, px] of css.matchAll(/border-radius:(\d+)/g)) expect(radii.has(Number(px)), `border-radius ${px}`).toBe(true);
   });
 
-  it('clips translucent fills to the padding box, a selected card included', () => {
+  it('clips translucent fills to the padding box, selected cards, tiles and picks included', () => {
     render(
       <>
         <AdminStyles />
         <div role="group" aria-label="Score band" className="adm-seg" />
         <button type="button" className="adm-card-btn" aria-pressed="true">Searches</button>
+        <button type="button" className="adm-pick-btn adm-ink-tile" aria-pressed="true" aria-label="Amber" />
+        <button type="button" className="adm-pick-btn" aria-pressed="true">Rare</button>
         <input aria-label="Search pairs" className="adm-input" />
       </>,
     );
-    const filled = [screen.getByRole('group'), screen.getByRole('button'), screen.getByRole('textbox')];
+    const filled = [screen.getByRole('group'), ...screen.getAllByRole('button'), screen.getByRole('textbox')];
     for (const el of filled) expect(getComputedStyle(el).backgroundClip, el.className).toBe('padding-box');
   });
 
@@ -198,5 +212,71 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
     const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
     expect(reduced).toMatch(/[.]adm-link(?![a-z-])[^{]*[{]transition:none;[}]/);
+  });
+
+  it("turns an accordion header's chevron on aria-expanded, and rings the header inside, as a row (R4)", () => {
+    const css = stylesheet();
+    expect(css).toContain('.adm-acc-head[aria-expanded="true"]::after{transform:rotate(45deg);}');
+    // Drawn from two borders with no content, so the chevron adds nothing to the button's name.
+    expect(css).toContain('.adm-acc-head::after{content:"";');
+    expect(css).toContain(`.adm-acc-head:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:-2px;}`);
+  });
+
+  it("gives a pick button, an ink tile's too, adm-card-btn's pressed fill and border, admin's one selected look (R-75)", () => {
+    const css = stylesheet();
+    const look = `background-color:${ADMIN_COLORS.accentTintSoft};border-color:${ADMIN_COLORS.accentStrong};`;
+    expect(css).toContain(`.adm-card-btn[aria-pressed="true"]{${look}}`);
+    expect(css).toContain(`.adm-pick-btn[aria-pressed="true"]{${look}color:${ADMIN_COLORS.text};}`);
+  });
+
+  it('sizes an ink tile at 48px and a second-ink tile at 40px, where a plain pick button fills its cell', () => {
+    render(
+      <>
+        <AdminStyles />
+        <button type="button" className="adm-pick-btn adm-ink-tile" aria-label="Amber" />
+        <button type="button" className="adm-pick-btn adm-ink-tile" data-size="sm" aria-label="Ruby" />
+        <button type="button" className="adm-pick-btn">Rare</button>
+      </>,
+    );
+    expect(getComputedStyle(screen.getByRole('button', {name: 'Rare'})).width).toBe('100%');
+    expect(getComputedStyle(screen.getByRole('button', {name: 'Amber'})).width).toBe('48px');
+    expect(getComputedStyle(screen.getByRole('button', {name: 'Ruby'})).width).toBe('40px');
+  });
+
+  it('golds a checked switch and slides its knob to the far end', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-switch:checked{background-color:${ADMIN_COLORS.accent};}`);
+    // The 34px track less the 20px of its height: the knob keeps its 2px inset at both ends.
+    expect(css).toContain('.adm-switch:checked::before{transform:translateX(14px);}');
+  });
+
+  it('rings a file label while its hidden input has focus, 2px out as a control is ringed', () => {
+    const css = stylesheet();
+    expect(css).toContain(
+      `.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+    );
+    // A <label> never matches :focus-visible itself, so FOCUSABLE leaves both out.
+    expect(css).not.toContain('.adm-file-btn:focus-visible');
+    expect(css).not.toContain('.adm-file-cover:focus-visible');
+  });
+
+  it("hides the cost slider's thumb while the cost is unset, in each engine's own rule", () => {
+    const css = stylesheet();
+    expect(css).toContain('.adm-range[data-unset="true"]::-webkit-slider-thumb{opacity:0;}');
+    expect(css).toContain('.adm-range[data-unset="true"]::-moz-range-thumb{opacity:0;}');
+    // An engine drops a whole selector list that names a pseudo-element it doesn't know.
+    const vendored = [...css.matchAll(/([^{}]*::-(?:webkit|moz)-[^{]*)\{/g)].map(([, selector]) => selector.trim());
+    expect(vendored).toHaveLength(8);
+    for (const selector of vendored) expect(selector).not.toContain(',');
+  });
+
+  it("switches the studio controls' transitions off for reduced motion", () => {
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(stylesheet())?.[1] ?? '';
+    for (const name of ['adm-acc-head', 'adm-pick-btn', 'adm-switch', 'adm-file-btn', 'adm-file-cover']) {
+      expect(reduced, name).toMatch(new RegExp(`[.]${name}(?![a-z-])[^{]*[{]transition:none;[}]`));
+    }
+    // The chevron and the knob turn and slide by transitions of their own.
+    expect(reduced).toMatch(/[.]adm-acc-head::after[^{]*[{]transition:none;[}]/);
+    expect(reduced).toMatch(/[.]adm-switch::before[^{]*[{]transition:none;[}]/);
   });
 });

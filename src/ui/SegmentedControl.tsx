@@ -11,8 +11,9 @@ interface SegmentedControlProps<T extends string> {
  * mode. Native buttons in a named group, so each is a Tab stop that fires on
  * Enter or Space; aria-pressed carries the selection, and AdminStyles draws it
  * (`.adm-seg-btn[aria-pressed="true"]`). Pressing the selected option again
- * does nothing, so a parent that resets state on change (Card studio's mode)
- * can't lose work to a stray click.
+ * does nothing, so onChange fires only for a real change: Card studio's mode
+ * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
+ * current mode adds no history entry.
  */
 export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel}: SegmentedControlProps<T>) {
   return (

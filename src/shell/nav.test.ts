@@ -1,4 +1,4 @@
-import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor} from './nav';
+import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor, studioHref} from './nav';
 
 describe('navItemFor', () => {
   it.each([
@@ -71,5 +71,21 @@ describe('cardsHref', () => {
     ['a/b c', '/cards/a%2Fb%20c'],
   ])('links %s to %s', (cardId, href) => {
     expect(cardsHref(cardId)).toBe(href);
+  });
+});
+
+describe('studioHref', () => {
+  it.each([
+    ['new', undefined, '/studio'],
+    ['new', '14023', '/studio?card=14023'],
+    ['edit', undefined, '/studio?mode=edit'],
+    ['edit', '14023', '/studio?mode=edit&card=14023'],
+    // What a page holds when the URL names no card: useSearchParams' null, or an empty ?card=.
+    ['edit', null, '/studio?mode=edit'],
+    ['edit', '', '/studio?mode=edit'],
+    // Escaped, so an id always stays one parameter.
+    ['edit', 'a&b c', '/studio?mode=edit&card=a%26b+c'],
+  ] as const)('links %s mode, card %j, to %s', (mode, cardId, href) => {
+    expect(studioHref(mode, cardId)).toBe(href);
   });
 });

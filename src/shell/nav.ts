@@ -58,3 +58,21 @@ export function calibrationHref(ruleId?: string): string {
 export function cardsHref(cardId?: string): string {
   return cardId ? `/cards/${encodeURIComponent(cardId)}` : '/cards';
 }
+
+/** Card studio's two modes (R-57): New reveal, and Edit card. */
+export type StudioMode = 'new' | 'edit';
+
+/**
+ * Card studio in a mode, opened on a card when one is given (R-81): what the
+ * mode switch, the Edit search's rows, Card analytics' "Edit in Card studio"
+ * and the old /reveal and /image redirects navigate to. New reveal is the bare
+ * path, and the card rides along as ?card=, so a switch keeps it and Back
+ * returns to the other mode (R-57). An empty id names no card.
+ */
+export function studioHref(mode: StudioMode, cardId?: string | null): string {
+  const params = new URLSearchParams();
+  if (mode === 'edit') params.set('mode', 'edit');
+  if (cardId) params.set('card', cardId);
+  const search = params.toString();
+  return search ? `/studio?${search}` : '/studio';
+}
