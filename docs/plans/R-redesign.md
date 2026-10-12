@@ -843,7 +843,7 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
 
 #### #34: the final review's polish (2026-10-12)
 
-- **Layout.** The KPI row runs 6, 3 or 2 columns, never five and one. The network places each name, strongest first, on the first side of its node with room (`labelSpots`, `placeLabels`), so from a 360px-wide screen up the strongest names print; below that most still drop, and the plot keeps 340px. A tap on a node still opens the card (R-41, kept by the owner on 2026-10-12).
+- **Layout.** The KPI row runs 6, 3 or 2 columns, never five and one. The network places each name, strongest first, on the first side of its node with room (`labelSpots`, `placeLabels`), so the strongest names take the room before the rest. Whether a name fits depends on the plot's measured width and the names' lengths, not on the screen's: in Storybook at 375px, 8 of the fixture's 12 names print, the strongest among them (5 before, without it). On narrower plots most still drop, and the plot keeps 340px. A tap on a node still opens the card (R-41, kept by the owner on 2026-10-12).
 - **Links.** A `ChartTable` cell can carry an href (`ChartTableLink`), so the network's Table view links every partner. The card page's links take `.adm-link`, and Voted pairs tells linked partners by that underline.
 - **Focus and status.** A Switch card pick says "Opened …" in the switcher's polite status, for screen readers only. A page that another page's card link mounts focuses the card's heading.
 - **Shared pieces.** `SR_ONLY` in `src/ui/layout.ts`, the legend styles in `src/ui/legend.ts`, `RetryNotice` for the card list's and the Engine view's Retry, and `parityHarness.mjs` for the two parity tests.
