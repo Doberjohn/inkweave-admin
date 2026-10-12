@@ -3,7 +3,10 @@ import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {base64ToUtf8} from '../../../test/base64';
 import {commitCardEdit, commitNewCard, readPreviewCards, StaleCardError} from '../githubClient';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 const PREVIEW = '{\n  "metadata": {"language": "en"},\n  "cards": [\n    {\n      "id": 14001,\n      "name": "First"\n    }\n  ]\n}\n';
 
@@ -25,7 +28,8 @@ interface Call {
 function routes({preview = PREVIEW, previewStatus = 200}: StubFiles): [(url: string) => boolean, string, number][] {
   return [
     [(u) => u.includes('/contents/'), preview, previewStatus],
-    [(u) => u.endsWith('/git/ref/heads/master'), JSON.stringify({object: {sha: 'base1'}}), 200],
+    // Any branch's ref, so a case can stub VITE_ADMIN_TARGET_BRANCH.
+    [(u) => u.includes('/git/ref/heads/'), JSON.stringify({object: {sha: 'base1'}}), 200],
     [(u) => u.includes('/git/commits/base1'), JSON.stringify({tree: {sha: 'tree1'}}), 200],
     [(u) => u.endsWith('/git/blobs'), JSON.stringify({sha: 'blob1'}), 200],
     [(u) => u.endsWith('/git/trees'), JSON.stringify({sha: 'tree2'}), 200],
@@ -102,6 +106,8 @@ const EDIT_CARD: LorcanaJSONCard = {
   color: 'Amber',
   inkwell: true,
   type: 'Action',
+  // An array, so the stale check must compare values as JSON: the loaded entry and the base's come from separate parses (R-67).
+  subtypes: ['Storyborn'],
   setCode: '14',
   number: 1,
 };
@@ -109,8 +115,10 @@ const NEIGHBOUR: LorcanaJSONCard = {...EDIT_CARD, id: 14002, name: 'Second', ful
 const EDIT_PREVIEW = previewFile([EDIT_CARD, NEIGHBOUR]);
 const RENAME = {name: 'Renamed', fullName: 'Renamed'};
 const IMAGE = {dataUrl: 'data:image/png;base64,Zm9v', ext: 'png'};
+const JPG_IMAGE = {dataUrl: 'data:image/jpeg;base64,Zm9v', ext: 'jpg'};
 const PREVIEW_JSON = 'apps/web/public/data/previewCards.json';
 const RAW_SCAN = 'apps/web/public/card-images-raw/14001.png';
+const RAW_JPG_SCAN = 'apps/web/public/card-images-raw/14001.jpg';
 
 describe('commitCardEdit', () => {
   it('edits previewCards.json as it is at the commit it builds on, with the scan, in one commit', async () => {
@@ -137,12 +145,12 @@ describe('commitCardEdit', () => {
       message: 'fix(reveals): update Renamed (141)',
     },
     {
-      // admin#14: the English scan, with the card's English name.
+      // admin#14: the English scan, with the card's English name. A jpg, so the raw keeps the scan's extension.
       name: 'a refresh to the English scan',
       loaded: {...EDIT_CARD, scanLanguage: 'ja'},
       changes: {...RENAME, scanLanguage: null},
-      image: IMAGE,
-      paths: [PREVIEW_JSON, RAW_SCAN],
+      image: JPG_IMAGE,
+      paths: [PREVIEW_JSON, RAW_JPG_SCAN],
       message: 'fix(reveals): refresh Renamed (141) to its English scan',
     },
     {
@@ -153,6 +161,15 @@ describe('commitCardEdit', () => {
       image: null,
       paths: [PREVIEW_JSON],
       message: 'fix(reveals): refresh First (141) to its English scan',
+    },
+    {
+      // R4-2a's cardChanges marks a scan as Japanese: setting scanLanguage is an update, not a refresh.
+      name: 'a scan marked Japanese',
+      loaded: EDIT_CARD,
+      changes: {scanLanguage: 'ja'},
+      image: null,
+      paths: [PREVIEW_JSON],
+      message: 'fix(reveals): update First (141)',
     },
   ])('$name: its files and message (R-78)', async ({loaded, changes, image, paths, message}) => {
     const calls = stubGitHub({preview: previewFile([loaded, NEIGHBOUR])});
@@ -169,6 +186,7 @@ describe('commitCardEdit', () => {
 
   it.each([
     ['its cost changed', [{...EDIT_CARD, cost: 2}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
+    ['its setCode changed', [{...EDIT_CARD, setCode: '15'}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
     ['its number changed', [{...EDIT_CARD, number: 3}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
     ['it left the file', [NEIGHBOUR], 'Card 14001 is no longer in previewCards.json on master. Load it again.'],
   ])('refuses with StaleCardError, writing nothing, when %s at the base (R-67)', async (_case, cards, message) => {
@@ -210,5 +228,23 @@ describe('readPreviewCards', () => {
   ])('refuses %s', async (_case, files, error) => {
     stubGitHub(files);
     await expect(readPreviewCards('tok')).rejects.toThrow(error);
+  });
+});
+
+// A rehearsal branch: every other case runs on master. The file's afterEach unstubs the env.
+describe('on VITE_ADMIN_TARGET_BRANCH', () => {
+  it('readPreviewCards reads the cards there', async () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
+    const calls = stubGitHub({preview: EDIT_PREVIEW});
+    await readPreviewCards('tok');
+    expect(readsOf(calls)).toEqual(['admin-verify']);
+  });
+
+  it("commitCardEdit's stale refusal names it", async () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
+    stubGitHub({preview: previewFile([NEIGHBOUR])});
+    await expect(commitCardEdit({token: 'tok', loaded: EDIT_CARD, changes: RENAME, image: null})).rejects.toThrow(
+      'Card 14001 is no longer in previewCards.json on admin-verify. Load it again.',
+    );
   });
 });

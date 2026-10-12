@@ -134,9 +134,10 @@ function editMessage({loaded, changes, image}: CardEditCommit): string {
  * replaceCardInPreviewJson's own refusals, it is refused only when the card's
  * entry changed or left the file (StaleCardError), or when the branch moves
  * between the ref read and the update (commitFiles' race, whose message ends
- * "Publish again."). Either way nothing is written. A reveal or a variants
- * commit that lands meanwhile adds entries, or keys the edit can't write, so
- * it refuses nothing.
+ * "Publish again."). Either way nothing is written. A reveal, a variants
+ * commit or a convert-reveal-images commit that lands after the editor loaded
+ * the card changes other entries, or keys the edit can't write, so it refuses
+ * nothing.
  */
 export async function commitCardEdit(opts: CardEditCommit): Promise<CommitResult> {
   const {token, loaded, changes, image} = opts;
