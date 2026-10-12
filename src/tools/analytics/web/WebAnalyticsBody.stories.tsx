@@ -106,6 +106,8 @@ const populated: VercelAnalytics = {
             {value: 'Super Rare', count: 820, visitors: 340},
             {value: 'Legendary', count: 620, visitors: 260},
             {value: 'Enchanted', count: 300, visitors: 140},
+            {value: 'Epic', count: 140, visitors: 70},
+            {value: 'Iconic', count: 60, visitors: 30},
           ],
         },
         {

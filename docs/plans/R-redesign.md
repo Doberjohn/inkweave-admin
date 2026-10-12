@@ -111,7 +111,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 - **Card studio validation (R4).** The ready checklist and the Publish button derive from `validateRevealCardForm` and `readyToPublish`, not a separate five-item list. Every validator message shows next to its control. A closed accordion section with an error shows a red dot and the message. Rarity stays optional and clearable. The Ink tick follows the ink-block check, never the Amber default.
 - **Write states (R2, R4).** Every page that writes shows busy, success (commit link and the go-live note) and failure states, as the current tools do.
 - **Card panel (R4).** The preview keeps the app's `CardTile` render and `CardTranslationPanel` ("See translation") for non-English scans. Uploads keep `useHiddenFileInput` / `useImageUpload` (accept list, byte checks, keyboard access).
-- **Icons (R1, R3, R4).** Bridge the app's `InkIcon`, `InkwellIcon` and `RaritySymbol` (plus the Enchanted webp) through `src/app-bridge.ts`. Don't copy the handoff's `assets/icons/` files (in the original download, not in the repo copy) anywhere: they are damaged exports of the app's own icons.
+- **Icons (R1, R3, R4).** Bridge the app's `InkIcon`, `InkwellIcon` and `RaritySymbol` through `src/app-bridge.ts`. `RaritySymbol` draws the Enchanted, Epic and Iconic printings too, so admin bridges none of their webps (#32). Don't copy the handoff's `assets/icons/` files (in the original download, not in the repo copy) anywhere: they are damaged exports of the app's own icons.
 - **Token box (R1).** The sidebar shows the token box on every page that writes when a token is saved. Token state is shared, so "Forget token" anywhere updates every page.
 - **Banner removal (R1).** The spec's list misses files; Task R1-1 has the full list.
 
@@ -673,6 +673,7 @@ export function WebAnalyticsPage(): JSX.Element;
 // R2-5a adds DialogShell (for UnsavedChangesDialog); R2-7 removes CAP_LABEL_XS (its last importers retire)
 // R3-1 adds TIER_COLORS, Z_INDEX, useAutocomplete with type UseAutocompleteReturn, searchCardsByName (R-30), fetchCardSynergies,
 // getStrengthTier and type StrengthTierLabel: only what R3 uses (R-55)
+// #32 removes enchantedSymbol, epicSymbol and iconicSymbol: RaritySymbol draws the printings at the pin
 // src/tools/analytics/voteLogTypes.ts (R3-1): VoteLogRow narrows accuracy to -1 | 0 | 1 | null, difficulty to 1 | 2 | 3 | null and
 // whoCarries to 'a' | 'b' | 'both' | 'neither' | null, the votes table's own checks
 

@@ -34,7 +34,14 @@ const REVEALS = event('reveal_card_click', 'Reveal card clicks', 9340, {
     {
       prop: 'rarity',
       label: 'By rarity',
-      rows: [row('Others', 50), row('Common', 30), row('Enchanted', 10), row('Super Rare', 20)],
+      rows: [
+        row('Others', 50),
+        row('Common', 30),
+        row('Enchanted', 10),
+        row('Super Rare', 20),
+        row('Epic', 6),
+        row('Iconic', 4),
+      ],
     },
     // A blank value, as the real export has: the events that sent no franchise.
     {prop: 'franchise', label: 'By franchise', rows: [row('Frozen', 12), row('', 6), row('Moana', 4)]},
@@ -313,17 +320,23 @@ describe('WebAnalyticsBody', () => {
     expect(within(inkList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
   });
 
-  it('puts the rarity symbol on every rarity, and text alone on Others', () => {
+  it('puts its own symbol on every rarity and printing, and text alone on Others', () => {
     render(<WebAnalyticsBody analytics={ANALYTICS} />);
     expect(rowsAround('Common')).toEqual([
-      'Common: 30 (27%)',
-      'Enchanted: 10 (9%)',
-      'Super Rare: 20 (18%)',
-      'Others: 50 (45%)',
+      'Common: 30 (25%)',
+      'Enchanted: 10 (8%)',
+      'Super Rare: 20 (17%)',
+      'Epic: 6 (5%)',
+      'Iconic: 4 (3%)',
+      'Others: 50 (42%)',
     ]);
-    expect(screen.getByText('Common').closest('li')!.querySelector('img')).not.toBeNull();
-    expect(screen.getByText('Super Rare').closest('li')!.querySelector('img')).not.toBeNull();
-    expect(screen.getByText('Enchanted').closest('li')!.querySelector('img')).not.toBeNull();
+    const symbol = (value: string) => screen.getByText(value).closest('li')!.querySelector('img');
+    expect(symbol('Common')).not.toBeNull();
+    expect(symbol('Super Rare')).not.toBeNull();
+    // RaritySymbol draws the printings too, each from its own webp (the files the app's printing switcher uses).
+    expect(symbol('Enchanted')).toHaveAttribute('src', expect.stringMatching(/\/enchanted\.webp/));
+    expect(symbol('Epic')).toHaveAttribute('src', expect.stringMatching(/\/epic\.webp/));
+    expect(symbol('Iconic')).toHaveAttribute('src', expect.stringMatching(/\/iconic\.webp/));
     const rarityList = screen.getByText('Common').closest('ul')!;
     expect(within(rarityList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
   });
