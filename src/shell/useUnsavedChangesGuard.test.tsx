@@ -1,11 +1,12 @@
 import {act, render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {useState} from 'react';
-import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
+import {createMemoryRouter, Link, RouterProvider, type Location} from 'react-router-dom';
 import {useUnsavedChangesGuard, type LeavesPage} from './useUnsavedChangesGuard';
 
-/** What the page saw in each render: its edits, and whether the guard said a navigation is held. */
-const renders: Array<{dirty: boolean; blocked: boolean}> = [];
+/** What the page saw in each render: its edits, whether the guard said a navigation is held, and where to. */
+const renders: Array<{dirty: boolean; blocked: boolean; to: string | null}> = [];
+const where = (to: Location | null) => (to ? `${to.pathname}${to.search}` : null);
 beforeEach(() => {
   renders.length = 0;
 });
@@ -14,7 +15,7 @@ beforeEach(() => {
 function Editor({leaves}: {leaves?: LeavesPage}) {
   const [dirty, setDirty] = useState(false);
   const guard = useUnsavedChangesGuard(dirty, leaves);
-  renders.push({dirty, blocked: guard.blocked});
+  renders.push({dirty, blocked: guard.blocked, to: where(guard.to)});
   return (
     <>
       <h1>Editor</h1>
@@ -112,6 +113,20 @@ describe('useUnsavedChangesGuard', () => {
     await user.click(screen.getByRole('link', {name: 'Ramp'}));
     expect(await screen.findByText('Held')).toBeInTheDocument();
     expect(router.state.location.search).toBe('');
+    expect(renders.at(-1)?.to).toBe('/editor?rule=ramp');
+  });
+
+  it('says where the held navigation goes while it is held, and nowhere otherwise (R-58)', async () => {
+    const {user} = renderEditor();
+    await user.click(editsSwitch());
+    expect(renders.at(-1)).toEqual({dirty: true, blocked: false, to: null});
+    await user.click(screen.getByRole('link', {name: 'Elsewhere'}));
+    expect(await screen.findByText('Held')).toBeInTheDocument();
+    expect(renders.at(-1)).toEqual({dirty: true, blocked: true, to: '/elsewhere'});
+    await user.click(screen.getByRole('button', {name: 'Stay'}));
+    expect(renders.at(-1)).toEqual({dirty: true, blocked: false, to: null});
+    // A target is named exactly when a hold is reported.
+    expect(renders.filter((render) => render.blocked !== (render.to !== null))).toEqual([]);
   });
 
   it("holds the browser's Back too, and goes back once asked to leave", async () => {
@@ -149,6 +164,7 @@ describe('useUnsavedChangesGuard', () => {
     // The reset effect lands inside the click's act, so only the render log shows a one-render lag.
     expect(renders.some((render) => render.blocked)).toBe(true);
     expect(renders.filter((render) => !render.dirty && render.blocked)).toEqual([]);
+    expect(renders.filter((render) => !render.dirty && render.to !== null)).toEqual([]);
   });
 
   it('asks the browser to confirm a tab close or reload only while there are unsaved edits', async () => {

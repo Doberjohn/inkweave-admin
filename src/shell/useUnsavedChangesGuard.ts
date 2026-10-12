@@ -1,10 +1,12 @@
 import {useEffect} from 'react';
-import {useBlocker, type Location} from 'react-router-dom';
+import {useBlocker, type Blocker, type Location} from 'react-router-dom';
 
 /** What a page with unsaved edits needs to ask before they are lost. */
 export interface UnsavedChangesGuardState {
   /** A navigation to another page is on hold until stay() or leave(). */
   blocked: boolean;
+  /** Where the held navigation goes, while one is held; null otherwise. A page can word its question for it (R-58). */
+  to: Location | null;
   /** Cancels the held navigation: the page stays, edits and all. */
   stay: () => void;
   /** Lets the held navigation through, and the edits are lost. */
@@ -17,6 +19,11 @@ export type LeavesPage = (from: Location, to: Location) => boolean;
 /** The default: only a new pathname leaves, so ?rule= and other search changes keep the page. */
 const toAnotherPath: LeavesPage = (from, to) => from.pathname !== to.pathname;
 
+/** Where the blocker holds a navigation to, while it holds one. */
+function heldTarget(blocker: Blocker): Location | null {
+  return blocker.state === 'blocked' ? blocker.location : null;
+}
+
 /**
  * Guards unsaved edits (decision R-19). While `dirty`:
  * - a navigation that leaves (a sidebar link, the browser's Back) is held
@@ -24,6 +31,9 @@ const toAnotherPath: LeavesPage = (from, to) => from.pathname !== to.pathname;
  *   pathname leaves: the same page with other search params (?rule=) keeps
  *   its state, so it is never held. A page whose search holds what it edits
  *   (R4's ?card=) passes its own `leaves`;
+ * - while a navigation is held, `to` says where it goes, so a page that loses
+ *   only some of its edits to it (R4's studio: a card change drops the Edit
+ *   draft, leaving drops both) can say which (R-58);
  * - closing or reloading the tab raises the browser's own prompt, in the
  *   browser's own words.
  *
@@ -52,9 +62,11 @@ export function useUnsavedChangesGuard(dirty: boolean, leaves: LeavesPage = toAn
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  // `dirty` too, so the render where the edits clear already shows no question and names no target.
+  const to = dirty ? heldTarget(blocker) : null;
   return {
-    // `dirty` too, so the render where the edits clear already shows no question.
-    blocked: dirty && blocker.state === 'blocked',
+    blocked: to !== null,
+    to,
     stay: () => blocker.reset?.(),
     leave: () => blocker.proceed?.(),
   };

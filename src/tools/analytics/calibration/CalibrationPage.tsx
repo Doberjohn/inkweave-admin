@@ -1,9 +1,9 @@
 import {useSearchParams} from 'react-router-dom';
-import {targetBranch} from '../../../github/githubCommit';
 import {useGithubToken} from '../../../github/useGithubToken';
 import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {PageLayout} from '../../../shell/PageLayout';
 import {UnsavedChangesGuard} from '../../../shell/UnsavedChangesGuard';
+import {writeInFlightMessage} from '../../../shell/writeInFlight';
 import {DataAsOf} from '../../../ui/DataAsOf';
 import {useLiveTuning} from '../../tuning/useLiveTuning';
 import {useTuningAdmin} from '../../tuning/useTuningAdmin';
@@ -14,10 +14,6 @@ import {calibrationSubtitle} from './calibrationModel';
 
 /** What leaving /calibration with pending edits loses (R-19). */
 const UNSAVED_TUNING = "Your pending tuning edits aren't published yet. Leaving this page drops them.";
-
-/** What leaving mid-publish means: nothing recalls the commit, and only this page would show how it went. */
-const publishingTuning = () =>
-  `A publish to ${targetBranch()} is in progress. Leaving won't stop it, and you won't see whether it landed.`;
 
 /** The branch pill: only the page's tuning half writes, and the pill keeps the repo it writes to. */
 const BRANCH_LABEL = 'Tuning writes to Doberjohn/inkweave';
@@ -34,7 +30,7 @@ function TunedWorkspace({token, ...rest}: Omit<CalibrationWorkspaceProps, 'tunin
     <>
       <UnsavedChangesGuard
         dirty={admin.pending.length > 0}
-        message={admin.publishing ? publishingTuning() : UNSAVED_TUNING}
+        message={admin.publishing ? writeInFlightMessage({action: 'publish'}) : UNSAVED_TUNING}
       />
       <CalibrationWorkspace {...rest} tuning={{live, admin}} />
     </>
