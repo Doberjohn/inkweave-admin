@@ -1,34 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import {validateRevealCardForm} from '../validateForm';
-import type {RevealCardForm} from '../buildPreviewCard';
-import {REVEAL_ID_BASE, SET_TOTAL, inkBlock} from '../../../app-bridge';
-
-// Taken from the season's constants so these fixtures stay valid every season.
-const RUBY_NUMBER = inkBlock('Ruby').first;
-
-function form(overrides: Partial<RevealCardForm> = {}): RevealCardForm {
-  return {
-    collectorNumber: String(RUBY_NUMBER),
-    name: 'Mei',
-    version: 'Red Panda',
-    rarity: 'Rare',
-    franchise: '',
-    cost: '4',
-    ink: 'Ruby',
-    ink2: '',
-    inkwell: true,
-    type: 'Character',
-    strength: '3',
-    willpower: '5',
-    lore: '2',
-    moveCost: '',
-    subtypes: '',
-    keywords: '',
-    fullText: '',
-    scanLanguage: 'en',
-    ...overrides,
-  };
-}
+import {ALL_INKS, REVEAL_ID_BASE, SET_TOTAL} from '../../../app-bridge';
+import {RUBY_NUMBER, revealForm as form} from '../../../test/revealForm';
 
 const NO_IDS = new Set<number>();
 
@@ -68,9 +41,18 @@ describe('validateRevealCardForm', () => {
     expect(validateRevealCardForm(form({ink: 'Sapphire', ink2: 'Ruby'}), NO_IDS, 'mei.png').errors.ink).toBeDefined();
   });
 
-  it('skips the ink check past the numbered set (promos, enchanteds)', () => {
-    const r = validateRevealCardForm(form({ink: 'Amber', collectorNumber: String(SET_TOTAL + 5)}), NO_IDS, 'mei.png');
-    expect(r.ok).toBe(true);
+  // R-73: every number past the set is an Epic, Enchanted or Iconic printing of a set
+  // card, and a printing is never a card. The ink check doesn't run there either.
+  it.each([SET_TOTAL + 1, SET_TOTAL + 38])('refuses #%i, past the set, and points to variants.mjs', (n) => {
+    const r = validateRevealCardForm(form({ink: 'Amber', collectorNumber: String(n)}), NO_IDS, 'mei.png');
+    expect(r.errors).toEqual({
+      collectorNumber: `#${n} is past the ${SET_TOTAL}-card set: special printings go in through variants.mjs stage`,
+    });
+  });
+
+  it("accepts the set's last number in the last ink's block", () => {
+    const lastInk = ALL_INKS[ALL_INKS.length - 1];
+    expect(validateRevealCardForm(form({ink: lastInk, collectorNumber: String(SET_TOTAL)}), NO_IDS, 'mei.png').ok).toBe(true);
   });
 
   it('requires a positive collector number', () => {

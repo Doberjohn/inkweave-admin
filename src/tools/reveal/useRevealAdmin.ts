@@ -8,30 +8,10 @@ import {
 import {useCardDataContext} from '../../app-bridge';
 import {useImageUpload} from '../../components/useImageUpload';
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
+import {EMPTY_FORM} from './emptyForm';
 import {validateRevealCardForm, type ValidationResult} from './validateForm';
 import {commitNewCard} from './githubClient';
 import {useGithubToken} from '../../github/useGithubToken';
-
-const EMPTY_FORM: RevealCardForm = {
-  collectorNumber: '',
-  name: '',
-  version: '',
-  rarity: '',
-  franchise: '',
-  cost: '',
-  ink: 'Amber',
-  ink2: '',
-  inkwell: true,
-  type: 'Character',
-  strength: '',
-  willpower: '',
-  lore: '',
-  moveCost: '',
-  subtypes: '',
-  keywords: '',
-  fullText: '',
-  scanLanguage: 'en',
-};
 
 /** Build the live preview card from form values; null until ink/type are valid. */
 function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {

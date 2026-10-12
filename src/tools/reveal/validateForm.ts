@@ -1,6 +1,6 @@
 import {findGlyphWords, findSpelledGlyphWords, type Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from './buildPreviewCard';
-import {ALL_INKS, inkBlock} from '../../app-bridge';
+import {ALL_INKS, SET_TOTAL, inkBlock} from '../../app-bridge';
 import {CARD_TYPES, REVEAL_ID_BASE, STAT_FIELDS, STAT_LABELS} from './constants';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
@@ -21,21 +21,33 @@ type Errors = Record<string, string>;
 
 /**
  * Parse a trimmed whole number, or null when blank or anything else ("1.5",
- * "3foo", or digits past what a JavaScript number holds exactly).
+ * "3foo", or digits past what a JavaScript number holds exactly). Exported so the
+ * Card studio's checklist reads the collector number exactly as this file does.
  */
-function intField(value: string): number | null {
+export function intField(value: string): number | null {
   const t = value.trim();
   const n = Number(t);
   return /^-?\d+$/.test(t) && Number.isSafeInteger(n) ? n : null;
 }
 
-function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {
+/**
+ * Why the collector number can't be a new card's, or undefined. Every number past
+ * the set is an Epic, Enchanted or Iconic printing of one of its cards, and a
+ * printing is never a card: it goes in through scripts/reveal-sync/variants.mjs.
+ */
+function collectorError(form: RevealCardForm, existingIds: ReadonlySet<number>): string | undefined {
   const collector = intField(form.collectorNumber);
-  if (collector === null || collector <= 0) {
-    errors.collectorNumber = 'Enter a positive collector number';
-  } else if (existingIds.has(REVEAL_ID_BASE + collector)) {
-    errors.collectorNumber = `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  if (collector === null || collector <= 0) return 'Enter a positive collector number';
+  if (collector > SET_TOTAL) {
+    return `#${collector} is past the ${SET_TOTAL}-card set: special printings go in through variants.mjs stage`;
   }
+  if (existingIds.has(REVEAL_ID_BASE + collector)) return `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  return undefined;
+}
+
+function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {
+  const collector = collectorError(form, existingIds);
+  if (collector) errors.collectorNumber = collector;
   if (form.name.trim() === '') errors.name = 'Name is required';
 }
 
@@ -58,8 +70,8 @@ function inkOwning(collector: number): Ink | undefined {
 /**
  * A set is numbered ink by ink, so the collector number implies the card's (first)
  * ink. Catches the form's default ink being left unchanged, which caused both of
- * last season's wrong-ink publishes. Numbers past the numbered set (promos,
- * enchanteds) belong to no block and are not checked.
+ * last season's wrong-ink publishes. A number past the set belongs to no block, so
+ * it isn't checked here: collectorError already refuses it.
  */
 function checkInkBlock(form: RevealCardForm, errors: Errors): void {
   if (errors.ink) return;

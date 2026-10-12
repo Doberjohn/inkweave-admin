@@ -58,4 +58,14 @@ describe('RevealAdminForm', () => {
     fireEvent.change(language, {target: {value: 'ja'}});
     expect(onChange).toHaveBeenCalledWith({scanLanguage: 'ja'});
   });
+
+  // R-60: mid-season a card's only scan was French (14188), marked by hand.
+  it('offers French as a scan language', () => {
+    const onChange = vi.fn();
+    render(<RevealAdminForm form={FORM} errors={{}} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText(/^Scan language/), {target: {value: 'fr'}});
+    expect(onChange).toHaveBeenCalledWith({scanLanguage: 'fr'});
+    expect(screen.getByRole('option', {name: 'French'})).toBeInTheDocument();
+  });
 });
