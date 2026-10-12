@@ -210,6 +210,21 @@ describe('useCardEditor: the open card', () => {
     }).toEqual({error: null, reads: 3, listRetries: 0});
   });
 
+  it('Retry resolves false when previewCards.json fails again, so the page asks for no focus (R4-6b, R-59)', async () => {
+    const first = deferRead();
+    const {result} = await renderEditor({cardId: idOf(MEI)});
+    await first.fail('GitHub 500 on previewCards.json');
+
+    const second = deferRead();
+    let retried: Promise<boolean> = Promise.resolve(true);
+    act(() => {
+      retried = result.current.retry();
+    });
+    await second.fail('GitHub 502 on previewCards.json');
+    await expect(retried).resolves.toBe(false);
+    expect(result.current.lookup).toMatchObject({kind: 'fileFailed'});
+  });
+
   it('waits for the card list, then opens the card, or says the id is missing', async () => {
     setCardList({cards: [], isLoading: true});
     const {result, open} = await renderEditor({cardId: null});

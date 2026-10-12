@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
-import {newRevealNote, publishLabel, studioDocumentTitle} from '../studioCopy';
+import {editNote, newRevealNote, publishLabel, saveLabel, studioDocumentTitle} from '../studioCopy';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -39,5 +39,35 @@ describe('studioDocumentTitle', () => {
     ['Edit card before its card resolves', 'edit', null],
   ] as const)('leaves the page title on %s', (_case, mode, card) => {
     expect(studioDocumentTitle({mode, card})).toBeUndefined();
+  });
+});
+
+describe('saveLabel (R4-6b)', () => {
+  it('names the branch Edit card saves to, and says while it saves', () => {
+    expect(saveLabel({saving: false})).toBe('Save changes to master');
+    expect(saveLabel({saving: true})).toBe('Saving…');
+  });
+
+  it('names a rehearsal branch', () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
+    expect(saveLabel({saving: false})).toBe('Save changes to admin-verify');
+  });
+});
+
+describe('editNote (R4-6b)', () => {
+  it('says when the new image goes live, when an image went with the save', () => {
+    expect(editNote({withImage: true})).toBe(
+      'The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).',
+    );
+  });
+
+  it("gives a fields-only save New reveal's note, since it deploys as a new card's does", () => {
+    expect(editNote({withImage: false})).toBe(newRevealNote());
+    expect(editNote(null)).toBe(newRevealNote());
+  });
+
+  it('says a rehearsal branch never deploys, image or not', () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
+    expect(editNote({withImage: true})).toBe('It went to admin-verify; only master deploys to production.');
   });
 });

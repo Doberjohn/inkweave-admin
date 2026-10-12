@@ -8,6 +8,7 @@ import {PageLayout} from '../../shell/PageLayout';
 import {UnsavedChangesGuard} from '../../shell/UnsavedChangesGuard';
 import {SegmentedControl} from '../../ui/SegmentedControl';
 import {useRevealAdmin} from '../reveal/useRevealAdmin';
+import {EditPane} from './EditPane';
 import {openCard} from './editorState';
 import {NewRevealPane} from './NewRevealPane';
 import {STUDIO_SUBTITLE, STUDIO_TITLE, studioDocumentTitle} from './studioCopy';
@@ -22,6 +23,7 @@ import {
 } from './studioPaths';
 import {STUDIO_GRID} from './studioStyles';
 import {useCardEditor} from './useCardEditor';
+import {useReloadAfterPublish} from './useReloadAfterPublish';
 
 const MODES: ReadonlyArray<{value: StudioMode; label: string}> = [
   {value: 'new', label: 'New reveal'},
@@ -60,7 +62,7 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * there in every mode and state, so the measure never stops: the hook watches
  * only the element it finds on mount. Its width picks the layout, wide or
  * narrow (R-64), and the active pane fills its slots in that layout's order
- * (R-63).
+ * (R-63). A New reveal publish that lands reads Edit's file again (R-66).
  */
 export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const location = useLocation();
@@ -74,6 +76,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
   const busy = {reveal: ctrl.publishing, edit: edit.saving};
   const forgetToken = useForgetToken({drafts, handoff});
+  useReloadAfterPublish({published: ctrl.result, reload: edit.reloadFile});
 
   return (
     <PageLayout
@@ -98,7 +101,11 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         message={(to) => studioUnsavedMessage({from: location, to, drafts, busy})}
       />
       <div ref={rootRef} style={STUDIO_GRID[layout]}>
-        {mode === 'new' && <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />}
+        {mode === 'new' ? (
+          <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
+        ) : (
+          <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
+        )}
       </div>
     </PageLayout>
   );

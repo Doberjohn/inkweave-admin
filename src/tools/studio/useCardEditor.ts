@@ -95,6 +95,13 @@ export interface CardEditorController extends EditSave {
   deployed: boolean;
   /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
   reloadFile: () => void;
+  /**
+   * R4-6b: the draft's seed, bumped on every re-seed (another card, the read a
+   * waiting card follows, Load it again). The Edit pane keys its form by it, so
+   * a re-seeded draft opens a fresh form view (its open section, its Dual-ink
+   * switch).
+   */
+  seed: number;
 }
 
 /** What Retry reads again: the shell's card list, and previewCards.json. */
@@ -207,6 +214,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     branchOnlyIds: list.branchOnlyIds,
     deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
     reloadFile: () => void file.reload(),
+    seed: draft.seed,
     ...save,
   };
 }

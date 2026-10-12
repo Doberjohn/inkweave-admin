@@ -2,6 +2,7 @@ import {targetBranch} from '../../github/githubCommit';
 import {goLiveNote} from '../../github/goLiveNote';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {StudioMode} from '../../shell/nav';
+import type {EditResult} from './editSave';
 
 /*
  * Card studio's page-level words: its title, its subtitle, New reveal's
@@ -41,4 +42,22 @@ interface TitleSource {
  */
 export function studioDocumentTitle({mode, card}: TitleSource): string | undefined {
   return mode === 'edit' && card ? `${card.fullName} · ${STUDIO_TITLE}` : undefined;
+}
+
+/** Edit card's button (R4-6b): the branch it commits to, or that it is saving. */
+export function saveLabel({saving}: {saving: boolean}): string {
+  return saving ? 'Saving…' : `Save changes to ${targetBranch()}`;
+}
+
+/** The image tool's go-live sentence, word for word: the convert workflow turns the raw scan into the card's art. */
+const IMAGE_ON_MASTER = 'The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).';
+
+/**
+ * What follows "Committed." after an Edit save (R4-6b): IMAGE_ON_MASTER when
+ * an image went with the commit, else New reveal's note, since a fields
+ * commit deploys as a new card's does. A rehearsal branch never deploys, and
+ * goLiveNote says so.
+ */
+export function editNote(result: Pick<EditResult, 'withImage'> | null): string {
+  return result?.withImage ? goLiveNote(IMAGE_ON_MASTER) : newRevealNote();
 }
