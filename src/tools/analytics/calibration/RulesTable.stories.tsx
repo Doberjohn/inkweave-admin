@@ -13,7 +13,6 @@ const stat = (ruleId: string, scoreVotes: number, meanGap: number | null): RuleS
   scoreVotes,
   pairsVoted: Math.round(scoreVotes / 2),
   meanGap,
-  accuracySentiment: meanGap == null ? null : -meanGap / 2,
   pairsCovered: scoreVotes * 3,
 });
 

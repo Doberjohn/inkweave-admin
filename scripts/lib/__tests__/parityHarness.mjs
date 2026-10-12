@@ -31,7 +31,8 @@ export function raw(createdAt, a, b, score) {
 /**
  * Vote analytics and the vote log, as the Deploy writes them from those votes,
  * over ALL_RULES. Every other input (pair_scores rows, engine pairs, the
- * rules' pair totals) goes to buildAnalytics as the test gives it.
+ * rules' pair totals, the card list's ids) goes to buildAnalytics as the test
+ * gives it.
  */
 export function precompute({rawVotes, names, ...inputs}) {
   return {

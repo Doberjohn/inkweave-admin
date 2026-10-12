@@ -87,6 +87,73 @@ describe('the app-bridge boundary', () => {
   });
 });
 
+// The layers under the tools (#37): src/ui imports neither the chart kit nor a
+// tool, and src/shell, src/charts and src/theme import no tool, at any depth of
+// ../ (a one-level grep missed ../../charts), statically or through import().
+// Stories and tests may.
+const KIT = "import {linear} from '../charts/scale';\nexport const scale = linear;\n";
+const NESTED_KIT = "import {linear} from '../../charts/scale';\nexport const scale = linear;\n";
+const DYNAMIC_KIT = "export const load = () => import('../charts/scale');\n";
+const TOOL = "import {gapColor} from '../tools/analytics/gapColor';\nexport const color = gapColor;\n";
+const NESTED_TOOL = "import {gapColor} from '../../tools/analytics/gapColor';\nexport const color = gapColor;\n";
+const DYNAMIC_TOOL = "export const load = () => import('../tools/analytics/gapColor');\n";
+const TOOL_TYPE = "import type {Verdict} from '../tools/analytics/verdict';\nexport type Shown = Verdict;\n";
+const TOOL_REEXPORT = "export {gapColor} from '../tools/analytics/gapColor';\n";
+const LAYERS = ['src/ui', 'src/shell', 'src/charts', 'src/theme'];
+
+describe('the layer boundaries', () => {
+  it('rejects a chart kit import in src/ui', async () => {
+    expect(await ruleIds('src/ui/Leak.tsx', KIT)).toContain('no-restricted-imports');
+  });
+
+  it.each(LAYERS)('rejects a tool import in %s', async (dir) => {
+    expect(await ruleIds(`${dir}/Leak.tsx`, TOOL)).toContain('no-restricted-imports');
+  });
+
+  it('rejects a dynamic chart kit import in src/ui', async () => {
+    expect(await ruleIds('src/ui/Leak.tsx', DYNAMIC_KIT)).toContain('no-restricted-syntax');
+  });
+
+  it.each(LAYERS)('rejects a dynamic tool import in %s', async (dir) => {
+    expect(await ruleIds(`${dir}/Leak.tsx`, DYNAMIC_TOOL)).toContain('no-restricted-syntax');
+  });
+
+  it.each([
+    ['the chart kit', NESTED_KIT],
+    ['a tool', NESTED_TOOL],
+  ])('rejects an import of %s two folders up, from a folder inside src/ui', async (_, code) => {
+    expect(await ruleIds('src/ui/meters/Leak.tsx', code)).toContain('no-restricted-imports');
+  });
+
+  it.each([
+    ['a type-only import', TOOL_TYPE],
+    ['a re-export', TOOL_REEXPORT],
+  ])('rejects %s of a tool', async (_, code) => {
+    expect(await ruleIds('src/shell/Leak.ts', code)).toContain('no-restricted-imports');
+  });
+
+  it.each([
+    ['the upstream ban', LEAK, 'no-restricted-imports'],
+    ['the dynamic upstream ban', DYNAMIC_LEAK, 'no-restricted-syntax'],
+    ['the useMemo ban', MEMO, 'no-restricted-syntax'],
+  ])("keeps %s in src/ui, whose block replaces D3's options", async (_, code, ruleId) => {
+    expect(await ruleIds('src/ui/Leak.ts', code)).toContain(ruleId);
+  });
+
+  it.each([
+    'src/charts/Charts.stories.tsx',
+    'src/ui/Palette.stories.ts',
+    'src/shell/AdminShell.test.tsx',
+    'src/ui/__tests__/Leak.test.tsx',
+  ])('allows a tool import in %s, a story or a test', async (filePath) => {
+    await expectAllowed(filePath, TOOL, 'no-restricted-imports');
+  });
+
+  it('allows the tools to import the chart kit', async () => {
+    await expectAllowed('src/tools/analytics/Leak.tsx', NESTED_KIT, 'no-restricted-imports');
+  });
+});
+
 // Admin has no design-token exception (CLAUDE.md): every source file gets the
 // app's rules. OFF_TOKEN breaks four of them: an off-token color, a 15px size,
 // a 9px radius and a raw hex.

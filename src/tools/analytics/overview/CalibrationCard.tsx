@@ -2,24 +2,31 @@ import {FONTS, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
+import {RawTag} from '../../../ui/RawTag';
+import {countOf} from '../activity/activityModel';
 import {biasCopy} from '../biasCopy';
 import {GapScale} from '../GapScale';
 import {verdictFor} from '../verdict';
 import {PanelLink} from './PanelLink';
+import type {RawAccuracy} from './overviewStats';
 
 interface CalibrationCardProps {
   meanGap: number | null;
-  accuracySentiment: number | null;
+  /** The accuracy sentiment from the raw answers (rawAccuracy), or null to leave its line out. */
+  accuracy: RawAccuracy | null;
 }
 
 /**
  * The Overview's engine-calibration card: the verdict sentence and read line
  * (verdictFor's phrase and biasCopy), the mean gap as the hero number, the
- * over/under scale (GapScale) and the accuracy sentiment. The verdict phrase is
- * marked by colour only: the app ships no italic Tinos face and sets
- * font-synthesis: none, so an italic would render upright anyway.
+ * over/under scale (GapScale) and the accuracy sentiment. The sentiment comes
+ * from every raw accuracy answer (#30), so it carries the raw tag and its
+ * answer count, as on the card page (R-32), and is left out without raw
+ * votes. The verdict phrase is marked by colour only: the app ships no italic
+ * Tinos face and sets font-synthesis: none, so an italic would render upright
+ * anyway.
  */
-export function CalibrationCard({meanGap, accuracySentiment}: CalibrationCardProps) {
+export function CalibrationCard({meanGap, accuracy}: CalibrationCardProps) {
   const verdict = verdictFor(meanGap);
   const {read} = biasCopy(meanGap);
   return (
@@ -49,18 +56,26 @@ export function CalibrationCard({meanGap, accuracySentiment}: CalibrationCardPro
           </div>
         </div>
         <GapScale meanGap={meanGap} color={verdict.numberColor} />
-        <p
-          style={{
-            margin: 0,
-            paddingTop: SPACING.md,
-            borderTop: `1px solid ${ADMIN_COLORS.divider}`,
-            fontSize: ADMIN_TYPE.small,
-            color: ADMIN_COLORS.muted,
-          }}>
-          Accuracy sentiment <strong style={{color: ADMIN_COLORS.text}}>{fmtGap(accuracySentiment)}</strong> (thumbs:
-          too-low vs too-high)
-        </p>
+        {accuracy && <AccuracyLine accuracy={accuracy} />}
       </div>
     </Panel>
+  );
+}
+
+/** The card's last line: the accuracy sentiment, tagged raw, with the answers it rests on. */
+function AccuracyLine({accuracy}: {accuracy: RawAccuracy}) {
+  return (
+    <p
+      style={{
+        margin: 0,
+        paddingTop: SPACING.md,
+        borderTop: `1px solid ${ADMIN_COLORS.divider}`,
+        fontSize: ADMIN_TYPE.small,
+        color: ADMIN_COLORS.muted,
+      }}>
+      Accuracy sentiment <RawTag />{' '}
+      <strong style={{color: ADMIN_COLORS.text}}>{fmtGap(accuracy.sentiment)}</strong> (too-low vs too-high ·{' '}
+      {countOf(accuracy.answers, 'answer')})
+    </p>
   );
 }

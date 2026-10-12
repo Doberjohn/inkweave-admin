@@ -33,7 +33,6 @@ function stat(ruleId: string, over: Partial<RuleStat> = {}): RuleStat {
     scoreVotes: 0,
     pairsVoted: 0,
     meanGap: null,
-    accuracySentiment: null,
     pairsCovered: 0,
     ...over,
   };

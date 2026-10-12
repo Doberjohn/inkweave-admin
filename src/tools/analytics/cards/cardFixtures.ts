@@ -127,7 +127,7 @@ type RuleSeed = Pick<RuleStat, 'ruleId' | 'ruleName' | 'category' | 'scoreVotes'
 
 /** A RuleStat with its secondary counts filled in, as overview/overviewFixtures.ts builds them. */
 export function ruleStat(seed: RuleSeed): RuleStat {
-  return {...seed, pairsVoted: Math.round(seed.scoreVotes / 2), accuracySentiment: null, pairsCovered: 0.4};
+  return {...seed, pairsVoted: Math.round(seed.scoreVotes / 2), pairsCovered: 0.4};
 }
 
 /** The analytics rules behind CARD_PAIRS. 'retired-rule' has none, so the card's table names it by its id. */

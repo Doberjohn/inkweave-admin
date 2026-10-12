@@ -14,7 +14,8 @@
  *   - the app checkout at APP_DIR (default app-master), once its engine is built
  *     and precompute-synergies has run: apps/web/public/data/synergies/ for engine
  *     scores and rules, packages/synergy-engine/dist for the rule roster, and
- *     apps/web/public/data/{allCards,previewCards}.json for card names
+ *     apps/web/public/data/{allCards,previewCards}.json for card names and the
+ *     current card list
  *
  * Without the service-role key it leaves out the raw-vote parts; without Supabase
  * env at all it writes empty-but-valid files. Workflow logs are public while the
@@ -46,7 +47,8 @@ function emptyArtifact() {
   return {
     hasRawVotes: false,
     global: {totalVotes: 0, distinctPairs: 0, distinctVoters: null, meanGap: null,
-      accuracySentiment: null, engineSilentPairs: 0, weekly: [], dimensionFill: null},
+      accuracySentiment: null, accuracyAnswers: null, engineSilentPairs: 0,
+      engineSilentSplit: {listed: 0, unlisted: 0}, weekly: [], dimensionFill: null},
     rules: [], pairs: [],
   };
 }
@@ -81,31 +83,49 @@ function loadEngineArtifacts(synDir) {
   return {enginePairs, ruleTotalPairs};
 }
 
+/** The app's built engine: the rule roster, and the Core filter and card transform the card list goes through. */
+async function loadEngine() {
+  return import(pathToFileURL(path.join(APP_DIR, 'packages/synergy-engine/dist/index.js')).href);
+}
+
 /** Rule roster (labels, zero-vote rules, playstyle ids) from the app's built engine. */
-async function loadRuleRoster() {
-  const engine = path.join(APP_DIR, 'packages/synergy-engine/dist/index.js');
-  const {getAllRules} = await import(pathToFileURL(engine).href);
-  return getAllRules().map((rule) => ruleRosterEntry(rule));
+function loadRuleRoster(engine) {
+  return engine.getAllRules().map((rule) => ruleRosterEntry(rule));
 }
 
-/** Record a card's display name, keeping the first occurrence (allCards wins). */
-function addNameIfAbsent(names, card) {
-  // Card ids are numbers here; vote/pair_scores card ids are strings, so key by
-  // String(id) so that `names.get(stringId)` in the builders matches.
-  if (!names.has(String(card.id))) names.set(String(card.id), card.fullName ?? card.name ?? String(card.id));
-}
-
-/** Card id -> display name, from allCards.json + previewCards.json. */
-function loadCardNames() {
-  const names = new Map();
+/**
+ * The raw cards of allCards.json + previewCards.json, keeping the first card
+ * with each id (allCards wins), as the app's loader merges them. Card ids are
+ * numbers here; vote/pair_scores card ids are strings, so the ids compare as
+ * strings.
+ */
+function loadAppCards() {
+  const byId = new Map();
   const files = ['allCards.json', 'previewCards.json']
     .map((f) => path.join(APP_DATA, f))
     .filter((p) => fs.existsSync(p));
   for (const p of files) {
     const {cards} = JSON.parse(fs.readFileSync(p, 'utf8'));
-    for (const c of cards) addNameIfAbsent(names, c);
+    for (const c of cards) if (!byId.has(String(c.id))) byId.set(String(c.id), c);
   }
-  return names;
+  return [...byId.values()];
+}
+
+/** Card id -> display name, keyed by String(id) so that `names.get(stringId)` in the builders matches. */
+function cardNames(cards) {
+  return new Map(cards.map((c) => [String(c.id), c.fullName ?? c.name ?? String(c.id)]));
+}
+
+/**
+ * The current card list's ids, as the app's loader builds the list
+ * (loader.ts, fetchCardsFromLocal): Core sets only, through the engine's own
+ * transform, which drops a card it can't read. precompute-synergies scores
+ * pairs of these cards alone, so an engine-silent pair with any other card is
+ * out of the engine's reach, not a gap (#29). transformCards gives string ids,
+ * as the votes carry.
+ */
+function listedCardIds(cards, engine) {
+  return new Set(engine.transformCards(cards.filter((c) => engine.isCoreSet(c.setCode))).map((c) => c.id));
 }
 
 async function main() {
@@ -122,8 +142,11 @@ async function main() {
   }
 
   const {enginePairs, ruleTotalPairs} = loadEngineArtifacts(path.join(APP_DATA, 'synergies'));
-  const allRules = await loadRuleRoster();
-  const names = loadCardNames();
+  const engine = await loadEngine();
+  const allRules = loadRuleRoster(engine);
+  const cards = loadAppCards();
+  const names = cardNames(cards);
+  const listedIds = listedCardIds(cards, engine);
   const scoreRows = await fetchAllRows(createClient(url, anon), 'pair_scores', '*');
 
   let rawVotes = null;
@@ -133,7 +156,10 @@ async function main() {
     console.warn('  ⚠ SUPABASE_SERVICE_ROLE_KEY absent: leaving out weekly activity, voters, dimensions and the vote log.');
   }
 
-  writeOut('vote-analytics.json', buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes}));
+  writeOut(
+    'vote-analytics.json',
+    buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes, listedIds}),
+  );
   writeOut('vote-log.json', rawVotes ? buildVoteLog(rawVotes, names) : EMPTY_LOG);
 }
 

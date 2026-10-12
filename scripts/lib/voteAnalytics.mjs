@@ -37,7 +37,6 @@ export function computePairRecord(scoreRow, enginePair, names) {
     communityScore,
     gap,
     scoreVotes: scoreRow.score_votes,
-    accuracySentiment: scoreRow.accuracy_sentiment ?? null,
     rules: engineSilent ? [] : enginePair.connections.map((c) => c.ruleId),
     engineSilent,
   };
@@ -100,7 +99,8 @@ export function ruleRosterEntry(rule) {
  * EVERY rule in its `rules` list (a vote is feedback on the whole displayed
  * score, which multiple rules built). meanGap is vote-weighted by scoreVotes.
  * Every rule in `allRules` is emitted, even with zero votes, with its roster
- * playstyleId (ruleRosterEntry).
+ * playstyleId (ruleRosterEntry). There is no per-rule accuracy sentiment: the
+ * accuracy answers on pairs[] are too few to split by rule (#30).
  *
  * Precondition: `pairRecords` is expected to contain only gap-defined
  * (non-engine-silent) pairs, as produced by `buildPairRecords().pairs`. The
@@ -125,11 +125,6 @@ export function rollUpByRule(pairRecords, allRules, ruleTotalPairs) {
       scoreVotes: recs.reduce((s, r) => s + r.scoreVotes, 0),
       pairsVoted: recs.length,
       meanGap: voteWeightedMean(recs, (r) => r.gap, (r) => r.scoreVotes),
-      accuracySentiment: voteWeightedMean(
-        recs.filter((r) => r.accuracySentiment != null),
-        (r) => r.accuracySentiment,
-        (r) => r.scoreVotes,
-      ),
       pairsCovered: totalPairs === 0 ? 0 : recs.length / totalPairs,
     };
   });
@@ -176,31 +171,64 @@ function countFilled(rawVotes, key) {
   return rawVotes.reduce((n, v) => n + (v[key] != null ? 1 : 0), 0);
 }
 
-/** Assemble the `global` block. `rawVotes` may be null (no service-role key). */
-export function computeGlobal({scoreRows, pairs, engineSilent, rawVotes, enginePairs}) {
+/**
+ * The engine-silent pairs split by the current card list (#29), as the card
+ * page splits each card's (R-31). `listed` pairs have both cards in the list,
+ * so the engine could score them and doesn't. `unlisted` pairs have a card
+ * outside it, rotated out of Core or a preview id its release replaced, and
+ * the engine never scores those. `listedIds` holds the card list's ids.
+ */
+export function splitEngineSilent(engineSilent, listedIds) {
+  const listed = engineSilent.filter((p) => listedIds.has(p.a) && listedIds.has(p.b)).length;
+  return {listed, unlisted: engineSilent.length - listed};
+}
+
+/**
+ * Every raw vote's accuracy answer (#30): how many votes answered, and the
+ * mean answer, from −1 to +1, which is the share of "too low" answers (+1)
+ * less the share of "too high" ones (−1); null with no answer. It is the card
+ * page's sentiment (R-32) taken over the whole log, and the pair_scores view's
+ * accuracy_sentiment taken over every pair at once.
+ */
+export function accuracyFromVotes(rawVotes) {
+  const answers = rawVotes.filter((v) => v.accuracy != null);
+  const tooLow = answers.filter((v) => v.accuracy === 1).length;
+  const tooHigh = answers.filter((v) => v.accuracy === -1).length;
+  return {
+    answers: answers.length,
+    sentiment: answers.length === 0 ? null : round2((tooLow - tooHigh) / answers.length),
+  };
+}
+
+/**
+ * Assemble the `global` block. `rawVotes` may be null (no service-role key),
+ * which leaves the raw-vote numbers, accuracy sentiment among them, null or
+ * empty. `listedIds` holds the current card list's ids.
+ */
+export function computeGlobal({scoreRows, pairs, engineSilent, rawVotes, enginePairs, listedIds}) {
   const totalVotes = scoreRows.reduce((s, r) => s + (r.total_votes ?? 0), 0);
   const meanGap = voteWeightedMean(pairs, (p) => p.gap, (p) => p.scoreVotes);
-  const accuracySentiment = voteWeightedMean(
-    pairs.filter((p) => p.accuracySentiment != null),
-    (p) => p.accuracySentiment,
-    (p) => p.scoreVotes,
-  );
 
   const base = {
     totalVotes,
     distinctPairs: scoreRows.length,
     distinctVoters: null,
     meanGap: meanGap == null ? null : round2(meanGap),
-    accuracySentiment: accuracySentiment == null ? null : round2(accuracySentiment),
+    accuracySentiment: null,
+    accuracyAnswers: null,
     engineSilentPairs: engineSilent.length,
+    engineSilentSplit: splitEngineSilent(engineSilent, listedIds),
     weekly: [],
     dimensionFill: null,
   };
 
   if (!rawVotes) return base;
+  const accuracy = accuracyFromVotes(rawVotes);
   return {
     ...base,
     distinctVoters: new Set(rawVotes.map((v) => v.ip_hash)).size,
+    accuracySentiment: accuracy.sentiment,
+    accuracyAnswers: accuracy.answers,
     weekly: bucketWeekly(rawVotes, enginePairs),
     dimensionFill: {
       score: countFilled(rawVotes, 'score'),
@@ -232,11 +260,12 @@ export function buildVoteLog(rawVotes, names) {
 /**
  * Top-level: produce the full vote-analytics artifact (minus generatedAt).
  * The caller (orchestrator) merges a `generatedAt` ISO timestamp into the
- * returned object before writing it to disk.
+ * returned object before writing it to disk. `listedIds` is the current card
+ * list's ids, a Set of the string ids the votes carry.
  */
-export function buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes}) {
+export function buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes, listedIds}) {
   const {pairs, engineSilent} = buildPairRecords(scoreRows, enginePairs, names);
-  const global = computeGlobal({scoreRows, pairs, engineSilent, rawVotes, enginePairs});
+  const global = computeGlobal({scoreRows, pairs, engineSilent, rawVotes, enginePairs, listedIds});
   const rules = rollUpByRule(pairs, allRules, ruleTotalPairs);
   // Stable, useful ordering: largest |gap| first.
   const sortedPairs = [...pairs].sort((x, y) => Math.abs(y.gap) - Math.abs(x.gap));

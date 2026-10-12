@@ -52,6 +52,7 @@ const {analytics, log} = precompute({
   enginePairs: ENGINE_PAIRS,
   names: NAMES,
   ruleTotalPairs: {ramp: 2, 'shift-targets': 2},
+  listedIds: new Set(NAMES.keys()),
 });
 
 describe('weeklyGaps against the precompute', () => {

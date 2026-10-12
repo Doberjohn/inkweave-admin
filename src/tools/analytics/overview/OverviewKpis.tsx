@@ -4,7 +4,7 @@ import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {KpiCard} from '../../../ui/KpiCard';
 import {RawTag} from '../../../ui/RawTag';
-import {trackedEventsTotal} from './overviewStats';
+import {engineSilentFigure, trackedEventsTotal} from './overviewStats';
 import type {VoteAnalytics} from '../voteAnalyticsTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
 
@@ -34,12 +34,15 @@ function trackedEventsHint(vercel: VercelAnalytics | null, vercelError: Error | 
  * it shows only with raw votes. The Total votes hint is the newest weekly
  * point: the votes cast since that week's Monday, which is every vote since
  * then, because no later week has any. It says "since", not "last week",
- * because that week is usually still running. Tracked events comes from the
- * Vercel artifact and reads "—" with the reason whenever there's no total.
+ * because that week is usually still running. Engine-silent pairs counts the
+ * real engine gaps, with the pairs outside the card list in its hint
+ * (engineSilentFigure). Tracked events comes from the Vercel artifact and
+ * reads "—" with the reason whenever there's no total.
  */
 export function OverviewKpis({analytics, vercel, vercelError}: OverviewKpisProps) {
   const g = analytics.global;
   const lastWeek = g.weekly.length > 0 ? g.weekly[g.weekly.length - 1] : null;
+  const silent = engineSilentFigure(g);
   const tracked = trackedEventsTotal(vercel);
   return (
     <section
@@ -56,8 +59,8 @@ export function OverviewKpis({analytics, vercel, vercelError}: OverviewKpisProps
       )}
       <KpiCard
         label="Engine-silent pairs"
-        value={fmtInt(g.engineSilentPairs)}
-        hint="voted, no synergy"
+        value={fmtInt(silent.value)}
+        hint={silent.hint}
         valueColor={ADMIN_COLORS.accent}
       />
       <KpiCard

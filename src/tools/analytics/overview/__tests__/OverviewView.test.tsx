@@ -36,9 +36,19 @@ const kpis = () => screen.getByRole('region', {name: 'Key figures'});
 describe('OverviewView', () => {
   it('leads with the headline numbers', () => {
     renderView();
-    for (const text of ['2,054', '+260 since Sep 28', '1,928', 'Distinct voters', '114', '196', '8,540', '5 event types · Vercel']) {
+    for (const text of ['2,054', '+260 since Sep 28', '1,928', 'Distinct voters', '114', '8,540', '5 event types · Vercel']) {
       expect(within(kpis()).getByText(text)).toBeInTheDocument();
     }
+  });
+
+  // #29: the KPI counts the real engine gaps; the pairs the engine can never score go in its hint.
+  it('counts the engine-silent pairs with both cards in Core, and the rest in the hint', () => {
+    renderView();
+    const silent = within(kpis()).getByRole('group', {name: 'Engine-silent pairs'});
+    expect(within(silent).getByText('12')).toBeInTheDocument();
+    expect(
+      within(silent).getByText('both cards in Core · 184 more outside the current card list'),
+    ).toBeInTheDocument();
   });
 
   it('reads the calibration verdict and links to Calibration', () => {
@@ -48,7 +58,9 @@ describe('OverviewView', () => {
     expect(
       screen.getByText('The engine rates pairs about 0.30 points higher than the community on average.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('+0.03')).toBeInTheDocument();
+    expect(screen.getByText(/Accuracy sentiment/)).toHaveTextContent(
+      'Accuracy sentiment raw +0.03 (too-low vs too-high · 1,902 answers)',
+    );
     expect(screen.getByRole('link', {name: 'Open calibration →'})).toHaveAttribute('href', '/calibration');
   });
 
@@ -148,6 +160,17 @@ describe('OverviewView', () => {
     expect(screen.queryByRole('slider', {name: 'Votes per week'})).not.toBeInTheDocument();
     expect(screen.getByText(/Weekly activity and voter counts need raw votes/)).toBeInTheDocument();
     expect(screen.getByText(/Needs raw votes/)).toBeInTheDocument();
+    expect(screen.queryByText(/Accuracy sentiment/)).not.toBeInTheDocument();
+  });
+
+  it('reads an artifact written before the split and the answer count as it was', () => {
+    const global = {...ANALYTICS.global, engineSilentSplit: undefined, accuracyAnswers: undefined};
+    renderView({analytics: {...ANALYTICS, global}});
+    const silent = within(kpis()).getByRole('group', {name: 'Engine-silent pairs'});
+    expect(within(silent).getByText('196')).toBeInTheDocument();
+    expect(within(silent).getByText('voted, no engine score')).toBeInTheDocument();
+    // Its sentiment came from the few pairs in pairs[], so the card leaves it out.
+    expect(screen.queryByText(/Accuracy sentiment/)).not.toBeInTheDocument();
   });
 
   it('names the missing Vercel secrets instead of showing a zero', () => {

@@ -22,7 +22,6 @@ function row(
     scoreVotes: 557,
     pairsVoted: 40,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 120,
   };
   return {id, name, category, stat, tuningKey};
