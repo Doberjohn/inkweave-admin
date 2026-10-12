@@ -119,6 +119,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 
 - Admin files pass every `inkweave/*` rule in `eslint.config.js`. No new exception. Interpolate tokens inside scoped `<style>` blocks too. The hex and rgba rules scan template strings; the font-size and radius rules don't, so `AdminStyles.test.tsx` holds that line.
 - Import app code only through `src/app-bridge.ts`. Never edit `upstream/`.
+- The layers under the tools never import them: no module in `src/shell`, `src/ui`, `src/charts` or `src/theme` imports from `src/tools` (R-53), and `src/ui` doesn't import the chart kit, which builds on `src/ui`. Stories and tests may. `eslint.config.js` enforces both (#37).
 - No `<button style=…>` (`no-adhoc-buttons`). Buttons are `CtaButton` / `LinkButton` from the kit, or native `<button className="adm-…">` styled by `AdminStyles`. Navigation is react-router `Link` / `NavLink`.
 - Every clickable thing is a `button` or a link with an accessible name; selectable rows, cards and bars use `aria-pressed`; current nav items use `aria-current="page"`.
 - No `useMemo` / `useCallback` (React Compiler; `eslint.config.js` bans them).

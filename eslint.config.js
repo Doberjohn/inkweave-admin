@@ -21,12 +21,27 @@ const MEMO_BAN = [
 const SLASH = '\\' + 'u002F';
 const UPSTREAM_PATH = `/(^|${SLASH})upstream(${SLASH}|$)/`;
 const BRIDGE_MESSAGE = 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).';
+const UPSTREAM_IMPORTS = {group: ['**/upstream', '**/upstream/**'], message: BRIDGE_MESSAGE};
 const UPSTREAM_LOADS = [
   `ImportExpression > Literal[value=${UPSTREAM_PATH}]`,
   `ImportExpression > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
   `CallExpression[callee.name='require'] > Literal[value=${UPSTREAM_PATH}]`,
   `CallExpression[callee.name='require'] > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
 ].map((selector) => ({selector, message: BRIDGE_MESSAGE}));
+
+// The layers under the tools (docs/plans/R-redesign.md, Global constraints):
+// src/shell, src/ui, src/charts and src/theme never import from src/tools
+// (R-53), and src/ui never imports the chart kit, which builds on src/ui.
+// Stories and tests may, as in R3-9's sweep.
+const LAYER_EXEMPT = ['**/*.stories.tsx', '**/*.test.{ts,tsx}', '**/__tests__/**'];
+const TOOLS_IMPORTS = {
+  group: ['**/tools', '**/tools/**'],
+  message: 'src/shell, src/ui, src/charts and src/theme never import from src/tools (docs/plans/R-redesign.md, R-53).',
+};
+const CHARTS_IMPORTS = {
+  group: ['**/charts', '**/charts/**'],
+  message: 'src/ui never imports the chart kit, which builds on src/ui (docs/plans/R-redesign.md, Global constraints).',
+};
 
 export default tseslint.config(
   // docs/redesign/ is the design handoff. Its support.js is the prototype's
@@ -73,20 +88,27 @@ export default tseslint.config(
     files: ['**/*.{ts,tsx,js,jsx,mjs}'],
     ignores: ['src/app-bridge.ts', 'eslint.config.js'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['**/upstream', '**/upstream/**'],
-              message: BRIDGE_MESSAGE,
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', {patterns: [UPSTREAM_IMPORTS]}],
       // Flat config replaces a rule's options per file instead of merging them,
       // so this repeats the memo ban for the TypeScript files it also covers.
       'no-restricted-syntax': ['error', ...MEMO_BAN, ...UPSTREAM_LOADS],
+    },
+  },
+  // The layers (#37). Each block repeats D3's upstream pattern, since its rule
+  // options replace D3's for these files. Only static imports and re-exports
+  // are checked: no module in these layers loads another dynamically.
+  {
+    files: ['src/{shell,charts,theme}/**'],
+    ignores: LAYER_EXEMPT,
+    rules: {
+      'no-restricted-imports': ['error', {patterns: [UPSTREAM_IMPORTS, TOOLS_IMPORTS]}],
+    },
+  },
+  {
+    files: ['src/ui/**'],
+    ignores: LAYER_EXEMPT,
+    rules: {
+      'no-restricted-imports': ['error', {patterns: [UPSTREAM_IMPORTS, CHARTS_IMPORTS, TOOLS_IMPORTS]}],
     },
   },
   {
