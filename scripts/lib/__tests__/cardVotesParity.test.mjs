@@ -43,20 +43,23 @@ const isListed = (id) => NAMES.has(id);
 const CARD_IDS = ['1', '2', '3', '4', '5', '9'];
 
 /** A raw vote as fetchAllRows reads it: Supabase's microsecond +00:00 timestamp, card ids in either order. */
-function raw(createdAt, a, b, score, accuracy = null) {
+function raw(createdAt, a, b, score) {
   return {
     created_at: createdAt,
     ip_hash: `voter-${a}-${b}`,
     card_a_id: a,
     card_b_id: b,
     score,
-    accuracy,
+    accuracy: null,
     is_real: null,
     would_play: null,
     difficulty: null,
     who_carries: null,
   };
 }
+
+/** The vote with an answer to "Is the engine's score right?": +1 too low, 0 fair, −1 too high. */
+const answering = (vote, accuracy) => ({...vote, accuracy});
 
 // Card 1 has a pair the engine scores with 2 and with 3, a quick vote on
 // 1 × 2, only a quick vote with 4, and engine-silent pairs with 5 (in the
@@ -65,14 +68,14 @@ function raw(createdAt, a, b, score, accuracy = null) {
 // engine's score is too low, −1 too high), the quick vote on 1 × 4 and the
 // one on the rotated-out pair among them.
 const RAW_VOTES = [
-  raw('2026-09-14T10:00:00.123456+00:00', '2', '1', 4, -1),
-  raw('2026-09-15T10:00:00.123456+00:00', '1', '2', 10, 1),
-  raw('2026-09-20T23:59:59.999999+00:00', '3', '1', 6, 0),
+  answering(raw('2026-09-14T10:00:00.123456+00:00', '2', '1', 4), -1),
+  answering(raw('2026-09-15T10:00:00.123456+00:00', '1', '2', 10), 1),
+  answering(raw('2026-09-20T23:59:59.999999+00:00', '3', '1', 6), 0),
   raw('2026-09-22T10:00:00.123456+00:00', '1', '2', null),
-  raw('2026-09-22T11:00:00.123456+00:00', '4', '1', null, 1),
+  answering(raw('2026-09-22T11:00:00.123456+00:00', '4', '1', null), 1),
   raw('2026-09-28T10:00:00.123456+00:00', '1', '5', 6),
   raw('2026-09-29T10:00:00.123456+00:00', '5', '1', 3),
-  raw('2026-09-30T10:00:00.123456+00:00', '9', '1', 8, 1),
+  answering(raw('2026-09-30T10:00:00.123456+00:00', '9', '1', 8), 1),
   raw('2026-10-12T10:00:00.123456+00:00', '3', '4', 5),
 ];
 // pair_scores for those votes, ids in the view's own order: the scored votes'
