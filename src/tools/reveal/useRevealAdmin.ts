@@ -1,15 +1,11 @@
 import {useState} from 'react';
-import {
-  synergyEngine,
-  transformCard,
-  type LorcanaCard,
-  type SynergyGroup,
-} from 'inkweave-synergy-engine';
+import type {LorcanaCard, SynergyGroup} from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
 import {useImageUpload} from '../../components/useImageUpload';
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
 import {validateRevealCardForm, type ValidationResult} from './validateForm';
 import {commitNewCard} from './githubClient';
+import {buildPreview, computeSynergies} from './livePreview';
 import {useGithubToken} from '../../github/useGithubToken';
 
 const EMPTY_FORM: RevealCardForm = {
@@ -33,27 +29,6 @@ const EMPTY_FORM: RevealCardForm = {
   scanLanguage: 'en',
 };
 
-/** Build the live preview card from form values; null until ink/type are valid. */
-function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {
-  const raw = buildPreviewCard(form);
-  const transformed = transformCard(raw);
-  if (!transformed) return null;
-  if (imageDataUrl) transformed.imageUrl = imageDataUrl;
-  // The engine's transform drops it; the app's loader copies it over the same way.
-  transformed.scanLanguage = raw.scanLanguage;
-  return transformed;
-}
-
-/** Run the engine against the in-progress card; empty on no card or engine error. */
-function computeSynergies(card: LorcanaCard | null, allCards: LorcanaCard[]): SynergyGroup[] {
-  if (!card) return [];
-  try {
-    return synergyEngine.findSynergies(card, allCards);
-  } catch {
-    return [];
-  }
-}
-
 /** True only when the card is valid, has a token, and an image is fully read. */
 function readyToPublish(p: {
   valid: boolean;
@@ -67,6 +42,19 @@ function readyToPublish(p: {
   if (!p.imageDataUrl) return false;
   return true;
 }
+
+/**
+ * previewCards.json on the target branch, as Card studio reads it: its ids,
+ * which the "already exists" check counts besides the live card list, and a
+ * re-read after each publish, so the next one counts the card just published.
+ */
+export interface BranchPreviewCards {
+  ids: ReadonlySet<number>;
+  reload: () => void;
+}
+
+// The reveal publisher reads no branch file: it checks against the live card list alone.
+const NO_BRANCH: BranchPreviewCards = {ids: new Set(), reload: () => {}};
 
 export interface RevealAdminController {
   token: string | null;
@@ -82,13 +70,21 @@ export interface RevealAdminController {
   publishError: string | null;
   onImageChange: (file: File | null) => void;
   publish: () => void;
+  /** The chosen image's file name, or null. */
+  imageName: string | null;
+  /** The chosen image's bytes as a data URL; null until they are read. */
+  imageDataUrl: string | null;
+  /** Why the chosen image can't be used, or null. publishError carries it too. */
+  uploadError: string | null;
+  /** True once a field holds anything but the empty form's value, or an image is chosen. */
+  dirty: boolean;
 }
 
 /**
  * Owns all reveal-admin page state and side effects. Keeping it here leaves the
  * page component as mostly-presentational JSX (and well under the complexity gate).
  */
-export function useRevealAdmin(): RevealAdminController {
+export function useRevealAdmin(branch: BranchPreviewCards = NO_BRANCH): RevealAdminController {
   const {token, setToken} = useGithubToken();
   const {cards} = useCardDataContext();
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
@@ -101,7 +97,7 @@ export function useRevealAdmin(): RevealAdminController {
   const [publishError, setPublishError] = useState<string | null>(null);
 
   const imageName = imageFile?.name ?? null;
-  const existingIds = new Set(cards.map((c) => Number(c.id)));
+  const existingIds = new Set([...cards.map((c) => Number(c.id)), ...branch.ids]);
   const previewCard = buildPreview(form, imageDataUrl);
   const synergyGroups = computeSynergies(previewCard, cards);
   const validation = validateRevealCardForm(form, existingIds, imageName);
@@ -109,6 +105,13 @@ export function useRevealAdmin(): RevealAdminController {
 
   function patchForm(patch: Partial<RevealCardForm>) {
     setForm((f) => ({...f, ...patch}));
+  }
+
+  function published(res: {commitUrl: string}) {
+    setResult(res);
+    setForm(EMPTY_FORM);
+    void upload.choose(null);
+    branch.reload();
   }
 
   async function publish() {
@@ -123,10 +126,7 @@ export function useRevealAdmin(): RevealAdminController {
     try {
       const card = buildPreviewCard(form);
       const ext = (imageFile.name.split('.').pop() ?? 'png').toLowerCase();
-      const res = await commitNewCard({token, card, imageBase64: imageDataUrl, imageExt: ext});
-      setResult(res);
-      setForm(EMPTY_FORM);
-      void upload.choose(null);
+      published(await commitNewCard({token, card, imageBase64: imageDataUrl, imageExt: ext}));
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : 'Publish failed');
     } finally {
@@ -149,5 +149,9 @@ export function useRevealAdmin(): RevealAdminController {
     publishError: publishError ?? upload.error,
     onImageChange: upload.choose,
     publish,
+    imageName,
+    imageDataUrl,
+    uploadError: upload.error,
+    dirty: JSON.stringify(form) !== JSON.stringify(EMPTY_FORM) || imageFile !== null,
   };
 }

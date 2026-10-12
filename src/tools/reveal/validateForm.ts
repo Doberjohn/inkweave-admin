@@ -23,7 +23,7 @@ type Errors = Record<string, string>;
  * Parse a trimmed whole number, or null when blank or anything else ("1.5",
  * "3foo", or digits past what a JavaScript number holds exactly).
  */
-function intField(value: string): number | null {
+export function intField(value: string): number | null {
   const t = value.trim();
   const n = Number(t);
   return /^-?\d+$/.test(t) && Number.isSafeInteger(n) ? n : null;
