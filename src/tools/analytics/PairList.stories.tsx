@@ -59,6 +59,16 @@ export const WithSelection: Story = {
   args: {pairs: PAIRS, selectedPair: {a: 'crd_c', b: 'crd_d'}, onSelectPair: noop},
 };
 
+/** The votes filter at 2+ (#33): the pairs with more than one score vote, and its note in place of the caveat. */
+export const VotesFilterOn: Story = {
+  args: {
+    pairs: PAIRS.filter((p) => p.scoreVotes >= 2),
+    selectedPair: null,
+    onSelectPair: noop,
+    footnote: 'The Votes filter is on: only pairs with 2+ score votes show.',
+  },
+};
+
 /** A rule with no voted pairs: the workspace passes the rule's empty copy. */
 export const Empty: Story = {
   args: {pairs: [], selectedPair: null, onSelectPair: noop, emptyText: 'No voted pairs for this rule yet.'},

@@ -24,9 +24,12 @@ import {
 } from './chartData';
 
 export interface CalibrationScatterProps {
-  /** The scope, uncapped (pairsInScope): every voted pair the selected rule fired on, or every pair. */
+  /**
+   * The scope, uncapped (pairsInScope): every voted pair the selected rule
+   * fired on, or every pair, that the votes filter keeps.
+   */
   pairs: readonly PairStat[];
-  /** "All pairs" or the selected rule's name. */
+  /** "All pairs" or the selected rule's name, with the votes filter's step once it is on (scopeWords). */
   scopeLabel: string;
   selectedPair: {a: string; b: string} | null;
   onSelectPair: (pair: {a: string; b: string}) => void;
@@ -34,6 +37,12 @@ export interface CalibrationScatterProps {
   engineSilentPairs?: number;
   /** engineSilentPairs split by the current card list, when the artifact carries the split (#29). */
   engineSilentSplit?: EngineSilentSplit;
+  /**
+   * Whether the votes filter is on (#33). The artifact holds no votes per
+   * engine-silent pair, so their count can't follow the step, and its note
+   * says so.
+   */
+  votesFilterOn?: boolean;
   /** What an empty scope says (default "No voted pairs yet."). The workspace names the rule when one is selected. */
   emptyText?: string;
 }
@@ -52,18 +61,25 @@ function pairTooltip(pair: PairStat, sharing: number): TooltipContent {
 
 const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.label, lineHeight: 1.5, color: ADMIN_COLORS.muted};
 
+interface SilentNoteInput {
+  count: number;
+  split: EngineSilentSplit | undefined;
+  filterOn: boolean;
+}
+
 /**
  * What the plot leaves out: the engine-silent pairs, split as the card page
  * splits a card's (R-31) when the artifact carries the split (#29). Most have
- * a card outside the current card list, which the engine never scores.
+ * a card outside the current card list, which the engine never scores. The
+ * count takes every vote, so past Any the note says the filter skips it (#33).
  */
-function silentNote({count, split}: {count: number; split: EngineSilentSplit | undefined}): string {
+function silentNote({count, split, filterOn}: SilentNoteInput): string {
   const lead = `Not plotted: ${countOf(count, 'engine-silent pair')} (voted, but the engine gives them no score)`;
-  if (!split) return `${lead}.`;
-  return (
-    `${lead}: ${fmtInt(split.unlisted)} with a card outside the current card list, ` +
-    `${fmtInt(split.listed)} with both cards in Core.`
-  );
+  const note = split
+    ? `${lead}: ${fmtInt(split.unlisted)} with a card outside the current card list, ` +
+      `${fmtInt(split.listed)} with both cards in Core.`
+    : `${lead}.`;
+  return filterOn ? `${note} The Votes filter doesn't apply to this count.` : note;
 }
 
 /**
@@ -82,6 +98,7 @@ export function CalibrationScatter({
   onSelectPair,
   engineSilentPairs = 0,
   engineSilentSplit,
+  votesFilterOn = false,
   emptyText = 'No voted pairs yet.',
 }: CalibrationScatterProps) {
   const byId = new Map(pairs.map((p) => [pairId(p.a, p.b), p]));
@@ -143,7 +160,9 @@ export function CalibrationScatter({
           </>
         )}
       </ChartFrame>
-      {engineSilentPairs > 0 && <p style={NOTE}>{silentNote({count: engineSilentPairs, split: engineSilentSplit})}</p>}
+      {engineSilentPairs > 0 && (
+        <p style={NOTE}>{silentNote({count: engineSilentPairs, split: engineSilentSplit, filterOn: votesFilterOn})}</p>
+      )}
     </Panel>
   );
 }

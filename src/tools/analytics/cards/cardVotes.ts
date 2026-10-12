@@ -1,6 +1,7 @@
 import type {Day} from '../../../charts/scale';
 import {activityWindow, weeklyStacks, type VoteSpan} from '../activity/activityModel';
 import type {VoteLogRow} from '../voteLogTypes';
+import {filtersPairs, type VotesFilter} from '../votesFilter';
 import type {CardPair} from './cardStats';
 
 /*
@@ -93,6 +94,21 @@ export function engineSilentForCard(
     partnerUnlisted: silentCount(silent.filter((cardVote) => !isListed(cardVote.partnerId))),
     partnerListed: silentCount(silent.filter((cardVote) => isListed(cardVote.partnerId))),
   };
+}
+
+/**
+ * The card's votes on the partners it has at least the votes filter's step of
+ * scored votes with (#33), their quick votes included, as pairsWithVotes keeps
+ * pairs[] rows: what Voted pairs counts its engine-silent pairs from. Any keeps
+ * every vote.
+ */
+export function votesOnPairsWith(cardVotes: readonly CardVote[], filter: VotesFilter): readonly CardVote[] {
+  if (!filtersPairs(filter)) return cardVotes;
+  const scored = new Map<string, number>();
+  for (const {partnerId, vote} of cardVotes) {
+    if (vote.score != null) scored.set(partnerId, (scored.get(partnerId) ?? 0) + 1);
+  }
+  return cardVotes.filter(({partnerId}) => (scored.get(partnerId) ?? 0) >= filter.minVotes);
 }
 
 const SCORES = 10;

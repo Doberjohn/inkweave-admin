@@ -5,6 +5,7 @@ import {twoUp} from '../../../ui/layout';
 import {Notice} from '../../../ui/Notice';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
+import {useVotesFilter} from '../votesFilter';
 import {CardCalibrationPanel} from './CardCalibrationPanel';
 import {CardHeader} from './CardHeader';
 import {CardKpis} from './CardKpis';
@@ -51,11 +52,12 @@ interface CalibrationRowProps {
  * Calibration for this card beside Voted pairs, or one notice for a card in no
  * pairs[] row. The engine-silent count (R-31) goes with either, in the words
  * silentNote picks for each: a card whose every vote is engine-silent still
- * says how many pairs it has.
+ * says how many pairs it has. Voted pairs' count follows the votes filter (#33).
  */
 function CalibrationRow({calibration, raw, isListed}: CalibrationRowProps) {
   const {cardPairs, rules} = calibration;
-  const note = silentNote({raw, cardPairs, isListed});
+  const {filter} = useVotesFilter();
+  const note = silentNote({raw, cardPairs, isListed, filter});
   if (cardPairs.length === 0) {
     return <Notice>No score votes on pairs the engine scores yet.{note && ` ${note}`}</Notice>;
   }

@@ -45,7 +45,7 @@ The R2 outline's open questions, settled before re-basing it. All twelve follow 
 | R-22 | "Inspect" where there's nothing to tune | The Overview's "Rules to review" link reads "Tune" for a rule with a tuning entry and "Inspect" for one without; both open `/calibration?rule=<id>`. |
 | R-23 | Scatter: opaque dots, diagonal jitter, one size | Opaque dots, each on its own page-coloured disc, spread along the diagonal by a fixed per-pair jitter (±0.35 along, ±0.035 across), widest gaps on top, and a "pairs on these scores" tooltip line. Translucent dots would fail 3:1. One dot size for every pair. |
 | R-24 | Histogram and trend shapes | Gap bins are one point wide, centred on whole numbers, with everything beyond ±5 folded into the end bins; R2's real-data check confirms ±5. The weekly score votes draw as an area under the gap line, so each week lines up. |
-| R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. |
+| R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. The votes filter came with #33 (see "#33: the votes filter"); the histogram bar filter is still open. |
 | R-27 | A fainter fill on selected rows | R2-3's option (a): `ADMIN_COLORS.rowSelected` = `hexRgba(COLORS.primary, 0.05)` fills a pressed `adm-row-btn`, hovered or not, so red gap text on a selected row reaches 4.58:1 (the 0.06 tint gave 4.50:1, and 4.15:1 hovered). R2-3 and R2-4 implement the (a) parts and skip (b). The sidebar's "Forget token" still drops unpublished tuning edits without asking (a noted limit). |
 | R-26 | Rejected token on a write page | When GitHub rejects the saved token (401), the tuning aside's error offers "Forget token" (the shared store), so the gate comes back without a trip to the sidebar. |
 
@@ -840,6 +840,15 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
   - **Accuracy sentiment.** The Overview's figure (from `pairs[]`) and the raw answers disagree in sign, which follow-up #30 takes up.
   - **Fetches.** Each analytics file was fetched once across the pages, and each card's synergy file once.
   - **Code Health.** `analyze_change_set` passed, with no findings. The PR's own CodeScene check is read once the PR opens (Task R3-9, Step 25).
+
+#### #33: the votes filter (2026-10-12)
+
+- **One setting.** "Votes: Any / 2+ / 5+" (R-25) keeps only the pairs with that many score votes. `/calibration` shows it at the end of the scope row, and the card page in Voted pairs' header. Both read one store, `src/tools/analytics/votesFilter.ts`, so a step set on one page holds on the other. The store lives in memory only, so a reload puts it back to Any, the issue's "off by default" (the owner chose one shared setting for the session, 2026-10-12).
+- **What it scopes.** On `/calibration`: the scatter, the histogram, Widest gaps and the weekly gap. Widest gaps filters before it takes its widest 40. The rules table, the scope line and dimension participation stay on every vote. On `/cards`: Voted pairs only. The KPIs and Calibration for this card stay on every vote.
+- **Saying so.** Past Any, every scoped view names the step. The charts' scope label reads "All pairs with 2+ score votes" or "Ramp, pairs with 2+ score votes" in each subtitle, slider name and table caption. Widest gaps and Voted pairs say "The Votes filter is on: only pairs with 2+ score votes show." in place of the single-vote caveat, and Voted pairs counts "3 of 5 pairs". An empty scope says what it lacks: "No pairs with 5+ score votes under this rule yet."
+- **Engine-silent counts.** Voted pairs' caption counts the card's engine-silent pairs from raw votes, so past Any it counts only those with the step's score votes ("Not listed: 1 engine-silent pair with 2+ score votes …"), and goes when none has. The scatter's count comes from the artifact, which holds no votes per engine-silent pair, so it stays on every vote and says so past Any: "The Votes filter doesn't apply to this count."
+- **A picked pair** the filter leaves out shows as no pick, and comes back with its votes when the filter lets it in again.
+- **Real data** (Supabase, 2026-10-12): of the 2,731 pairs with a score vote, 148 have 2+ and 1 has 5+. Of those app master's engine scores, 62 have 2+ (60 with two, 2 with three) and none has 5+, so 5+ shows nothing yet. R-25's steps stand as decided.
 
 #### #34: the final review's polish (2026-10-12)
 

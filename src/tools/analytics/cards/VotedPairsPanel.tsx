@@ -7,6 +7,8 @@ import {Panel} from '../../../ui/Panel';
 import {countOf} from '../activity/activityModel';
 import {scoreText} from '../calibration/chartData';
 import {gapColor} from '../gapColor';
+import {VotesFilterControl} from '../VotesFilterControl';
+import {filterNote, filtersPairs, pairsWithVotes, useVotesFilter, votesClause, type VotesFilter} from '../votesFilter';
 import {CAPTION, CELL, CELL_LINK, HEAD_CELL, MUTED_NUMBER, NUMBER, OPAQUE_CARD} from './cardStyles';
 import type {CardPair} from './cardStats';
 
@@ -44,6 +46,26 @@ const FOOTER: React.CSSProperties = {
   padding: `${SPACING.sm}px ${SPACING.lg}px ${SPACING.section}px`,
   borderTop: `1px solid ${ADMIN_COLORS.divider}`,
 };
+// PairList's empty line, for a filter that leaves the card no pairs.
+const EMPTY: React.CSSProperties = {
+  margin: 0,
+  padding: `${SPACING.xxl}px ${SPACING.lg}px`,
+  textAlign: 'center',
+  fontSize: ADMIN_TYPE.body,
+  color: ADMIN_COLORS.muted,
+};
+// The votes filter, then the count, as Vote log's header puts its picker before its summary. In a narrow
+// panel the count wraps under the filter, at the right.
+const ACTION: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  flexWrap: 'wrap',
+  gap: SPACING.md,
+};
+
+/** The line under the rows at Any, the handoff's caveat; the filter's note takes its place once it is on. */
+const SINGLE_VOTE = 'Most pairs have a single vote — trust the card-level trend over any one row.';
 
 interface PartnerProps {
   pair: CardPair;
@@ -116,6 +138,77 @@ function PairsHead() {
   );
 }
 
+interface PairsActionProps {
+  /** The pairs the votes filter keeps, out of `all`, the card's voted pairs. */
+  shown: readonly CardPair[];
+  all: readonly CardPair[];
+  filter: VotesFilter;
+}
+
+/**
+ * The header's right end: the votes filter (#33), then how many pairs show
+ * ("3 of 5 pairs" once it is on) and, when any do, their order.
+ */
+function PairsAction({shown, all, filter}: PairsActionProps) {
+  const total = countOf(all.length, 'pair');
+  return (
+    <div style={ACTION}>
+      <VotesFilterControl />
+      <span>
+        {filtersPairs(filter) ? `${fmtInt(shown.length)} of ${total}` : total}
+        {shown.length > 0 && ' · widest gap first'}
+      </span>
+    </div>
+  );
+}
+
+interface PairsTableProps {
+  pairs: readonly CardPair[];
+  isListed: (cardId: string) => boolean;
+  filter: VotesFilter;
+}
+
+/** The pairs, in a table that scrolls inside the panel, named for what they are once the filter is on. */
+function PairsTable({pairs, isListed, filter}: PairsTableProps) {
+  const name = filtersPairs(filter) ? `Voted ${votesClause(filter)}` : 'Voted pairs';
+  return (
+    <div style={SCROLLER}>
+      <table aria-label={`${name}, widest gap first`} style={TABLE}>
+        <colgroup>
+          <col />
+          <col style={{width: COLUMN_WIDTH.scores}} />
+          <col style={{width: COLUMN_WIDTH.gap}} />
+          <col style={{width: COLUMN_WIDTH.votes}} />
+        </colgroup>
+        <PairsHead />
+        <tbody>
+          {pairs.map((pair, i) => (
+            <PairRow key={pair.partnerId} pair={pair} listed={isListed(pair.partnerId)} first={i === 0} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+interface PairsFooterProps {
+  /** The line about the rows: the single-vote caveat or the filter's note, null with no rows. */
+  caveat: string | null;
+  /** silentNote's caption (R-31), or null. */
+  note: string | null;
+}
+
+/** The captions under the panel: the line about the rows, then the engine-silent one. Nothing for neither. */
+function PairsFooter({caveat, note}: PairsFooterProps) {
+  if (caveat == null && note == null) return null;
+  return (
+    <div style={FOOTER}>
+      {caveat && <p style={CAPTION}>{caveat}</p>}
+      {note && <p style={CAPTION}>{note}</p>}
+    </div>
+  );
+}
+
 interface VotedPairsPanelProps {
   /** pairsForCard's pairs, widest gap first: at least one (the view shows a notice for none). */
   cardPairs: readonly CardPair[];
@@ -129,36 +222,23 @@ interface VotedPairsPanelProps {
  * of them in a list that scrolls inside the panel (R-47). Each partner links
  * to its own card page when the card list holds it (R-33). The jump prints as
  * PairList prints it (scoreText), so a pair reads the same on /calibration.
- * The footer keeps the handoff's caveat and the engine-silent caption.
+ * The votes filter in the header (#33), the one /calibration shows, keeps only
+ * pairs with more score votes; the header counts what it keeps, and the
+ * footer's first line says it is on, in place of the handoff's caveat. The
+ * footer also keeps the engine-silent caption, which counts every vote.
  */
 export function VotedPairsPanel({cardPairs, isListed, note}: VotedPairsPanelProps) {
+  const {filter} = useVotesFilter();
+  const shown = pairsWithVotes(cardPairs, filter);
+  const empty = shown.length === 0;
   return (
-    <Panel title="Voted pairs" action={`${countOf(cardPairs.length, 'pair')} · widest gap first`} padded={false}>
-      <div style={SCROLLER}>
-        <table aria-label="Voted pairs, widest gap first" style={TABLE}>
-          <colgroup>
-            <col />
-            <col style={{width: COLUMN_WIDTH.scores}} />
-            <col style={{width: COLUMN_WIDTH.gap}} />
-            <col style={{width: COLUMN_WIDTH.votes}} />
-          </colgroup>
-          <PairsHead />
-          <tbody>
-            {cardPairs.map((pair, i) => (
-              <PairRow
-                key={pair.partnerId}
-                pair={pair}
-                listed={isListed(pair.partnerId)}
-                first={i === 0}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div style={FOOTER}>
-        <p style={CAPTION}>Most pairs have a single vote — trust the card-level trend over any one row.</p>
-        {note && <p style={CAPTION}>{note}</p>}
-      </div>
+    <Panel title="Voted pairs" action={<PairsAction shown={shown} all={cardPairs} filter={filter} />} padded={false}>
+      {empty ? (
+        <p style={EMPTY}>No {votesClause(filter)} for this card yet.</p>
+      ) : (
+        <PairsTable pairs={shown} isListed={isListed} filter={filter} />
+      )}
+      <PairsFooter caveat={empty ? null : (filterNote(filter) ?? SINGLE_VOTE)} note={note} />
     </Panel>
   );
 }
