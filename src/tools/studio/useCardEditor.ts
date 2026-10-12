@@ -16,6 +16,7 @@ import {
   editLookup,
   editPreview,
   editSynergies,
+  imageOnlyOf,
   needsSeed,
   openCard,
   openTag,
@@ -41,7 +42,11 @@ export interface CardEditorInput {
 export interface CardEditorController {
   /** The open card, in cardPageState's order (editorState.ts). */
   lookup: EditLookup;
-  /** Reads again what failed: the card list (its retryLoad), previewCards.json, or both. */
+  /**
+   * Reads again what failed: the card list (its retryLoad) and a failed first
+   * read of previewCards.json. A failed reload is read again through
+   * previewFile.reload (R4-4c or R4-6b take it, addition 11).
+   */
   retry: () => void;
   /** previewCards.json for the search, whatever card is open (R-71); `reload` reads it again. */
   previewFile: PreviewFileView & {reload: () => void};
@@ -49,7 +54,12 @@ export interface CardEditorController {
   tag: CardTag | null;
   /** The form now; null for an image-only card, and until the card is ready. */
   form: RevealCardForm | null;
-  /** Why the open card is image-only (R-61, R-65), or null. */
+  /**
+   * Why the open card is image-only (R-61, R-65), or null: what the page
+   * shows beside a null `form`. It follows the lookup (imageOnlyOf), so a card
+   * of another set opened before previewCards.json landed reads 'other-set'
+   * once the file holds it, though its draft isn't seeded again.
+   */
   imageOnly: ImageOnlyReason | null;
   patchForm: (patch: Partial<RevealCardForm>) => void;
   validation: ValidationResult;
@@ -134,7 +144,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     previewFile: {...previewFileView(file), reload: () => void file.reload()},
     tag: openTag(lookup),
     form: view.form,
-    imageOnly: view.imageOnly,
+    imageOnly: imageOnlyOf({draft, lookup}),
     patchForm: (patch) => setDraft((d) => patchDraft(d, patch)),
     validation,
     changes: changeRows({loaded: view.loaded, changes, imageName: staged.name}),

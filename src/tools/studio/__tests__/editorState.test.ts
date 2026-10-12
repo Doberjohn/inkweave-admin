@@ -11,6 +11,7 @@ import {
   editPreview,
   editSynergies,
   draftView,
+  imageOnlyOf,
   needsSeed,
   openTag,
   patchDraft,
@@ -97,6 +98,25 @@ describe('the open card’s tag and view', () => {
     const {lookup, draft} = opened({cardId, file});
     const view = draftView(draft);
     expect({tag: openTag(lookup), imageOnly: view.imageOnly, name: view.form?.name}).toEqual(expected);
+  });
+});
+
+describe('imageOnlyOf: the reason the page shows', () => {
+  const OTHER_SET_ID = String(OTHER_SET_ENTRY.id);
+  const lookupOf = ({cardId, file}: {cardId: string; file: PreviewCardsFile}) => editLookup({cardId, list: cardList(), file});
+  // A draft keeps the kind it was seeded with; these two were seeded before a read that changes their card's reason.
+  const seededLoading = opened({cardId: OTHER_SET_ID, file: LOADING}).draft;
+  const seededWithoutEntry = opened({file: readFile({cards: []})}).draft;
+  it.each<[string, Draft, EditLookup, ImageOnlyReason | null]>([
+    ['a field edit', opened().draft, opened().lookup, null],
+    ['a field edit whose card a newer read lacks: its form stays', opened().draft, lookupOf({cardId: MEI_ID, file: readFile({cards: [], read: 2})}), null],
+    ['a draft that waits', opened({file: LOADING}).draft, {kind: 'loading'}, null],
+    ['a card of another set while the file loads (R-71)', seededLoading, lookupOf({cardId: OTHER_SET_ID, file: LOADING}), 'released'],
+    ['the same card once the file holds it: a pin lag (R-65)', seededLoading, lookupOf({cardId: OTHER_SET_ID, file: readFile()}), 'other-set'],
+    ['an image draft whose card isn’t ready', seededLoading, {kind: 'loading'}, 'released'],
+    ['an image draft whose entry now has fields: it has no form, so its own reason', seededWithoutEntry, lookupOf({cardId: MEI_ID, file: readFile({read: 2})}), 'released'],
+  ])('%s', (_, draft, lookup, expected) => {
+    expect(imageOnlyOf({draft, lookup})).toBe(expected);
   });
 });
 

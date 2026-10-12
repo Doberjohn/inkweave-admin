@@ -8,6 +8,7 @@ import {useCardEditor} from '../useCardEditor';
 import {
   BRANCH_ENTRIES,
   DUAL_INK_ENTRY,
+  OTHER_SET_ENTRY,
   PREVIEW_ENTRY,
   RELEASED_CARD,
   RELEASED_SONG,
@@ -138,6 +139,19 @@ describe('useCardEditor: the open card', () => {
       imageOnly: 'unnumbered',
       tag: 'Preview',
     });
+  });
+
+  it('says a card of another set is a pin lag once previewCards.json lands, and keeps its staged image (R-65)', async () => {
+    const read = deferRead();
+    const {result} = await renderEditor({cardId: idOf(OTHER_SET_ENTRY)});
+    const shown = () => ({imageOnly: result.current.imageOnly, tag: result.current.tag, imageName: result.current.imageName});
+    // R-71: it opens at once, as released, while the file loads.
+    await stage(result, pngFile('a.png'));
+    expect(shown()).toEqual({imageOnly: 'released', tag: 'Released', imageName: 'a.png'});
+
+    await read.land();
+    expect(shown()).toEqual({imageOnly: 'other-set', tag: 'Preview', imageName: 'a.png'});
+    expect(result.current.lookup).toMatchObject({kind: 'ready', imageOnly: 'other-set'});
   });
 
   it('shows an unreadable previewCards.json, and Retry reads it again', async () => {
@@ -300,6 +314,17 @@ describe('useCardEditor: the staged image (useImageAdmin.test.ts’s cases)', ()
       dataUrl: null,
       error: 'Could not read the image: read failed',
     });
+  });
+
+  it('holds a preview card’s staged file to the validator’s image rule while its bytes are read', async () => {
+    const {result} = await renderEditor({cardId: idOf(MEI)});
+    act(() => void result.current.onImageChange(pngFile('scan.gif')));
+    const shown = () => ({error: result.current.imageError, validator: result.current.validation.errors.image});
+    expect(shown()).toEqual({error: 'Image must be jpg, jpeg, png, or webp', validator: 'Image must be jpg, jpeg, png, or webp'});
+
+    // Once read, the upload's own check comes first (imageErrorOf).
+    await DeferredReader.finish(0);
+    expect(shown()).toEqual({error: 'scan.gif is not a JPEG, PNG or WebP image.', validator: 'Image must be jpg, jpeg, png, or webp'});
   });
 });
 

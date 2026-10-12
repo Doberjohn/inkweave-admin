@@ -57,8 +57,9 @@ function opened({card, file}: {card: LorcanaCard; file: PreviewCardsFile}): Edit
  * A card the list holds. Only a card of the reveal set waits for the file,
  * which says whether it is still a preview card; a card of any other set is
  * released and image-only straight from the list, so image fixes never wait on
- * the file or its errors (R-71). Its reason becomes 'other-set' if the file,
- * once read, holds it (a pin lag, R-65).
+ * the file or its errors (R-71). The lookup's reason becomes 'other-set' once
+ * the file, read, holds it (a pin lag, R-65). Its draft, seeded as released,
+ * isn't seeded again, so the page reads the reason through imageOnlyOf.
  */
 function cardLookup({card, file}: {card: LorcanaCard; file: PreviewCardsFile}): EditLookup {
   if (card.setCode !== REVEAL_SET_CODE) return opened({card, file});
@@ -182,12 +183,29 @@ export function fieldsOf(draft: Draft): FieldsEdit | null {
 export interface DraftView {
   form: RevealCardForm | null;
   loaded: LorcanaJSONCard | null;
+  /** The reason the draft was seeded with. The page shows imageOnlyOf's, which follows the lookup. */
   imageOnly: ImageOnlyReason | null;
 }
 
 export function draftView({edit}: Draft): DraftView {
   if (edit?.kind === 'fields') return {form: edit.form, loaded: edit.loaded, imageOnly: null};
   return {form: null, loaded: null, imageOnly: edit?.kind === 'image' ? edit.reason : null};
+}
+
+/**
+ * Why the open card shows no form (R-61, R-65): what the page reads. Null for
+ * a field edit and while the card waits. An image draft keeps its kind, but
+ * its reason is the lookup's while that is ready, so a card of another set,
+ * opened as released before previewCards.json landed, reads 'other-set' once
+ * the file holds it (a pin lag), with its staged image kept. A ready lookup
+ * with no reason (its entry now has fields) leaves the draft's own: the draft
+ * has no form to show.
+ */
+export function imageOnlyOf({draft, lookup}: {draft: Draft; lookup: EditLookup}): ImageOnlyReason | null {
+  const seeded = draftView(draft).imageOnly;
+  if (seeded === null) return null;
+  const current = lookup.kind === 'ready' ? lookup.imageOnly : null;
+  return current ?? seeded;
 }
 
 /** The open card, once its lookup is ready. */
