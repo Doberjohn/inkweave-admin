@@ -1,12 +1,15 @@
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {filterCards} from '../image/filterCards';
 import {REVEAL_SET_CODE} from '../reveal/constants';
+import {isDeployed} from './branchCards';
 
 /**
  * The most rows Edit card's search lists. The search screen's status line says
  * when a query finds more (R4-5f), so the two agree.
  */
 export const SEARCH_LIMIT = 40;
+
+const NO_IDS: ReadonlySet<number> = new Set();
 
 /** Whether a card's data is still the branch file's (Preview) or LorcanaJSON's (Released, image only). */
 export type CardTag = 'Preview' | 'Released';
@@ -15,15 +18,19 @@ export type CardTag = 'Preview' | 'Released';
 export interface SearchRow {
   card: LorcanaCard;
   tag: CardTag | null;
+  /** False for a card only the branch file holds: "not deployed yet", with no Card analytics link (R-66, R-33). */
+  deployed: boolean;
 }
 
 export interface EditSearchInput {
-  /** Every card the search can open: the card list (Core sets 9 and up). */
+  /** Every card the search can open: the card list (Core sets 9 and up), after the cards only the branch file holds (R-66). */
   cards: readonly LorcanaCard[];
   /** The text in the search field. */
   query: string;
   /** The ids in the target branch's previewCards.json (previewIdsOf); null until it is read, or after a failed read. */
   previewIds: ReadonlySet<number> | null;
+  /** The ids only the branch file holds (editSources' branchOnlyIds); with none given, every row is deployed. */
+  branchOnlyIds?: ReadonlySet<number>;
 }
 
 export interface EditSearchResult {
@@ -73,11 +80,16 @@ function previewFirst(cards: readonly LorcanaCard[], previewIds: ReadonlySet<num
  * through the kept filterCards (R-30): fullName or id, either apostrophe style,
  * prefix matches first. The branch file's cards lead each rank, so a blank query
  * lists them first (R-76). One filterCards pass gives the rows and the total.
+ * Each row says whether inkweave.ink serves it yet (R-66).
  */
-export function searchCards({cards, query, previewIds}: EditSearchInput): EditSearchResult {
+export function searchCards({cards, query, previewIds, branchOnlyIds = NO_IDS}: EditSearchInput): EditSearchResult {
   const matches = filterCards(previewFirst(cards, previewIds), query, Infinity);
   return {
-    rows: matches.slice(0, SEARCH_LIMIT).map((card) => ({card, tag: cardTag(card, previewIds)})),
+    rows: matches.slice(0, SEARCH_LIMIT).map((card) => ({
+      card,
+      tag: cardTag(card, previewIds),
+      deployed: isDeployed({card, branchOnlyIds}),
+    })),
     total: matches.length,
   };
 }

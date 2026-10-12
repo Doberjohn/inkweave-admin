@@ -112,3 +112,23 @@ describe('searchCards', () => {
     });
   });
 });
+
+// R4-4d (R-66): the cards only the branch file holds.
+describe('searchCards: deployed', () => {
+  // A card New reveal just published leads the list (editSources puts it first), then the card list.
+  const cards = [revealCard(9), revealCard(1), card({id: '1936'})];
+  const previewIds = new Set([REVEAL_ID_BASE + 9, REVEAL_ID_BASE + 1]);
+
+  it('marks a row the branch file alone holds as not deployed yet', () => {
+    const {rows} = searchCards({cards, query: '', previewIds, branchOnlyIds: new Set([REVEAL_ID_BASE + 9])});
+    expect(rows.map(({card: {id}, tag, deployed}) => ({id, tag, deployed}))).toEqual([
+      {id: String(REVEAL_ID_BASE + 9), tag: 'Preview', deployed: false},
+      {id: String(REVEAL_ID_BASE + 1), tag: 'Preview', deployed: true},
+      {id: '1936', tag: 'Released', deployed: true},
+    ]);
+  });
+
+  it('reads every row as deployed when it is given no branch-only ids', () => {
+    expect(searchCards({cards, query: '', previewIds}).rows.map((row) => row.deployed)).toEqual([true, true, true]);
+  });
+});

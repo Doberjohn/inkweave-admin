@@ -31,6 +31,8 @@ export type EditLookup =
   | {kind: 'loading'}
   | {kind: 'missing'; cardId: string}
   | {kind: 'fileFailed'; error: string}
+  // R4-4d (R-66): a reveal-set card under a preview id that the read file no longer holds (branchLookup)
+  | {kind: 'gone'; card: LorcanaCard}
   | {kind: 'ready'; card: LorcanaCard; entry: LorcanaJSONCard | null; imageOnly: ImageOnlyReason | null};
 
 export interface LookupInput {

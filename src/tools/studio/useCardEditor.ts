@@ -5,6 +5,7 @@ import {useImageUpload} from '../../components/useImageUpload';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {imageErrorOf} from '../reveal/livePreview';
 import type {ValidationResult} from '../reveal/validateForm';
+import {branchLookup, deployedOf, editSources} from './branchCards';
 import {hasEdits, type ImageOnlyReason} from './cardEdit';
 import {changeRows, type ChangeRow} from './changeRows';
 import type {CardTag} from './editSearch';
@@ -81,6 +82,14 @@ export interface CardEditorController extends EditSave {
   /** Stage a file for this card (null clears it). Resolves once its bytes are read. */
   onImageChange: (file: File | null) => Promise<void>;
   revertImage: () => void;
+  /** R4-4d (R-66): every card the search can open: the cards only the branch file holds, then the card list. */
+  searchCards: LorcanaCard[];
+  /** R4-4d (R-66): the ids only the branch file holds, for searchCards' rows. */
+  branchOnlyIds: ReadonlySet<number>;
+  /** R4-4d (R-66): false while the open card is one only the branch file holds; true with none open. */
+  deployed: boolean;
+  /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
+  reloadFile: () => void;
 }
 
 /** What Retry reads again: the shell's card list, and previewCards.json. */
@@ -144,9 +153,9 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  * this hook is wiring.
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
-  const list = useCardDataContext();
-  const file = usePreviewCardsFile(token);
-  const lookup = editLookup({cardId, list, file});
+  // R4-4d (R-66): the card list with the cards only the branch file holds, and the file less allCards' ids.
+  const {list, file} = editSources({list: useCardDataContext(), file: usePreviewCardsFile(token)});
+  const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file});
   const [draft, setDraft] = useEditDraft({cardId, lookup, file});
   const image = useDraftImage(draft, setDraft);
   const {staged} = image;
@@ -186,6 +195,10 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     imageError: imageErrorOf(staged, validation),
     onImageChange: image.onImageChange,
     revertImage: image.revertImage,
+    searchCards: list.cards,
+    branchOnlyIds: list.branchOnlyIds,
+    deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
+    reloadFile: () => void file.reload(),
     ...save,
   };
 }

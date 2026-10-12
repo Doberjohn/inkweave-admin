@@ -60,8 +60,12 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
 export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
 // searchCardsByName is useAutocomplete's own match, run without its debounce
-// (R3-5's "No cards match.").
-export {searchCardsByName, smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// (R3-5's "No cards match."). transformRawCards is how the app's loader builds
+// the card list: the engine's transform plus imageUrl, the image hashes,
+// scanLanguage and the printings. Card studio builds with it the cards that
+// only the target branch's previewCards.json holds (R-66), so each points at
+// its art, which shows once inkweave.ink serves it.
+export {searchCardsByName, smallImageUrl, transformRawCards} from '../upstream/inkweave/apps/web/src/features/cards/loader';
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
 // path). Each id's result is kept for the session, and a non-OK or non-JSON
 // response is kept as an empty result. A failed fetch or malformed JSON rejects
