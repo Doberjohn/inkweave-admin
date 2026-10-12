@@ -171,3 +171,26 @@ export const STUDIO_CARDS: LorcanaCard[] = [RELEASED_CARD, RELEASED_SONG, ...BRA
 
 /** R-66: a card New reveal just published. The branch file holds it, and inkweave.ink doesn't serve it yet. */
 export const BRANCH_ONLY_ENTRY = previewEntry({...ruby(7), name: 'Wren', fullName: 'Wren - Night Busker', version: 'Night Busker'});
+
+/** Mei as the card panel previews her (R4-5d): a named Ruby Character with rules text, and no art until a case gives her some. */
+export const PANEL_CARD: LorcanaCard = {
+  id: '14050',
+  name: 'Mei',
+  version: 'Red Panda',
+  fullName: 'Mei - Red Panda',
+  cost: 4,
+  ink: 'Ruby',
+  inkwell: true,
+  type: 'Character',
+  strength: 3,
+  willpower: 5,
+  lore: 2,
+  setCode: '14',
+  setNumber: 50,
+  rarity: 'Rare',
+  textSections: ['PANDA POWER When you play this character, draw a card.'],
+};
+
+/** Stand-in art for the card panel's tests and stories: the card's art now, and a staged scan. Neither is an AVIF, so smallImageUrl keeps them. */
+export const CURRENT_ART = 'https://placehold.co/337x470/1a1a2e/d4af37?text=Current+art';
+export const STAGED_ART = 'https://placehold.co/337x470/2e1a1a/ffb900?text=Staged+scan';
