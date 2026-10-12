@@ -159,7 +159,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// writePages.test.tsx's three cases, through a data router (R4-6c deletes that file with the old pages).
+// writePages.test.tsx's three cases, ported through a data router when that file went with the old pages (R4-6c).
 describe('StudioPage: the gate and the header', () => {
   it('asks for a token under the title and branch notice, with no mode switch yet', () => {
     renderStudio({token: null});

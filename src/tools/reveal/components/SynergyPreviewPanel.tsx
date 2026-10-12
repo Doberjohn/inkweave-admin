@@ -45,8 +45,7 @@ function GroupRow({group}: {group: SynergyGroup}) {
 
 /**
  * The engine's synergy groups for a card being written: each group's name and
- * how many cards it pairs with. Card studio's SynergyPanel frames it (R-90);
- * the reveal publisher shows it bare until R4-6c retires that page.
+ * how many cards it pairs with. Card studio's SynergyPanel frames it (R-90).
  */
 export function SynergyPreviewPanel({groups}: SynergyPreviewPanelProps) {
   if (groups.length === 0) {

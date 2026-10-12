@@ -2,7 +2,7 @@ import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import {CardName} from '../tools/analytics/CardName';
-import {ImagePage} from '../tools/image/ImagePage';
+import {StudioPage} from '../tools/studio/StudioPage';
 import {AdminShell} from './AdminShell';
 
 // The pages read a card list that holds one card, 2983; the rest of the bridge
@@ -26,7 +26,7 @@ function renderShellAt(path: string) {
     {
       element: <AdminShell />,
       children: [
-        {path: 'image', element: <ImagePage />},
+        {path: 'studio', element: <StudioPage />},
         {path: 'names', element: <NamesPage />},
       ],
     },
@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe('AdminShell', () => {
   it('forgets the token from the sidebar, which sends the page back to its gate', async () => {
-    renderShellAt('/image');
+    renderShellAt('/studio');
     const sidebar = within(screen.getByRole('complementary', {name: 'Admin sidebar'}));
     expect(sidebar.getByText('GitHub token saved')).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Save token'})).not.toBeInTheDocument();

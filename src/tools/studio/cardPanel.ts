@@ -10,7 +10,7 @@ import type {StudioMode} from '../../shell/nav';
 /** What both file controls offer the picker. useImageUpload still reads the bytes (imageProblem). */
 export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
 
-/** The accepted formats, under the controls (R-89), as the image tool named them (UploadColumn.tsx:34). */
+/** The accepted formats, under the controls (R-89), as the image tool named them. */
 export const IMAGE_FORMATS = 'JPEG, PNG or WebP.';
 
 /** The image a draft holds: its file's name, and the error its file controls show (R-72). */

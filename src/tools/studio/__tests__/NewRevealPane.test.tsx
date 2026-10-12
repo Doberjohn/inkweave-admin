@@ -67,7 +67,7 @@ describe('NewRevealPane', () => {
 
   it('shows a refused scan under the card panel, never as the outcome', () => {
     const validation = validateRevealCardForm(revealForm(), new Set(), 'mei.png');
-    renderPane({ctrl: {imageName: 'mei.png', uploadError: 'Not a PNG', publishError: 'Not a PNG', validation}});
+    renderPane({ctrl: {imageName: 'mei.png', uploadError: 'Not a PNG', validation}});
     expect(panel().getByText('Not a PNG')).toBeInTheDocument();
     // The checklist's Image item words it too (R4-3a); the outcome under Publish stays empty.
     expect(aside().queryByRole('alert')).not.toBeInTheDocument();

@@ -242,7 +242,6 @@ export function revealController(overrides: Partial<RevealAdminController> = {})
     publishing: false,
     result: null,
     commitError: null,
-    publishError: null,
     onImageChange: () => {},
     publish: () => Promise.resolve(),
     ...overrides,

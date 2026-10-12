@@ -30,27 +30,27 @@ describe('Sidebar', () => {
     renderSidebar();
     expect(screen.getByText('Insights')).toBeInTheDocument();
     expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web', '/cards']);
-    expect(hrefs('Publish')).toEqual(['/studio', '/reveal', '/image']);
+    expect(hrefs('Publish')).toEqual(['/studio']);
     // The mark is aria-hidden: the exact name proves it stays out of the link's name.
-    expect(nav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('href', '/reveal');
+    expect(nav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('href', '/studio');
   });
 
   it('marks the current page', () => {
-    renderSidebar({path: '/reveal'});
-    expect(nav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('aria-current', 'page');
-    expect(nav().getByRole('link', {name: 'Card images'})).not.toHaveAttribute('aria-current');
+    renderSidebar({path: '/studio'});
+    expect(nav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('aria-current', 'page');
+    expect(nav().getByRole('link', {name: 'Calibration & tuning'})).not.toHaveAttribute('aria-current');
   });
 
   it('shows the token box on a page that writes, and forgets the token from it', async () => {
     const onForgetToken = vi.fn();
-    renderSidebar({path: '/image', tokenSaved: true, onForgetToken});
+    renderSidebar({path: '/studio', tokenSaved: true, onForgetToken});
     expect(screen.getByText('GitHub token saved')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(onForgetToken).toHaveBeenCalledOnce();
   });
 
   it.each([
-    ['a page that writes, with no token saved', '/image', false],
+    ['a page that writes, with no token saved', '/studio', false],
     ['a read-only page, even with a token saved', '/activity', true],
   ])('shows no token box on %s', (_case, path, tokenSaved) => {
     renderSidebar({path, tokenSaved});
@@ -67,9 +67,9 @@ describe('Sidebar', () => {
     await userEvent.click(toggle);
 
     expect(screen.getByRole('button', {name: 'Expand sidebar'})).toHaveAttribute('aria-expanded', 'false');
-    const link = nav().getByRole('link', {name: 'Reveal publisher'});
-    expect(link).toHaveTextContent(/^Re$/);
-    expect(link).toHaveAttribute('title', 'Reveal publisher');
+    const link = nav().getByRole('link', {name: 'Card studio'});
+    expect(link).toHaveTextContent(/^Cs$/);
+    expect(link).toHaveAttribute('title', 'Card studio');
     expect(screen.queryByText('Insights')).not.toBeInTheDocument();
     expect(screen.getByRole('list', {name: 'Insights'})).toBeInTheDocument();
     expect(localStorage.getItem(KEY)).toBe('false');
@@ -78,7 +78,7 @@ describe('Sidebar', () => {
   it('keeps Forget token reachable when collapsed', async () => {
     localStorage.setItem(KEY, 'false');
     const onForgetToken = vi.fn();
-    renderSidebar({path: '/reveal', tokenSaved: true, onForgetToken});
+    renderSidebar({path: '/studio', tokenSaved: true, onForgetToken});
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(onForgetToken).toHaveBeenCalledOnce();
   });

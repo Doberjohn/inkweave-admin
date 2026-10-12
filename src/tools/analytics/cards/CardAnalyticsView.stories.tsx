@@ -1,8 +1,9 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {MemoryRouter} from 'react-router-dom';
-import {CtaButton} from '../../../app-bridge';
+import {studioHref} from '../../../shell/nav';
 import {PageLayout} from '../../../shell/PageLayout';
 import {DataAsOf} from '../../../ui/DataAsOf';
+import {PanelLink} from '../overview/PanelLink';
 import {CardAnalyticsView} from './CardAnalyticsView';
 import {
   CARD_500,
@@ -72,15 +73,9 @@ export const AnalyticsNotGenerated: Story = {args: {analytics: NOT_GENERATED}};
 
 export const AnalyticsLoading: Story = {args: {analytics: LOADING, voteLog: LOADING}};
 
-/** R4's slot: "Edit in Card studio" at the right of the card header. */
+/** "Edit in Card studio" at the right of the card header, the router link the page passes (R-82). */
 export const HeaderActions: Story = {
-  args: {
-    headerActions: (
-      <CtaButton type="button" variant="neutral">
-        Edit in Card studio
-      </CtaButton>
-    ),
-  },
+  args: {headerActions: <PanelLink to={studioHref('edit', MAUI_CARD.id)}>Edit in Card studio</PanelLink>},
 };
 
 /** Fourteen more partners for Maui, none of them in the card list, at gaps from 0 to −1.5. */

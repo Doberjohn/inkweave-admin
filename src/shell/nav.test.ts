@@ -2,27 +2,26 @@ import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor, studioHr
 
 describe('navItemFor', () => {
   it.each([
-    ['/reveal', 'reveal'],
-    ['/reveal/', 'reveal'],
+    ['/studio', 'studio'],
+    ['/studio/', 'studio'],
     ['/calibration/anything', 'calibration'],
     ['/cards/2983', 'cards'],
-    ['/studio', 'studio'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
 
-  it.each(['/imagery', '/no-such-page'])('gives %s to no item', (pathname) => {
+  it.each(['/studios', '/no-such-page'])('gives %s to no item', (pathname) => {
     expect(navItemFor(pathname)).toBeUndefined();
   });
 });
 
 describe('isWritePath', () => {
-  it.each(['/calibration', '/reveal', '/image/', '/studio'])('%s writes to the app', (pathname) => {
+  it.each(['/calibration', '/studio', '/studio/'])('%s writes to the app', (pathname) => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
-  // /tuning is a redirect now, and a redirect writes nothing.
-  it.each(['/tuning', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
+  // /tuning, /reveal and /image are redirects now, and a redirect writes nothing.
+  it.each(['/tuning', '/reveal', '/image', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -52,9 +51,10 @@ describe('the Calibration & tuning item', () => {
 });
 
 describe('the Card studio item', () => {
-  it('heads Publish, and owns /studio, which writes (R4)', () => {
-    const publish = NAV_ITEMS.filter((item) => item.group === 'publish');
-    expect(publish[0]).toMatchObject({id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', writes: true});
+  it('is the one Publish item, in place of the two old write tools (R4)', () => {
+    expect(NAV_ITEMS.filter((item) => item.group === 'publish')).toEqual([
+      {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
+    ]);
   });
 });
 

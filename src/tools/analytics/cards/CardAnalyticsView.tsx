@@ -24,7 +24,7 @@ export interface CardAnalyticsViewProps {
   getCardById: (id: string) => LorcanaCard | undefined;
   /** The page's focus handoff (R-48): the header's h2 takes it. A story leaves it out. */
   handoff?: FocusHandoff;
-  /** R4's "Edit in Card studio", at the right of the card header. R3 passes none. */
+  /** At the right of the card header: the page's "Edit in Card studio" link (R-82). */
   headerActions?: React.ReactNode;
 }
 

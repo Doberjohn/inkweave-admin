@@ -207,7 +207,6 @@ describe('useRevealAdmin', () => {
         imageDataUrl: null,
         uploadError: problem,
         imageError: problem,
-        publishError: problem,
         commitError: null,
       });
     });
@@ -236,7 +235,6 @@ describe('useRevealAdmin', () => {
       act(() => void result.current.publish());
       await waitFor(() => expect(result.current.commitError).toBe('master changed while publishing'));
       expect(result.current).toMatchObject({
-        publishError: 'master changed while publishing',
         uploadError: null,
         result: null,
         dirty: true,
@@ -244,7 +242,7 @@ describe('useRevealAdmin', () => {
       });
 
       await publish(result);
-      expect(result.current).toMatchObject({commitError: null, publishError: null});
+      expect(result.current).toMatchObject({commitError: null});
     });
   });
 });

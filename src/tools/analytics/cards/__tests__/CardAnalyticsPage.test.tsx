@@ -41,7 +41,8 @@ vi.mock('../../../../app-bridge', async (importOriginal) => {
 
 // R3-6's view has its own tests. This stand-in keeps what the page relies on:
 // the card header's h2 takes the page's handoff (R-48), a count that only a
-// remount resets (R-46), and a partner link. It records the props it gets.
+// remount resets (R-46), a partner link, and the header's actions (R-82). It
+// records the props it gets.
 const viewProps = vi.hoisted(() => [] as CardAnalyticsViewProps[]);
 vi.mock('../CardAnalyticsView', async () => {
   const {useRef, useState} = await import('react');
@@ -59,6 +60,7 @@ vi.mock('../CardAnalyticsView', async () => {
           Pressed {presses}
         </button>
         <Link to="/cards/2984">Partner</Link>
+        {props.headerActions}
       </section>
     );
   }
@@ -274,6 +276,14 @@ describe('CardAnalyticsPage: a card', () => {
     );
     expect(cardHeading('Elsa - Snow Queen')).toBeInTheDocument();
     expect(screen.queryByText(/Data as of/)).not.toBeInTheDocument();
+  });
+
+  it('links the card to Edit card in Card studio (R-82)', () => {
+    renderPage('/cards/2983');
+    expect(screen.getByRole('link', {name: 'Edit in Card studio'})).toHaveAttribute(
+      'href',
+      '/studio?mode=edit&card=2983',
+    );
   });
 
   it('says no card has an unknown id, and forgets it (R-29)', () => {

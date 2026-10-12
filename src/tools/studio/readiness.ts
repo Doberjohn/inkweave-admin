@@ -74,7 +74,7 @@ function inkPending({form}: ItemInput): string | null {
  * The image's error: the upload's own (bytes that aren't the image the name
  * claims, or a read that failed), else the validator's (no file yet, or a name
  * it refuses). The upload's comes first because it says what to do ("rename it
- * to end in .png"), as the reveal publisher shows it today.
+ * to end in .png").
  */
 function imageError(errors: Errors, image: Pick<ImageStatus, 'error'>): string | null {
   return image.error ?? firstError(errors, ['image']);

@@ -58,8 +58,6 @@ export interface RevealAdminController {
   result: {commitUrl: string} | null;
   /** The last publish's failure alone, or null; a publish clears it as it starts. */
   commitError: string | null;
-  /** commitError, else uploadError: the reveal publisher's one error line. */
-  publishError: string | null;
   onImageChange: (file: File | null) => void;
   /** Commits the card; resolves once the commit has landed or failed, so a page can move focus to the outcome (R-59). */
   publish: () => Promise<void>;
@@ -125,8 +123,6 @@ export function useRevealAdmin(): RevealAdminController {
     publishing,
     result,
     commitError,
-    // A file that can't be read is why Publish stays off; say so where errors show.
-    publishError: commitError ?? upload.error,
     onImageChange: upload.choose,
     publish,
   };

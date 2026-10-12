@@ -8,7 +8,7 @@ const groups = [
 ] as unknown as SynergyGroup[];
 
 const meta: Meta<typeof SynergyPreviewPanel> = {
-  title: 'Reveal Admin/SynergyPreviewPanel',
+  title: 'Admin/Publish/Card studio/Synergy rows',
   component: SynergyPreviewPanel,
 };
 export default meta;

@@ -86,7 +86,7 @@ function NewRevealAside({ctrl, handoff, onForgetToken}: Omit<NewRevealPaneProps,
 }
 
 /**
- * New reveal (R-2): today's reveal publisher in the studio's layout. The card
+ * New reveal (R-2), in the studio's layout. The card
  * panel previews the draft and takes its scan, the form holds its fields, and
  * the aside publishes it. The controller lives in StudioWorkspace, so a mode
  * switch keeps the draft (R-57).
