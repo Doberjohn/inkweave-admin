@@ -71,15 +71,12 @@ export {
   getStrengthTier,
   type StrengthTierLabel,
 } from '../upstream/inkweave/apps/web/src/features/synergies/utils/scoreUtils';
-// RaritySymbol draws Common to Legendary; rarityConfigOf maps a card's rarity
-// ("Super Rare") to the same five keys and returns undefined for any other.
+// RaritySymbol draws Common to Legendary and the Enchanted, Epic and Iconic
+// printings, by lowercased key ("super rare", "enchanted"), and nothing for any
+// other key. rarityConfigOf maps a card's rarity ("Super Rare") to one of the
+// five rarities' keys, and returns undefined for anything else, printings too.
 export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
 export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
-// Enchanted, Epic and Iconic are printings RaritySymbol doesn't draw; the app's
-// PrintingPills shows them from these files (?no-inline keeps them out of the JS).
-export {default as enchantedSymbol} from '../upstream/inkweave/apps/web/src/assets/enchanted.webp?no-inline';
-export {default as epicSymbol} from '../upstream/inkweave/apps/web/src/assets/epic.webp?no-inline';
-export {default as iconicSymbol} from '../upstream/inkweave/apps/web/src/assets/iconic.webp?no-inline';
 // The pinned app's previewCards.json as text. The reveal tool's insert test
 // runs against it, so a pin bump that changes the file's layout fails here.
 export {default as PINNED_PREVIEW_CARDS_JSON} from '../upstream/inkweave/apps/web/public/data/previewCards.json?raw';
