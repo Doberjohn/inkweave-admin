@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest';
+import {SynergyEngine, type SynergyRule} from 'inkweave-synergy-engine';
 import {TIER_COLORS, getStrengthTier} from '../../../../app-bridge';
 import {
   ENGINE_CAPPED,
@@ -6,6 +7,7 @@ import {
   ENGINE_FIFTEEN,
   ENGINE_ONE_PARTNER,
   engineFixture,
+  lorcanaCard,
   type EngineFixture,
 } from '../cardFixtures';
 import {
@@ -51,6 +53,17 @@ describe('enginePartners', () => {
       '314',
       '315',
     ]);
+  });
+
+  // The engine cuts a group by score, then name, with localeCompare in the build's locale. The app
+  // builds in a Playwright noble container, and this suite's CI on ubuntu-latest: C.UTF-8 in both,
+  // which Node reads as en-US. A Turkish locale would put "Iago" before "iago" and fail this.
+  it("orders tied names as the engine's localeCompare does in CI's locale, case included", () => {
+    const names = ['banana', 'Apple', 'apple', 'APPLE', 'Banana', 'zed', 'Zed', 'Éclair', 'eclair', 'Eclair', 'Iago', 'iago'];
+    const tied = engineFixture(names.map((name, i) => ({id: String(i + 1), name, score: 5})));
+    const engineOrder = [...names].sort((a, b) => a.localeCompare(b));
+    expect(partnersOf(tied).map((partner) => partner.name)).toEqual(engineOrder);
+    expect(engineOrder.slice(0, 3)).toEqual(['apple', 'Apple', 'APPLE']);
   });
 
   it('breaks a tie on score and name by id, in code-unit order', () => {
@@ -101,8 +114,23 @@ describe('engineSummary', () => {
     });
   });
 
+  it('cuts a group where the engine does: a default SynergyEngine, as the precompute runs, keeps ENGINE_GROUP_CAP', () => {
+    // One rule that pairs the card with every other, so its one group holds them all until the cut.
+    const everyone: SynergyRule = {
+      id: 'everyone',
+      name: 'Everyone',
+      description: 'Pairs with every card.',
+      category: 'direct',
+      matches: () => true,
+      findSynergies: (card, cards) =>
+        cards.filter((other) => other.id !== card.id).map((other) => ({card: other, score: 5, explanation: ''})),
+    };
+    const cards = Array.from({length: ENGINE_GROUP_CAP + 5}, (_, i) => lorcanaCard({id: String(i + 1), name: `Card ${i + 1}`}));
+    const groups = new SynergyEngine({rules: [everyone]}).findSynergies(cards[0], cards);
+    expect(groups.map((group) => group.synergies.length)).toEqual([ENGINE_GROUP_CAP]);
+  });
+
   it('is capped once a group lists ENGINE_GROUP_CAP partners, and not one short of it', () => {
-    expect(ENGINE_GROUP_CAP).toBe(100);
     expect(summaryOf(ENGINE_CAPPED)).toMatchObject({partners: 142, capped: true});
     // More than ENGINE_GROUP_CAP partners, but spread over two groups that each
     // stay under it (99 in Ramp, 5 in Singer): the cap is per group, not per card.

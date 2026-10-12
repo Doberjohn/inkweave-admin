@@ -3,9 +3,10 @@ import {LETTER_SPACING, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 
 /*
- * The styles the card page's panels share (R3-6a to R3-6c): its two tables'
- * cells, its links and its captions. RulesTable and VoteDetailTable keep their
- * own copies; these match them.
+ * The styles the card page's panels share: its two tables' cells, its links,
+ * its captions and its one opaque fill. The head cells set their type as
+ * RulesTable's and VoteDetailTable's do; the body cells pad 8px all round,
+ * closer than either table's rows.
  */
 
 /** A muted line under a chart or a list: a caveat, a count left out, where the data comes from. */
@@ -31,12 +32,21 @@ export const CELL: CSSProperties = {
 /** A number column: right-aligned, in figures that line up row to row. */
 export const NUMBER: CSSProperties = {textAlign: 'right', fontVariantNumeric: 'tabular-nums'};
 
-/**
- * A link on the card page: a card or a rule, in the accent, as PanelLink sets
- * the Overview's. The app's global :focus-visible ring draws 4px outside it,
- * so nothing that clips may sit within 4px of a link's edge.
- */
-export const LINK: CSSProperties = {color: ADMIN_COLORS.accent, textDecoration: 'none'};
+/** A count beside the number a row is about: muted, never dim (R-6). */
+export const MUTED_NUMBER: CSSProperties = {...NUMBER, color: ADMIN_COLORS.muted};
 
-/** A link that fills its cell or flex slot and cuts a long name with an ellipsis. */
-export const CELL_LINK: CSSProperties = {...LINK, ...TRUNCATE, display: 'block', minWidth: 0};
+/**
+ * The card fill laid over the page, for what must hide what is under it: the
+ * switcher's list and Voted pairs' sticky head (adminTheme.ts's note on fills).
+ */
+export const OPAQUE_CARD = `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), ${ADMIN_COLORS.page}`;
+
+/**
+ * A link on the card page, to a card or a rule, that fills its cell or flex
+ * slot and cuts a long name with an ellipsis. It takes className="adm-link"
+ * too: a name inside data keeps the text colour and a muted underline, golds
+ * on hover and takes the accent ring, as CardName's names do on the other
+ * pages (R3-8). The ring reaches 4px outside the link (2px wide, 2px out), so
+ * nothing that clips may sit within 4px of a link's edge.
+ */
+export const CELL_LINK: CSSProperties = {...TRUNCATE, display: 'block', minWidth: 0};

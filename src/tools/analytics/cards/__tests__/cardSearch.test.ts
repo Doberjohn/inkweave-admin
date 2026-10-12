@@ -1,4 +1,4 @@
-import {NO_MATCH, cardLabel, switcherStatus, type SwitcherState} from '../cardSearch';
+import {NO_MATCH, cardLabel, openedStatus, switcherStatus, type SwitcherState} from '../cardSearch';
 import {SWITCHER_CARDS} from '../cardFixtures';
 
 describe('cardLabel', () => {
@@ -8,6 +8,15 @@ describe('cardLabel', () => {
     {card: {name: 'Magic Mirror'}, label: 'Magic Mirror'},
   ])('reads "$label"', ({card, label}) => {
     expect(cardLabel(card)).toBe(label);
+  });
+});
+
+describe('openedStatus', () => {
+  it('names the card a pick opened as its row does', () => {
+    expect(openedStatus({name: 'Mickey Mouse', version: 'Brave Little Tailor'})).toBe(
+      'Opened Mickey Mouse · Brave Little Tailor.',
+    );
+    expect(openedStatus({name: 'Magic Mirror'})).toBe('Opened Magic Mirror.');
   });
 });
 

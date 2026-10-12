@@ -44,7 +44,9 @@ function asError(err: unknown): Error {
  * One case reads as settled during a fetch: coming back to a card before the
  * card in between settles shows that card's last outcome, its file or its
  * error, until the new fetch lands. The last settled fetch still answers that
- * card and try. The app's stateForCard behaves the same way.
+ * card and try. The app's hook reads as loading there instead: its effect
+ * starts each fetch by resetting its state (FETCH_START), the synchronous
+ * set this hook leaves out.
  */
 export function useCardSynergies(cardId: string | null): UseCardSynergiesReturn {
   const [attempt, setAttempt] = useState(0);

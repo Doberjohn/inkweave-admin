@@ -7,7 +7,7 @@ import {Panel} from '../../../ui/Panel';
 import {countOf} from '../activity/activityModel';
 import {scoreText} from '../calibration/chartData';
 import {gapColor} from '../gapColor';
-import {CAPTION, CELL, CELL_LINK, HEAD_CELL, NUMBER} from './cardStyles';
+import {CAPTION, CELL, CELL_LINK, HEAD_CELL, MUTED_NUMBER, NUMBER, OPAQUE_CARD} from './cardStyles';
 import type {CardPair} from './cardStats';
 
 /** The fixed columns, padding included; Paired with takes the rest. "10 → 4.33" fits 96px at 13px. */
@@ -32,13 +32,12 @@ const STICKY_HEAD: React.CSSProperties = {
   ...HEAD_CELL,
   position: 'sticky',
   top: 0,
-  background: `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), ${ADMIN_COLORS.page}`,
+  background: OPAQUE_CARD,
   boxShadow: `inset 0 -1px 0 ${ADMIN_COLORS.divider}`,
 };
 // The outer cells keep 16px from the panel's edge, as PairList's rows do.
 const START: React.CSSProperties = {paddingLeft: SPACING.lg};
 const END: React.CSSProperties = {paddingRight: SPACING.lg};
-const MUTED_NUMBER: React.CSSProperties = {...NUMBER, color: ADMIN_COLORS.muted};
 const FOOTER: React.CSSProperties = {
   display: 'grid',
   gap: SPACING.xs,
@@ -52,7 +51,11 @@ interface PartnerProps {
   listed: boolean;
 }
 
-/** The partner's name: a link to its own card page, or plain text when the card list can't open it. */
+/**
+ * The partner's name: a link to its own card page, or plain text when the
+ * card list can't open it. The link's underline, not its colour, tells the two
+ * apart (adm-link, WCAG 1.4.1).
+ */
 function Partner({pair, listed}: PartnerProps) {
   if (!listed) {
     return (
@@ -62,7 +65,7 @@ function Partner({pair, listed}: PartnerProps) {
     );
   }
   return (
-    <Link to={cardsHref(pair.partnerId)} title={pair.partnerName} style={CELL_LINK}>
+    <Link to={cardsHref(pair.partnerId)} title={pair.partnerName} className="adm-link" style={CELL_LINK}>
       {pair.partnerName}
     </Link>
   );

@@ -268,9 +268,10 @@ function MoreNote({more, onShowAll}: {more: number; onShowAll?: () => void}) {
  * The SVG is decoration (aria-hidden). Each node is a real link in a named
  * list, in strength order, covering at least 24px round its dot and its
  * printed name. Hover or focus shows the node's tooltip and dims the other
- * spokes (R-41). A name prints only where textWidth says it fits (R-40); one
- * that doesn't stays in the tooltip, the link's name and the table view the
- * page passes ChartFrame.
+ * spokes (R-41). A name prints only where textWidth says it fits (R-40),
+ * on the first side of its node with room, the strongest node's first, so a
+ * narrow plot keeps the strongest names (#34). One with no room stays in the
+ * tooltip, the link's name and the table view the page passes ChartFrame.
  *
  * This measures the width and places the network, and nothing else: the
  * active node lives in NetworkPlot. The width follows the container

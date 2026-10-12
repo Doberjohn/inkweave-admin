@@ -1,6 +1,7 @@
 import {CtaButton, LETTER_SPACING, LinkButton, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtWeekday} from '../../../ui/format';
+import {SR_ONLY} from '../../../ui/layout';
 import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
 import {PairLine} from '../CardName';
@@ -9,18 +10,6 @@ import {carriesLabel, countOf, logPage, type LogDay} from './activityModel';
 
 /** Rows on the log's first page, and rows each "Show more" adds. */
 export const LOG_PAGE_SIZE = 25;
-
-/** Hides the caption on screen; screen readers still name the table by it. */
-const SR_ONLY: React.CSSProperties = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  margin: -1,
-  padding: 0,
-  overflow: 'hidden',
-  clipPath: 'inset(50%)',
-  whiteSpace: 'nowrap',
-};
 
 const CELL: React.CSSProperties = {
   padding: `${SPACING.sm}px ${SPACING.lg}px`,

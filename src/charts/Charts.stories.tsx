@@ -505,7 +505,12 @@ function NetworkCard({nodes, subtitle, maxWidth}: NetworkCardProps) {
             table={{
               caption: 'Synergy partners of Queen Elsa, strongest first',
               columns: ['Partner', 'Score', 'Tier', 'Rules'],
-              rows: nodes.map((node) => [node.tooltip.title, fmtInt(node.value), node.seriesId, node.tooltip.rows[1].value]),
+              rows: nodes.map((node) => [
+                {text: node.tooltip.title, href: node.href},
+                fmtInt(node.value),
+                node.seriesId,
+                node.tooltip.rows[1].value,
+              ]),
             }}
             view={view}
             onViewChange={setView}>
@@ -547,7 +552,7 @@ export const NetworkLongNames: Story = {
   ),
 };
 
-/** A phone-width panel: the side names drop first. */
+/** A phone-width panel: a name whose first spot is taken moves to another side of its node, the strongest first (#34). */
 export const NetworkNarrow: Story = {
   render: () => <NetworkCard nodes={partnerNodes(12)} subtitle="At 320px" maxWidth={320} />,
 };

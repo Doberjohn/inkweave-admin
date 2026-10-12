@@ -1,11 +1,9 @@
 import {useId} from 'react';
 import {RADIUS, SPACING} from '../app-bridge';
-import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {LEGEND_ITEM, LEGEND_LIST, LEGEND_SWATCH as SWATCH} from '../ui/legend';
 import {HatchPattern} from './HatchPattern';
 import {chartDomId, hatchId, seriesPaint, type SeriesDef} from './series';
 
-/** A bar or area swatch, in px. */
-const SWATCH = SPACING.md - SPACING.xxs;
 /** A line key's length, in px. */
 const LINE_KEY = SPACING.lg;
 
@@ -32,20 +30,9 @@ export function ChartLegend({series, mark}: ChartLegendProps) {
   const chartId = chartDomId(useId());
   if (series.length < 2) return null;
   return (
-    <ul
-      aria-label="Legend"
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: `${SPACING.xs}px ${SPACING.lg}px`,
-        margin: 0,
-        padding: 0,
-        listStyle: 'none',
-        fontSize: ADMIN_TYPE.label,
-        color: ADMIN_COLORS.muted,
-      }}>
+    <ul aria-label="Legend" style={LEGEND_LIST}>
       {series.map((s) => (
-        <li key={s.id} style={{display: 'inline-flex', alignItems: 'center', gap: SPACING.xs}}>
+        <li key={s.id} style={LEGEND_ITEM}>
           {mark === 'line' ? (
             <svg aria-hidden="true" width={LINE_KEY} height={SWATCH} style={{display: 'block', flex: 'none'}}>
               <line

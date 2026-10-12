@@ -98,7 +98,8 @@ function useTabTitle({title, documentTitle}: Pick<PageLayoutProps, 'title' | 'do
 
 /**
  * The body's ref, scrolled back to the top when `scrollKey` changes after the
- * first render, before the next paint. A page that passes none never scrolls.
+ * first render, before the next paint. A page that passes none keeps its
+ * scroll: this never moves it.
  */
 function useScrollReset({scrollKey}: Pick<PageLayoutProps, 'scrollKey'>) {
   const bodyRef = useRef<HTMLDivElement>(null);

@@ -1,4 +1,4 @@
-import {render, screen, waitFor} from '@testing-library/react';
+import {render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
@@ -33,6 +33,8 @@ const pastTheDebounce = () => new Promise((resolve) => setTimeout(resolve, 200))
 describe('CardSwitcher', () => {
   it('is a named combobox that starts collapsed', () => {
     const {input} = renderSwitcher();
+    // A text field, not a search one: a search field's own Escape would empty it as the list closes.
+    expect(input).toHaveAttribute('type', 'text');
     expect(input).toHaveAttribute('placeholder', 'Switch card…');
     expect(input).toHaveAttribute('aria-expanded', 'false');
     expect(input).toHaveAttribute('autocomplete', 'off');
@@ -124,6 +126,48 @@ describe('CardSwitcher', () => {
     expect(input).toHaveValue('mi');
     // Cards still match the text, so there's nothing to report.
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  describe('a pick', () => {
+    const OPENED = 'Opened Miss Bianca · Unwavering Agent.';
+
+    /** Picks the first card "mi" lists, Miss Bianca, from the keys or the pointer. */
+    async function pick(user: User, input: HTMLElement, by: 'Enter' | 'click') {
+      const [first] = await openList(user, input, 'mi');
+      if (by === 'Enter') await user.keyboard('{ArrowDown}{Enter}');
+      else await user.click(first);
+    }
+
+    it.each(['Enter', 'click'] as const)(
+      'says politely which card it opened (%s), on screen readers alone (#34)',
+      async (by) => {
+        const {user, input} = renderSwitcher();
+        await pick(user, input, by);
+        const status = screen.getByRole('status');
+        expect(status).toHaveTextContent(OPENED);
+        // The page shows the card, so nothing floats over it: the words are hidden on screen.
+        expect(within(status).getByText(OPENED)).toHaveStyle({position: 'absolute', width: '1px', height: '1px'});
+        expect(within(status).queryByRole('paragraph')).not.toBeInTheDocument();
+      },
+    );
+
+    it('goes quiet once the user types again', async () => {
+      const {user, input} = renderSwitcher();
+      await pick(user, input, 'Enter');
+      await user.type(input, 'm');
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    });
+
+    it('goes quiet once focus leaves the field, and says nothing again back in it', async () => {
+      const {user, input} = renderSwitcher();
+      await pick(user, input, 'Enter');
+      await user.tab();
+      // After the hook's 150 ms blur delay.
+      await waitFor(() => expect(screen.getByRole('status')).toBeEmptyDOMElement());
+      await user.click(input);
+      expect(input).toHaveFocus();
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    });
   });
 
   describe('"No cards match."', () => {

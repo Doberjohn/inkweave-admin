@@ -10,11 +10,12 @@ import type {CardSynergies} from './engineView';
  * story, and a story can't import a test file. Nothing in the app imports this
  * file, so the build leaves it out. Every builder takes one argument, an
  * object, or for engineFixture a list of objects, so a fixture names what it
- * sets. R3-3 adds the card's raw votes, and R3-4 its synergy file.
+ * sets. They cover a card's pairs (R3-2), raw votes (R3-3) and synergy file
+ * (R3-4).
  */
 
 /** What a pairs[] fixture sets. Names default to "Card <id>", score votes to 1 and rules to Ramp. */
-export interface PairSeed {
+interface PairSeed {
   a: string;
   b: string;
   engineScore: number;
@@ -286,7 +287,7 @@ export const VOTED_CARD_PAIRS: readonly PairStat[] = [
 // ── Engine fixtures (R3-4) ──
 
 /** One partner in a synergy-file fixture. `rules`: the pair's rule names, strongest first (default ['Ramp']). */
-export interface FixturePartner {
+interface FixturePartner {
   id: string;
   name: string;
   score: number;
@@ -557,7 +558,7 @@ export const EMPTY_LOG: VoteLog = {generatedAt: VIEW_LOG.generatedAt, votes: [],
  * release: its pair keeps a plain name. So are MAUI_UNLISTED and UNLISTED_IDS,
  * the engine-silent partners outside Core.
  */
-export const VIEW_CARDS: readonly LorcanaCard[] = [
+const VIEW_CARDS: readonly LorcanaCard[] = [
   MAUI_CARD,
   CARD_500,
   lorcanaCard({id: '1012', name: 'Moana', version: 'Of Motunui', ink: 'Amber'}),
@@ -680,7 +681,7 @@ export const RAW_LOG: VoteLog = {generatedAt: VIEW_LOG.generatedAt, voterCount: 
  * pairs[] for that log: the pairs the engine scores. Card 8001's engine
  * average is (6 × 4 + 8 × 6) / 10 = 7.2; 8003 and 8004 are engine-silent.
  */
-export const RAW_PAIRS: readonly PairStat[] = [
+const RAW_PAIRS: readonly PairStat[] = [
   pairStat({...WITH_7990, engineScore: 6, communityScore: 7, scoreVotes: 4}),
   pairStat({...WITH_8002, engineScore: 8, communityScore: 7.5, scoreVotes: 6, rules: ['ramp', 'shift-targets']}),
   pairStat({a: '8020', b: '8021', engineScore: 7, communityScore: 5.5, scoreVotes: 2}),

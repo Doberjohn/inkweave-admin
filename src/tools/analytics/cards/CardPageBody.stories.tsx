@@ -7,7 +7,7 @@ import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {VoteAnalytics} from '../voteAnalyticsTypes';
 import {CardPageBody} from './CardPageBody';
 import {CardSwitcher} from './CardSwitcher';
-import {REVIEW_PAIRS, SWITCHER_CARDS} from './cardFixtures';
+import {LOADING, REVIEW_PAIRS, SWITCHER_CARDS, loaded} from './cardFixtures';
 import type {CardPageState} from './cardPageState';
 
 const ANALYTICS: VoteAnalytics = {
@@ -27,8 +27,6 @@ const ANALYTICS: VoteAnalytics = {
   pairs: [...REVIEW_PAIRS],
 };
 
-const LOADED: UseVoteAnalyticsReturn = {data: ANALYTICS, loading: false, error: null};
-const LOADING: UseVoteAnalyticsReturn = {data: null, loading: true, error: null};
 /** No story takes a handoff: nothing here unmounts the control pressed. */
 const NO_HANDOFF: FocusHandoff = {pending: false, request: () => {}, done: () => {}};
 
@@ -56,8 +54,8 @@ function PageStateStory({state, analytics}: PageStateStoryProps) {
           <CardPageBody
             state={state}
             analytics={analytics}
-            voteLog={{data: null, loading: true, error: null}}
-            synergies={{data: null, loading: true, error: null, retry: () => {}}}
+            voteLog={LOADING}
+            synergies={{...LOADING, retry: () => {}}}
             getCardById={() => undefined}
             onRetry={() => {}}
             handoff={NO_HANDOFF}
@@ -71,7 +69,7 @@ function PageStateStory({state, analytics}: PageStateStoryProps) {
 const meta: Meta<typeof PageStateStory> = {
   title: 'Admin/Insights/Card analytics/Page states',
   component: PageStateStory,
-  args: {state: {kind: 'pick'}, analytics: LOADED},
+  args: {state: {kind: 'pick'}, analytics: loaded(ANALYTICS)},
 };
 export default meta;
 type Story = StoryObj<typeof meta>;

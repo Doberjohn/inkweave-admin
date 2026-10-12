@@ -11,7 +11,11 @@ import type {SeriesDef} from '../../../charts/series';
 /** What fetchCardSynergies resolves to (the app keeps PrecomputedCardData private). */
 export type CardSynergies = Awaited<ReturnType<typeof fetchCardSynergies>>;
 
-/** SynergyEngine's maxResultsPerGroup default (SynergyEngine.ts:37): a group at this size was cut (:130). */
+/**
+ * SynergyEngine's maxResultsPerGroup default (SynergyEngine.ts:37), which the
+ * precompute's synergyEngine keeps: a group at this size was cut (:130). Its
+ * test runs the engine, so a pin bump that moves the cap fails it.
+ */
 export const ENGINE_GROUP_CAP = 100;
 
 export interface EnginePartner {
@@ -73,7 +77,9 @@ export const TIER_SERIES: readonly SeriesDef[] = TIER_ORDER.map((tier) => ({
 /**
  * Names in one order in every browser. The engine cuts each group by score,
  * then name, with localeCompare in the build's locale (SynergyEngine.ts:124-128);
- * a fixed 'en' keeps the viewer's locale out of it.
+ * a fixed 'en' keeps the viewer's locale out of it. The build's C.UTF-8 reads
+ * as en-US, so the two agree, case included (engineView.test.ts checks it in
+ * CI's locale).
  */
 const NAME_ORDER = new Intl.Collator('en');
 

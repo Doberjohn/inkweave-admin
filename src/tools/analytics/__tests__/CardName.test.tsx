@@ -13,6 +13,8 @@ describe('CardName', () => {
   it('links a card the card list holds to its Card analytics page (R-33)', () => {
     renderWithCards(<CardName id="2983" name="Elsa - Snow Queen" />, ['2983']);
     expect(links()).toEqual([['Elsa - Snow Queen', '/cards/2983']]);
+    // adm-link: the muted underline, the gold hover and the focus ring (AdminStyles).
+    expect(screen.getByRole('link')).toHaveClass('adm-link');
   });
 
   it('prints a card the card list lacks as plain text', () => {

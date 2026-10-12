@@ -12,6 +12,7 @@ import {
   ENGINE_EMPTY,
   ENGINE_FIFTEEN,
   ENGINE_ONE_PARTNER,
+  engineFixture,
   partnerLookup,
   type EngineFixture,
 } from '../cardFixtures';
@@ -168,6 +169,8 @@ describe('EnginePanels: the Engine view', () => {
     expect(screen.getByRole('alert')).toHaveTextContent("Could not load this card's synergies (offline)");
     expect(screen.queryByRole('figure', {name: 'Strongest partners'})).not.toBeInTheDocument();
     const button = within(engineView()).getByRole('button', {name: 'Retry'});
+    // At its own width: the grid it sits in would stretch it across the panel.
+    expect(button).toHaveStyle({justifySelf: 'start'});
     // Neutral, not the filled primary: it looks as the kit's own neutral CtaButton does.
     render(
       <CtaButton type="button" variant="neutral">
@@ -262,6 +265,30 @@ describe('EnginePanels: the network (R-39)', () => {
     expect(screen.queryByRole('button', {name: /more in the table/})).not.toBeInTheDocument();
   });
 
+  /** `count` partners, two at each score from 10 down, so the cut at twelve splits no tie. */
+  const partnersOf = (count: number): EngineFixture =>
+    engineFixture(
+      Array.from({length: count}, (_, i) => ({
+        id: String(501 + i),
+        name: `Partner ${String(i + 1).padStart(2, '0')}`,
+        score: 10 - Math.floor(i / 2),
+      })),
+    );
+
+  it('draws every partner of exactly twelve, leaving none for the table', () => {
+    renderPanels({fixture: partnersOf(12)});
+    expect(nodeLinks()).toHaveLength(12);
+    expect(network()).toHaveTextContent("Every partner, ranked clockwise from 12 o'clock");
+    expect(screen.queryByRole('button', {name: /more in the table/})).not.toBeInTheDocument();
+  });
+
+  it('draws twelve of thirteen partners, and counts the thirteenth into the table', () => {
+    renderPanels({fixture: partnersOf(13)});
+    expect(nodeLinks()).toHaveLength(12);
+    expect(network()).toHaveTextContent("The 12 strongest of 13 partners, ranked clockwise from 12 o'clock");
+    expect(screen.getByRole('button', {name: 'and 1 more in the table'})).toBeInTheDocument();
+  });
+
   it('keys the spokes with the tiers', () => {
     renderPanels();
     const legend = within(network()).getByRole('list', {name: 'Legend'});
@@ -290,6 +317,16 @@ describe('EnginePanels: the network (R-39)', () => {
     expect(columns).toEqual(['Partner', 'Score', 'Tier', 'Rules']);
     expect(within(table).getAllByRole('row')).toHaveLength(16);
     expect(within(table).getByRole('rowheader', {name: 'Yara Stormwick - Captain'})).toBeInTheDocument();
+  });
+
+  it('links each partner in the table to its card page, the ones past the twelve drawn too (#34)', async () => {
+    const router = renderPanels();
+    await userEvent.click(screen.getByRole('button', {name: 'and 3 more in the table'}));
+    const table = within(network()).getByRole('table');
+    expect(within(table).getAllByRole('link')).toHaveLength(15);
+    // Yara Stormwick is the thirteenth: the cut leaves her out of the drawing.
+    await userEvent.click(within(table).getByRole('link', {name: 'Yara Stormwick - Captain'}));
+    expect(router.state.location.pathname).toBe('/cards/306');
   });
 
   it('follows a node link to that partner’s card page', async () => {

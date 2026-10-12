@@ -390,7 +390,9 @@ export function useChartCursor(n: number): ChartCursor;
 
 // src/charts/ChartFrame.tsx — <figure> with title, optional subtitle/legend/actions, and a Chart | Table toggle.
 // It draws no surface: a page puts it in an untitled Panel (R1-3). Its <figcaption> is the header row.
-export interface ChartTable {caption: string; columns: readonly string[]; rows: ReadonlyArray<readonly string[]>}
+export interface ChartTableLink {text: string; href: string}   // #34: a cell that opens a page, as the network's partner names do
+export type ChartTableCell = string | ChartTableLink;
+export interface ChartTable {caption: string; columns: readonly string[]; rows: ReadonlyArray<readonly ChartTableCell[]>}
 export type ChartView = 'chart' | 'table';
 export function ChartFrame(props: {
   title: string; subtitle?: React.ReactNode; legend?: React.ReactNode; actions?: React.ReactNode;
@@ -495,11 +497,11 @@ export const SPOKE_WIDTHS: Domain;        // [1, 4] px across the value domain
 export function ringSizes(count: number): [number, number];                  // [inner, outer]
 export function ringRadii(plot: Size): [number, number];                     // [inner, outer]
 export function ringSlots(count: number, plot: Size): RingSlot[];            // round the plot's centre; strongest at 12 o'clock, clockwise
-export function labelFor(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement;
+export function labelSpots(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement[]; // best first: away from the centre, then the node's other outer sides (#34)
 export function overlaps(a: Box, b: Box): boolean;                           // shared area only; touching edges, or a float slack under 1e-6, don't count
 export function contains(outer: Box, inner: Box): boolean;
 export function nodeTarget(p: PlotPoint): Box;                               // the NODE_TARGET square centred on p
-export function placeLabels(labels: readonly LabelPlacement[], blocked: readonly Box[], bounds: Box): Array<LabelPlacement | null>;
+export function placeLabels(spots: ReadonlyArray<readonly LabelPlacement[]>, blocked: readonly Box[], bounds: Box): Array<LabelPlacement | null>; // each name, strongest first, takes its first spot that fits
 export function spokeWidth(value: number, domain: Domain): number;           // SPOKE_WIDTHS across the domain, clamped
 export function networkLayout(plot: Size, names: readonly string[]): NetworkLayout; // names strongest first
 
@@ -836,6 +838,13 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
   - **Accuracy sentiment.** The Overview's figure (from `pairs[]`) and the raw answers disagree in sign, which follow-up #30 takes up.
   - **Fetches.** Each analytics file was fetched once across the pages, and each card's synergy file once.
   - **Code Health.** `analyze_change_set` passed, with no findings. The PR's own CodeScene check is read once the PR opens (Task R3-9, Step 25).
+
+#### #34: the final review's polish (2026-10-12)
+
+- **Layout.** The KPI row runs 6, 3 or 2 columns, never five and one. The network places each name, strongest first, on the first side of its node with room (`labelSpots`, `placeLabels`), so from a 360px-wide screen up the strongest names print; below that most still drop, and the plot keeps 340px. A tap on a node still opens the card (R-41, kept by the owner on 2026-10-12).
+- **Links.** A `ChartTable` cell can carry an href (`ChartTableLink`), so the network's Table view links every partner. The card page's links take `.adm-link`, and Voted pairs tells linked partners by that underline.
+- **Focus and status.** A Switch card pick says "Opened …" in the switcher's polite status, for screen readers only. A page that another page's card link mounts focuses the card's heading.
+- **Shared pieces.** `SR_ONLY` in `src/ui/layout.ts`, the legend styles in `src/ui/legend.ts`, `RetryNotice` for the card list's and the Engine view's Retry, and `parityHarness.mjs` for the two parity tests.
 
 ## Phase R4: Card studio (outline)
 

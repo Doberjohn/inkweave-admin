@@ -8,12 +8,13 @@ import {
   votesForCard,
   votesPerWeek,
 } from '../../../src/tools/analytics/cards/cardVotes.ts';
-import {buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
+import {pairKey} from '../voteAnalytics.mjs';
+import {precompute, raw} from './parityHarness.mjs';
 
 /*
  * The card page's raw-vote model against the precompute, on the same raw
- * votes, through the transforms the Deploy runs (buildAnalytics,
- * buildVoteLog), as weeklyGapsParity.test.mjs does for /calibration. It holds
+ * votes, through the transforms the Deploy runs (parityHarness.mjs), as
+ * weeklyGapsParity.test.mjs does for /calibration. It holds
  * the card page's two files together: a card's scored votes in the log are its
  * pairs[] score votes plus its engine-silent votes, and its weeks are
  * global.weekly's weeks.
@@ -29,32 +30,12 @@ const ENGINE_PAIRS = new Map([
   ['1:3', {engineScore: 6, connections: [{ruleId: 'ramp'}]}],
   ['3:4', {engineScore: 5, connections: [{ruleId: 'shift-targets'}]}],
 ]);
-const ALL_RULES = [
-  {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle'},
-  {ruleId: 'shift-targets', ruleName: 'Shift Targets', category: 'direct'},
-];
 // Card 9 has rotated out of Core: the card list doesn't have it, and the
 // precompute has no name for it (its rows carry the bare id).
 const NAMES = new Map(['1', '2', '3', '4', '5'].map((id) => [id, `Card ${id}`]));
 const isListed = (id) => NAMES.has(id);
 /** Every card in the log, card 9 included. */
 const CARD_IDS = ['1', '2', '3', '4', '5', '9'];
-
-/** A raw vote as fetchAllRows reads it: Supabase's microsecond +00:00 timestamp, card ids in either order. */
-function raw(createdAt, a, b, score) {
-  return {
-    created_at: createdAt,
-    ip_hash: `voter-${a}-${b}`,
-    card_a_id: a,
-    card_b_id: b,
-    score,
-    accuracy: null,
-    is_real: null,
-    would_play: null,
-    difficulty: null,
-    who_carries: null,
-  };
-}
 
 // Card 1 has a pair the engine scores with 2 and with 3, a quick vote on
 // 1 × 2, only a quick vote with 4, and engine-silent pairs with 5 (in the
@@ -83,15 +64,13 @@ const SCORE_ROWS = [
   {card_a_id: '3', card_b_id: '4', avg_score: 5, score_votes: 1, total_votes: 1, accuracy_sentiment: null},
 ];
 
-const analytics = buildAnalytics({
+const {analytics, log} = precompute({
+  rawVotes: RAW_VOTES,
   scoreRows: SCORE_ROWS,
   enginePairs: ENGINE_PAIRS,
-  allRules: ALL_RULES,
   names: NAMES,
   ruleTotalPairs: {ramp: 2, 'shift-targets': 1},
-  rawVotes: RAW_VOTES,
 });
-const log = buildVoteLog(RAW_VOTES, NAMES);
 
 /** One card's raw-vote model, as the card page builds it. */
 function cardModel(cardId) {
@@ -113,6 +92,17 @@ describe('the card vote model against the precompute', () => {
       partnerUnlisted: {pairs: 1, votes: 1},
       partnerListed: {pairs: 1, votes: 2},
     });
+  });
+
+  // The sum above holds however the two sides split a card's pairs, so the split gets its own check.
+  it("lists in pairs[] exactly the card's score-voted pairs the engine scores, and counts the rest engine-silent", () => {
+    for (const id of CARD_IDS) {
+      const {cardVotes, cardPairs, silent} = cardModel(id);
+      const scored = new Set(cardVotes.filter(({vote}) => vote.score != null).map(({partnerId}) => partnerId));
+      const engine = [...scored].filter((partnerId) => ENGINE_PAIRS.has(pairKey(id, partnerId)));
+      expect(cardPairs.map(({partnerId}) => partnerId).sort(), id).toEqual(engine.sort());
+      expect(silent.pairs, id).toBe(scored.size - engine.length);
+    }
   });
 
   it('counts each engine-silent pair once from each of its cards: twice global.engineSilentPairs', () => {

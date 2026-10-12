@@ -23,11 +23,17 @@ interface Watched {
  * Whether the move from `before` to `now` leaves focus for the next state to
  * take (R-48). Two moves do: the card list's error clearing, which only Retry
  * does, and the URL naming another card, unless a redirect did it (`replaced`):
- * bare /cards opening the last card is no one's action.
+ * bare /cards opening the last card is no one's action. A move to bare /cards
+ * names no card, so it leaves focus alone.
  */
 function asksForFocus(before: Watched, now: Watched & {replaced: boolean}): boolean {
   if (before.failed && !now.failed) return true;
   return now.cardId !== before.cardId && now.cardId !== undefined && !now.replaced;
+}
+
+/** Where the page starts watching from: no card, when another page's link pushed it here. */
+function arrival(watched: Watched, navigation: NavigationType): Watched {
+  return navigation === NavigationType.Push ? {cardId: undefined, failed: false} : watched;
 }
 
 /**
@@ -37,11 +43,15 @@ function asksForFocus(before: Watched, now: Watched & {replaced: boolean}): bool
  * on click. The state that takes it moves focus only if focus fell to <body>
  * (useTakeHandoff): a partner link or Retry goes with the state it sat in, but
  * after a switcher pick focus is still in the switcher, and it stays there.
+ * A card link on another page goes with that page too, so a page that a push
+ * mounts starts from no card, and the card it opens takes focus (#34). A load
+ * or Back leaves focus where the browser put it.
  */
 function useCardHandoff(watched: Watched): FocusHandoff {
   const handoff = useFocusHandoff();
-  const replaced = useNavigationType() === NavigationType.Replace;
-  const [seen, setSeen] = useState(watched);
+  const navigation = useNavigationType();
+  const replaced = navigation === NavigationType.Replace;
+  const [seen, setSeen] = useState(() => arrival(watched, navigation));
   if (seen.cardId !== watched.cardId || seen.failed !== watched.failed) {
     setSeen(watched);
     if (asksForFocus(seen, {...watched, replaced})) handoff.request();
