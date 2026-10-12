@@ -9,7 +9,6 @@ import {
   VIEW_ANALYTICS,
   VIEW_LOG,
   VOTED_CARD,
-  lorcanaCard,
   viewCard,
 } from '../cardFixtures';
 import {pairsForCard} from '../cardStats';
@@ -18,7 +17,6 @@ import {
   NO_RAW_SILENT_NOTE,
   calibrationData,
   calibrationOf,
-  cardFacts,
   rawFigures,
   rawVotesFor,
   silentNote,
@@ -122,14 +120,5 @@ describe('silentNote', () => {
   it('counts a pair whose every vote is engine-silent: the card then has no pairs[] row at all', () => {
     const silentOnly = votesForCard(MAUI_LOG.slice(15), CARD_ID);
     expect(silentNote({raw: {kind: 'card', cardVotes: silentOnly}, cardPairs: [], isListed})).toMatch(/^Not listed: 3 /);
-  });
-});
-
-describe('cardFacts', () => {
-  it.each([
-    [{type: 'Character', cost: 8, inkwell: true} as const, 'Character · cost 8 · inkable'],
-    [{type: 'Action', cost: 3, inkwell: false} as const, 'Action · cost 3 · uninkable'],
-  ])('%o reads "%s"', (card, text) => {
-    expect(cardFacts(lorcanaCard({id: '1', name: 'Any', ...card}))).toBe(text);
   });
 });

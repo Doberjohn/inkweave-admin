@@ -1,4 +1,3 @@
-import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {fmtInt} from '../../../ui/format';
 import {countOf} from '../activity/activityModel';
 import type {RuleStat, VoteAnalytics} from '../voteAnalyticsTypes';
@@ -99,9 +98,4 @@ export function silentNote({raw, cardPairs, isListed}: SilentNoteInput): string 
     `${fmtInt(silent.partnerUnlisted.pairs)} with a card outside the current card list, ` +
     `${fmtInt(silent.partnerListed.pairs)} with both cards in Core.`
   );
-}
-
-/** The header's facts line: "Character · cost 3 · inkable". */
-export function cardFacts({type, cost, inkwell}: Pick<LorcanaCard, 'type' | 'cost' | 'inkwell'>): string {
-  return `${type} · cost ${cost} · ${inkwell ? 'inkable' : 'uninkable'}`;
 }

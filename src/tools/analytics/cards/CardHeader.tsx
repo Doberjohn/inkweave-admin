@@ -3,7 +3,7 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {FONTS, InkIcon, RaritySymbol, SPACING, rarityConfigOf, smallImageUrl} from '../../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {cardFacts} from './cardView';
+import {cardFacts} from '../../../ui/cardFacts';
 
 /** The thumbnail's box: the handoff's 64 × 90 (dc.html:578), a card's own proportions. */
 const THUMB_WIDTH = 64;
