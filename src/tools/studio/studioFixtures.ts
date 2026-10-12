@@ -137,3 +137,34 @@ export const CURLY_APOSTROPHE_CARD = studioCard({
   setCode: REVEAL_SET_CODE,
   setNumber: RUBY_NUMBER + 6,
 });
+
+/**
+ * The card list's card for a preview entry, with its art: cardOf, plus the
+ * imageUrl the app's loader gives a preview card (loader.ts's
+ * resolveImageUrl). Edit card's live preview shows it until an image is staged.
+ */
+export function listCard(entry: LorcanaJSONCard): LorcanaCard {
+  return {...cardOf(entry), imageUrl: `/card-images-preview/${entry.id}.avif`};
+}
+
+/** A released Song that PREVIEW_ENTRY's Singer 5 can sing, so Edit card's synergies have one to find (R4-4b). */
+export const RELEASED_SONG = cardOf({
+  id: 1002,
+  name: 'Let It Go',
+  fullName: 'Let It Go',
+  cost: 5,
+  color: 'Amethyst',
+  inkwell: true,
+  type: 'Action',
+  subtypes: ['Song'],
+  fullText: '(A character with cost 5 or more can ⟳ to sing this song for free.)\nDraw 2 cards.',
+  setCode: '9',
+  number: 81,
+  rarity: 'Rare',
+});
+
+/** previewCards.json on the branch for the Edit controller's tests (R4-4b): two editable entries, then R-65's three. */
+export const BRANCH_ENTRIES: LorcanaJSONCard[] = [PREVIEW_ENTRY, DUAL_INK_ENTRY, UNNUMBERED_ENTRY, NAMED_ABILITY_ENTRY, OTHER_SET_ENTRY];
+
+/** The card list over them: the released cards, then the branch entries with their art, preview cards last as the app's loader orders them. */
+export const STUDIO_CARDS: LorcanaCard[] = [RELEASED_CARD, RELEASED_SONG, ...BRANCH_ENTRIES.map(listCard)];
