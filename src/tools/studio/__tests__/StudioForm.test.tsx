@@ -197,7 +197,7 @@ describe('StudioForm: narrow, an accordion', () => {
     render(<Harness layout="narrow" initial={revealForm({cost: '1.5'})} />);
     expect(toggle(/^Ink & rarity/)).toHaveAccessibleName('Ink & rarity, complete Ruby · Rare');
     expect(toggle(/^Type & stats/)).toHaveAccessibleName('Type & stats, has an error Enter a cost (0 or more)');
-    expect(toggle(/^Card text/)).toHaveAccessibleName('Card text, complete Not filled yet');
+    expect(toggle(/^Card text/)).toHaveAccessibleName('Card text, complete None (optional)');
     // The open section sums nothing up: its fields show.
     expect(toggle(/^Identity/)).toHaveAccessibleName('Identity, complete');
   });

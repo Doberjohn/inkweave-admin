@@ -23,7 +23,8 @@ describe('SECTION_SUMMARY', () => {
   });
 
   it.each<{title: string; patch: Partial<RevealCardForm>; summary: string}>([
-    {title: 'says when the card text is empty', patch: {}, summary: 'Not filled yet'},
+    // Card text is optional, so an empty section is complete: its summary can't read as a gap beside the green dot.
+    {title: 'says when the card text is empty', patch: {}, summary: 'None (optional)'},
     {
       title: 'joins the first keyword and the first line of text',
       patch: {keywords: 'Singer 5\nEvasive', fullText: 'BIG VOICE\nDraw a card.'},

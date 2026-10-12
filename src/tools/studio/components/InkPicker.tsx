@@ -4,7 +4,10 @@ import type {SectionProps} from '../formSections';
 import {inkName, primaryInkPatch, secondInks} from '../inkPicks';
 import {PickerGroup} from './PickerGroup';
 
-/** The handoff's icon sizes: 28px in a 48px ink tile, 22px in a 40px second-ink tile (data-size="sm"). */
+/**
+ * The handoff's icon sizes: 28px in an ink tile (48px, or less in a narrow
+ * section), 22px in a 40px second-ink tile (data-size="sm").
+ */
 const ICON_SIZE = {full: 28, small: 22} as const;
 
 type InkPickerProps = Pick<SectionProps, 'form' | 'errors' | 'onChange'>;
@@ -38,14 +41,15 @@ function InkTiles({inks, value, size, onPick}: InkTilesProps) {
 }
 
 /**
- * The card's ink (R-75): six tiles under "Ink · {name}". The group's name is
- * "Ink" alone; the name after the dot follows the picks. A primary equal to
- * the second ink clears the second. The ink error (an ink-block clash)
- * describes the group.
+ * The card's ink (R-75): six tiles on one line under "Ink · {name}", which
+ * shrink rather than wrap in a narrow section (PickerGroup's `inks` layout).
+ * The group's name is "Ink" alone; the name after the dot follows the picks. A
+ * primary equal to the second ink clears the second. The ink error (an
+ * ink-block clash) describes the group.
  */
 export function InkPicker({form, errors, onChange}: InkPickerProps) {
   return (
-    <PickerGroup name="ink" label="Ink" detail={inkName(form)} layout="tiles" errors={errors}>
+    <PickerGroup name="ink" label="Ink" detail={inkName(form)} layout="inks" errors={errors}>
       <InkTiles inks={ALL_INKS} value={form.ink} size="full" onPick={(ink) => onChange(primaryInkPatch({form, ink}))} />
     </PickerGroup>
   );

@@ -229,7 +229,7 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-pick-btn[aria-pressed="true"]{${look}color:${ADMIN_COLORS.text};}`);
   });
 
-  it('sizes an ink tile at 48px and a second-ink tile at 40px, where a plain pick button fills its cell', () => {
+  it('sizes an ink tile as a square up to 48px, a second-ink tile at 40px, where a plain pick button fills its cell', () => {
     render(
       <>
         <AdminStyles />
@@ -238,9 +238,20 @@ describe('AdminStyles', () => {
         <button type="button" className="adm-pick-btn">Rare</button>
       </>,
     );
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Rare'})).width).toBe('100%');
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Amber'})).width).toBe('48px');
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Ruby'})).width).toBe('40px');
+    const [amber, ruby, rare] = screen.getAllByRole('button').map((button) => {
+      const {width, maxWidth, height} = getComputedStyle(button);
+      return {width, maxWidth, height};
+    });
+    expect(rare.width).toBe('100%');
+    // A square, no wider than its grid column (the primary ink row's), so a narrow section shrinks the six
+    // tiles rather than wrap them. A width of 100% would wrap them in a row that sizes to its content.
+    expect({amber, ruby}).toEqual({
+      amber: {width: '48px', maxWidth: '100%', height: 'auto'},
+      ruby: {width: '40px', maxWidth: '100%', height: '40px'},
+    });
+    expect(stylesheet()).toContain(
+      '.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:48px;max-width:100%;aspect-ratio:1 / 1;',
+    );
   });
 
   it('golds a checked switch and slides its knob to the far end', () => {

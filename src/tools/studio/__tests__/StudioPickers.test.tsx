@@ -79,6 +79,22 @@ describe('the ink picker (R-75)', () => {
     expect(names(inGroup('Second ink').queryAllByRole('button', PRESSED))).toEqual([]);
   });
 
+  it('keeps the six primary tiles on one line, each column at most a tile wide, and lets the second row wrap', async () => {
+    // jsdom lays nothing out, so the row's style is pinned: six 48px tiles and their gaps need 308px,
+    // and the wide form's section gives them about 272px, where each column takes about 42px.
+    const user = userEvent.setup();
+    render(<Harness initial={revealForm()} />);
+    await user.click(dualSwitch());
+    const rows = ['Ink', 'Second ink'].map((name) => {
+      const {display, gridTemplateColumns} = screen.getByRole('group', {name}).style;
+      return {display, gridTemplateColumns};
+    });
+    expect(rows).toEqual([
+      {display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 48px))'},
+      {display: 'flex', gridTemplateColumns: ''},
+    ]);
+  });
+
   it('ties the second ink’s error to its group', () => {
     // Only a hand edit of the file can hold this: the tiles never offer the primary twice.
     render(<Harness initial={revealForm({ink2: 'Ruby'})} />);

@@ -11,7 +11,8 @@ const INPUT_HEIGHT = 38;
 const SEG_BUTTON_HEIGHT = 32;
 // Card studio's controls (R4), sized as the handoff draws them (README §7).
 const CHEVRON_SIZE = 6;
-const INK_TILE_SIZE = 48;
+/** An ink tile's widest, which the primary ink row's grid columns cap too (PickerGroup's `inks` layout). */
+export const INK_TILE_SIZE = 48;
 const INK_TILE_SIZE_SM = 40;
 const PICK_HEIGHT = 34;
 const FILE_BUTTON_HEIGHT = 36;
@@ -85,9 +86,12 @@ const ENABLED = ':where(:not(:disabled))';
  *   aria-expanded turns its chevron, which ::after draws from two borders, so
  *   it adds nothing to the button's name. It rings inside, as a row does.
  * - adm-pick-btn is a compact pressable: a rarity, Inkable or Uninkable, full
- *   width so the parent's grid sizes it, or, with adm-ink-tile, an ink's 48px
- *   tile (data-size="sm": the second-ink row's 40px). Its pressed fill and
- *   border are adm-card-btn's, admin's one selected look (R-75).
+ *   width so the parent's grid sizes it, or, with adm-ink-tile, an ink's
+ *   square tile: 48px, or its grid column's width where that is less, so the
+ *   six primary tiles shrink to fit a narrow section rather than wrap (a
+ *   percentage width would wrap a row that sizes to its content). data-size="sm"
+ *   is the second-ink row's fixed 40px. Its pressed fill and border are
+ *   adm-card-btn's, admin's one selected look (R-75).
  * - adm-switch is a native checkbox with role="switch" (Dual-ink card):
  *   :checked golds the track and moves the knob, its ::before.
  * - A file control is a <label> round a visually hidden file input
@@ -146,7 +150,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-acc-head:hover${ENABLED}{background:${C.rowHover};}
 
 .adm-pick-btn{display:flex;align-items:center;gap:${SPACING.sm}px;width:100%;min-width:0;min-height:${PICK_HEIGHT}px;margin:0;padding:0 ${SPACING.sm}px;background-color:transparent;background-clip:padding-box;border:1px solid ${C.inputBorder};border-radius:${R.control}px;color:${C.muted};font:inherit;font-size:${T.small}px;text-align:left;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},border-color ${FAST},color ${FAST};}
-.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:${INK_TILE_SIZE}px;height:${INK_TILE_SIZE}px;padding:0;border-radius:${R.panel}px;}
+.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:${INK_TILE_SIZE}px;max-width:100%;aspect-ratio:1 / 1;padding:0;border-radius:${R.panel}px;}
 .adm-pick-btn.adm-ink-tile[data-size="sm"]{width:${INK_TILE_SIZE_SM}px;height:${INK_TILE_SIZE_SM}px;border-radius:${R.box}px;}
 .adm-pick-btn:hover${ENABLED}{border-color:${C.accentBorder};color:${C.text};}
 .adm-pick-btn[aria-pressed="true"]{background-color:${C.accentTintSoft};border-color:${C.accentStrong};color:${C.text};}

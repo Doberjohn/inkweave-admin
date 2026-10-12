@@ -1,12 +1,19 @@
-import {SPACING} from '../../../app-bridge';
+import {ALL_INKS, SPACING} from '../../../app-bridge';
+import {INK_TILE_SIZE} from '../../../theme/AdminStyles';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {controlProps, fieldIds} from '../fieldWiring';
 import {ERROR_TEXT, FIELD_LABEL} from '../studioStyles';
 
-/** How a picker lays out its buttons: ink tiles wrap in a row, and rarities fill a grid. */
-export type PickerLayout = 'tiles' | 'grid';
+/**
+ * How a picker lays out its buttons: the card's ink tiles share one line, the
+ * second ink's smaller tiles wrap in a row, and rarities fill a grid.
+ */
+export type PickerLayout = 'inks' | 'tiles' | 'grid';
 
 const LAYOUTS: Readonly<Record<PickerLayout, React.CSSProperties>> = {
+  // A column per ink, each at most a tile wide: six 48px tiles and their gaps need 308px, and the wide
+  // form's section gives them about 272px, where the tiles shrink to about 42px rather than wrap.
+  inks: {display: 'grid', gridTemplateColumns: `repeat(${ALL_INKS.length}, minmax(0, ${INK_TILE_SIZE}px))`, gap: SPACING.xs},
   tiles: {display: 'flex', flexWrap: 'wrap', gap: SPACING.xs},
   // The handoff's rarity grid (README §7): 112px a button at the least.
   grid: {display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))', gap: SPACING.xs},

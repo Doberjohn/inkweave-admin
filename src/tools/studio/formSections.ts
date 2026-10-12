@@ -81,7 +81,9 @@ const TEXT_SUMMARY_MAX = 40;
 
 /**
  * What a closed accordion header says about its section (dc.html:996-999).
- * An error replaces it: FormSection shows the section's message instead.
+ * An error replaces it: FormSection shows the section's message instead. Card
+ * text is optional, so an empty one is complete, and its summary says so
+ * rather than read as a gap beside the green dot.
  */
 export const SECTION_SUMMARY: Readonly<Record<SectionId, (form: RevealCardForm) => string>> = {
   identity: ({name, version, collectorNumber}) => {
@@ -98,7 +100,7 @@ export const SECTION_SUMMARY: Readonly<Record<SectionId, (form: RevealCardForm) 
       .map((text) => text.trim().split('\n')[0])
       .filter(Boolean)
       .join(' · ');
-    if (line === '') return 'Not filled yet';
+    if (line === '') return 'None (optional)';
     return line.length > TEXT_SUMMARY_MAX ? `${line.slice(0, TEXT_SUMMARY_MAX)}…` : line;
   },
 };

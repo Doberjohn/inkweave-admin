@@ -25,6 +25,7 @@ const NO_FILE: ImageStatus = {name: null, ready: false, error: null};
 const READING: ImageStatus = {name: 'mei.png', ready: false, error: null};
 const READ: ImageStatus = {name: 'mei.png', ready: true, error: null};
 const INK_NEEDS_NUMBER = 'Checked against the collector number: set it first';
+const INK_NEEDS_FIXED_NUMBER = 'Checked against the collector number: fix it first';
 
 /** A form as the page holds it: the card list's ids and the image beside it. */
 interface Case {form: RevealCardForm; ids?: ReadonlySet<number>; image?: ImageStatus}
@@ -125,12 +126,19 @@ describe('the checklist and the section dots', () => {
 });
 
 describe('the Ink item', () => {
-  // The tick follows the ink-block check, never the Amber default.
-  it.each(['', '0', '12x', String(SET_TOTAL + 1)])('waits for a number in the set (%j), with the Amber default', (collectorNumber) => {
+  // The tick follows the ink-block check, never the Amber default. A blank number is still to set; a
+  // filled one outside the set is one the validator refuses, R-73's past-the-set number included.
+  it.each([
+    {collectorNumber: '', message: INK_NEEDS_NUMBER},
+    {collectorNumber: '  ', message: INK_NEEDS_NUMBER},
+    {collectorNumber: '0', message: INK_NEEDS_FIXED_NUMBER},
+    {collectorNumber: '12x', message: INK_NEEDS_FIXED_NUMBER},
+    {collectorNumber: String(SET_TOTAL + 1), message: INK_NEEDS_FIXED_NUMBER},
+  ])('waits for a number in the set ($collectorNumber), with the Amber default', ({collectorNumber, message}) => {
     const form = revealForm({collectorNumber, ink: 'Amber'});
     const ink = checklist({form}).find((item) => item.id === 'ink');
     expect({ink, section: sectionStatuses(form, validate({form}).errors).ink}).toEqual({
-      ink: {id: 'ink', label: 'Ink', done: false, message: INK_NEEDS_NUMBER},
+      ink: {id: 'ink', label: 'Ink', done: false, message},
       section: {state: 'incomplete', message: null},
     });
   });

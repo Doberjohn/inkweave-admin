@@ -56,7 +56,19 @@ interface ItemSpec {
 }
 
 const INK_NEEDS_NUMBER = 'Checked against the collector number: set it first';
+const INK_NEEDS_FIXED_NUMBER = 'Checked against the collector number: fix it first';
 const READING_IMAGE = 'Reading the image…';
+
+/**
+ * Why the Ink item waits: the number isn't in the set, so the ink-block check
+ * hasn't run. A blank number is still to set. A filled one outside the set is
+ * one the validator refuses (malformed, 0, or past the set, R-73), so it is to
+ * fix.
+ */
+function inkPending({form}: ItemInput): string | null {
+  if (numberInSet(form)) return null;
+  return form.collectorNumber.trim() === '' ? INK_NEEDS_NUMBER : INK_NEEDS_FIXED_NUMBER;
+}
 
 /**
  * The image's error: the upload's own (bytes that aren't the image the name
@@ -82,7 +94,7 @@ const CHECKLIST: readonly ItemSpec[] = [
   {id: 'collectorNumber', label: 'Collector number', keys: ['collectorNumber']},
   {id: 'name', label: 'Name', keys: ['name']},
   // The tick follows the ink-block check, never the Amber default.
-  {id: 'ink', label: 'Ink', keys: ['ink', 'ink2'], pending: ({form}) => (numberInSet(form) ? null : INK_NEEDS_NUMBER)},
+  {id: 'ink', label: 'Ink', keys: ['ink', 'ink2'], pending: inkPending},
   {id: 'cost', label: 'Cost', keys: ['cost']},
   {id: 'typeStats', label: 'Type and stats', keys: ['type', ...STAT_KEYS]},
   {id: 'cardText', label: 'Card text', keys: ['keywords', 'fullText']},
