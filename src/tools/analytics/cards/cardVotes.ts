@@ -9,8 +9,9 @@ import type {CardPair} from './cardStats';
  * takes the CardVote[] it returns, so none of them is passed the card again.
  * Pure functions, and none of them reorders its input.
  *
- * Every number here comes from raw votes, with plain means: quick votes (no
- * score) stay out of the histogram and its mean, and count everywhere else.
+ * Every number here comes from raw votes, with plain means. Quick votes (no
+ * score) stay out of the histogram, its mean and the engine-silent counts;
+ * they count in the votes, the voters, the weeks and the answers they gave.
  * The calibration side (cardStats.ts, R3-2) comes from pairs[] instead.
  */
 

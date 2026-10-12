@@ -11,7 +11,7 @@ import {gapColor} from '../gapColor';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';
 import {verdictFor} from '../verdict';
 import type {RuleStat} from '../voteAnalyticsTypes';
-import {CELL, CELL_LINK, HEAD_CELL, NUMBER} from './cardStyles';
+import {CELL, CELL_LINK, HEAD_CELL, MUTED_NUMBER, NUMBER} from './cardStyles';
 import {cardCalibration, cardReadLine, rulesForCard, verdictGap, type CardPair, type CardRuleRow} from './cardStats';
 
 const BODY: React.CSSProperties = {display: 'grid', gap: SPACING.lg};
@@ -31,8 +31,8 @@ const TABLE_MIN_WIDTH = 360;
 /**
  * The table's scroller reaches 4px into the panel's padding on each side, and
  * pads the same back, so the table lines up with the headline while a rule
- * link's focus ring (4px outside it, the app's global :focus-visible) stays
- * inside the box that clips.
+ * link's focus ring (4px outside it, CELL_LINK) stays inside the box that
+ * clips.
  */
 const SCROLLER: React.CSSProperties = {
   overflowX: 'auto',
@@ -51,7 +51,6 @@ const TABLE: React.CSSProperties = {
 const FIRST: React.CSSProperties = {paddingLeft: 0};
 const LAST: React.CSSProperties = {paddingRight: 0};
 const RULE_NAME: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.sm, minWidth: 0};
-const MUTED_NUMBER: React.CSSProperties = {...NUMBER, color: ADMIN_COLORS.muted};
 
 /**
  * One rule on the card's pairs. Its name links to the rule on /calibration
@@ -64,7 +63,7 @@ function RuleRow({row}: {row: CardRuleRow}) {
     <tr>
       <td style={{...CELL, ...FIRST}}>
         <span style={RULE_NAME}>
-          <Link to={calibrationHref(row.ruleId)} title={row.ruleName} style={CELL_LINK}>
+          <Link to={calibrationHref(row.ruleId)} title={row.ruleName} className="adm-link" style={CELL_LINK}>
             {row.ruleName}
           </Link>
           {row.lowN && <LowNTag minVotes={MIN_RULE_VOTES} />}

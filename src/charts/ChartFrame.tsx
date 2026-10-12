@@ -1,13 +1,23 @@
 import {useEffect, useId, useRef, useState} from 'react';
+import {Link} from 'react-router-dom';
 import {LETTER_SPACING, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {SegmentedControl} from '../ui/SegmentedControl';
+
+/** A table cell that opens a page: its text, and the path its link goes to (a card's, on /cards). */
+export interface ChartTableLink {
+  text: string;
+  href: string;
+}
+
+/** One cell: its text, or a link where the chart's mark is one too (the network's nodes). */
+export type ChartTableCell = string | ChartTableLink;
 
 /** The chart's data as a table: the WCAG-clean twin of every chart. The first column heads each row. */
 export interface ChartTable {
   caption: string;
   columns: readonly string[];
-  rows: ReadonlyArray<readonly string[]>;
+  rows: ReadonlyArray<readonly ChartTableCell[]>;
 }
 
 /** The frame's two views. A parent that controls the view passes one as `view`. */
@@ -34,6 +44,24 @@ const HEAD_CELL: React.CSSProperties = {
   textTransform: 'uppercase',
   color: ADMIN_COLORS.muted,
 };
+
+/** A cell's text, whether or not it links. */
+function cellText(cell: ChartTableCell): string {
+  return typeof cell === 'string' ? cell : cell.text;
+}
+
+/**
+ * A cell's content. A link is a name inside data, so it takes adm-link's
+ * underline, as CardName's do: the cell's padding leaves room for its ring.
+ */
+function CellContent({cell}: {cell: ChartTableCell}) {
+  if (typeof cell === 'string') return cell;
+  return (
+    <Link to={cell.href} className="adm-link">
+      {cell.text}
+    </Link>
+  );
+}
 
 /**
  * The table view: a caption, column headers and a row header per row. It takes
@@ -68,15 +96,15 @@ function DataTable({table, tableRef}: {table: ChartTable; tableRef: React.Ref<HT
         </thead>
         <tbody>
           {table.rows.map((row, r) => (
-            <tr key={`${row[0]}-${r}`} className="adm-hover-row">
+            <tr key={`${cellText(row[0])}-${r}`} className="adm-hover-row">
               {row.map((cell, i) =>
                 i === 0 ? (
                   <th key={i} scope="row" style={{...CELL, textAlign: 'left', fontWeight: 500}}>
-                    {cell}
+                    <CellContent cell={cell} />
                   </th>
                 ) : (
                   <td key={i} style={CELL}>
-                    {cell}
+                    <CellContent cell={cell} />
                   </td>
                 ),
               )}

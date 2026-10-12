@@ -26,9 +26,9 @@ export interface CardRoute {
  * 2. No id: the "Pick a card" prompt (R-28). It waits for nothing.
  * 3. A list still loading: "Loading cards…".
  * 4. The card, or the not-found message for an id the list doesn't hold (R-29).
- * The card is looked up here, during render. getCardById is a new function on
- * every CardDataProvider render (CardDataContext.tsx:29), so an effect that
- * called it would re-run on each one.
+ * The card is looked up here, during render, not kept in state: it follows
+ * from the URL and the card list, so an effect that stored it would show the
+ * previous card for a render first.
  */
 export function cardPageState({cardId, isLoading, error, getCardById}: CardRoute): CardPageState {
   if (error) return {kind: 'failed', error};

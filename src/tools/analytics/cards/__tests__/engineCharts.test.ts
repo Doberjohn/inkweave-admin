@@ -251,13 +251,25 @@ describe('partnerTable', () => {
     );
     expect(table.columns).toEqual(['Partner', 'Score', 'Tier', 'Rules']);
     expect(table.rows).toHaveLength(15);
-    expect(table.rows[0]).toEqual(['Wren Ashdown - Keeper of Keys', '10', 'Perfect', 'Shift Targets and Ramp']);
-    expect(table.rows[12]).toEqual(['Yara Stormwick - Captain', '7', 'Strong', 'Ramp']);
-    expect(table.rows[14]).toEqual(['Lumen - Glowworm', '3', 'Weak', 'Ramp']);
+    expect(table.rows[0]).toEqual([
+      {text: 'Wren Ashdown - Keeper of Keys', href: '/cards/301'},
+      '10',
+      'Perfect',
+      'Shift Targets and Ramp',
+    ]);
+    expect(table.rows[12]).toEqual([{text: 'Yara Stormwick - Captain', href: '/cards/306'}, '7', 'Strong', 'Ramp']);
+    expect(table.rows[14]).toEqual([{text: 'Lumen - Glowworm', href: '/cards/315'}, '3', 'Weak', 'Ramp']);
+  });
+
+  it("links each partner to its card page, as its node does, so the table's names past the twelve open too (#34)", () => {
+    const model = modelOf(ENGINE_FIFTEEN);
+    const nodes = partnerNodes(model.partners, namesOf(ENGINE_FIFTEEN));
+    const links = partnerTable(model.partners, {fullName: 'Marlowe Finch - Clockmaker'}).rows.map((row) => row[0]);
+    expect(links).toEqual(nodes.map((node) => ({text: expect.any(String), href: node.href})));
   });
 
   it('prints "—" for a pair with no named rule', () => {
     const {rows} = partnerTable(modelOf(bare).partners, {fullName: 'Marlowe Finch - Clockmaker'});
-    expect(rows).toEqual([['Quiet Partner', '6', 'Moderate', '—']]);
+    expect(rows).toEqual([[{text: 'Quiet Partner', href: '/cards/601'}, '6', 'Moderate', '—']]);
   });
 });

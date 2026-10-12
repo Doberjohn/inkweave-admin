@@ -104,14 +104,24 @@ function voteWeighted(pairs: readonly PairStat[], value: (p: PairStat) => number
   return weight === 0 ? null : sum / weight;
 }
 
-/** Widest |gap| first, then more score votes, then the partner's name. */
-function byPairRank(x: CardPair, y: CardPair): number {
-  return (
-    Math.abs(y.gap) - Math.abs(x.gap) ||
-    y.scoreVotes - x.scoreVotes ||
-    x.partnerName.localeCompare(y.partnerName)
-  );
+/** What the card lists rank a row by: a gap (null ranks as 0), its score votes and a name. */
+interface Rank {
+  gap: number | null;
+  scoreVotes: number;
+  name: string;
 }
+
+/** The card lists' order: widest |gap| first, then more score votes, then the name. `rankOf` reads them off a row. */
+function byGapRank<T>(rankOf: (row: T) => Rank): (x: T, y: T) => number {
+  return (x, y) => {
+    const a = rankOf(x);
+    const b = rankOf(y);
+    return Math.abs(b.gap ?? 0) - Math.abs(a.gap ?? 0) || b.scoreVotes - a.scoreVotes || a.name.localeCompare(b.name);
+  };
+}
+
+/** Widest |gap| first, then more score votes, then the partner's name. */
+const byPairRank = byGapRank(({gap, scoreVotes, partnerName}: CardPair) => ({gap, scoreVotes, name: partnerName}));
 
 /**
  * The card's voted pairs, each with its partner: widest |gap| first, then more
@@ -206,14 +216,11 @@ function ruleRow(group: RuleGroup, names: ReadonlyMap<string, string>): CardRule
   };
 }
 
+const byRuleGap = byGapRank(({meanGap, scoreVotes, ruleName}: CardRuleRow) => ({gap: meanGap, scoreVotes, name: ruleName}));
+
 /** Rows with enough votes first; within each group the widest |gap|, then more score votes, then the name (R-35). */
 function byRuleRank(x: CardRuleRow, y: CardRuleRow): number {
-  return (
-    Number(x.lowN) - Number(y.lowN) ||
-    Math.abs(y.meanGap ?? 0) - Math.abs(x.meanGap ?? 0) ||
-    y.scoreVotes - x.scoreVotes ||
-    x.ruleName.localeCompare(y.ruleName)
-  );
+  return Number(x.lowN) - Number(y.lowN) || byRuleGap(x, y);
 }
 
 /**
@@ -240,13 +247,7 @@ function groupByCard(pairs: readonly PairStat[]): CardGroup[] {
 }
 
 /** Widest |mean gap| first, then more score votes, then the card's name. */
-function byCardRank(x: CardToReview, y: CardToReview): number {
-  return (
-    Math.abs(y.meanGap ?? 0) - Math.abs(x.meanGap ?? 0) ||
-    y.scoreVotes - x.scoreVotes ||
-    x.cardName.localeCompare(y.cardName)
-  );
-}
+const byCardRank = byGapRank(({meanGap, scoreVotes, cardName}: CardToReview) => ({gap: meanGap, scoreVotes, name: cardName}));
 
 /**
  * Cards to review, under the "Pick a card" prompt (R-28): the CARDS_TO_REVIEW

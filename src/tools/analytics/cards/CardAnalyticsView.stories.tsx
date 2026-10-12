@@ -28,8 +28,8 @@ const meta: Meta<typeof CardAnalyticsView> = {
   title: 'Admin/Insights/Card analytics/View',
   component: CardAnalyticsView,
   tags: ['autodocs'],
-  // The partner and rule links need a router. The view sits in the page's own
-  // header, as R3-7's page will put it, so the meta line shows DataAsOf once
+  // The partner and rule links need a router. The view sits under the page's
+  // header, as the card page puts it, so the meta line shows DataAsOf once
   // vote analytics has loaded (R-54). .storybook/preview.tsx mounts AdminStyles.
   decorators: [
     (Story, {args}) => (

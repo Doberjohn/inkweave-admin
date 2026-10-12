@@ -3,6 +3,7 @@ import {act, isInaccessible, render, screen, within} from '@testing-library/reac
 import userEvent from '@testing-library/user-event';
 import {RouterProvider, createMemoryRouter, useLocation, useParams} from 'react-router-dom';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
+import {LABEL_HALO} from '../axis';
 import {NETWORK_MAX_NODES, NetworkDiagram, type NetworkNode} from '../NetworkDiagram';
 import {networkLayout} from '../networkLayout';
 import {CHART_FALLBACK_WIDTH, tooltipText, type SeriesDef} from '../series';
@@ -152,6 +153,28 @@ describe('NetworkDiagram: marks', () => {
     expect(names.every((name) => isInaccessible(name))).toBe(true);
     // The control: the links that carry the names are exposed.
     expect(nodeLinks().some((link) => isInaccessible(link))).toBe(false);
+  });
+
+  it('rings the printed names with a halo in the page colour, painted under the text, so a spoke never cuts a letter', () => {
+    const {container} = renderDiagram();
+    const names = container.querySelector('text')!.parentElement!;
+    expect(names.tagName).toBe('g');
+    expect(names).toHaveAttribute('stroke', ADMIN_COLORS.page);
+    expect(names).toHaveAttribute('stroke-width', String(LABEL_HALO));
+    expect(names).toHaveAttribute('stroke-linejoin', 'round');
+    expect(names).toHaveAttribute('paint-order', 'stroke');
+  });
+
+  it('clips the drawing and its links to the plot, which adds no width to the page, and leaves the tooltip outside', async () => {
+    renderDiagram();
+    const clip = screen.getByRole('list', {name: 'Strongest partners'}).parentElement!;
+    expect(clip.querySelector('svg')).not.toBeNull();
+    expect(clip).toHaveStyle({position: 'absolute', overflow: 'hidden'});
+    expect(clip.style.inset).toBe('0px');
+    await userEvent.hover(nodeLinks()[0]);
+    const tip = screen.getByText('Partner 0 - Full Name').closest('[aria-hidden="true"]');
+    expect(tip).not.toBeNull();
+    expect(clip.contains(tip)).toBe(false);
   });
 
   it('prints the names that fit and leaves out one too wide for the plot, which keeps its accessible name (R-40)', () => {

@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen} from '@testing-library/react';
-import {COLORS, EASING, FONT_SIZES, RADIUS} from '../../app-bridge';
+import {COLORS, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
-import {ADMIN_COLORS, ADMIN_RADIUS} from '../adminTheme';
+import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
 const CLASSES = [
@@ -79,6 +79,13 @@ describe('AdminStyles', () => {
     const css = stylesheet();
     expect(css).toContain(`.adm-row-btn[aria-pressed="true"]{background:${ADMIN_COLORS.rowSelected};`);
     expect(css).toContain(`.adm-row-btn[aria-pressed="true"]:hover:where(:not(:disabled)){background:${ADMIN_COLORS.rowSelected};}`);
+  });
+
+  it('lays an option out as a padded row of body text, under the pointer', () => {
+    expect(stylesheet()).toContain(
+      `.adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;` +
+        `color:${ADMIN_COLORS.text};font-size:${ADMIN_TYPE.body}px;cursor:pointer;`,
+    );
   });
 
   it('marks the active option from aria-selected, with the row fill and the selected bar', () => {

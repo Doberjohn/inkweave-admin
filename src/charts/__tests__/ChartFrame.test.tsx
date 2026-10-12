@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {MemoryRouter} from 'react-router-dom';
 import {ChartFrame, type ChartTable, type ChartView} from '../ChartFrame';
 
 const TABLE: ChartTable = {
@@ -74,6 +75,34 @@ describe('ChartFrame', () => {
     await userEvent.click(screen.getByRole('button', {name: 'Chart'}));
     expect(screen.getByTestId('plot')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('links a cell that carries an href, with the underline of a name inside data (adm-link)', () => {
+    const linked: ChartTable = {
+      caption: 'Synergy partners',
+      columns: ['Partner', 'Score'],
+      rows: [
+        [{text: 'Wren Ashdown - Keeper of Keys', href: '/cards/301'}, '10'],
+        ['Card 999', '7'],
+      ],
+    };
+    render(
+      <MemoryRouter>
+        <ChartFrame title="Strongest partners" table={linked} defaultView="table">
+          <div />
+        </ChartFrame>
+      </MemoryRouter>,
+    );
+    const table = screen.getByRole('table', {name: 'Synergy partners'});
+    const link = within(table).getByRole('link', {name: 'Wren Ashdown - Keeper of Keys'});
+    expect(link).toHaveAttribute('href', '/cards/301');
+    expect(link).toHaveClass('adm-link');
+    // It still heads its row, and a plain cell stays text.
+    expect(within(table).getAllByRole('rowheader').map((th) => th.textContent)).toEqual([
+      'Wren Ashdown - Keeper of Keys',
+      'Card 999',
+    ]);
+    expect(within(table).getAllByRole('link')).toHaveLength(1);
   });
 
   it('scrolls a wide table inside its own box, never the page body', () => {

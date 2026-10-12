@@ -195,11 +195,20 @@ export function networkSubtitle(model: EngineModel): string {
   return `${whichPartners(model)}, ${read}.${tieClause(model)}${spokesClause(model.partners)}`;
 }
 
-/** The diagram's table view: every partner, not only the drawn ones, with all its tooltip shows. */
+/**
+ * The diagram's table view: every partner, not only the drawn ones, with all
+ * its tooltip shows. Each name links to its card page, as its node does, so
+ * "and K more in the table" leads to partners that open.
+ */
 export function partnerTable(partners: readonly EnginePartner[], card: Pick<LorcanaCard, 'fullName'>): ChartTable {
   return {
     caption: `Synergy partners of ${card.fullName}, strongest first (by engine score, then name)`,
     columns: ['Partner', 'Score', 'Tier', 'Rules'],
-    rows: partners.map((p) => [p.name, engineScoreText(p.score), p.tier, RULE_LIST.format(p.ruleNames) || '—']),
+    rows: partners.map((p) => [
+      {text: p.name, href: cardsHref(p.id)},
+      engineScoreText(p.score),
+      p.tier,
+      RULE_LIST.format(p.ruleNames) || '—',
+    ]),
   };
 }

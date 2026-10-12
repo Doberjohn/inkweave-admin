@@ -5,16 +5,19 @@ import {
   CARD_RULES,
   EMPTY_LOG,
   MAUI_LOG,
+  MAUI_UNLISTED,
   NO_RAW_ANALYTICS,
   VIEW_ANALYTICS,
   VIEW_LOG,
   VOTED_CARD,
   lorcanaCard,
   viewCard,
+  voteRow,
 } from '../cardFixtures';
 import {pairsForCard} from '../cardStats';
 import {votesForCard} from '../cardVotes';
 import {
+  NO_RAW_SILENT_COUNT,
   NO_RAW_SILENT_NOTE,
   calibrationData,
   calibrationOf,
@@ -62,6 +65,8 @@ describe('calibrationOf', () => {
 describe('rawVotesFor', () => {
   it.each<[string, RawVotes['kind'], Parameters<typeof rawVotesFor>[0]]>([
     ['vote analytics says the deploy had no raw votes', 'none', {analytics: NO_RAW_ANALYTICS, voteLog: VIEW_LOG, cardId: CARD_ID}],
+    // Vote analytics answers first: no wait on a log it already says is empty.
+    ['vote analytics says so before the log loads', 'none', {analytics: NO_RAW_ANALYTICS, voteLog: null, cardId: CARD_ID}],
     ['the log is still loading, or failed', 'waiting', {analytics: VIEW_ANALYTICS, voteLog: null, cardId: CARD_ID}],
     ['the log loaded empty, before vote analytics', 'none', {analytics: null, voteLog: EMPTY_LOG, cardId: CARD_ID}],
     ['the log has votes', 'card', {analytics: null, voteLog: VIEW_LOG, cardId: CARD_ID}],
@@ -102,15 +107,20 @@ describe('rawFigures', () => {
 });
 
 describe('silentNote', () => {
-  it('splits the engine-silent pairs by whether the partner is in the card list (R-31)', () => {
-    expect(silentNote({raw: MAUI_VOTES, cardPairs: MAUI_PAIRS, isListed})).toBe(
+  it('splits the engine-silent pairs by whether the partner is in the card list, counting pairs, not votes (R-31)', () => {
+    // A second scored vote with 412, outside the card list: 4 engine-silent votes, 3 of them on the 2 unlisted pairs.
+    const again = voteRow({a: CARD_ID, b: MAUI_UNLISTED[0], ts: '2026-10-06T08:00:00.123456+00:00', score: 4, voter: 21});
+    const raw: RawVotes = {kind: 'card', cardVotes: votesForCard([...MAUI_LOG, again], CARD_ID)};
+    expect(silentNote({raw, cardPairs: MAUI_PAIRS, isListed})).toBe(
       'Not listed: 3 engine-silent pairs (voted, but the engine gives them no score): ' +
         '2 with a card outside the current card list, 1 with both cards in Core.',
     );
   });
 
-  it('says why it has no count without raw votes', () => {
+  it('says why it has no count without raw votes, in words for a list or for no list', () => {
     expect(silentNote({raw: {kind: 'none'}, cardPairs: MAUI_PAIRS, isListed})).toBe(NO_RAW_SILENT_NOTE);
+    expect(silentNote({raw: {kind: 'none'}, cardPairs: [], isListed})).toBe(NO_RAW_SILENT_COUNT);
+    expect(NO_RAW_SILENT_COUNT).toBe("Counting the card's engine-silent pairs needs raw votes.");
   });
 
   it('says nothing while the log is out, or when the engine scores every voted pair', () => {
@@ -119,9 +129,20 @@ describe('silentNote', () => {
     expect(silentNote({raw: {kind: 'card', cardVotes: onListedPairs}, cardPairs: MAUI_PAIRS, isListed})).toBeNull();
   });
 
-  it('counts a pair whose every vote is engine-silent: the card then has no pairs[] row at all', () => {
+  it('says how many a card with no pairs[] row has, since no list shows to leave them out', () => {
     const silentOnly = votesForCard(MAUI_LOG.slice(15), CARD_ID);
-    expect(silentNote({raw: {kind: 'card', cardVotes: silentOnly}, cardPairs: [], isListed})).toMatch(/^Not listed: 3 /);
+    expect(silentNote({raw: {kind: 'card', cardVotes: silentOnly}, cardPairs: [], isListed})).toBe(
+      'The card has 3 engine-silent pairs (voted, but the engine gives them no score): ' +
+        '2 with a card outside the current card list, 1 with both cards in Core.',
+    );
+  });
+
+  it('says "it" of a single pair', () => {
+    const kakamoraOnly = votesForCard(MAUI_LOG.slice(15, 16), CARD_ID);
+    expect(silentNote({raw: {kind: 'card', cardVotes: kakamoraOnly}, cardPairs: MAUI_PAIRS, isListed})).toBe(
+      'Not listed: 1 engine-silent pair (voted, but the engine gives it no score): ' +
+        '0 with a card outside the current card list, 1 with both cards in Core.',
+    );
   });
 });
 
