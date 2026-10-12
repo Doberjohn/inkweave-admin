@@ -1,5 +1,8 @@
 import {transformCard, type LorcanaCard, type LorcanaJSONCard, type SynergyGroup} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE, REVEAL_SET_NUMBER, SET_NAMES, SET_TOTAL, inkBlock} from '../../app-bridge';
+import {EMPTY_FORM} from '../reveal/emptyForm';
+import type {RevealAdminController} from '../reveal/useRevealAdmin';
+import {validateRevealCardForm} from '../reveal/validateForm';
 
 /*
  * Card studio fixtures, shared by the studio's tests and stories, as
@@ -213,3 +216,35 @@ export const SYNERGY_GROUPS: SynergyGroup[] = [
   },
   {groupKey: 'ramp', category: 'playstyle', label: 'Ramp', tagline: '', description: '', synergies: [PARTNER]},
 ];
+
+/**
+ * New reveal's controller as useRevealAdmin returns it for an empty draft,
+ * with a token saved; `overrides` set the rest. For NewRevealPane's tests and
+ * story, which need no GitHub, card list or file reader (R4-6a).
+ */
+export function revealController(overrides: Partial<RevealAdminController> = {}): RevealAdminController {
+  const validation = validateRevealCardForm(EMPTY_FORM, new Set(), null);
+  return {
+    token: 'tok',
+    setToken: () => {},
+    form: EMPTY_FORM,
+    patchForm: () => {},
+    dirty: false,
+    previewCard: null,
+    synergyGroups: [],
+    validation,
+    imageName: null,
+    imageDataUrl: null,
+    uploadError: null,
+    // R-72: no file chosen yet, so no error under the file controls; "Upload a card image" is the checklist's.
+    imageError: null,
+    canPublish: false,
+    publishing: false,
+    result: null,
+    commitError: null,
+    publishError: null,
+    onImageChange: () => {},
+    publish: () => Promise.resolve(),
+    ...overrides,
+  };
+}

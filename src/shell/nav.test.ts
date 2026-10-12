@@ -6,6 +6,7 @@ describe('navItemFor', () => {
     ['/reveal/', 'reveal'],
     ['/calibration/anything', 'calibration'],
     ['/cards/2983', 'cards'],
+    ['/studio', 'studio'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
@@ -16,7 +17,7 @@ describe('navItemFor', () => {
 });
 
 describe('isWritePath', () => {
-  it.each(['/calibration', '/reveal', '/image/'])('%s writes to the app', (pathname) => {
+  it.each(['/calibration', '/reveal', '/image/', '/studio'])('%s writes to the app', (pathname) => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
@@ -47,6 +48,13 @@ describe('the Calibration & tuning item', () => {
     // The tuning editor moved into the page (R-4), and /tuning only redirects to it.
     expect(isWritePath('/calibration')).toBe(true);
     expect(NAV_ITEMS.some((item) => item.id === 'tuning' || item.path === '/tuning')).toBe(false);
+  });
+});
+
+describe('the Card studio item', () => {
+  it('heads Publish, and owns /studio, which writes (R4)', () => {
+    const publish = NAV_ITEMS.filter((item) => item.group === 'publish');
+    expect(publish[0]).toMatchObject({id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', writes: true});
   });
 });
 

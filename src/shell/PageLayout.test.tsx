@@ -97,6 +97,15 @@ describe('PageLayout', () => {
     expect(body?.style.padding).toBe('');
   });
 
+  it("reserves a flush body's scrollbar gutter, so a page that measures its own width never sees it jump (R-64)", () => {
+    render(
+      <PageLayout title="Card studio" flush>
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(screen.getByText('Body').parentElement?.style.scrollbarGutter).toBe('stable');
+  });
+
   it('scrolls the body back to the top when scrollKey changes, and not while it stays the same', () => {
     const {rerender} = render(
       <PageLayout title="Card analytics" scrollKey="2983">

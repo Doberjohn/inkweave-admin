@@ -55,8 +55,11 @@ const BODY: React.CSSProperties = {
 };
 
 // `flush`: the same scroller with no padding and no grid, for a page that lays
-// out its own columns edge to edge (R2's tuning aside, R4's studio).
-const FLUSH_BODY: React.CSSProperties = {flex: 1, minHeight: 0, overflowY: 'auto'};
+// out its own columns edge to edge (R2's tuning aside, R4's studio). Its
+// scrollbar's gutter stays reserved whether or not it scrolls: Card studio
+// picks its layout from its own measured width (R-64), and a scrollbar that
+// came and went with the layout would flip it back and forth at the threshold.
+const FLUSH_BODY: React.CSSProperties = {flex: 1, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable'};
 
 interface PageLayoutProps {
   title: string;

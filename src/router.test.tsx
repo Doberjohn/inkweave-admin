@@ -99,6 +99,8 @@ describe('admin routes', () => {
   );
 
   const WRITE_PAGES: Array<[path: string, title: string]> = [
+    // The token gate fills the whole body (R4).
+    ['/studio', 'Card studio'],
     ['/reveal', 'Reveal publisher'],
     ['/image', 'Card images'],
     // The gate fills the tuning aside; the analytics beside it need no token.
@@ -153,6 +155,13 @@ describe('admin routes', () => {
     // The file's fetch stub never settles, so the page waits on the vote log.
     expect(screen.getByText('Loading vote log...')).toBeInTheDocument();
     expect(sidebarNav().getByRole('link', {name: /Vote activity/})).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens Card studio on any mode and card, current in the sidebar while the old tools are not', () => {
+    renderAt('/studio?mode=edit&card=1001');
+    expect(screen.getByRole('heading', {level: 1, name: 'Card studio'})).toBeInTheDocument();
+    expect(sidebarNav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('aria-current', 'page');
+    expect(sidebarNav().getByRole('link', {name: 'Reveal publisher'})).not.toHaveAttribute('aria-current');
   });
 
   it('opens Card analytics on a card at /cards/2983, current in the sidebar while Overview is not', () => {

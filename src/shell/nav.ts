@@ -24,6 +24,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
   {id: 'cards', label: 'Card analytics', mark: 'Cd', path: '/cards', group: 'insights', writes: false},
+  // New reveal and Edit card in one page (R4). It replaces the two items below, which R4-6c removes.
+  {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
   {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
   {id: 'image', label: 'Card images', mark: 'Im', path: '/image', group: 'publish', writes: true},
 ];

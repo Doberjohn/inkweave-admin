@@ -8,6 +8,7 @@ import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ImagePage} from './tools/image/ImagePage';
 import {RevealPage} from './tools/reveal/RevealPage';
+import {StudioPage} from './tools/studio/StudioPage';
 
 /** Admin's routes. Every one renders inside AdminShell, whose sidebar links them (src/shell/nav.ts). */
 export const routes: RouteObject[] = [
@@ -22,6 +23,8 @@ export const routes: RouteObject[] = [
       {path: 'cards/:cardId?', element: <CardAnalyticsPage />},
       // The old analytics page split into the insights pages; a bookmark lands on the Overview (R-10).
       {path: 'analytics', element: <Navigate to="/" replace />},
+      // New reveal and Edit card (R4); ?mode= and ?card= pick the mode and the card (studioHref).
+      {path: 'studio', element: <StudioPage />},
       {path: 'reveal', element: <RevealPage />},
       {path: 'image', element: <ImagePage />},
       // The tuning editor moved into /calibration's aside (R-10).

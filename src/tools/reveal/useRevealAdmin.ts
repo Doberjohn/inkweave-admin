@@ -61,7 +61,8 @@ export interface RevealAdminController {
   /** commitError, else uploadError: the reveal publisher's one error line. */
   publishError: string | null;
   onImageChange: (file: File | null) => void;
-  publish: () => void;
+  /** Commits the card; resolves once the commit has landed or failed, so a page can move focus to the outcome (R-59). */
+  publish: () => Promise<void>;
 }
 
 /**
