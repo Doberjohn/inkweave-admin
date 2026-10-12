@@ -146,7 +146,13 @@ describe('CardSwitcher', () => {
         const status = screen.getByRole('status');
         expect(status).toHaveTextContent(OPENED);
         // The page shows the card, so nothing floats over it: the words are hidden on screen.
-        expect(within(status).getByText(OPENED)).toHaveStyle({position: 'absolute', width: '1px', height: '1px'});
+        expect(within(status).getByText(OPENED)).toHaveStyle({
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          clipPath: 'inset(50%)',
+        });
         expect(within(status).queryByRole('paragraph')).not.toBeInTheDocument();
       },
     );

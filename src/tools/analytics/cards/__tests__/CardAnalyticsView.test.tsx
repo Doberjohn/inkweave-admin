@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {COLORS} from '../../../../app-bridge';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
+import {AdminStyles} from '../../../../theme/AdminStyles';
 import type {FocusHandoff} from '../../../../shell/focusHandoff';
 import {CardAnalyticsView, type CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {
@@ -376,14 +377,24 @@ describe('CardAnalyticsView: the raw-vote panels (R3-6b)', () => {
 
 describe('CardAnalyticsView: text colour', () => {
   it('prints no text in the dim colour, which fails contrast on these surfaces (R-6)', () => {
-    const {container} = renderView({synergies: {data: ENGINE_FIFTEEN.data, loading: false, error: null, retry: vi.fn()}});
+    // Under AdminStyles, as AdminShell mounts it, so a class rule that dims text counts too.
+    const {container} = render(
+      <MemoryRouter>
+        <AdminStyles />
+        <CardAnalyticsView {...BASE} synergies={{data: ENGINE_FIFTEEN.data, loading: false, error: null, retry: vi.fn()}} />
+      </MemoryRouter>,
+    );
     // jsdom keeps colours as rgb(), so the token goes through a style to compare like with like.
     const probe = document.createElement('span');
     probe.style.color = COLORS.textDim;
-    const dimText = Array.from(container.querySelectorAll<HTMLElement | SVGElement>('*')).filter(
-      (el) => el.style.color === probe.style.color || el.getAttribute('fill') === COLORS.textDim,
-    );
-    expect(dimText).toEqual([]);
+    const dim = probe.style.color;
+    // jsdom computes colour and fill from inline styles, class rules and parents, but
+    // not from SVG's fill attribute, so that one is read as written.
+    const isDim = (el: Element) => {
+      const {color, fill} = getComputedStyle(el);
+      return [color, fill].includes(dim) || el.getAttribute('fill') === COLORS.textDim;
+    };
+    expect(Array.from(container.querySelectorAll('*')).filter(isDim)).toEqual([]);
   });
 });
 
