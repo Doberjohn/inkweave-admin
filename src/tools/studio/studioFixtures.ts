@@ -1,4 +1,4 @@
-import {transformCard, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {transformCard, type LorcanaCard, type LorcanaJSONCard, type SynergyGroup} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE, REVEAL_SET_NUMBER, SET_NAMES, SET_TOTAL, inkBlock} from '../../app-bridge';
 
 /*
@@ -194,3 +194,22 @@ export const PANEL_CARD: LorcanaCard = {
 /** Stand-in art for the card panel's tests and stories: the card's art now, and a staged scan. Neither is an AVIF, so smallImageUrl keeps them. */
 export const CURRENT_ART = 'https://placehold.co/337x470/1a1a2e/d4af37?text=Current+art';
 export const STAGED_ART = 'https://placehold.co/337x470/2e1a1a/ffb900?text=Staged+scan';
+
+/** A partner in a synergy group. The aside draws only how many partners a group holds (R4-5e). */
+const PARTNER = {card: RELEASED_CARD, score: 7, explanation: 'Shares a playstyle'};
+
+/**
+ * The engine's groups for a card being written (R4-5e's synergy panel): a
+ * direct rule with three partners, and a playstyle with one.
+ */
+export const SYNERGY_GROUPS: SynergyGroup[] = [
+  {
+    groupKey: 'singer-songs',
+    category: 'direct',
+    label: 'Singer + Songs',
+    tagline: '',
+    description: '',
+    synergies: [PARTNER, PARTNER, PARTNER],
+  },
+  {groupKey: 'ramp', category: 'playstyle', label: 'Ramp', tagline: '', description: '', synergies: [PARTNER]},
+];
