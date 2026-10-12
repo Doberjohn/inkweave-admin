@@ -73,6 +73,7 @@ const analytics = buildAnalytics({
   names: NAMES,
   ruleTotalPairs: {ramp: 2, 'shift-targets': 2},
   rawVotes: RAW_VOTES,
+  listedIds: new Set(NAMES.keys()),
 });
 const log = buildVoteLog(RAW_VOTES, NAMES);
 

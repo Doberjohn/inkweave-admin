@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 import {activityWindow} from '../../../src/tools/analytics/activity/activityModel.ts';
 import {cardCalibration, pairsForCard} from '../../../src/tools/analytics/cards/cardStats.ts';
 import {
+  cardAnswers,
   engineSilentForCard,
   scoreHistogram,
   votesForCard,
@@ -15,8 +16,9 @@ import {buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
  * votes, through the transforms the Deploy runs (buildAnalytics,
  * buildVoteLog), as weeklyGapsParity.test.mjs does for /calibration. It holds
  * the card page's two files together: a card's scored votes in the log are its
- * pairs[] score votes plus its engine-silent votes, and its weeks are
- * global.weekly's weeks.
+ * pairs[] score votes plus its engine-silent votes, its weeks are
+ * global.weekly's weeks, and the Overview's engine-silent split and accuracy
+ * sentiment (#29, #30) are the cards' own, added up.
  *
  * On real data the first check can be off by a vote: the precompute reads
  * pair_scores before the votes, so a vote cast in between is in one file and
@@ -41,14 +43,14 @@ const isListed = (id) => NAMES.has(id);
 const CARD_IDS = ['1', '2', '3', '4', '5', '9'];
 
 /** A raw vote as fetchAllRows reads it: Supabase's microsecond +00:00 timestamp, card ids in either order. */
-function raw(createdAt, a, b, score) {
+function raw(createdAt, a, b, score, accuracy = null) {
   return {
     created_at: createdAt,
     ip_hash: `voter-${a}-${b}`,
     card_a_id: a,
     card_b_id: b,
     score,
-    accuracy: null,
+    accuracy,
     is_real: null,
     would_play: null,
     difficulty: null,
@@ -59,16 +61,18 @@ function raw(createdAt, a, b, score) {
 // Card 1 has a pair the engine scores with 2 and with 3, a quick vote on
 // 1 × 2, only a quick vote with 4, and engine-silent pairs with 5 (in the
 // card list) and 9 (rotated out). 3 × 4 is a pair without card 1. The week of
-// Oct 5 has no vote at all.
+// Oct 5 has no vote at all. Five votes answer the accuracy question (+1 the
+// engine's score is too low, −1 too high), the quick vote on 1 × 4 and the
+// one on the rotated-out pair among them.
 const RAW_VOTES = [
-  raw('2026-09-14T10:00:00.123456+00:00', '2', '1', 4),
-  raw('2026-09-15T10:00:00.123456+00:00', '1', '2', 10),
-  raw('2026-09-20T23:59:59.999999+00:00', '3', '1', 6),
+  raw('2026-09-14T10:00:00.123456+00:00', '2', '1', 4, -1),
+  raw('2026-09-15T10:00:00.123456+00:00', '1', '2', 10, 1),
+  raw('2026-09-20T23:59:59.999999+00:00', '3', '1', 6, 0),
   raw('2026-09-22T10:00:00.123456+00:00', '1', '2', null),
-  raw('2026-09-22T11:00:00.123456+00:00', '4', '1', null),
+  raw('2026-09-22T11:00:00.123456+00:00', '4', '1', null, 1),
   raw('2026-09-28T10:00:00.123456+00:00', '1', '5', 6),
   raw('2026-09-29T10:00:00.123456+00:00', '5', '1', 3),
-  raw('2026-09-30T10:00:00.123456+00:00', '9', '1', 8),
+  raw('2026-09-30T10:00:00.123456+00:00', '9', '1', 8, 1),
   raw('2026-10-12T10:00:00.123456+00:00', '3', '4', 5),
 ];
 // pair_scores for those votes, ids in the view's own order: the scored votes'
@@ -90,6 +94,7 @@ const analytics = buildAnalytics({
   names: NAMES,
   ruleTotalPairs: {ramp: 2, 'shift-targets': 1},
   rawVotes: RAW_VOTES,
+  listedIds: new Set(NAMES.keys()),
 });
 const log = buildVoteLog(RAW_VOTES, NAMES);
 
@@ -119,6 +124,26 @@ describe('the card vote model against the precompute', () => {
     const pairs = CARD_IDS.reduce((n, id) => n + cardModel(id).silent.pairs, 0);
     expect(analytics.global.engineSilentPairs).toBe(2);
     expect(pairs).toBe(2 * analytics.global.engineSilentPairs);
+  });
+
+  it("splits global.engineSilentPairs by the card list as the card page splits each listed card's", () => {
+    const split = analytics.global.engineSilentSplit;
+    const listed = CARD_IDS.filter(isListed).map((id) => cardModel(id).silent);
+    expect(split).toEqual({listed: 1, unlisted: 1});
+    // A pair with both cards in the list is counted from each of them; one with a card outside it, from its listed
+    // card alone. (No pair here has both cards outside the list, which no card page would count.)
+    expect(listed.reduce((n, silent) => n + silent.partnerListed.pairs, 0)).toBe(2 * split.listed);
+    expect(listed.reduce((n, silent) => n + silent.partnerUnlisted.pairs, 0)).toBe(split.unlisted);
+  });
+
+  it("takes the accuracy sentiment over every answer, as the card page takes each card's", () => {
+    const sum = (key) => CARD_IDS.reduce((n, id) => n + cardAnswers(cardModel(id).cardVotes).accuracy[key], 0);
+    // Every vote has two cards, so the cards' answers add up to twice the log's.
+    expect(analytics.global.accuracyAnswers).toBe(5);
+    expect(sum('answered')).toBe(2 * analytics.global.accuracyAnswers);
+    // (3 too low − 1 too high) / 5 answers.
+    expect(analytics.global.accuracySentiment).toBe(0.4);
+    expect((sum('tooLow') - sum('tooHigh')) / sum('answered')).toBe(analytics.global.accuracySentiment);
   });
 
   it("buckets votes into global.weekly's Monday weeks, and fills the weeks it skips", () => {

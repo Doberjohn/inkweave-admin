@@ -18,7 +18,6 @@ function rule(ruleId: string, ruleName: string, meanGap: number, over: Partial<R
     scoreVotes: 50,
     pairsVoted: 25,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 0.4,
     ...over,
   };

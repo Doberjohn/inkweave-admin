@@ -15,7 +15,6 @@ function stat(ruleId: string, meanGap: number | null, scoreVotes: number): RuleS
     scoreVotes,
     pairsVoted: 1,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 1,
   };
 }

@@ -8,7 +8,7 @@ import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
 import {countOf} from '../activity/activityModel';
-import type {PairStat} from '../voteAnalyticsTypes';
+import type {EngineSilentSplit, PairStat} from '../voteAnalyticsTypes';
 import {pairId} from './calibrationModel';
 import {
   GAP_SERIES,
@@ -32,6 +32,8 @@ export interface CalibrationScatterProps {
   onSelectPair: (pair: {a: string; b: string}) => void;
   /** Voted pairs with no engine score, which the plot can't place. Only the all-pairs scope passes it. */
   engineSilentPairs?: number;
+  /** engineSilentPairs split by the current card list, when the artifact carries the split (#29). */
+  engineSilentSplit?: EngineSilentSplit;
   /** What an empty scope says (default "No voted pairs yet."). The workspace names the rule when one is selected. */
   emptyText?: string;
 }
@@ -51,6 +53,20 @@ function pairTooltip(pair: PairStat, sharing: number): TooltipContent {
 const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.label, lineHeight: 1.5, color: ADMIN_COLORS.muted};
 
 /**
+ * What the plot leaves out: the engine-silent pairs, split as the card page
+ * splits a card's (R-31) when the artifact carries the split (#29). Most have
+ * a card outside the current card list, which the engine never scores.
+ */
+function silentNote({count, split}: {count: number; split: EngineSilentSplit | undefined}): string {
+  const lead = `Not plotted: ${countOf(count, 'engine-silent pair')} (voted, but the engine gives them no score)`;
+  if (!split) return `${lead}.`;
+  return (
+    `${lead}: ${fmtInt(split.unlisted)} with a card outside the current card list, ` +
+    `${fmtInt(split.listed)} with both cards in Core.`
+  );
+}
+
+/**
  * Engine score against community score for every voted pair in scope, with
  * the y = x agreement line. A dot above the line is a pair the community
  * rates higher than the engine. Picking a dot selects the pair, as the pair
@@ -65,6 +81,7 @@ export function CalibrationScatter({
   selectedPair,
   onSelectPair,
   engineSilentPairs = 0,
+  engineSilentSplit,
   emptyText = 'No voted pairs yet.',
 }: CalibrationScatterProps) {
   const byId = new Map(pairs.map((p) => [pairId(p.a, p.b), p]));
@@ -126,11 +143,7 @@ export function CalibrationScatter({
           </>
         )}
       </ChartFrame>
-      {engineSilentPairs > 0 && (
-        <p style={NOTE}>
-          Not plotted: {countOf(engineSilentPairs, 'engine-silent pair')} (voted, but the engine gives them no score).
-        </p>
-      )}
+      {engineSilentPairs > 0 && <p style={NOTE}>{silentNote({count: engineSilentPairs, split: engineSilentSplit})}</p>}
     </Panel>
   );
 }

@@ -4,6 +4,7 @@ import {latestVoteDay} from '../activityStats';
 import {CalibrationCard} from './CalibrationCard';
 import {LatestVotesCard} from './LatestVotesCard';
 import {OverviewKpis} from './OverviewKpis';
+import {rawAccuracy} from './overviewStats';
 import {RulesToReviewCard} from './RulesToReviewCard';
 import {WebEventsCard} from './WebEventsCard';
 import {WeeklyCard} from './WeeklyCard';
@@ -50,7 +51,7 @@ export function OverviewView({analytics, analyticsState, voteLog, voteLogError =
         <>
           <OverviewKpis analytics={analytics} vercel={vercel} vercelError={vercelError} />
           <div style={{display: 'grid', gridTemplateColumns: TWO_UP, gap: SPACING.xl}}>
-            <CalibrationCard meanGap={analytics.global.meanGap} accuracySentiment={analytics.global.accuracySentiment} />
+            <CalibrationCard meanGap={analytics.global.meanGap} accuracy={rawAccuracy(analytics.global)} />
             <WeeklyCard
               weekly={analytics.global.weekly}
               hasRawVotes={analytics.hasRawVotes}

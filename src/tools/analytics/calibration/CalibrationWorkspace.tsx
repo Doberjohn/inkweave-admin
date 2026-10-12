@@ -12,7 +12,7 @@ import {PairList} from '../PairList';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
 import {VoteDetailTable} from '../VoteDetailTable';
-import type {PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
+import type {EngineSilentSplit, PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
@@ -193,13 +193,16 @@ interface Scope {
   emptyText: string;
   /** Voted pairs with no engine score: counted on all pairs only, since no rule fired on them. */
   engineSilentPairs: number;
+  /** Their split by the current card list (#29), on all pairs only. */
+  engineSilentSplit?: EngineSilentSplit;
 }
 
 /** The selected rule's scope, or every pair's. */
 function scopeOf(data: VoteAnalytics, selected: CalibrationRow | null): Scope {
   const pairs = pairsInScope(data.pairs, selected);
   if (!selected) {
-    return {pairs, label: 'All pairs', emptyText: 'No voted pairs yet.', engineSilentPairs: data.global.engineSilentPairs};
+    const {engineSilentPairs, engineSilentSplit} = data.global;
+    return {pairs, label: 'All pairs', emptyText: 'No voted pairs yet.', engineSilentPairs, engineSilentSplit};
   }
   return {pairs, label: selected.name, emptyText: 'No voted pairs for this rule yet.', engineSilentPairs: 0};
 }
@@ -268,6 +271,7 @@ function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, o
           selectedPair={selectedPair}
           onSelectPair={onSelectPair}
           engineSilentPairs={scope.engineSilentPairs}
+          engineSilentSplit={scope.engineSilentSplit}
           emptyText={scope.emptyText}
         />
         <GapHistogram pairs={scope.pairs} scopeLabel={scope.label} emptyText={scope.emptyText} />

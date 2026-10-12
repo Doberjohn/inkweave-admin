@@ -1,6 +1,14 @@
 import {describe, expect, it} from 'vitest';
-import {latestVotes, recentWeeks, rulesToReview, trackedEventsTotal, weeksThatFit} from '../overviewStats';
-import type {RuleStat, WeeklyPoint} from '../../voteAnalyticsTypes';
+import {
+  engineSilentFigure,
+  latestVotes,
+  rawAccuracy,
+  recentWeeks,
+  rulesToReview,
+  trackedEventsTotal,
+  weeksThatFit,
+} from '../overviewStats';
+import type {GlobalStats, RuleStat, WeeklyPoint} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
 import type {VercelAnalytics, VercelEvent} from '../../vercelAnalyticsTypes';
 
@@ -12,7 +20,6 @@ function rule(ruleId: string, scoreVotes: number, meanGap: number | null): RuleS
     scoreVotes,
     pairsVoted: 1,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 0,
   };
 }
@@ -48,6 +55,20 @@ function vercel(overrides: Partial<VercelAnalytics> = {}): VercelAnalytics {
   };
 }
 
+function global(overrides: Partial<GlobalStats> = {}): GlobalStats {
+  return {
+    totalVotes: 40,
+    distinctPairs: 30,
+    distinctVoters: 12,
+    meanGap: -0.4,
+    accuracySentiment: null,
+    engineSilentPairs: 0,
+    weekly: [],
+    dimensionFill: null,
+    ...overrides,
+  };
+}
+
 const ids = (rules: RuleStat[]) => rules.map((r) => r.ruleId);
 
 describe('trackedEventsTotal', () => {
@@ -65,6 +86,41 @@ describe('trackedEventsTotal', () => {
 
   it('is null when no events were tracked', () => {
     expect(trackedEventsTotal(vercel({events: []}))).toBeNull();
+  });
+});
+
+describe('engineSilentFigure', () => {
+  it('counts the pairs with both cards in Core, and puts the rest in the hint', () => {
+    const g = global({engineSilentPairs: 1621, engineSilentSplit: {listed: 34, unlisted: 1587}});
+    expect(engineSilentFigure(g)).toEqual({
+      value: 34,
+      hint: 'both cards in Core · 1,587 more outside the current card list',
+    });
+  });
+
+  it('counts every engine-silent pair from an artifact written before the split', () => {
+    expect(engineSilentFigure(global({engineSilentPairs: 196}))).toEqual({value: 196, hint: 'voted, no engine score'});
+  });
+});
+
+describe('rawAccuracy', () => {
+  it('reads the sentiment beside the answers it rests on', () => {
+    expect(rawAccuracy(global({accuracySentiment: -0.04, accuracyAnswers: 234}))).toEqual({
+      sentiment: -0.04,
+      answers: 234,
+    });
+  });
+
+  it('keeps a null sentiment when no vote answered', () => {
+    expect(rawAccuracy(global({accuracyAnswers: 0}))).toEqual({sentiment: null, answers: 0});
+  });
+
+  it('is null without raw votes', () => {
+    expect(rawAccuracy(global({accuracyAnswers: null}))).toBeNull();
+  });
+
+  it('is null for an artifact written before the answer count, whose figure came from pairs[]', () => {
+    expect(rawAccuracy(global({accuracySentiment: 0.11}))).toBeNull();
   });
 });
 

@@ -11,7 +11,7 @@ import type {VercelAnalytics, VercelEvent} from '../vercelAnalyticsTypes';
 
 type RuleSeed = Pick<RuleStat, 'ruleId' | 'ruleName' | 'category' | 'scoreVotes' | 'meanGap'>;
 /** A RuleStat with its secondary counts filled in; the Overview reads only the seed fields. */
-const rule = (r: RuleSeed): RuleStat => ({...r, pairsVoted: Math.round(r.scoreVotes / 2), accuracySentiment: null, pairsCovered: 0.4});
+const rule = (r: RuleSeed): RuleStat => ({...r, pairsVoted: Math.round(r.scoreVotes / 2), pairsCovered: 0.4});
 
 const RULES: RuleStat[] = [
   rule({ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle', scoreVotes: 557, meanGap: -0.57}),
@@ -53,7 +53,9 @@ export const ANALYTICS: VoteAnalytics = {
     distinctVoters: 114,
     meanGap: -0.3,
     accuracySentiment: 0.03,
+    accuracyAnswers: 1902,
     engineSilentPairs: 196,
+    engineSilentSplit: {listed: 12, unlisted: 184},
     weekly: WEEKLY,
     dimensionFill: {score: 1610, accuracy: 1902, isReal: 1204, wouldPlay: 980, difficulty: 742},
   },
@@ -76,7 +78,9 @@ export const EARLY_ANALYTICS: VoteAnalytics = {
     distinctVoters: 14,
     meanGap: -0.31,
     accuracySentiment: 0.05,
+    accuracyAnswers: 88,
     engineSilentPairs: 9,
+    engineSilentSplit: {listed: 1, unlisted: 8},
     weekly: [
       {week: '2026-09-07', votes: 18, meanGap: -0.61},
       {week: '2026-09-21', votes: 41, meanGap: -0.35},
@@ -87,11 +91,18 @@ export const EARLY_ANALYTICS: VoteAnalytics = {
   rules: [],
 };
 
-/** The artifact built without SUPABASE_SERVICE_ROLE_KEY: no voters, weeks or dimension fill. */
+/** The artifact built without SUPABASE_SERVICE_ROLE_KEY: no voters, weeks, accuracy answers or dimension fill. */
 export const NO_RAW_ANALYTICS: VoteAnalytics = {
   ...ANALYTICS,
   hasRawVotes: false,
-  global: {...ANALYTICS.global, distinctVoters: null, weekly: [], dimensionFill: null},
+  global: {
+    ...ANALYTICS.global,
+    distinctVoters: null,
+    accuracySentiment: null,
+    accuracyAnswers: null,
+    weekly: [],
+    dimensionFill: null,
+  },
 };
 
 /** What a sample vote varies; the rest of its row is filled in. */
