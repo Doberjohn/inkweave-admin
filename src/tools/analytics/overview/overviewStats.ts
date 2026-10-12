@@ -1,5 +1,6 @@
 import {SPACING} from '../../../app-bridge';
-import type {RuleStat, WeeklyPoint} from '../voteAnalyticsTypes';
+import {fmtInt} from '../../../ui/format';
+import type {GlobalStats, RuleStat, WeeklyPoint} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
 
@@ -36,6 +37,36 @@ export function trackedEventsTotal(v: VercelAnalytics | null): {total: number; e
   // No artifact yet, or the empty one: neither has Vercel data.
   if (!v?.hasVercelData || v.events.length === 0) return null;
   return {total: v.events.reduce((sum, e) => sum + e.total, 0), eventTypes: v.events.length};
+}
+
+/**
+ * The Engine-silent pairs KPI (#29): the voted pairs with both cards in Core
+ * that the engine still gives no score, which are its real gaps. The hint
+ * adds the pairs with a card outside the current card list, which the engine
+ * never scores: most of them, since it covers Core only (R-31). An artifact
+ * written before #29 has no split, so the KPI counts every engine-silent pair.
+ */
+export function engineSilentFigure(g: GlobalStats): {value: number; hint: string} {
+  const split = g.engineSilentSplit;
+  if (!split) return {value: g.engineSilentPairs, hint: 'voted, no engine score'};
+  const hint = `both cards in Core · ${fmtInt(split.unlisted)} more outside the current card list`;
+  return {value: split.listed, hint};
+}
+
+/** The Overview's accuracy sentiment and the answers it rests on. */
+export interface RawAccuracy {
+  /** From −1 to +1; null when no vote answered. */
+  sentiment: number | null;
+  answers: number;
+}
+
+/**
+ * The accuracy sentiment from the raw answers (#30), or null to leave it out:
+ * an artifact built without raw votes has no answers, and one written before
+ * #30 holds a figure from pairs[] with no answer count.
+ */
+export function rawAccuracy(g: GlobalStats): RawAccuracy | null {
+  return g.accuracyAnswers == null ? null : {sentiment: g.accuracySentiment, answers: g.accuracyAnswers};
 }
 
 /**

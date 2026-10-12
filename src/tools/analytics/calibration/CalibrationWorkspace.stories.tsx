@@ -30,7 +30,6 @@ function ruleStat(ruleId: string, ruleName: string): RuleStat {
     scoreVotes,
     pairsVoted: pairs.length,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 0.2,
   };
 }
@@ -54,6 +53,7 @@ const ANALYTICS: VoteAnalytics = {
     meanGap: PAIRS.reduce((sum, pair) => sum + pair.gap * pair.scoreVotes, 0) / TOTAL_VOTES,
     accuracySentiment: null,
     engineSilentPairs: 37,
+    engineSilentSplit: {listed: 3, unlisted: 34},
     weekly: [],
     dimensionFill: {score: TOTAL_VOTES, accuracy: 210, isReal: 90, wouldPlay: 180, difficulty: 40},
   },

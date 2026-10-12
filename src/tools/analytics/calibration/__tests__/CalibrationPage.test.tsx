@@ -49,7 +49,6 @@ function rule(ruleId: string, ruleName: string, meanGap: number | null, scoreVot
     scoreVotes,
     pairsVoted: 2,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 0.1,
   };
 }
@@ -455,10 +454,13 @@ describe('CalibrationPage: what the rule scopes', () => {
     expect(screen.queryByRole('slider', {name: 'Weekly mean gap, Toys'})).not.toBeInTheDocument();
   });
 
-  it('counts the engine-silent pairs on all pairs only', async () => {
-    stubFetch({analytics: () => json(ANALYTICS)});
+  it('counts the engine-silent pairs on all pairs only, split by the card list', async () => {
+    const split = {...ANALYTICS, global: {...ANALYTICS.global, engineSilentSplit: {listed: 12, unlisted: 184}}};
+    stubFetch({analytics: () => json(split)});
     const {user} = renderPage('/calibration');
-    expect(await screen.findByText(/^Not plotted: 196 engine-silent pairs/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Not plotted: 196 engine-silent pairs/)).toHaveTextContent(
+      /: 184 with a card outside the current card list, 12 with both cards in Core\.$/,
+    );
     await user.click(await ruleRow('Ramp'));
     expect(screen.queryByText(/Not plotted/)).not.toBeInTheDocument();
   });

@@ -3,7 +3,7 @@ import {useState} from 'react';
 import {FONTS, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {activityWindow} from '../activity/activityModel';
-import type {PairStat} from '../voteAnalyticsTypes';
+import type {EngineSilentSplit, PairStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
@@ -25,13 +25,22 @@ interface CalibrationChartsProps {
   votes: readonly VoteLogRow[];
   scopeLabel: string;
   engineSilentPairs?: number;
+  engineSilentSplit?: EngineSilentSplit;
   emptyText?: string;
   /** The pair picked when the story opens. */
   initialPair?: {a: string; b: string} | null;
 }
 
 /** The three charts as R2-6 lays them out, with the scatter's pick held in state as the workspace holds it. */
-function CalibrationCharts({pairs, votes, scopeLabel, engineSilentPairs, emptyText, initialPair = null}: CalibrationChartsProps) {
+function CalibrationCharts({
+  pairs,
+  votes,
+  scopeLabel,
+  engineSilentPairs,
+  engineSilentSplit,
+  emptyText,
+  initialPair = null,
+}: CalibrationChartsProps) {
   const [pair, setPair] = useState(initialPair);
   return (
     <>
@@ -42,6 +51,7 @@ function CalibrationCharts({pairs, votes, scopeLabel, engineSilentPairs, emptyTe
           selectedPair={pair}
           onSelectPair={setPair}
           engineSilentPairs={engineSilentPairs}
+          engineSilentSplit={engineSilentSplit}
           emptyText={emptyText}
         />
         <GapHistogram pairs={pairs} scopeLabel={scopeLabel} emptyText={emptyText} />
@@ -76,9 +86,15 @@ const meta: Meta<typeof CalibrationCharts> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** 400 pairs at real density on "All pairs", with 16 weeks of votes and an engine-silent footnote. */
+/** 400 pairs at real density on "All pairs", with 16 weeks of votes and the engine-silent footnote, split (#29). */
 export const AllPairs: Story = {
-  args: {pairs: ALL_PAIRS, votes: ALL_PAIRS_VOTES, scopeLabel: 'All pairs', engineSilentPairs: 37},
+  args: {
+    pairs: ALL_PAIRS,
+    votes: ALL_PAIRS_VOTES,
+    scopeLabel: 'All pairs',
+    engineSilentPairs: 37,
+    engineSilentSplit: {listed: 3, unlisted: 34},
+  },
 };
 
 /** One rule's 60 pairs, with a pair picked: the scatter rings it in the accent. */
