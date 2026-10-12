@@ -16,6 +16,7 @@ import {
   ENGINE_FIFTEEN,
   LOADING,
   MAUI_CARD,
+  MAUI_UNLISTED,
   NOT_GENERATED,
   NO_RAW_ANALYTICS,
   VIEW_ANALYTICS,
@@ -24,6 +25,7 @@ import {
   lorcanaCard,
   pairStat,
   viewCard,
+  voteRow,
 } from '../cardFixtures';
 
 const BASE: CardAnalyticsViewProps = {
@@ -341,8 +343,22 @@ describe('CardAnalyticsView', () => {
         expect(partners()).toEqual(['Moana - Of Motunui', 'Heihei - Boat Snack', 'Gramma Tala - Storyteller']);
         expect(within(panel()).getByText('The Votes filter is on: only pairs with 2+ score votes show.')).toBeInTheDocument();
         expect(within(panel()).queryByText(/Most pairs have a single vote/)).not.toBeInTheDocument();
-        // The engine-silent caption counts every vote, whatever the step.
+        // Each of Maui's three engine-silent partners has one score vote, so the step leaves the caption nothing to count.
+        expect(within(panel()).queryByText(/engine-silent/)).not.toBeInTheDocument();
+      });
+
+      it("counts only the engine-silent pairs with the step's score votes in the caption", async () => {
+        // A second scored vote with 412, a partner outside the card list.
+        const again = voteRow({a: CARD_ID, b: MAUI_UNLISTED[0], ts: '2026-10-06T08:00:00.123456+00:00', score: 4, voter: 21});
+        renderView({voteLog: loaded({...VIEW_LOG, votes: [...VIEW_LOG.votes, again]})});
         expect(within(panel()).getByText(/^Not listed: 3 engine-silent pairs/)).toBeInTheDocument();
+        await userEvent.click(within(panel()).getByRole('button', {name: '2+'}));
+        expect(
+          within(panel()).getByText(
+            'Not listed: 1 engine-silent pair with 2+ score votes (voted, but the engine gives it no score): ' +
+              '1 with a card outside the current card list, 0 with both cards in Core.',
+          ),
+        ).toBeInTheDocument();
       });
 
       it('says so when the step leaves the card no pairs', async () => {

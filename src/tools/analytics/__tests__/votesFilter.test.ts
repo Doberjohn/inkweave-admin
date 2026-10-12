@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
 import {
   ANY_VOTES,
@@ -67,12 +67,17 @@ describe('useVotesFilter', () => {
     expect(renderHook(() => useVotesFilter()).result.current.filter).toBe(FIVE_PLUS);
   });
 
-  it('keeps the step in memory only, so a reload puts it back to Any', () => {
+  it('keeps the step in memory only, so a reload puts it back to Any', async () => {
     localStorage.clear();
     sessionStorage.clear();
     const {result} = renderHook(() => useVotesFilter());
     act(() => result.current.setFilter(TWO_PLUS));
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+    // A reload runs the module afresh: setup.ts's reset never reaches this copy, so it shows the store's own start.
+    vi.resetModules();
+    const reloaded = await import('../votesFilter');
+    expect(renderHook(() => reloaded.useVotesFilter()).result.current.filter).toEqual(ANY_VOTES);
+    expect(result.current.filter).toBe(TWO_PLUS);
   });
 });

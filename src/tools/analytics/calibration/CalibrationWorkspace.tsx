@@ -14,7 +14,7 @@ import type {UseVoteLogReturn} from '../useVoteLog';
 import {VoteDetailTable} from '../VoteDetailTable';
 import type {EngineSilentSplit, PairStat, VoteAnalytics} from '../voteAnalyticsTypes';
 import {VotesFilterControl} from '../VotesFilterControl';
-import {filterNote, useVotesFilter, type VotesFilter} from '../votesFilter';
+import {filterNote, filtersPairs, useVotesFilter, type VotesFilter} from '../votesFilter';
 import {CalibrationScatter} from './CalibrationScatter';
 import {GapHistogram} from './GapHistogram';
 import {RulesTable} from './RulesTable';
@@ -201,7 +201,11 @@ interface Scope {
   /** scopeWords: the rule or all pairs, and the votes filter's step once it is on. */
   label: string;
   emptyText: string;
-  /** Voted pairs with no engine score: counted on all pairs only, since no rule fired on them. */
+  /**
+   * Voted pairs with no engine score: counted on all pairs only, since no rule
+   * fired on them, and at every vote count, since the artifact holds no votes
+   * per engine-silent pair (#33).
+   */
   engineSilentPairs: number;
   /** Their split by the current card list (#29), on all pairs only. */
   engineSilentSplit?: EngineSilentSplit;
@@ -287,6 +291,7 @@ function ScopedAnalytics({data, voteLog, selected, selectedPair, onSelectPair, o
           onSelectPair={onSelectPair}
           engineSilentPairs={scope.engineSilentPairs}
           engineSilentSplit={scope.engineSilentSplit}
+          votesFilterOn={filtersPairs(filter)}
           emptyText={scope.emptyText}
         />
         <GapHistogram pairs={scope.pairs} scopeLabel={scope.label} emptyText={scope.emptyText} />

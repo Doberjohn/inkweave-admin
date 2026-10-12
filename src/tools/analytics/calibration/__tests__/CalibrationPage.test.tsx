@@ -522,10 +522,15 @@ describe('CalibrationPage: the votes filter (#33)', () => {
     const {user} = renderPage('/calibration');
     await screen.findByRole('slider', {name: 'Weekly mean gap, All pairs'});
     expect(votesFilter().getByRole('button', {name: 'Any'})).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/^Not plotted: 196 engine-silent pairs/)).not.toHaveTextContent(/Votes filter/);
 
     await user.click(votesFilter().getByRole('button', {name: '2+'}));
     // Card 3 × Card 4 has a single score vote.
     expect(figure('Engine vs community').getByText(/^All pairs with 2\+ score votes · 2 pairs\./)).toBeInTheDocument();
+    // The artifact holds no votes per engine-silent pair, so their count stays on every vote, and says so.
+    expect(screen.getByText(/^Not plotted: 196 engine-silent pairs/)).toHaveTextContent(
+      /\. The Votes filter doesn't apply to this count\.$/,
+    );
     expect(figure('Gap distribution').getByText(/^All pairs with 2\+ score votes · /)).toBeInTheDocument();
     expect(pairButtons().map((b) => b.getAttribute('aria-label')?.split(':')[0])).toEqual([
       'Card 1 × Card 2',
