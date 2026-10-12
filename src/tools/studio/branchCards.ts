@@ -145,11 +145,15 @@ function leftFile({card, entry}: {card: LorcanaCard; entry: LorcanaJSONCard | nu
  * Edit's lookup with what only the branch file can say (R-66), over
  * editLookup's answer from editSources' card list:
  * - an id neither source holds waits for the file before it reads missing, and
- *   a failed read is the file's error, with its Retry;
+ *   a failed read is the file's error, with its Retry. A branch-only card the
+ *   file loses reads missing too, since neither source holds it then;
  * - a reveal-set card under a preview id that the file no longer holds is gone.
  *   Graduation releases a card under a new id (R-29) and empties the file,
- *   while inkweave.ink lists the old id until it deploys. Gone gets no form and
- *   no save: an edit or an image would land on an id the app no longer has.
+ *   while inkweave.ink lists the old id until it deploys. On a rehearsal
+ *   branch, a preview card published to master after the branch was cut reads
+ *   gone too, though it is not released at all (R-86).
+ * Neither gets a form or a save: an edit or an image would land on an id the
+ * branch file no longer holds. needsSeed drops an open card's draft on either.
  */
 export function branchLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsFile}): EditLookup {
   if (lookup.kind === 'missing') return unlistedLookup({lookup, file});

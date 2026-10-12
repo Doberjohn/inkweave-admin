@@ -6,7 +6,7 @@ import {DeferredReader} from '../../../test/DeferredReader';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
 import {searchCards} from '../editSearch';
-import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, previewEntry, studioCard} from '../studioFixtures';
+import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, UNNUMBERED_ENTRY, cardOf, previewEntry, studioCard} from '../studioFixtures';
 import {useCardEditor} from '../useCardEditor';
 
 /*
@@ -170,49 +170,91 @@ describe('useCardEditor: cards only the branch file holds (R-66)', () => {
   });
 });
 
-// A card that turns gone once it is open drops its draft once: gone has no form and no save (R-66).
+/*
+ * An open card the branch file loses drops its draft once (R-66): it reads
+ * gone while the card list holds it, and missing when only the file did.
+ * Neither has a form, a file control or a save, so the edit, a staged scan and
+ * the outcome go, and nothing is left for the unsaved-changes guard to ask
+ * about. The draft follows reads until the file holds the card again.
+ */
 describe('useCardEditor: an open card that leaves the branch file', () => {
-  const STALE = `Card ${LISTED_PREVIEW.id} is no longer in previewCards.json on master. Load it again.`;
+  /** The file as each case opens: Mei, whom the card list holds too, and Wren, whom only the file holds. */
+  const OPENED = [PREVIEW_ENTRY, BRANCH_ONLY_ENTRY];
+  const LEAVERS = [
+    {name: 'a card the card list holds reads gone', listed: [LISTED_PREVIEW], entry: PREVIEW_ENTRY, left: {kind: 'gone', card: LISTED_PREVIEW}},
+    {name: 'a card only the file held reads missing', listed: [RELEASED_CARD], entry: BRANCH_ONLY_ENTRY, left: {kind: 'missing', cardId: BRANCH_ONLY_ID}},
+  ];
+  type Leaver = (typeof LEAVERS)[number];
 
-  /** Mei open, with her cost edited. */
-  async function editedMei() {
-    setCardList([LISTED_PREVIEW]);
+  /** The file once it has lost the case's card. */
+  const without = ({entry}: Leaver) => OPENED.filter((other) => other !== entry);
+
+  /** The case's card open, with its cost edited. */
+  async function edited({listed, entry}: Leaver) {
+    setCardList(listed);
     const first = nextRead();
-    const editor = renderEditor(LISTED_PREVIEW.id);
-    await first.land([PREVIEW_ENTRY]);
+    const editor = renderEditor(String(entry.id));
+    await first.land(OPENED);
     act(() => editor.result.current.patchForm({cost: '5'}));
-    expect(editor.result.current).toMatchObject({form: {cost: '5'}, dirty: true});
+    expect(editor.result.current).toMatchObject({form: {name: entry.name, cost: '5'}, dirty: true});
     return editor;
   }
 
-  it('ends a save refused as stale on gone once Load it again lands without the card (R-68, R-69)', async () => {
-    const {result} = await editedMei();
-    commitCardEdit.mockRejectedValueOnce(new StaleCardError(STALE));
+  /** A scan staged on the open card, its bytes read. */
+  async function stageScan({result}: Pick<ReturnType<typeof renderEditor>, 'result'>) {
+    DeferredReader.reset();
+    vi.stubGlobal('FileReader', DeferredReader);
+    act(() => void result.current.onImageChange(pngFile('scan.png')));
+    await DeferredReader.finish(0);
+    expect(result.current).toMatchObject({imageName: 'scan.png', dirty: true});
+  }
+
+  it.each(LEAVERS)('ends a save refused as stale once Load it again lands without the card: $name (R-68, R-69)', async (leaver) => {
+    const {result} = await edited(leaver);
+    const stale = `Card ${leaver.entry.id} is no longer in previewCards.json on master. Load it again.`;
+    commitCardEdit.mockRejectedValueOnce(new StaleCardError(stale));
     await act(() => result.current.save());
-    expect(result.current).toMatchObject({failure: 'stale', saveError: STALE});
+    expect(result.current).toMatchObject({failure: 'stale', saveError: stale});
 
     const again = nextRead();
     let loaded: Promise<boolean> = Promise.resolve(false);
     act(() => {
       loaded = result.current.loadAgain();
     });
-    await again.land([]);
+    await again.land(without(leaver));
     await expect(loaded).resolves.toBe(true);
-    expect(result.current).toMatchObject({lookup: {kind: 'gone', card: LISTED_PREVIEW}, form: null, dirty: false, changes: []});
+    expect(result.current).toMatchObject({lookup: leaver.left, form: null, dirty: false, changes: []});
     expect(result.current).toMatchObject({failure: null, saveError: null, dropped: 1, canSave: false});
   });
 
-  it('drops the edit when reloadFile lands without the card, and seeds its fields again once the file holds it', async () => {
-    const {result} = await editedMei();
+  it.each(LEAVERS)('drops the edit and a staged scan when reloadFile lands without the card, and seeds its fields again once the file holds it: $name', async (leaver) => {
+    const editor = await edited(leaver);
+    await stageScan(editor);
+    const {result} = editor;
     const second = nextRead();
     act(() => result.current.reloadFile());
-    await second.land([]);
-    expect(result.current).toMatchObject({lookup: {kind: 'gone'}, form: null, changes: [], dirty: false});
+    await second.land(without(leaver));
+    expect(result.current).toMatchObject({lookup: leaver.left, form: null, imageName: null, changes: [], dirty: false, dropped: 1});
 
     const third = nextRead();
     act(() => result.current.reloadFile());
-    await third.land([PREVIEW_ENTRY]);
-    expect(result.current).toMatchObject({lookup: {kind: 'ready', entry: PREVIEW_ENTRY}, form: {name: 'Mei'}, changes: []});
+    await third.land(OPENED);
+    expect(result.current).toMatchObject({lookup: {kind: 'ready', entry: leaver.entry}, form: {name: leaver.entry.name}, imageName: null, changes: []});
     expect(result.current.form?.cost).not.toBe('5');
+  });
+
+  it("drops an image-only card's reason and its staged scan once it reads gone (R-65)", async () => {
+    const tyler = cardOf(UNNUMBERED_ENTRY);
+    setCardList([tyler]);
+    const first = nextRead();
+    const editor = renderEditor(tyler.id);
+    await first.land([UNNUMBERED_ENTRY]);
+    expect(editor.result.current.imageOnly).toBe('unnumbered');
+    await stageScan(editor);
+
+    const second = nextRead();
+    act(() => editor.result.current.reloadFile());
+    await second.land([]);
+    expect(editor.result.current).toMatchObject({lookup: {kind: 'gone', card: tyler}, imageOnly: null, imageName: null, changes: [], dirty: false});
   });
 });

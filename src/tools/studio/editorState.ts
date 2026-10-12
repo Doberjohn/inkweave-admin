@@ -117,9 +117,16 @@ export interface Draft {
   seed: number;
   /** The read of previewCards.json it was seeded from; null when it was seeded without one. */
   read: number | null;
-  /** Seed again once the card is ready on a newer read: while it waits, and after Load it again (R4-4c). */
+  /**
+   * Seed again once the card is ready on a newer read: while it waits, after
+   * Load it again (R4-4c), and after a read that left the card out of the file
+   * (gone or missing, R-66; needsSeed).
+   */
   follow: boolean;
-  /** Null until the card's lookup is ready. A draft keeps the kind it was seeded with. */
+  /**
+   * Null until the card's lookup is ready, and again once a read leaves the
+   * card out of the file (R-66). A draft keeps the kind it was seeded with.
+   */
   edit: FieldsEdit | ImageOnlyEdit | null;
   /**
    * The file chosen for this draft. The upload hook holds its bytes; the
@@ -127,7 +134,11 @@ export interface Draft {
    * image and nothing calls upload.choose(null) during render.
    */
   image: File | null;
-  /** How many edits the last "Load it again" dropped (R-68, R4-4c); unset until one lands on this draft. */
+  /**
+   * How many field edits the last same-card re-seed dropped: a "Load it again"
+   * (R-68, R4-4c), or a read that left the card out of the file (gone or
+   * missing, R-66; needsSeed). Unset until one lands on this draft.
+   */
   dropped?: number;
 }
 
@@ -171,15 +182,18 @@ function newerRead({draft, file}: {draft: Draft; file: PreviewCardsFile}): boole
  * Whether this render must seed a new draft: the URL names another card, or
  * the draft follows reads and its card is now ready on a newer one. A later
  * read never touches a draft that doesn't follow, so edits survive a reload,
- * unless it leaves the card gone (R-66, branchLookup): gone has no form and no
- * save, so a draft that still holds an edit is seeded once more, which drops
- * the edit (keepEdits counts it), clears the outcome and keeps a staged image.
- * The draft then holds nothing, so the next render settles, and it follows
- * reads again, so the card's fields come back if the file holds it again.
+ * unless it leaves the open card out of the file (R-66, branchLookup): gone
+ * while the card list holds it, missing when only the file did. Neither has a
+ * form, a file control or a save, so a draft that still holds an edit, a
+ * field edit or an image-only one, is seeded once more. That drops the edit
+ * (keepEdits counts it), the staged image (reseeded) and the outcome. The
+ * draft then holds nothing, so the next render settles, and it follows reads
+ * again, so the card's fields come back if the file holds it again. An
+ * unknown id's draft is seeded missing, with no edit, so it settles at once.
  */
 export function needsSeed({draft, cardId, lookup, file}: Omit<SeedInput, 'seed'> & {draft: Draft}): boolean {
   if (draft.cardId !== cardId) return true;
-  if (lookup.kind === 'gone') return draft.edit !== null;
+  if (lookup.kind === 'gone' || lookup.kind === 'missing') return draft.edit !== null;
   if (!draft.follow || lookup.kind !== 'ready') return false;
   return newerRead({draft, file});
 }

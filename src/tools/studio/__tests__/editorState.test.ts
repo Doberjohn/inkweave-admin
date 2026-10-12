@@ -109,7 +109,8 @@ describe('imageOnlyOf: the reason the page shows', () => {
   const seededWithoutEntry = opened({file: readFile({cards: []})}).draft;
   it.each<[string, Draft, EditLookup, ImageOnlyReason | null]>([
     ['a field edit', opened().draft, opened().lookup, null],
-    ['a field edit whose card a newer read lacks: its form stays', opened().draft, lookupOf({cardId: MEI_ID, file: readFile({cards: [], read: 2})}), null],
+    // Only editLookup reads this state: the hook's branchLookup reads it as gone, which re-seeds the draft (R-66).
+    ['a field edit whose card a newer read lacks, as editLookup reads it: no reason', opened().draft, lookupOf({cardId: MEI_ID, file: readFile({cards: [], read: 2})}), null],
     ['a draft that waits', opened({file: LOADING}).draft, {kind: 'loading'}, null],
     ['a card of another set while the file loads (R-71)', seededLoading, lookupOf({cardId: OTHER_SET_ID, file: LOADING}), 'released'],
     ['the same card once the file holds it: a pin lag (R-65)', seededLoading, lookupOf({cardId: OTHER_SET_ID, file: readFile()}), 'other-set'],
@@ -165,13 +166,23 @@ describe('needsSeed', () => {
     expect(needsSeed({draft, cardId, lookup, file})).toBe(expected);
   });
 
-  // R4-4d (R-66): branchLookup's gone, for a card the newer read no longer holds.
-  it.each<{name: string; draft: Draft; expected: boolean}>([
-    {name: 'a gone card with an edit in its draft, even one that does not follow: once, to drop it', draft: settled.draft, expected: true},
-    {name: 'a gone card whose draft holds nothing: it settles', draft: waiting.draft, expected: false},
-  ])('$name', ({draft, expected}) => {
-    const lookup: EditLookup = {kind: 'gone', card: listCard(MEI)};
-    expect(needsSeed({draft, cardId: MEI_ID, lookup, file: readFile({cards: [], read: 2})})).toBe(expected);
+  // R4-4d (R-66): branchLookup's answers for a card the newer read no longer holds:
+  // gone while the card list holds it, missing when only the file did (a branch-only card).
+  const GONE: EditLookup = {kind: 'gone', card: listCard(MEI)};
+  const MISSING: EditLookup = {kind: 'missing', cardId: MEI_ID};
+  it.each<{name: string; draft: Draft; lookup: EditLookup; expected: boolean}>([
+    {name: 'a gone card with an edit in its draft, even one that does not follow: once, to drop it', draft: settled.draft, lookup: GONE, expected: true},
+    {
+      name: 'a gone card with an image-only draft: once, so its reason and its image go too',
+      draft: opened({cardId: String(UNNUMBERED_ENTRY.id)}).draft,
+      lookup: {kind: 'gone', card: listCard(UNNUMBERED_ENTRY)},
+      expected: true,
+    },
+    {name: 'a missing card with an edit in its draft: once, as gone', draft: settled.draft, lookup: MISSING, expected: true},
+    {name: 'a gone card whose draft holds nothing: it settles', draft: waiting.draft, lookup: GONE, expected: false},
+    {name: 'a missing card whose draft holds nothing, as an unknown id’s is seeded: it settles', draft: waiting.draft, lookup: MISSING, expected: false},
+  ])('$name', ({draft, lookup, expected}) => {
+    expect(needsSeed({draft, cardId: draft.cardId, lookup, file: readFile({cards: [], read: 2})})).toBe(expected);
   });
 });
 

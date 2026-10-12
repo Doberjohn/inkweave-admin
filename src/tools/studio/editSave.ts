@@ -170,12 +170,14 @@ function withFields(form: RevealCardForm, edits: RevealCardForm, fields: (keyof 
 }
 
 /**
- * A same-card re-seed (its first read, or "Load it again"; R-68): `fresh` is
- * the draft seeded from the read that landed. It keeps the staged image. Each
- * field the old draft changed is kept while the fresh form still holds the
- * value that edit started from; the rest take the fresh values, and `dropped`
- * counts them. A card that no longer opens with fields drops every edit. A
- * draft with no form (before its first read) has nothing to count.
+ * A same-card re-seed (its first read, "Load it again" (R-68), or a read that
+ * left the card out of the file, R-66): `fresh` is the draft seeded from the
+ * read that landed. It keeps the staged image, which reseeded then drops for a
+ * card left with nothing to edit. Each field the old draft changed is kept
+ * while the fresh form still holds the value that edit started from; the rest
+ * take the fresh values, and `dropped` counts them. A card that no longer
+ * opens with fields drops every edit. A draft with no form (before its first
+ * read) has nothing to count.
  */
 export function keepEdits(draft: Draft, fresh: Draft): Draft {
   const was = fieldsOf(draft);
@@ -191,8 +193,14 @@ export function keepEdits(draft: Draft, fresh: Draft): Draft {
 /**
  * The draft a seed during render gives (R4-4b's needsSeed): another card starts
  * afresh, and the same card's newer read keeps what still applies (keepEdits).
+ * A read that leaves the card out of the file (gone or missing, R-66) seeds it
+ * with nothing to edit, and the staged image goes too: neither state has a
+ * file control or a save, so a kept image would leave the draft dirty, and
+ * the unsaved-changes guard asking, with nothing on screen to discard.
  */
 export function reseeded({draft, ...input}: Omit<SeedInput, 'seed'> & {draft: Draft}): Draft {
   const fresh = seedDraft({...input, seed: draft.seed + 1});
-  return draft.cardId === input.cardId ? keepEdits(draft, fresh) : fresh;
+  if (draft.cardId !== input.cardId) return fresh;
+  const kept = keepEdits(draft, fresh);
+  return fresh.edit === null ? {...kept, image: null} : kept;
 }

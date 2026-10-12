@@ -47,7 +47,11 @@ export interface EditSave extends OutcomeFields {
   save: () => Promise<void>;
   /** After a 'stale' failure: read the file again. Resolves true once that read lands and re-seeds the draft (R-68). */
   loadAgain: () => Promise<boolean>;
-  /** How many edits the last Load it again dropped (R-68); null until one lands on this card, and again once a save starts. */
+  /**
+   * How many edits the last Load it again dropped (R-68), or the read that left
+   * the card out of the file (gone or missing, R-66); null until one lands on
+   * this card, and again once a save starts.
+   */
   dropped: number | null;
 }
 
@@ -90,11 +94,12 @@ function withoutDropped(draft: Draft): Draft {
 
 /**
  * Edit card's save side (R4-4c). Save runs the commit savePlanOf picks. Its
- * outcome belongs to the draft it was made from: a new card, or a read the
- * draft follows, re-seeds the draft, and the outcome then shows nothing, so a
- * save that lands after the operator left the card shows nothing (R-69). A
- * landed save keeps the card open on its new baseline (R-70). `saving` spans
- * cards, so no save starts while one runs.
+ * outcome belongs to the draft it was made from: a new card, a read the draft
+ * follows, or one that leaves the card out of the file (gone or missing,
+ * R-66), re-seeds the draft, and the outcome then shows nothing, so a save
+ * that lands after the operator left the card shows nothing (R-69). A landed
+ * save keeps the card open on its new baseline (R-70). `saving` spans cards,
+ * so no save starts while one runs.
  */
 export function useEditSave(input: EditSaveInput): EditSave {
   const {draft, setDraft, file} = input;
