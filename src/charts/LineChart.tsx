@@ -20,7 +20,7 @@ import {
 import {chartWidth, tooltipText} from './series';
 import {useChartCursor} from './useChartCursor';
 
-export type {LinePoint, LineSeries} from './lineLayout';
+export type {LineSeries} from './lineLayout';
 export {LINE_END_WIDTH, LINE_Y_AXIS_WIDTH};
 
 interface LineChartProps {
