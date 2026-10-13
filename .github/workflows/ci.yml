@@ -46,3 +46,25 @@ jobs:
       # Windows, so it runs here rather than in the pre-commit hook.
       - run: pnpm check:hooks
       - run: pnpm build
+
+  # The app's audit step (Doberjohn/inkweave#490). pnpm 11 queries npm's bulk advisory
+  # endpoint; the pinned pnpm 9 still queries the legacy one, which npm is retiring.
+  # --pm-on-fail=ignore stops pnpm 11 from handing the command to the packageManager pin.
+  # Audits dev and prod dependencies and fails on high or critical. It reads only
+  # pnpm-lock.yaml, so it needs neither the submodule nor an install. To waive an accepted
+  # advisory, add its GHSA id under audit.ignore in pnpm-workspace.yaml, with the reason.
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Third-party action pinned to a commit; bump the SHA and comment together.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - run: pnpm dlx pnpm@11.28.2 audit --pm-on-fail=ignore --audit-level high
