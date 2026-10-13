@@ -37,29 +37,34 @@ describe('isLoginGate', () => {
 describe('fetchGateResponse', () => {
   const URL_UNDER_TEST = 'https://admin-abc.vercel.app/';
   const respond = (status, headers = {}) => () => Promise.resolve(new Response(null, {status, headers}));
-  const quiet = {wait: async () => {}, log: () => {}};
+  // The pause between 404s is recorded instead of waited out, so each test can check it.
+  const options = (fetchFn) => ({fetchFn, wait: vi.fn(async () => {}), log: () => {}});
 
-  it('asks again after a 404 and returns the login redirect that follows', async () => {
+  it('asks again two seconds after a 404 and returns the login redirect that follows', async () => {
     const fetchFn = vi
       .fn()
       .mockImplementationOnce(respond(404))
       .mockImplementationOnce(respond(302, {location: 'https://vercel.com/sso-api?url=x'}));
-    const response = await fetchGateResponse(URL_UNDER_TEST, {...quiet, fetchFn});
+    const opts = options(fetchFn);
+    const response = await fetchGateResponse(URL_UNDER_TEST, opts);
     expect(response.status).toBe(302);
     expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(opts.wait.mock.calls).toEqual([[2_000]]);
   });
 
   it('returns an exposed page at once, without asking again', async () => {
-    const fetchFn = vi.fn(respond(200));
-    const response = await fetchGateResponse(URL_UNDER_TEST, {...quiet, fetchFn});
+    const opts = options(vi.fn(respond(200)));
+    const response = await fetchGateResponse(URL_UNDER_TEST, opts);
     expect(response.status).toBe(200);
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(opts.fetchFn).toHaveBeenCalledTimes(1);
+    expect(opts.wait).not.toHaveBeenCalled();
   });
 
   it('returns the last 404 once its five tries run out', async () => {
-    const fetchFn = vi.fn(respond(404));
-    const response = await fetchGateResponse(URL_UNDER_TEST, {...quiet, fetchFn});
+    const opts = options(vi.fn(respond(404)));
+    const response = await fetchGateResponse(URL_UNDER_TEST, opts);
     expect(response.status).toBe(404);
-    expect(fetchFn).toHaveBeenCalledTimes(5);
+    expect(opts.fetchFn).toHaveBeenCalledTimes(5);
+    expect(opts.wait.mock.calls).toEqual(Array(4).fill([2_000]));
   });
 });
