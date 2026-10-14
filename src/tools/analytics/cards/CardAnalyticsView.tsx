@@ -5,6 +5,7 @@ import {twoUp} from '../../../ui/layout';
 import {Notice} from '../../../ui/Notice';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
+import {useVotesFilter} from '../votesFilter';
 import {CardCalibrationPanel} from './CardCalibrationPanel';
 import {CardHeader} from './CardHeader';
 import {CardKpis} from './CardKpis';
@@ -49,12 +50,14 @@ interface CalibrationRowProps {
 
 /**
  * Calibration for this card beside Voted pairs, or one notice for a card in no
- * pairs[] row. The engine-silent caption (R-31) goes with either: a card
- * whose every vote is engine-silent still says how many pairs it has.
+ * pairs[] row. The engine-silent count (R-31) goes with either, in the words
+ * silentNote picks for each: a card whose every vote is engine-silent still
+ * says how many pairs it has. Voted pairs' count follows the votes filter (#33).
  */
 function CalibrationRow({calibration, raw, isListed}: CalibrationRowProps) {
   const {cardPairs, rules} = calibration;
-  const note = silentNote({raw, cardPairs, isListed});
+  const {filter} = useVotesFilter();
+  const note = silentNote({raw, cardPairs, isListed, filter});
   if (cardPairs.length === 0) {
     return <Notice>No score votes on pairs the engine scores yet.{note && ` ${note}`}</Notice>;
   }
@@ -69,8 +72,8 @@ function CalibrationRow({calibration, raw, isListed}: CalibrationRowProps) {
 /**
  * One card's analytics (R3): the card, then its numbers from vote analytics
  * and the vote log, each section in its own state, so the header never waits
- * for a vote file. R3-6b adds the raw-vote panels and R3-6c the engine view
- * below. The page renders it keyed by card id (R-46), so nothing a section
+ * for a vote file. The raw-vote panels (R3-6b) and the engine view (R3-6c)
+ * close it. The page renders it keyed by card id (R-46), so nothing a section
  * holds carries over to the next card. Purely presentational: the page fetches.
  */
 export function CardAnalyticsView({card, analytics, voteLog, synergies, getCardById, handoff, headerActions}: CardAnalyticsViewProps) {

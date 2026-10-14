@@ -35,7 +35,7 @@ function binTooltip(bin: GapBin, total: number): TooltipContent {
 export interface GapHistogramProps {
   /** The scope, uncapped (pairsInScope). */
   pairs: readonly PairStat[];
-  /** "All pairs" or the selected rule's name. */
+  /** "All pairs" or the selected rule's name, with the votes filter's step once it is on (scopeWords). */
   scopeLabel: string;
   /** What an empty scope says (default "No voted pairs yet."). */
   emptyText?: string;

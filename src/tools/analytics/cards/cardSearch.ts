@@ -19,6 +19,15 @@ export function cardLabel({name, version}: Pick<LorcanaCard, 'name' | 'version'>
   return version ? `${name} · ${version}` : name;
 }
 
+/**
+ * The switcher's word on a pick (#34): "Opened Mickey Mouse · Brave Little
+ * Tailor." The card's page changes under the field while focus stays in it
+ * (R-48), so without it a screen reader hears nothing of the new card.
+ */
+export function openedStatus(card: Pick<LorcanaCard, 'name' | 'version'>): string {
+  return `Opened ${cardLabel(card)}.`;
+}
+
 /** What the switcher's status reads from: its cards, and the hook's state. */
 export interface SwitcherState {
   /** Every card the switcher can open. Empty while the card list loads, or after it failed. */

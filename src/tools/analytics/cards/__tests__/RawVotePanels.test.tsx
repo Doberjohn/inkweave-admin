@@ -15,6 +15,7 @@ import {
   THIN_CARD,
   UNVOTED_CARD,
   loaded,
+  voteRow,
 } from '../cardFixtures';
 
 /** Card 8001 with both files loaded, unless the case says otherwise. */
@@ -116,6 +117,8 @@ describe('Community scores', () => {
   it('names no peak when every score has one vote, and keeps the engine', () => {
     renderPanels({card: THIN_CARD});
     expect(screen.getByText('Average 5.5 from 2 scored votes (plain mean) · engine 7.0 on the pairs it scores')).toBeInTheDocument();
+    // No quick votes, so no line counting them under the frame.
+    expect(screen.queryByText(/without a score left out/)).not.toBeInTheDocument();
   });
 
   it('keeps its titled frame with only quick votes, with the reason in place of the chart and no legend', () => {
@@ -131,6 +134,8 @@ describe('How voters answered', () => {
   it('splits the accuracy answers, with each share and count in the legend', () => {
     renderPanels();
     const panel = screen.getByRole('region', {name: 'How voters answered'});
+    // The question prints above the split, not only in the list's name.
+    expect(within(panel).getByText('Is the engine’s score right?').tagName).toBe('P');
     const split = within(panel).getByRole('list', {name: 'Is the engine’s score right?'});
     expect(within(split).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'Too high 20% (2)',
@@ -201,6 +206,15 @@ describe('Votes per week', () => {
       '2026-09-28',
     ]);
     expect(within(figure).queryByRole('list', {name: 'Legend'})).not.toBeInTheDocument();
+  });
+
+  it('thins its x labels to at most seven, counting back from the newest week', () => {
+    // One vote in June stretches the log to 18 weeks, so every fourth week is named.
+    const june = voteRow({a: '9000', b: '9001', ts: '2026-06-01T10:00:00.123456+00:00', score: 5});
+    renderPanels({voteLog: loaded({...RAW_LOG, votes: [june, ...RAW_LOG.votes]})});
+    const figure = screen.getByRole('figure', {name: 'Votes per week'});
+    const labels = [...figure.querySelectorAll('[data-x-label]')].map((t) => t.textContent);
+    expect(labels).toEqual(['Jun 8', 'Jul 6', 'Aug 3', 'Aug 31', 'Sep 28']);
   });
 
   it('reads the part week from the keyboard', async () => {

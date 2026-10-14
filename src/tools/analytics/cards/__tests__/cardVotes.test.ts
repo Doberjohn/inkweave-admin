@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {activityWindow} from '../../activity/activityModel';
 import type {VoteLogRow} from '../../voteLogTypes';
+import {ANY_VOTES, VOTES_FILTERS} from '../../votesFilter';
 import {UNLISTED_IDS, VOTED_CARD, VOTED_CARD_LOG, VOTED_CARD_PAIRS, voteRow} from '../cardFixtures';
 import {cardCalibration, pairsForCard} from '../cardStats';
 import {
@@ -9,6 +10,7 @@ import {
   engineSilentForCard,
   scoreHistogram,
   votesForCard,
+  votesOnPairsWith,
   votesPerWeek,
   type CardVote,
 } from '../cardVotes';
@@ -98,6 +100,38 @@ describe('engineSilentForCard', () => {
   it("holds the histogram check: the card's scored votes are its pairs[] votes plus its engine-silent ones", () => {
     const silent = engineSilentForCard(CARD_VOTES, CARD_PAIRS, isListed);
     expect(scoreHistogram(CARD_VOTES).scored).toBe(cardCalibration(CARD_PAIRS).scoreVotes + silent.votes);
+  });
+});
+
+describe('votesOnPairsWith', () => {
+  const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+
+  it("keeps every vote on a partner with the step's scored votes, its quick votes too, in log order (#33)", () => {
+    // 120 has two scored votes, 640 and 710 two and a quick vote each; 305 has one, and 880 only quick votes.
+    expect(votesOnPairsWith(CARD_VOTES, TWO_PLUS).map((cv) => cv.partnerId)).toEqual([
+      '120',
+      '120',
+      '640',
+      '640',
+      '640',
+      '710',
+      '710',
+      '710',
+    ]);
+    expect(votesOnPairsWith(CARD_VOTES, FIVE_PLUS)).toEqual([]);
+  });
+
+  it('keeps every vote at Any', () => {
+    expect(votesOnPairsWith(CARD_VOTES, ANY_VOTES)).toBe(CARD_VOTES);
+  });
+
+  it("leaves engineSilentForCard the step's engine-silent pairs: 710's, not 305's single vote", () => {
+    expect(engineSilentForCard(votesOnPairsWith(CARD_VOTES, TWO_PLUS), CARD_PAIRS, isListed)).toEqual({
+      pairs: 1,
+      votes: 2,
+      partnerUnlisted: {pairs: 0, votes: 0},
+      partnerListed: {pairs: 1, votes: 2},
+    });
   });
 });
 

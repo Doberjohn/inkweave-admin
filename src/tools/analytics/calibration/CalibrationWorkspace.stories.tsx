@@ -6,6 +6,7 @@ import {useTuningAdmin} from '../../tuning/useTuningAdmin';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
 import type {PairStat, RuleStat, VoteAnalytics} from '../voteAnalyticsTypes';
+import {VOTES_FILTERS, setVotesFilter} from '../votesFilter';
 import {CalibrationWorkspace} from './CalibrationWorkspace';
 import type {TuningState} from './TuningAside';
 import {calibrationSubtitle} from './calibrationModel';
@@ -30,7 +31,6 @@ function ruleStat(ruleId: string, ruleName: string): RuleStat {
     scoreVotes,
     pairsVoted: pairs.length,
     meanGap,
-    accuracySentiment: null,
     pairsCovered: 0.2,
   };
 }
@@ -54,6 +54,7 @@ const ANALYTICS: VoteAnalytics = {
     meanGap: PAIRS.reduce((sum, pair) => sum + pair.gap * pair.scoreVotes, 0) / TOTAL_VOTES,
     accuracySentiment: null,
     engineSilentPairs: 37,
+    engineSilentSplit: {listed: 3, unlisted: 34},
     weekly: [],
     dimensionFill: {score: TOTAL_VOTES, accuracy: 210, isReal: 90, wouldPlay: 180, difficulty: 40},
   },
@@ -124,6 +125,23 @@ type Story = StoryObj<typeof meta>;
 
 /** All pairs at real density, without a token: the analytics in full, the token gate in the aside. */
 export const AllPairs: Story = {};
+
+const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+
+/**
+ * The votes filter at 2+ (#33): the scatter, the histogram, the pair list and
+ * the weekly gap keep the 40 pairs with more than one score vote, and each
+ * says so. The rules table stays on every vote.
+ */
+export const VotesFilterOn: Story = {
+  beforeEach: () => setVotesFilter(TWO_PLUS),
+};
+
+/** Ramp at 5+: the few of its pairs with five score votes. */
+export const VotesFilterOnARule: Story = {
+  args: {rule: 'ramp'},
+  beforeEach: () => setVotesFilter(FIVE_PLUS),
+};
 
 /** A rule picked with a token saved: the charts follow it, and the aside edits its tuning.json entry. */
 export const TuningARule: Story = {

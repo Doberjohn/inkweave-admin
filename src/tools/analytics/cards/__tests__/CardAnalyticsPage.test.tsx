@@ -1,7 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {createMemoryRouter, RouterProvider} from 'react-router-dom';
+import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
+import {MIN_CORE_SET} from 'inkweave-synergy-engine';
 import {COLORS, type useCardDataContext} from '../../../../app-bridge';
 import type {PairStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {CardAnalyticsViewProps} from '../CardAnalyticsView';
@@ -138,11 +139,19 @@ function setCardList({cards = [ELSA, ANNA], isLoading = false, error = null}: Pa
   act(() => cardList.listeners.forEach((onChange) => onChange()));
 }
 
-/** The page at `path` in a data router, so a test can read where a redirect left it. */
+/**
+ * The page at `path` in a data router, so a test can read where a redirect
+ * left it. /activity stands in for another page, with a card link as R3-8's
+ * CardName draws one.
+ */
 function renderPage(path: string) {
-  const router = createMemoryRouter([{path: '/cards/:cardId?', element: <CardAnalyticsPage />}], {
-    initialEntries: [path],
-  });
+  const router = createMemoryRouter(
+    [
+      {path: '/cards/:cardId?', element: <CardAnalyticsPage />},
+      {path: '/activity', element: <Link to="/cards/2984">Anna - Heir to Arendelle</Link>},
+    ],
+    {initialEntries: [path]},
+  );
   render(<RouterProvider router={router} />);
   return {router, user: userEvent.setup()};
 }
@@ -244,6 +253,8 @@ describe('CardAnalyticsPage: a card', () => {
     expect(cardHeading('Elsa - Snow Queen')).toBeInTheDocument();
     expect(document.title).toBe('Elsa - Snow Queen · Card analytics · Inkweave admin');
     expect(localStorage.getItem(KEY)).toBe('2983');
+    // A load moves no control away: focus stays where the browser put it.
+    expect(document.body).toHaveFocus();
     // The date sits in a <code>, so the line is matched on the element that holds both.
     expect(await screen.findByText(/Data as of/)).toHaveTextContent('Data as of 2026-10-05');
   });
@@ -289,10 +300,14 @@ describe('CardAnalyticsPage: a card', () => {
   it('says no card has an unknown id, and forgets it (R-29)', () => {
     localStorage.setItem(KEY, '999999');
     renderPage('/cards/999999');
+    // The set floor is the engine's, so the copy follows a rotation.
+    expect(MIN_CORE_SET).toBe(9);
     expect(notFound()).toHaveTextContent(
       'No card has the id 999999 in the current card list. ' +
-        'Cards from sets before 9 rotated out of Core, and a preview id changes when its card is released.',
+        `Cards from sets before ${MIN_CORE_SET} rotated out of Core, and a preview id changes when its card is released.`,
     );
+    // Mono, as every id on the page (R-7).
+    expect(notFound().querySelector('code')).toHaveTextContent(/^999999$/);
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(document.title).toBe('Card analytics · Inkweave admin');
   });
@@ -324,6 +339,23 @@ describe('CardAnalyticsPage: moving between cards', () => {
     expect(screen.getByRole('button', {name: 'Pressed 0'})).toBeInTheDocument();
     expect(document.title).toBe('Anna - Heir to Arendelle · Card analytics · Inkweave admin');
     expect(localStorage.getItem(KEY)).toBe('2984');
+  });
+
+  it('focuses the card h2 on arrival from another page’s card link, which went with its page (#34)', async () => {
+    const {router, user} = renderPage('/activity');
+    await user.click(screen.getByRole('link', {name: 'Anna - Heir to Arendelle'}));
+    expect(router.state.historyAction).toBe('PUSH');
+    expect(cardHeading('Anna - Heir to Arendelle')).toHaveFocus();
+  });
+
+  it('leaves focus alone on a move to bare /cards, which names no card', async () => {
+    // An unknown id leaves no card remembered, so bare /cards prompts rather than redirecting.
+    const {router} = renderPage('/cards/999999');
+    expect(notFound()).toBeInTheDocument();
+    await act(() => router.navigate('/cards'));
+    expect(router.state.historyAction).toBe('PUSH');
+    expect(prompt()).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
   });
 
   it('leaves focus in the switcher after a pick (R-48)', async () => {
@@ -389,6 +421,13 @@ describe('CardAnalyticsPage: a failed card list', () => {
     expect(screen.getByText('Loading cards…')).toBeInTheDocument();
     setCardList(settled);
     expect(focused()).toHaveFocus();
+  });
+
+  it('keeps Retry at its own width', () => {
+    setCardList({cards: [], error: new Error('HTTP 500')});
+    renderPage('/cards/2983');
+    // The notice and the button share a grid, which would stretch the button across the body.
+    expect(screen.getByRole('button', {name: 'Retry'})).toHaveStyle({justifySelf: 'start'});
   });
 
   it('offers Retry on bare /cards too, and focuses the prompt, which waits for no list', async () => {

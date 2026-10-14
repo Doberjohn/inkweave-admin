@@ -1,12 +1,12 @@
 // @vitest-environment node
 import {describe, expect, it} from 'vitest';
 import {weeklyGaps} from '../../../src/tools/analytics/calibration/chartData.ts';
-import {buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
+import {precompute, raw} from './parityHarness.mjs';
 
 /*
  * Admin's weeklyGaps against the precompute's bucketWeekly and rollUpByRule.
  * Both sides run on the same raw votes, through the transforms the Deploy runs
- * (buildAnalytics, buildVoteLog), so on "All pairs" the Weekly gap chart can't
+ * (parityHarness.mjs), so on "All pairs" the Weekly gap chart can't
  * drift from global.weekly's mean gap, the artifact it sits beside.
  *
  * A rule's weeks add up to its mean gap here only because no pair in this
@@ -24,27 +24,7 @@ const ENGINE_PAIRS = new Map([
   ['3:4', {engineScore: 5, connections: [{ruleId: 'ramp'}, {ruleId: 'shift-targets'}]}],
   ['5:6', {engineScore: 8, connections: [{ruleId: 'shift-targets'}]}],
 ]);
-const ALL_RULES = [
-  {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle'},
-  {ruleId: 'shift-targets', ruleName: 'Shift Targets', category: 'direct'},
-];
 const NAMES = new Map(['1', '2', '3', '4', '5', '6', '7', '8'].map((id) => [id, `Card ${id}`]));
-
-/** A raw vote as fetchAllRows reads it: Supabase's microsecond +00:00 timestamp, card ids in either order. */
-function raw(createdAt, a, b, score) {
-  return {
-    created_at: createdAt,
-    ip_hash: `voter-${a}-${b}`,
-    card_a_id: a,
-    card_b_id: b,
-    score,
-    accuracy: null,
-    is_real: null,
-    would_play: null,
-    difficulty: null,
-    who_carries: null,
-  };
-}
 
 // Sep 14 (gaps −3, +3, +1), Sep 21 (one quick vote), Sep 28 (−2, −2), no vote
 // at all in the week of Oct 5, and Oct 12 (a pair the engine is silent on).
@@ -66,15 +46,14 @@ const SCORE_ROWS = [
   {card_a_id: '7', card_b_id: '8', avg_score: 9, score_votes: 1, total_votes: 1, accuracy_sentiment: null},
 ];
 
-const analytics = buildAnalytics({
+const {analytics, log} = precompute({
+  rawVotes: RAW_VOTES,
   scoreRows: SCORE_ROWS,
   enginePairs: ENGINE_PAIRS,
-  allRules: ALL_RULES,
   names: NAMES,
   ruleTotalPairs: {ramp: 2, 'shift-targets': 2},
-  rawVotes: RAW_VOTES,
+  listedIds: new Set(NAMES.keys()),
 });
-const log = buildVoteLog(RAW_VOTES, NAMES);
 
 describe('weeklyGaps against the precompute', () => {
   it("matches global.weekly's mean gap week for week on every pair, and fills the weeks it skips", () => {

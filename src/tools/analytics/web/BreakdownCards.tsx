@@ -25,12 +25,12 @@ function inkOf(prop: string, value: string) {
 }
 
 /**
- * The icon in front of a row's value: the app's ink icon on ink props, and
- * RaritySymbol's glyph on the rarity prop. RaritySymbol is keyed by the rarity
- * lowercased, as the app keys it ("Super Rare" is "super rare"), and draws the
- * five rarities and the Enchanted, Epic and Iconic printings. It draws nothing
- * for any other key, so "Others" shows its text alone. A blank value
- * (NOT_SET_LABEL) never gets here: it has no ink or rarity to look up.
+ * The icon in front of a row's value: the app's ink icon on ink props. On the
+ * rarity prop, RaritySymbol draws Common to Legendary and the Enchanted, Epic
+ * and Iconic printings, keyed by the value trimmed and lowercased, as the app
+ * keys them ("super rare"). It draws nothing for any other key, so "Others"
+ * and any other value show their text alone. A blank value (NOT_SET_LABEL)
+ * never gets here: it has no ink or rarity to look up.
  */
 function ValueIcon({prop, value}: {prop: string; value: string}) {
   const ink = inkOf(prop, value);

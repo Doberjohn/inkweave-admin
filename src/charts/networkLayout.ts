@@ -44,7 +44,7 @@ export interface NetworkLayout {
   hub: PlotPoint;
   /** One slot per node, strongest first. */
   slots: RingSlot[];
-  /** Each node's printed name, or null where it would leave the plot or cover another name, a node or the hub. */
+  /** Each node's printed name, or null where every spot it may take would leave the plot or cover another name, a node or the hub. */
   names: Array<LabelPlacement | null>;
   /** Each node's link: its NODE_TARGET square, grown to cover its printed name. */
   links: Box[];
@@ -68,7 +68,7 @@ export const SPOKE_WIDTHS: Domain = [1, 4];
 const NAME_HEIGHT = Math.round(NAME_SIZE * 1.4);
 /** A name's anchor sits this far from its node's centre: just outside the node's target. */
 const NAME_GAP = NODE_TARGET / 2;
-/** |cos(angle)| above this puts a name beside its node; at or below it, above or below the node. */
+/** |cos(angle)| above this tries a name beside its node first; at or below it, above or below the node first. */
 const SIDE_THRESHOLD = 0.35;
 const TOP = -Math.PI / 2;
 /** The slack overlaps allows: float rounding can leave a name one ulp inside its own node's target. */
@@ -118,25 +118,51 @@ export function ringSlots(count: number, plot: Size): RingSlot[] {
   return [...inner, ...outer];
 }
 
+/** A side of its node that a name can sit on. */
+type Side = 'right' | 'left' | 'above' | 'below';
+
 /**
- * Where a node's name goes: just past the node's target, on the side away
- * from the centre (start-anchored on the right, end-anchored on the left), or
- * centred above or below it near 12 and 6 o'clock. So a node's own spoke never
- * runs through its name.
+ * A name on one side of its node, just past the node's target:
+ * start-anchored on the right, end-anchored on the left, centred above or
+ * below.
  */
-export function labelFor(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement {
+function labelAt(slot: PlotPoint, text: Size, side: Side): LabelPlacement {
   const {width, height} = text;
-  const cos = Math.cos(slot.angle);
-  if (cos > SIDE_THRESHOLD) {
-    const textX = slot.x + NAME_GAP;
-    return {anchor: 'start', textX, textY: slot.y, x: textX, y: slot.y - height / 2, width, height};
+  switch (side) {
+    case 'right': {
+      const textX = slot.x + NAME_GAP;
+      return {anchor: 'start', textX, textY: slot.y, x: textX, y: slot.y - height / 2, width, height};
+    }
+    case 'left': {
+      const textX = slot.x - NAME_GAP;
+      return {anchor: 'end', textX, textY: slot.y, x: textX - width, y: slot.y - height / 2, width, height};
+    }
+    default: {
+      const textY = side === 'above' ? slot.y - NAME_GAP - height / 2 : slot.y + NAME_GAP + height / 2;
+      return {anchor: 'middle', textX: slot.x, textY, x: slot.x - width / 2, y: textY - height / 2, width, height};
+    }
   }
-  if (cos < -SIDE_THRESHOLD) {
-    const textX = slot.x - NAME_GAP;
-    return {anchor: 'end', textX, textY: slot.y, x: textX - width, y: slot.y - height / 2, width, height};
-  }
-  const textY = Math.sin(slot.angle) < 0 ? slot.y - NAME_GAP - height / 2 : slot.y + NAME_GAP + height / 2;
-  return {anchor: 'middle', textX: slot.x, textY, x: slot.x - width / 2, y: textY - height / 2, width, height};
+}
+
+/**
+ * The sides a node's name may take, best first. The first faces away from
+ * the centre: right or left of a node on the side, above or below one near
+ * 12 and 6 o'clock. After it come the node's other outer sides: above or
+ * below a node on the side, whichever faces out, and either side of one near
+ * 12 or 6 o'clock, the outer one first. None faces the hub, so a node's own
+ * spoke never runs through its name.
+ */
+function sidesFor({angle}: Pick<RingSlot, 'angle'>): Side[] {
+  const cos = Math.cos(angle);
+  const vertical: Side = Math.sin(angle) < 0 ? 'above' : 'below';
+  if (cos > SIDE_THRESHOLD) return ['right', vertical];
+  if (cos < -SIDE_THRESHOLD) return ['left', vertical];
+  return cos < 0 ? [vertical, 'left', 'right'] : [vertical, 'right', 'left'];
+}
+
+/** Each spot a node's name may take, best first (sidesFor's order). */
+export function labelSpots(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement[] {
+  return sidesFor(slot).map((side) => labelAt(slot, text, side));
 }
 
 /**
@@ -181,23 +207,25 @@ function printable(plot: Size): Box {
 }
 
 /**
- * Which labels print. Labels are tried in order (the strongest node's first),
- * and one prints only when it lies inside `bounds` and clears every box in
- * `blocked` (the targets of the nodes and the hub) and every label already
- * placed. The rest come back null: their name stays in the node's tooltip, its
- * link's accessible name and the table view.
+ * Which names print, and where. Nodes are taken in order (the strongest
+ * first), and each name takes the first of its spots (labelSpots) that lies
+ * inside `bounds` and clears every box in `blocked` (the targets of the nodes
+ * and the hub) and every name already placed. So a stronger name gets the
+ * first pick of the room, and on a narrow plot it moves to another side
+ * rather than drop (#34). A name with no such spot comes back null: it stays
+ * in the node's tooltip, its link's accessible name and the table view.
  */
 export function placeLabels(
-  labels: readonly LabelPlacement[],
+  spots: ReadonlyArray<readonly LabelPlacement[]>,
   blocked: readonly Box[],
   bounds: Box,
 ): Array<LabelPlacement | null> {
   const placed: Box[] = [];
-  return labels.map((label) => {
-    const fits =
-      contains(bounds, label) && !blocked.some((b) => overlaps(label, b)) && !placed.some((p) => overlaps(label, p));
-    if (!fits) return null;
-    placed.push(label);
+  const fits = (label: LabelPlacement) =>
+    contains(bounds, label) && !blocked.some((b) => overlaps(label, b)) && !placed.some((p) => overlaps(label, p));
+  return spots.map((options) => {
+    const label = options.find(fits) ?? null;
+    if (label) placed.push(label);
     return label;
   });
 }
@@ -218,8 +246,8 @@ export function networkLayout(plot: Size, names: readonly string[]): NetworkLayo
   const hub = centerOf(plot);
   const slots = ringSlots(names.length, plot);
   const targets = slots.map((slot) => nodeTarget(slot));
-  const candidates = slots.map((slot, i) => labelFor(slot, {width: textWidth(names[i], NAME_SIZE), height: NAME_HEIGHT}));
-  const printed = placeLabels(candidates, [nodeTarget(hub), ...targets], printable(plot));
+  const spots = slots.map((slot, i) => labelSpots(slot, {width: textWidth(names[i], NAME_SIZE), height: NAME_HEIGHT}));
+  const printed = placeLabels(spots, [nodeTarget(hub), ...targets], printable(plot));
   const links = targets.map((target, i) => {
     const name = printed[i];
     return name ? union(target, name) : target;

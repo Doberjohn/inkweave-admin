@@ -1,6 +1,7 @@
 import {RADIUS, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {fmtInt, sharePercent} from './format';
+import {LEGEND_ITEM, LEGEND_LIST, LEGEND_SWATCH} from './legend';
 
 /** One part of a split: a count, with the name and colour it is drawn in. */
 export interface SplitMeterPart {
@@ -27,27 +28,10 @@ interface SplitMeterProps {
 const BAR = 10;
 /** A part above zero never draws narrower than this, so a "<1%" part still shows. */
 const MIN_SEGMENT = SPACING.xs;
-/**
- * The legend swatch: ChartLegend's 10px rect swatch (SPACING.md − SPACING.xxs), which the
- * Community scores histogram's legend draws in the neighbouring panel, not the handoff's 8px.
- */
-const SWATCH = SPACING.md - SPACING.xxs;
 
 const STACK: React.CSSProperties = {display: 'grid', gap: SPACING.sm, minWidth: 0};
-
-/** ChartLegend's list: wrapping rows of label-size muted text. */
-const LEGEND: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: `${SPACING.xs}px ${SPACING.lg}px`,
-  margin: 0,
-  padding: 0,
-  listStyle: 'none',
-  fontSize: ADMIN_TYPE.label,
-  color: ADMIN_COLORS.muted,
-};
-
-const ITEM: React.CSSProperties = {display: 'inline-flex', alignItems: 'center', gap: SPACING.xs};
+/** ChartLegend's rect swatch, as a box. */
+const SWATCH: React.CSSProperties = {flex: 'none', width: LEGEND_SWATCH, height: LEGEND_SWATCH, borderRadius: RADIUS.xs};
 
 /**
  * The parts as one bar, decoration only (aria-hidden): each part above zero is
@@ -73,16 +57,13 @@ function SplitSegments({parts}: {parts: readonly SplitMeterPart[]}) {
   );
 }
 
-/** Every part's swatch, label, share of `total` and count, zero parts included: "Too high 24% (12)". */
+/** Every part's swatch, label, share of `total` and count, zero parts included: "Too high 24% (12)", in ChartLegend's look. */
 function SplitLegend({parts, total, ariaLabel}: {parts: readonly SplitMeterPart[]; total: number; ariaLabel: string}) {
   return (
-    <ul aria-label={ariaLabel} style={LEGEND}>
+    <ul aria-label={ariaLabel} style={LEGEND_LIST}>
       {parts.map((part) => (
-        <li key={part.id} style={ITEM}>
-          <span
-            aria-hidden="true"
-            style={{flex: 'none', width: SWATCH, height: SWATCH, borderRadius: RADIUS.xs, backgroundColor: part.color}}
-          />
+        <li key={part.id} style={LEGEND_ITEM}>
+          <span aria-hidden="true" style={{...SWATCH, backgroundColor: part.color}} />
           {/* The spaces keep the text one phrase for assistive tech; the flex gap does the visual spacing. */}
           {part.label}{' '}
           <span style={{color: ADMIN_COLORS.text, fontWeight: 600}}>{sharePercent(part.value / total)}</span>{' '}
@@ -104,9 +85,10 @@ function SplitEmpty({text}: {text: string}) {
 }
 
 /**
- * How a few counts divide one whole, as one full-width bar over the track
- * with a legend under it (R-42): the accuracy answers (too high, right, too
- * low) and a card's partners by strength tier. A MeterBar shows one ratio
+ * How a few counts divide one whole, as one full-width bar of segments with a
+ * legend under it (R-42): the accuracy answers (too high, right, too low) and
+ * a card's partners by strength tier. The segments fill the bar, so the track
+ * shows only when there is nothing to split. A MeterBar shows one ratio
  * against its limit; this shows the whole's parts side by side.
  *
  * The legend, a list named by `ariaLabel`, prints every part's share and

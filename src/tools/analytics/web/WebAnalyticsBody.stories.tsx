@@ -107,8 +107,8 @@ const populated: VercelAnalytics = {
             {value: 'Legendary', count: 620, visitors: 260},
             // Special printings: a click on one reports the printing's rarity.
             {value: 'Enchanted', count: 300, visitors: 140},
-            {value: 'Epic', count: 210, visitors: 100},
-            {value: 'Iconic', count: 90, visitors: 50},
+            {value: 'Epic', count: 140, visitors: 70},
+            {value: 'Iconic', count: 60, visitors: 30},
           ],
         },
         {

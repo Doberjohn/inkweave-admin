@@ -15,18 +15,48 @@ const MEMO_BAN = [
   {selector: "CallExpression[callee.name='useMemo']", message: 'Avoid useMemo: the React Compiler auto-memoizes.'},
   {selector: "CallExpression[callee.name='useCallback']", message: 'Avoid useCallback: the React Compiler auto-memoizes.'},
 ];
-// D3 also covers dynamic imports and require(), which no-restricted-imports does
-// not see. esquery regexes cannot contain a literal slash, so SLASH holds the
-// regex escape that matches one.
+// A ban on importing from a folder, at any depth of ../. no-restricted-imports
+// checks imports and re-exports; dynamic imports and require(), which it does
+// not see, go to no-restricted-syntax. esquery regexes cannot contain a literal
+// slash, so SLASH holds the regex escape that matches one.
 const SLASH = '\\' + 'u002F';
-const UPSTREAM_PATH = `/(^|${SLASH})upstream(${SLASH}|$)/`;
-const BRIDGE_MESSAGE = 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).';
-const UPSTREAM_LOADS = [
-  `ImportExpression > Literal[value=${UPSTREAM_PATH}]`,
-  `ImportExpression > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
-  `CallExpression[callee.name='require'] > Literal[value=${UPSTREAM_PATH}]`,
-  `CallExpression[callee.name='require'] > TemplateLiteral > TemplateElement[value.raw=${UPSTREAM_PATH}]`,
-].map((selector) => ({selector, message: BRIDGE_MESSAGE}));
+function importBan(folder, message) {
+  const path = `/(^|${SLASH})${folder}(${SLASH}|$)/`;
+  const loads = [
+    `ImportExpression > Literal[value=${path}]`,
+    `ImportExpression > TemplateLiteral > TemplateElement[value.raw=${path}]`,
+    `CallExpression[callee.name='require'] > Literal[value=${path}]`,
+    `CallExpression[callee.name='require'] > TemplateLiteral > TemplateElement[value.raw=${path}]`,
+  ];
+  return {
+    imports: {group: [`**/${folder}`, `**/${folder}/**`], message},
+    loads: loads.map((selector) => ({selector, message})),
+  };
+}
+// The two rules of a block that bans imports. Flat config replaces a rule's
+// options per file instead of merging them, so every such block repeats the
+// memo ban, which shares no-restricted-syntax with the bans.
+function boundaryRules(...bans) {
+  return {
+    'no-restricted-imports': ['error', {patterns: bans.map((ban) => ban.imports)}],
+    'no-restricted-syntax': ['error', ...MEMO_BAN, ...bans.flatMap((ban) => ban.loads)],
+  };
+}
+const UPSTREAM = importBan('upstream', 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).');
+
+// The layers under the tools (docs/plans/R-redesign.md, Global constraints):
+// src/shell, src/ui, src/charts and src/theme never import from src/tools
+// (R-53), and src/ui never imports the chart kit, which builds on src/ui.
+// Stories and tests may, as in R3-9's sweep.
+const LAYER_EXEMPT = ['**/*.stories.{ts,tsx}', '**/*.test.{ts,tsx}', '**/__tests__/**'];
+const TOOLS = importBan(
+  'tools',
+  'src/shell, src/ui, src/charts and src/theme never import from src/tools (docs/plans/R-redesign.md, R-53).',
+);
+const CHARTS = importBan(
+  'charts',
+  'src/ui never imports the chart kit, which builds on src/ui (docs/plans/R-redesign.md, Global constraints).',
+);
 
 export default tseslint.config(
   // docs/redesign/ is the design handoff. Its support.js is the prototype's
@@ -72,22 +102,19 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs}'],
     ignores: ['src/app-bridge.ts', 'eslint.config.js'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['**/upstream', '**/upstream/**'],
-              message: BRIDGE_MESSAGE,
-            },
-          ],
-        },
-      ],
-      // Flat config replaces a rule's options per file instead of merging them,
-      // so this repeats the memo ban for the TypeScript files it also covers.
-      'no-restricted-syntax': ['error', ...MEMO_BAN, ...UPSTREAM_LOADS],
-    },
+    rules: boundaryRules(UPSTREAM),
+  },
+  // The layers (#37). Each block repeats D3's upstream ban, since its rule
+  // options replace D3's for these files.
+  {
+    files: ['src/{shell,charts,theme}/**'],
+    ignores: LAYER_EXEMPT,
+    rules: boundaryRules(UPSTREAM, TOOLS),
+  },
+  {
+    files: ['src/ui/**'],
+    ignores: LAYER_EXEMPT,
+    rules: boundaryRules(UPSTREAM, CHARTS, TOOLS),
   },
   {
     files: ['**/*.{js,mjs}'],

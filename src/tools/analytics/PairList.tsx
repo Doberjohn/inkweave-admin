@@ -13,6 +13,11 @@ interface PairListProps {
   onSelectPair: (p: {a: string; b: string}) => void;
   /** Shown in place of the list when there are no pairs. Default "No voted pairs yet." */
   emptyText?: string;
+  /**
+   * The line under the rows. Default: the single-vote caveat. The votes
+   * filter's note takes its place once the filter is on (#33).
+   */
+  footnote?: string;
 }
 
 /**
@@ -86,9 +91,15 @@ function scrollIntoList(row: HTMLButtonElement | null) {
  * adm-row-btn buttons, so the selected one wears the gold bar, says
  * aria-pressed and scrolls into view within the list (scrollIntoList). A
  * footnote reminds the reader that most pairs carry a single vote, so the
- * rule-level trend is what to trust.
+ * rule-level trend is what to trust, or says the votes filter is on.
  */
-export function PairList({pairs, selectedPair, onSelectPair, emptyText = 'No voted pairs yet.'}: PairListProps) {
+export function PairList({
+  pairs,
+  selectedPair,
+  onSelectPair,
+  emptyText = 'No voted pairs yet.',
+  footnote = 'Most pairs have a single vote — trust the rule-level trend over any one row.',
+}: PairListProps) {
   return (
     <Panel title="Widest gaps" action="engine → community" padded={false}>
       {pairs.length === 0 ? (
@@ -133,7 +144,7 @@ export function PairList({pairs, selectedPair, onSelectPair, emptyText = 'No vot
               );
             })}
           </ul>
-          <p style={FOOTNOTE}>Most pairs have a single vote — trust the rule-level trend over any one row.</p>
+          <p style={FOOTNOTE}>{footnote}</p>
         </>
       )}
     </Panel>

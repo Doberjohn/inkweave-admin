@@ -286,7 +286,7 @@ export function gapDomain(weeks: readonly WeeklyGap[]): [number, number] {
 
 /** What the weekly trend's words read: the scope it covers and the log's span. */
 export interface WeeklyScope {
-  /** "All pairs" or the selected rule's name. */
+  /** "All pairs" or the selected rule's name, with the votes filter's step once it is on (scopeWords). */
   scopeLabel: string;
   /**
    * The log's first and last vote days (activityWindow(votes, 'all'), the

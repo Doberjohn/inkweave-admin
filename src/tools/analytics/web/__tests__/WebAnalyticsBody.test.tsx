@@ -322,7 +322,7 @@ describe('WebAnalyticsBody', () => {
     expect(within(inkList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
   });
 
-  it('lists the rarities and printings, and keeps "Others" last, as text alone', () => {
+  it('puts its own symbol on every rarity and printing, and text alone on Others', () => {
     render(<WebAnalyticsBody analytics={ANALYTICS} />);
     expect(rowsAround('Common')).toEqual([
       'Common: 30 (25%)',
@@ -332,6 +332,13 @@ describe('WebAnalyticsBody', () => {
       'Iconic: 4 (3%)',
       'Others: 50 (42%)',
     ]);
+    const symbol = (value: string) => screen.getByText(value).closest('li')!.querySelector('img');
+    expect(symbol('Common')).not.toBeNull();
+    expect(symbol('Super Rare')).not.toBeNull();
+    // RaritySymbol draws the printings too, each from its own webp (the files the app's printing switcher uses).
+    expect(symbol('Enchanted')).toHaveAttribute('src', expect.stringMatching(/\/enchanted\.webp/));
+    expect(symbol('Epic')).toHaveAttribute('src', expect.stringMatching(/\/epic\.webp/));
+    expect(symbol('Iconic')).toHaveAttribute('src', expect.stringMatching(/\/iconic\.webp/));
     const rarityList = screen.getByText('Common').closest('ul')!;
     expect(within(rarityList).getByText('Others').closest('li')!.querySelector('img')).toBeNull();
   });

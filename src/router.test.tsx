@@ -253,7 +253,6 @@ describe('calibration routes', () => {
         scoreVotes: 557,
         pairsVoted: 279,
         meanGap: -0.57,
-        accuracySentiment: null,
         pairsCovered: 1671,
       },
     ],

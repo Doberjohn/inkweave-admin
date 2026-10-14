@@ -45,7 +45,7 @@ The R2 outline's open questions, settled before re-basing it. All twelve follow 
 | R-22 | "Inspect" where there's nothing to tune | The Overview's "Rules to review" link reads "Tune" for a rule with a tuning entry and "Inspect" for one without; both open `/calibration?rule=<id>`. |
 | R-23 | Scatter: opaque dots, diagonal jitter, one size | Opaque dots, each on its own page-coloured disc, spread along the diagonal by a fixed per-pair jitter (±0.35 along, ±0.035 across), widest gaps on top, and a "pairs on these scores" tooltip line. Translucent dots would fail 3:1. One dot size for every pair. |
 | R-24 | Histogram and trend shapes | Gap bins are one point wide, centred on whole numbers, with everything beyond ±5 folded into the end bins; R2's real-data check confirms ±5. The weekly score votes draw as an area under the gap line, so each week lines up. |
-| R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. |
+| R-25 | Later, not R2 | A "Votes: Any / 2+ / 5+" filter, and clicking a histogram bar to filter the other charts. The votes filter came with #33 (see "#33: the votes filter"); the histogram bar filter is still open. |
 | R-27 | A fainter fill on selected rows | R2-3's option (a): `ADMIN_COLORS.rowSelected` = `hexRgba(COLORS.primary, 0.05)` fills a pressed `adm-row-btn`, hovered or not, so red gap text on a selected row reaches 4.58:1 (the 0.06 tint gave 4.50:1, and 4.15:1 hovered). R2-3 and R2-4 implement the (a) parts and skip (b). The sidebar's "Forget token" still drops unpublished tuning edits without asking (a noted limit). |
 | R-26 | Rejected token on a write page | When GitHub rejects the saved token (401), the tuning aside's error offers "Forget token" (the shared store), so the gate comes back without a trip to the sidebar. |
 
@@ -162,7 +162,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 - **Staged-image notes (R4, R-91).** Edit's note reads "New image staged ({file}). It replaces the current art when you save.", not the handoff's deploy wording (README.md:106). New reveal has its own: "Scan staged ({file}). It's published with the card."
 - **The studio's width (R4, R-91, R-64).** The layout reads the bridged `useContainerWidth`, a ResizeObserver on the content box, not a window resize listener (README.md:110). `STUDIO_WIDE_MIN` is 1328: the handoff's 1360 border box less its 16px padding on each side.
 - **The mode switch (R4, R-91, R-57).** The New reveal | Edit card switch sits in `PageLayout`'s `actions`, not beside the title (dc.html:152-158).
-- **Icons (R1, R3, R4).** Bridge the app's `InkIcon`, `InkwellIcon` and `RaritySymbol` through `src/app-bridge.ts`. `InkwellIcon` is R4's one new icon (R4-5a). At the pin, `RaritySymbol` draws the five rarities and the Enchanted, Epic and Iconic printings, so R4-5h drops the bridged webps, and `/web` draws its printings through it (R-83, admin#32). Don't copy the handoff's `assets/icons/` files (in the original download, not in the repo copy) anywhere: they are damaged exports of the app's own icons.
+- **Icons (R1, R3, R4).** Bridge the app's `InkIcon`, `InkwellIcon` and `RaritySymbol` through `src/app-bridge.ts`. `InkwellIcon` is R4's one new icon (R4-5a). `RaritySymbol` draws the Enchanted, Epic and Iconic printings too, so admin bridges none of their webps (#32), and `/web` draws its printings through it (R-83). R4-5h did the same work on the R4 branch; the merge of main kept #32's version. Don't copy the handoff's `assets/icons/` files (in the original download, not in the repo copy) anywhere: they are damaged exports of the app's own icons.
 - **Token box (R1).** The sidebar shows the token box on every page that writes when a token is saved. Token state is shared, so "Forget token" anywhere updates every page.
 - **Banner removal (R1).** The spec's list misses files; Task R1-1 has the full list.
 
@@ -170,6 +170,7 @@ Each of these overrides the handoff README. The phase that builds the area appli
 
 - Admin files pass every `inkweave/*` rule in `eslint.config.js`. No new exception. Interpolate tokens inside scoped `<style>` blocks too. The hex and rgba rules scan template strings; the font-size and radius rules don't, so `AdminStyles.test.tsx` holds that line.
 - Import app code only through `src/app-bridge.ts`. Never edit `upstream/`.
+- The layers under the tools never import them: no module in `src/shell`, `src/ui`, `src/charts` or `src/theme` imports from `src/tools` (R-53), and `src/ui` doesn't import the chart kit, which builds on `src/ui`. Stories and tests may. `eslint.config.js` enforces both (#37).
 - No `<button style=…>` (`no-adhoc-buttons`). Buttons are `CtaButton` / `LinkButton` from the kit, or native `<button className="adm-…">` styled by `AdminStyles`. Navigation is react-router `Link` / `NavLink`.
 - Every clickable thing is a `button` or a link with an accessible name; selectable rows, cards and bars use `aria-pressed`; current nav items use `aria-current="page"`.
 - No `useMemo` / `useCallback` (React Compiler; `eslint.config.js` bans them).
@@ -459,7 +460,9 @@ export function useChartCursor(n: number): ChartCursor;
 
 // src/charts/ChartFrame.tsx — <figure> with title, optional subtitle/legend/actions, and a Chart | Table toggle.
 // It draws no surface: a page puts it in an untitled Panel (R1-3). Its <figcaption> is the header row.
-export interface ChartTable {caption: string; columns: readonly string[]; rows: ReadonlyArray<readonly string[]>}
+export interface ChartTableLink {text: string; href: string}   // #34: a cell that opens a page, as the network's partner names do
+export type ChartTableCell = string | ChartTableLink;
+export interface ChartTable {caption: string; columns: readonly string[]; rows: ReadonlyArray<readonly ChartTableCell[]>}
 export type ChartView = 'chart' | 'table';
 export function ChartFrame(props: {
   title: string; subtitle?: React.ReactNode; legend?: React.ReactNode; actions?: React.ReactNode;
@@ -564,11 +567,11 @@ export const SPOKE_WIDTHS: Domain;        // [1, 4] px across the value domain
 export function ringSizes(count: number): [number, number];                  // [inner, outer]
 export function ringRadii(plot: Size): [number, number];                     // [inner, outer]
 export function ringSlots(count: number, plot: Size): RingSlot[];            // round the plot's centre; strongest at 12 o'clock, clockwise
-export function labelFor(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement;
+export function labelSpots(slot: Pick<RingSlot, 'x' | 'y' | 'angle'>, text: Size): LabelPlacement[]; // best first: away from the centre, then the node's other outer sides (#34)
 export function overlaps(a: Box, b: Box): boolean;                           // shared area only; touching edges, or a float slack under 1e-6, don't count
 export function contains(outer: Box, inner: Box): boolean;
 export function nodeTarget(p: PlotPoint): Box;                               // the NODE_TARGET square centred on p
-export function placeLabels(labels: readonly LabelPlacement[], blocked: readonly Box[], bounds: Box): Array<LabelPlacement | null>;
+export function placeLabels(spots: ReadonlyArray<readonly LabelPlacement[]>, blocked: readonly Box[], bounds: Box): Array<LabelPlacement | null>; // each name, strongest first, takes its first spot that fits
 export function spokeWidth(value: number, domain: Domain): number;           // SPOKE_WIDTHS across the domain, clamped
 export function networkLayout(plot: Size, names: readonly string[]): NetworkLayout; // names strongest first
 
@@ -753,8 +756,8 @@ export function WebAnalyticsPage(): JSX.Element;
 // R3-1 adds TIER_COLORS, Z_INDEX, useAutocomplete with type UseAutocompleteReturn, searchCardsByName (R-30), fetchCardSynergies,
 // getStrengthTier and type StrengthTierLabel: only what R3 uses (R-55)
 // R4-5a adds InkwellIcon; R4-4d adds transformRawCards to the loader line (R-66: the app's own transform, so a card only the branch
-// file holds points at its art). R4-5h removes enchantedSymbol, epicSymbol and iconicSymbol (R-83, admin#32): RaritySymbol draws the
-// printings. R4-6c removes EMPTY_BOX and GOLD_GLOW, since their last importers retire
+// file holds points at its art). #32 removes enchantedSymbol, epicSymbol and iconicSymbol: RaritySymbol draws the printings at the pin
+// (R4-5h did the same for R-83). R4-6c removes EMPTY_BOX and GOLD_GLOW, since their last importers retire
 // src/tools/analytics/voteLogTypes.ts (R3-1): VoteLogRow narrows accuracy to -1 | 0 | 1 | null, difficulty to 1 | 2 | 3 | null and
 // whoCarries to 'a' | 'b' | 'both' | 'neither' | null, the votes table's own checks
 
@@ -967,6 +970,22 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
   - **Accuracy sentiment.** The Overview's figure (from `pairs[]`) and the raw answers disagree in sign, which follow-up #30 takes up.
   - **Fetches.** Each analytics file was fetched once across the pages, and each card's synergy file once.
   - **Code Health.** `analyze_change_set` passed, with no findings. The PR's own CodeScene check is read once the PR opens (Task R3-9, Step 25).
+
+#### #33: the votes filter (2026-10-12)
+
+- **One setting.** "Votes: Any / 2+ / 5+" (R-25) keeps only the pairs with that many score votes. `/calibration` shows it at the end of the scope row, and the card page in Voted pairs' header. Both read one store, `src/tools/analytics/votesFilter.ts`, so a step set on one page holds on the other. The store lives in memory only, so a reload puts it back to Any, the issue's "off by default" (the owner chose one shared setting for the session, 2026-10-12).
+- **What it scopes.** On `/calibration`: the scatter, the histogram, Widest gaps and the weekly gap. Widest gaps filters before it takes its widest 40. The rules table, the scope line and dimension participation stay on every vote. On `/cards`: Voted pairs only. The KPIs and Calibration for this card stay on every vote.
+- **Saying so.** Past Any, every scoped view names the step. The charts' scope label reads "All pairs with 2+ score votes" or "Ramp, pairs with 2+ score votes" in each subtitle, slider name and table caption. Widest gaps and Voted pairs say "The Votes filter is on: only pairs with 2+ score votes show." in place of the single-vote caveat, and Voted pairs counts "3 of 5 pairs". An empty scope says what it lacks: "No pairs with 5+ score votes under this rule yet."
+- **Engine-silent counts.** Voted pairs' caption counts the card's engine-silent pairs from raw votes, so past Any it counts only those with the step's score votes ("Not listed: 1 engine-silent pair with 2+ score votes …"), and goes when none has. The scatter's count comes from the artifact, which holds no votes per engine-silent pair, so it stays on every vote and says so past Any: "The Votes filter doesn't apply to this count."
+- **A picked pair** the filter leaves out shows as no pick, and comes back with its votes when the filter lets it in again.
+- **Real data** (Supabase, 2026-10-12): of the 2,731 pairs with a score vote, 148 have 2+ and 1 has 5+. Of those app master's engine scores, 62 have 2+ (60 with two, 2 with three) and none has 5+, so 5+ shows nothing yet. R-25's steps stand as decided.
+
+#### #34: the final review's polish (2026-10-12)
+
+- **Layout.** The KPI row runs 6, 3 or 2 columns, never five and one. The network places each name, strongest first, on the first side of its node with room (`labelSpots`, `placeLabels`), so the strongest names take the room before the rest. Whether a name fits depends on the plot's measured width and the names' lengths, not on the screen's: in Storybook at 375px, 8 of the fixture's 12 names print, the strongest among them (5 before, without it). On narrower plots most still drop, and the plot keeps 340px. A tap on a node still opens the card (R-41, kept by the owner on 2026-10-12).
+- **Links.** A `ChartTable` cell can carry an href (`ChartTableLink`), so the network's Table view links every partner. The card page's links take `.adm-link`, and Voted pairs tells linked partners by that underline.
+- **Focus and status.** A Switch card pick says "Opened …" in the switcher's polite status, for screen readers only. A page that another page's card link mounts focuses the card's heading.
+- **Shared pieces.** `SR_ONLY` in `src/ui/layout.ts`, the legend styles in `src/ui/legend.ts`, `RetryNotice` for the card list's and the Engine view's Retry, and `parityHarness.mjs` for the two parity tests.
 
 ## Phase R4: Card studio (detailed)
 

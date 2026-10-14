@@ -1,6 +1,6 @@
 import {useRef, useState} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, FONTS, SPACING} from '../../../app-bridge';
+import {FONTS} from '../../../app-bridge';
 import {ChartFrame, type ChartView} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import {NetworkDiagram} from '../../../charts/NetworkDiagram';
@@ -24,6 +24,7 @@ import {
   type PartnerNames,
 } from './engineCharts';
 import {ENGINE_GROUP_CAP, TIER_SERIES, type EngineSummary} from './engineView';
+import {RetryNotice} from './RetryNotice';
 import type {UseCardSynergiesReturn} from './useCardSynergies';
 
 export interface EnginePanelsProps {
@@ -40,8 +41,6 @@ const COUNT: React.CSSProperties = {margin: 0, color: ADMIN_COLORS.text};
 /** The count is a headline number: Tinos at the KPI size (R-14), as the prototype draws it (dc.html:654). */
 const COUNT_NUMBER: React.CSSProperties = {fontFamily: FONTS.hero, fontSize: ADMIN_TYPE.kpi, lineHeight: 1};
 const COUNT_WORDS: React.CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.muted};
-const FAILED: React.CSSProperties = {display: 'grid', gap: SPACING.md};
-const RETRY: React.CSSProperties = {justifySelf: 'start'};
 /** The focus wrapper is the view's grid item, so it must shrink as the panel would. */
 const PANEL_WRAP: React.CSSProperties = {minWidth: 0};
 
@@ -75,20 +74,6 @@ function EngineNumbers({summary}: {summary: EngineSummary}) {
   );
 }
 
-/** A failed read and its Retry (R-45). When the next read fails too, Retry's handoff lands back on it (R-48). */
-function EngineFailed({error, onRetry, handoff}: {error: Error; onRetry: () => void; handoff: FocusHandoff}) {
-  const failedRef = useRef<HTMLDivElement>(null);
-  useTakeHandoff(handoff, failedRef, 'button');
-  return (
-    <div ref={failedRef} style={FAILED}>
-      <Notice tone="error">Could not load this card's synergies ({error.message})</Notice>
-      <CtaButton type="button" variant="neutral" onClick={onRetry} style={RETRY}>
-        Retry
-      </CtaButton>
-    </div>
-  );
-}
-
 interface EngineBodyProps {
   state: EngineState;
   handoff: FocusHandoff;
@@ -101,7 +86,11 @@ function EngineBody({state, handoff, onRetry}: EngineBodyProps) {
     case 'loading':
       return <Notice>Loading engine data...</Notice>;
     case 'failed':
-      return <EngineFailed error={state.error} onRetry={onRetry} handoff={handoff} />;
+      return (
+        <RetryNotice onRetry={onRetry} handoff={handoff}>
+          Could not load this card's synergies ({state.error.message})
+        </RetryNotice>
+      );
     case 'empty':
       return <Notice>{EMPTY_TEXT}</Notice>;
     default:

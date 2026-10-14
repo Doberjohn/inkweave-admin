@@ -27,7 +27,7 @@ const meta: Meta<typeof EnginePanels> = {
   component: EnginePanels,
   // The node links are react-router Links, so the story needs a router. The
   // frame stands in for the card view's body: the page colour, its padding and
-  // its one-column grid, so the two panels sit apart as they will on the page.
+  // its one-column grid, so the two panels sit apart as they do on the page.
   decorators: [
     (Story) => (
       <MemoryRouter>

@@ -4,6 +4,7 @@ import {studioHref} from '../../../shell/nav';
 import {PageLayout} from '../../../shell/PageLayout';
 import {DataAsOf} from '../../../ui/DataAsOf';
 import {PanelLink} from '../overview/PanelLink';
+import {VOTES_FILTERS, setVotesFilter} from '../votesFilter';
 import {CardAnalyticsView} from './CardAnalyticsView';
 import {
   CARD_500,
@@ -29,8 +30,8 @@ const meta: Meta<typeof CardAnalyticsView> = {
   title: 'Admin/Insights/Card analytics/View',
   component: CardAnalyticsView,
   tags: ['autodocs'],
-  // The partner and rule links need a router. The view sits in the page's own
-  // header, as R3-7's page will put it, so the meta line shows DataAsOf once
+  // The partner and rule links need a router. The view sits under the page's
+  // header, as the card page puts it, so the meta line shows DataAsOf once
   // vote analytics has loaded (R-54). .storybook/preview.tsx mounts AdminStyles.
   decorators: [
     (Story, {args}) => (
@@ -76,6 +77,31 @@ export const AnalyticsLoading: Story = {args: {analytics: LOADING, voteLog: LOAD
 /** "Edit in Card studio" at the right of the card header, the router link the page passes (R-82). */
 export const HeaderActions: Story = {
   args: {headerActions: <PanelLink to={studioHref('edit', MAUI_CARD.id)}>Edit in Card studio</PanelLink>},
+};
+
+const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+
+/*
+ * The votes filter is one setting for the whole page, so the docs page, which
+ * renders every story at once, leaves these two out (!autodocs): each would
+ * set it for all the others.
+ */
+
+/**
+ * The votes filter at 2+ (#33), as /calibration may have left it: Voted pairs
+ * keeps three of Maui's five and says the filter is on. The KPIs and the
+ * calibration stay on every vote.
+ */
+export const VotesFilterOn: Story = {
+  tags: ['!autodocs'],
+  beforeEach: () => setVotesFilter(TWO_PLUS),
+};
+
+/** Card 500 at 5+: none of its pairs has five score votes, and Voted pairs says so in place of its rows. */
+export const VotesFilterEmpty: Story = {
+  tags: ['!autodocs'],
+  args: {card: CARD_500},
+  beforeEach: () => setVotesFilter(FIVE_PLUS),
 };
 
 /** Fourteen more partners for Maui, none of them in the card list, at gaps from 0 to −1.5. */

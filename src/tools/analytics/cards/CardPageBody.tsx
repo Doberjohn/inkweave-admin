@@ -1,7 +1,7 @@
 import {useRef} from 'react';
 import {Link} from 'react-router-dom';
-import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, SPACING} from '../../../app-bridge';
+import {MIN_CORE_SET, type LorcanaCard} from 'inkweave-synergy-engine';
+import {SPACING} from '../../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {cardsHref, studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -18,10 +18,10 @@ import type {PairStat} from '../voteAnalyticsTypes';
 import {CardAnalyticsView} from './CardAnalyticsView';
 import type {CardPageState} from './cardPageState';
 import {cardsToReview, type CardToReview} from './cardStats';
-import {CELL_LINK} from './cardStyles';
+import {CELL_LINK, NUMBER} from './cardStyles';
+import {RetryNotice} from './RetryNotice';
 import type {UseCardSynergiesReturn} from './useCardSynergies';
 
-const STACK: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.md};
 const LINE: React.CSSProperties = {margin: 0};
 const LIST: React.CSSProperties = {listStyle: 'none', margin: 0, padding: 0};
 const EMPTY: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.muted};
@@ -37,7 +37,6 @@ const REVIEW_ROW: React.CSSProperties = {
   borderBottom: `1px solid ${ADMIN_COLORS.divider}`,
   fontSize: ADMIN_TYPE.body,
 };
-const GAP: React.CSSProperties = {textAlign: 'right', fontVariantNumeric: 'tabular-nums'};
 
 // Cards to review keeps a card's width, not the body's. The tracks are twoUp(420)'s, as in the card
 // view's calibration row, but auto-fill keeps the empty ones, so the one panel fills one track: 420px to
@@ -68,35 +67,16 @@ function FocusNotice({handoff, children}: {handoff: FocusHandoff; children: Reac
   );
 }
 
-/**
- * The card list failed (useCardDataContext's error), and every other state
- * needs it. Retry swaps this for "Loading cards…", taking its own button with
- * it, so the page asks for a handoff; the next state takes it, and if the list
- * fails again, this button does.
- */
-function FailedCardList({error, onRetry, handoff}: {error: Error; onRetry: () => void; handoff: FocusHandoff}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useTakeHandoff(handoff, ref, 'button');
-  return (
-    <div ref={ref} style={STACK}>
-      <Notice tone="error">Could not load the card list ({error.message})</Notice>
-      <CtaButton type="button" variant="neutral" onClick={onRetry} style={{alignSelf: 'flex-start'}}>
-        Retry
-      </CtaButton>
-    </div>
-  );
-}
-
 /** A Cards to review row: the card's name, which opens its page, its bias bar and its mean gap. */
 function ReviewRow({card}: {card: CardToReview}) {
   return (
     <li style={REVIEW_ROW}>
-      <Link to={cardsHref(card.cardId)} title={card.cardName} style={CELL_LINK}>
+      <Link to={cardsHref(card.cardId)} title={card.cardName} className="adm-link" style={CELL_LINK}>
         {card.cardName}
       </Link>
       {/* minWidth 0: the bar shrinks with its track, as on the Overview. */}
       <BiasBar gap={card.meanGap} minWidth={0} />
-      <span style={{...GAP, color: gapColor(card.meanGap)}}>{fmtGap(card.meanGap)}</span>
+      <span style={{...NUMBER, color: gapColor(card.meanGap)}}>{fmtGap(card.meanGap)}</span>
     </li>
   );
 }
@@ -163,7 +143,13 @@ export interface CardPageBodyProps {
 export function CardPageBody({state, onRetry, handoff, ...data}: CardPageBodyProps) {
   switch (state.kind) {
     case 'failed':
-      return <FailedCardList error={state.error} onRetry={onRetry} handoff={handoff} />;
+      // Every other state needs the card list. Retry shows "Loading cards…", so the page asks for a
+      // handoff as the error clears; the next state takes it, or the new Retry if the list fails again.
+      return (
+        <RetryNotice onRetry={onRetry} handoff={handoff}>
+          Could not load the card list ({state.error.message})
+        </RetryNotice>
+      );
     case 'pick':
       return <PickACard analytics={data.analytics} handoff={handoff} />;
     case 'loading':
@@ -171,8 +157,8 @@ export function CardPageBody({state, onRetry, handoff, ...data}: CardPageBodyPro
     case 'unknown':
       return (
         <FocusNotice handoff={handoff}>
-          No card has the id <code>{state.cardId}</code> in the current card list. Cards from sets before 9 rotated out
-          of Core, and a preview id changes when its card is released.
+          No card has the id <code>{state.cardId}</code> in the current card list. Cards from sets before{' '}
+          {MIN_CORE_SET} rotated out of Core, and a preview id changes when its card is released.
         </FocusNotice>
       );
     case 'card':

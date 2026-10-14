@@ -162,4 +162,12 @@ describe('PairList', () => {
     rerender(<PairList pairs={[]} selectedPair={null} onSelectPair={vi.fn()} />);
     expect(screen.getByText('No voted pairs yet.')).toBeInTheDocument();
   });
+
+  it("puts the footnote it is given in place of the single-vote caveat, as the votes filter's note does (#33)", () => {
+    const note = 'The Votes filter is on: only pairs with 2+ score votes show.';
+    render(<PairList pairs={PAIRS} selectedPair={null} onSelectPair={vi.fn()} footnote={note} />);
+    const panel = screen.getByRole('region', {name: 'Widest gaps'});
+    expect(within(panel).getByText(note)).toBeInTheDocument();
+    expect(within(panel).queryByText(/trust the rule-level trend/)).not.toBeInTheDocument();
+  });
 });

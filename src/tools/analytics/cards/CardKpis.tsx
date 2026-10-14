@@ -1,15 +1,14 @@
-import {SPACING} from '../../../app-bridge';
+import {useRef} from 'react';
+import {useContainerWidth} from '../../../app-bridge';
 import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
 import {KpiCard} from '../../../ui/KpiCard';
+import {kpiRow} from '../../../ui/layout';
 import {RawTag} from '../../../ui/RawTag';
 import {countOf} from '../activity/activityModel';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';
 import {verdictFor} from '../verdict';
 import {verdictGap, type CardCalibration} from './cardStats';
 import {calibrationOf, rawFigures, votesOnCard, type CardCalibrationData, type RawFigures, type RawVotes} from './cardView';
-
-/** The Overview's KPI row (OverviewKpis.tsx:45-47): as many 170px cards as fit, wrapping. */
-const ROW: React.CSSProperties = {display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: SPACING.md};
 
 const LOW_N_HINT = `low n: under ${MIN_RULE_VOTES} score votes`;
 
@@ -18,25 +17,25 @@ const LOW_N_HINT = `low n: under ${MIN_RULE_VOTES} score votes`;
  * gap takes the verdict's colour once the card has enough score votes to
  * judge; under that it stays in the text colour, with the "low n" hint.
  */
-function CalibrationKpis({cal}: {cal: CardCalibration}) {
+function calibrationKpis(cal: CardCalibration): React.ReactElement[] {
   const gap = verdictGap(cal);
-  return (
-    <>
-      <KpiCard label="Score votes" value={fmtInt(cal.scoreVotes)} hint="on pairs the engine scores" />
-      <KpiCard label="Pairs voted" value={fmtInt(cal.pairsVoted)} hint="partners the engine scores" />
-      <KpiCard
-        label="Mean gap"
-        value={fmtGap(cal.meanGap)}
-        hint={cal.enoughVotes ? 'vote-weighted' : LOW_N_HINT}
-        valueColor={gap == null ? undefined : verdictFor(gap).numberColor}
-      />
-      <KpiCard
-        label="Engine → community"
-        value={`${fmtScore(cal.engineAvg)} → ${fmtScore(cal.communityAvg)}`}
-        hint="vote-weighted pair averages"
-      />
-    </>
-  );
+  return [
+    <KpiCard key="score-votes" label="Score votes" value={fmtInt(cal.scoreVotes)} hint="on pairs the engine scores" />,
+    <KpiCard key="pairs-voted" label="Pairs voted" value={fmtInt(cal.pairsVoted)} hint="partners the engine scores" />,
+    <KpiCard
+      key="mean-gap"
+      label="Mean gap"
+      value={fmtGap(cal.meanGap)}
+      hint={cal.enoughVotes ? 'vote-weighted' : LOW_N_HINT}
+      valueColor={gap == null ? undefined : verdictFor(gap).numberColor}
+    />,
+    <KpiCard
+      key="engine-community"
+      label="Engine → community"
+      value={`${fmtScore(cal.engineAvg)} → ${fmtScore(cal.communityAvg)}`}
+      hint="vote-weighted pair averages"
+    />,
+  ];
 }
 
 /**
@@ -44,22 +43,38 @@ function CalibrationKpis({cal}: {cal: CardCalibration}) {
  * comes from the card's own accuracy answers (R-32): pairs[] carries one on
  * too few pairs to say anything per card.
  */
-function RawKpis({figures}: {figures: RawFigures}) {
+function rawKpis(figures: RawFigures): React.ReactElement[] {
+  return [
+    <KpiCard
+      key="voters"
+      label="Distinct voters"
+      value={fmtInt(figures.voters)}
+      hint={countOf(figures.votes, 'raw vote')}
+      tag={<RawTag />}
+    />,
+    <KpiCard
+      key="sentiment"
+      label="Accuracy sentiment"
+      value={fmtGap(figures.sentiment)}
+      hint={`too-low vs too-high · ${countOf(figures.answered, 'answer')}`}
+      tag={<RawTag />}
+    />,
+  ];
+}
+
+/**
+ * The row, in kpiRow's columns for its measured width. Its own component, so
+ * the measured ref holds the section from mount: useContainerWidth observes
+ * only what its ref held then, and CardKpis renders nothing until a file has
+ * a number for the card.
+ */
+function KpiRow({cards}: {cards: React.ReactElement[]}) {
+  const rowRef = useRef<HTMLElement>(null);
+  const width = useContainerWidth(rowRef);
   return (
-    <>
-      <KpiCard
-        label="Distinct voters"
-        value={fmtInt(figures.voters)}
-        hint={countOf(figures.votes, 'raw vote')}
-        tag={<RawTag />}
-      />
-      <KpiCard
-        label="Accuracy sentiment"
-        value={fmtGap(figures.sentiment)}
-        hint={`too-low vs too-high · ${countOf(figures.answered, 'answer')}`}
-        tag={<RawTag />}
-      />
-    </>
+    <section ref={rowRef} aria-label="Key figures" style={kpiRow({count: cards.length, width})}>
+      {cards}
+    </section>
   );
 }
 
@@ -78,11 +93,6 @@ interface CardKpisProps {
 export function CardKpis({calibration, raw}: CardKpisProps) {
   const cal = calibrationOf(calibration);
   const figures = rawFigures(votesOnCard(raw));
-  if (!cal && !figures) return null;
-  return (
-    <section aria-label="Key figures" style={ROW}>
-      {cal && <CalibrationKpis cal={cal} />}
-      {figures && <RawKpis figures={figures} />}
-    </section>
-  );
+  const cards = [...(cal ? calibrationKpis(cal) : []), ...(figures ? rawKpis(figures) : [])];
+  return cards.length > 0 ? <KpiRow cards={cards} /> : null;
 }

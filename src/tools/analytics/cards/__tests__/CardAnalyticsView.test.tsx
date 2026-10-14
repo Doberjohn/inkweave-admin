@@ -3,7 +3,10 @@ import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {COLORS} from '../../../../app-bridge';
+import {ADMIN_COLORS} from '../../../../theme/adminTheme';
+import {AdminStyles} from '../../../../theme/AdminStyles';
 import type {FocusHandoff} from '../../../../shell/focusHandoff';
+import {VotesFilterControl} from '../../VotesFilterControl';
 import {CardAnalyticsView, type CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {
   CARD_500,
@@ -13,6 +16,7 @@ import {
   ENGINE_FIFTEEN,
   LOADING,
   MAUI_CARD,
+  MAUI_UNLISTED,
   NOT_GENERATED,
   NO_RAW_ANALYTICS,
   VIEW_ANALYTICS,
@@ -21,6 +25,7 @@ import {
   lorcanaCard,
   pairStat,
   viewCard,
+  voteRow,
 } from '../cardFixtures';
 
 const BASE: CardAnalyticsViewProps = {
@@ -170,27 +175,49 @@ describe('CardAnalyticsView', () => {
       return screen.getByRole('region', {name: 'Calibration for this card'});
     }
 
+    /** GapScale's marks, from the track beside its own label: the centre tick, then the dot when there is one. */
+    function scaleMarks() {
+      const scale = within(panel()).getByText('over-rates').parentElement!;
+      return Array.from(scale.querySelector('[aria-hidden="true"]')!.children);
+    }
+
     it.each([
-      ['runs generous', -0.8, 'The engine runs generous on this card'],
-      ['is well-calibrated', -0.2, 'The engine is well-calibrated on this card'],
-      ['runs harsh', 1.25, 'The engine runs harsh on this card'],
-    ])('reads "%s" for a %s gap on 10 score votes', (_, gap, headline) => {
+      {phrase: 'runs generous', gap: -0.8, printed: '−0.80', word: COLORS.error, number: COLORS.error},
+      {phrase: 'is well-calibrated', gap: -0.2, printed: '−0.20', word: COLORS.success, number: COLORS.textMuted},
+      {phrase: 'runs harsh', gap: 1.25, printed: '+1.25', word: COLORS.success, number: COLORS.success},
+    ])('reads "$phrase" for a $gap gap on 10 score votes, in the verdict colours (R-50)', ({phrase, gap, printed, word, number}) => {
       renderView({analytics: onePair({gap, scoreVotes: 10})});
-      expect(panel()).toHaveTextContent(headline);
+      expect(panel()).toHaveTextContent(`The engine ${phrase} on this card`);
+      // One verdict colours each part: the phrase in its word colour, the scale's dot and the Mean gap KPI in its number colour.
+      expect(within(panel()).getByText(phrase)).toHaveStyle({color: word});
+      expect(scaleMarks()[1]).toHaveStyle({backgroundColor: number});
+      expect(kpi('Mean gap').getByText(printed)).toHaveStyle({color: number});
     });
 
     it('says the card has too few score votes, and draws no dot, under 10 (R-50)', () => {
       renderView({analytics: onePair({gap: -0.8, scoreVotes: 4})});
       expect(panel()).toHaveTextContent('The engine has too few score votes to judge this card');
+      expect(within(panel()).getByText('has too few score votes to judge')).toHaveStyle({color: COLORS.textMuted});
       expect(panel()).toHaveTextContent('Only 4 score votes on pairs the engine scores. The verdict needs 10.');
-      // GapScale's track comes first: its centre tick, and no dot.
-      expect(panel().querySelector('[aria-hidden="true"]')!.children).toHaveLength(1);
+      // The centre tick alone.
+      expect(scaleMarks()).toHaveLength(1);
     });
 
     it('puts the dot on the scale, and the read line under the verdict, once the card has enough votes', () => {
       renderView();
       expect(panel()).toHaveTextContent("The engine rates this card's pairs about 1.00 points higher than the community.");
-      expect(panel().querySelector('[aria-hidden="true"]')!.children).toHaveLength(2);
+      expect(scaleMarks()).toHaveLength(2);
+    });
+
+    it("keeps a rule link's focus ring inside the table's scroller, which clips", () => {
+      renderView();
+      // The ring reaches 4px outside a link (CELL_LINK), and the first column sits flush with the panel's padding:
+      // the scroller pads 4px each side and takes it back as margin.
+      expect(within(panel()).getByRole('table').parentElement).toHaveStyle({
+        overflowX: 'auto',
+        margin: '0px -4px',
+        padding: '0px 4px',
+      });
     });
 
     it('lists the rules on its pairs, low n last (R-35), each a link to the rule on /calibration (R-34)', () => {
@@ -261,6 +288,21 @@ describe('CardAnalyticsView', () => {
       expect(within(panel()).getByRole('table').parentElement).toHaveStyle({scrollPaddingTop: '40px'});
     });
 
+    it('paints the sticky head opaque: its fill over the page colour, so rows never show through it', () => {
+      renderView();
+      for (const head of within(panel()).getAllByRole('columnheader')) {
+        expect(head).toHaveStyle({backgroundColor: ADMIN_COLORS.page});
+        expect(head.style.backgroundImage).toContain('linear-gradient(');
+      }
+    });
+
+    it("keeps a partner link's focus ring inside the list's scroller, which clips", () => {
+      renderView();
+      // The ring reaches 4px outside the link (CELL_LINK): its cell pads more than that on every side.
+      const cell = within(panel()).getByRole('link', {name: 'Moana - Of Motunui'}).closest('td');
+      expect(cell).toHaveStyle({paddingTop: '8px', paddingBottom: '8px', paddingLeft: '16px', paddingRight: '8px'});
+    });
+
     it("keeps the handoff's caveat, and splits the engine-silent pairs in a caption (R-31)", () => {
       renderView();
       expect(
@@ -280,6 +322,74 @@ describe('CardAnalyticsView', () => {
       unmount();
       renderView({voteLog: LOADING});
       expect(within(panel()).queryByText(/engine-silent/)).not.toBeInTheDocument();
+    });
+
+    describe('the votes filter (#33)', () => {
+      /** The partner names in the table's rows, top to bottom. */
+      const partners = () =>
+        within(panel())
+          .getAllByRole('row')
+          .slice(1)
+          .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+      it('keeps the pairs with 2+ score votes, counts them, and says the filter is on in place of the caveat', async () => {
+        renderView();
+        expect(within(panel()).getByRole('button', {name: 'Any'})).toHaveAttribute('aria-pressed', 'true');
+        await userEvent.click(within(panel()).getByRole('button', {name: '2+'}));
+        expect(within(panel()).getByText('3 of 5 pairs · widest gap first')).toBeInTheDocument();
+        expect(
+          within(panel()).getByRole('table', {name: 'Voted pairs with 2+ score votes, widest gap first'}),
+        ).toBeInTheDocument();
+        expect(partners()).toEqual(['Moana - Of Motunui', 'Heihei - Boat Snack', 'Gramma Tala - Storyteller']);
+        expect(within(panel()).getByText('The Votes filter is on: only pairs with 2+ score votes show.')).toBeInTheDocument();
+        expect(within(panel()).queryByText(/Most pairs have a single vote/)).not.toBeInTheDocument();
+        // Each of Maui's three engine-silent partners has one score vote, so the step leaves the caption nothing to count.
+        expect(within(panel()).queryByText(/engine-silent/)).not.toBeInTheDocument();
+      });
+
+      it("counts only the engine-silent pairs with the step's score votes in the caption", async () => {
+        // A second scored vote with 412, a partner outside the card list.
+        const again = voteRow({a: CARD_ID, b: MAUI_UNLISTED[0], ts: '2026-10-06T08:00:00.123456+00:00', score: 4, voter: 21});
+        renderView({voteLog: loaded({...VIEW_LOG, votes: [...VIEW_LOG.votes, again]})});
+        expect(within(panel()).getByText(/^Not listed: 3 engine-silent pairs/)).toBeInTheDocument();
+        await userEvent.click(within(panel()).getByRole('button', {name: '2+'}));
+        expect(
+          within(panel()).getByText(
+            'Not listed: 1 engine-silent pair with 2+ score votes (voted, but the engine gives it no score): ' +
+              '1 with a card outside the current card list, 0 with both cards in Core.',
+          ),
+        ).toBeInTheDocument();
+      });
+
+      it('says so when the step leaves the card no pairs', async () => {
+        renderView({analytics: onePair({gap: -0.8, scoreVotes: 4})});
+        await userEvent.click(within(panel()).getByRole('button', {name: '5+'}));
+        expect(within(panel()).getByText('No pairs with 5+ score votes for this card yet.')).toBeInTheDocument();
+        expect(within(panel()).getByText('0 of 1 pair')).toBeInTheDocument();
+        expect(within(panel()).queryByRole('table')).not.toBeInTheDocument();
+        // The empty line already names the step.
+        expect(within(panel()).queryByText(/The Votes filter is on/)).not.toBeInTheDocument();
+      });
+
+      it('leaves the KPIs and the calibration panel on every vote', async () => {
+        renderView();
+        await userEvent.click(within(panel()).getByRole('button', {name: '5+'}));
+        expect(partners()).toEqual(['Moana - Of Motunui']);
+        expect(kpi('Score votes').getByText('14')).toBeInTheDocument();
+        expect(kpi('Pairs voted').getByText('5')).toBeInTheDocument();
+        expect(screen.getByRole('region', {name: 'Calibration for this card'})).toHaveTextContent(
+          "The engine rates this card's pairs about 1.00 points higher than the community.",
+        );
+      });
+
+      it("opens on the step /calibration's filter was left at: one setting for the session", async () => {
+        const calibration = render(<VotesFilterControl />);
+        await userEvent.click(screen.getByRole('button', {name: '2+'}));
+        calibration.unmount();
+        renderView();
+        expect(within(panel()).getByRole('button', {name: '2+'})).toHaveAttribute('aria-pressed', 'true');
+        expect(within(panel()).getByText('3 of 5 pairs · widest gap first')).toBeInTheDocument();
+      });
     });
   });
 
@@ -308,8 +418,15 @@ describe('CardAnalyticsView', () => {
     it('adds the engine-silent count to that notice when every pair the card was voted on is engine-silent (R-31)', () => {
       renderView({card: viewCard('710')!});
       expect(screen.getByText(/^No score votes on pairs the engine scores yet\./)).toHaveTextContent(
-        'No score votes on pairs the engine scores yet. Not listed: 1 engine-silent pair (voted, but the engine gives them no score): ' +
+        'No score votes on pairs the engine scores yet. The card has 1 engine-silent pair (voted, but the engine gives it no score): ' +
           '0 with a card outside the current card list, 1 with both cards in Core.',
+      );
+    });
+
+    it('says in that notice that counting them needs raw votes, without them', () => {
+      renderView({card: viewCard('710')!, analytics: loaded(NO_RAW_ANALYTICS), voteLog: loaded(EMPTY_LOG)});
+      expect(screen.getByText(/^No score votes on pairs the engine scores yet\./)).toHaveTextContent(
+        "No score votes on pairs the engine scores yet. Counting the card's engine-silent pairs needs raw votes.",
       );
     });
   });
@@ -326,6 +443,29 @@ describe('CardAnalyticsView: the raw-vote panels (R3-6b)', () => {
     expect(screen.getByText('Could not load the vote log. Has the artifact been generated? (HTTP 404)')).toBeInTheDocument();
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('group', {name: 'Mean gap'})).toBeInTheDocument();
+  });
+});
+
+describe('CardAnalyticsView: text colour', () => {
+  it('prints no text in the dim colour, which fails contrast on these surfaces (R-6)', () => {
+    // Under AdminStyles, as AdminShell mounts it, so a class rule that dims text counts too.
+    const {container} = render(
+      <MemoryRouter>
+        <AdminStyles />
+        <CardAnalyticsView {...BASE} synergies={{data: ENGINE_FIFTEEN.data, loading: false, error: null, retry: vi.fn()}} />
+      </MemoryRouter>,
+    );
+    // jsdom keeps colours as rgb(), so the token goes through a style to compare like with like.
+    const probe = document.createElement('span');
+    probe.style.color = COLORS.textDim;
+    const dim = probe.style.color;
+    // jsdom computes colour and fill from inline styles, class rules and parents, but
+    // not from SVG's fill attribute, so that one is read as written.
+    const isDim = (el: Element) => {
+      const {color, fill} = getComputedStyle(el);
+      return [color, fill].includes(dim) || el.getAttribute('fill') === COLORS.textDim;
+    };
+    expect(Array.from(container.querySelectorAll('*')).filter(isDim)).toEqual([]);
   });
 });
 

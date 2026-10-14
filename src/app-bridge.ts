@@ -75,11 +75,10 @@ export {
   getStrengthTier,
   type StrengthTierLabel,
 } from '../upstream/inkweave/apps/web/src/features/synergies/utils/scoreUtils';
-// RaritySymbol draws a rarity by its lowercase key ("super rare"): the five
-// rarities, Common to Legendary, and the Enchanted, Epic and Iconic printings.
-// It draws nothing for any other key. rarityConfigOf maps a card's rarity
-// ("Super Rare") to one of the five and returns undefined for anything else,
-// a printing included.
+// RaritySymbol draws Common to Legendary and the Enchanted, Epic and Iconic
+// printings, by lowercased key ("super rare", "enchanted"), and nothing for any
+// other key. rarityConfigOf maps a card's rarity ("Super Rare") to one of the
+// five rarities' keys, and returns undefined for anything else, printings too.
 export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
 export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
 // The pinned app's previewCards.json as text. The reveal tool's insert test

@@ -7,6 +7,7 @@ import {MIN_RULE_VOTES} from '../overview/overviewStats';
 import {verdictFor} from '../verdict';
 import type {GlobalStats, PairStat, RuleStat} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
+import {ANY_VOTES, filtersPairs, pairsWithVotes, votesClause, type VotesFilter} from '../votesFilter';
 
 /**
  * Below this many score votes a rule's number is statistically thin: the rules
@@ -157,18 +158,42 @@ export function pairId(a: string, b: string): string {
 }
 
 /**
- * Every voted pair in a row's scope, widest |gap| first, uncapped: what the
- * charts plot. A null row is every pair; a row with no stat (tuning-only) has none.
+ * Every voted pair in a row's scope that the votes filter keeps (#33), widest
+ * |gap| first, uncapped: what the charts plot. A null row is every pair; a row
+ * with no stat (tuning-only) has none. The filter defaults to Any, every pair.
  */
-export function pairsInScope(pairs: PairStat[], row: CalibrationRow | null): PairStat[] {
+export function pairsInScope(pairs: PairStat[], row: CalibrationRow | null, filter = ANY_VOTES): PairStat[] {
   if (row && !row.stat) return [];
   const scoped = row ? pairs.filter((p) => p.rules.includes(row.id)) : pairs;
-  return [...scoped].sort((p, q) => Math.abs(q.gap) - Math.abs(p.gap));
+  return pairsWithVotes(scoped, filter).sort((p, q) => Math.abs(q.gap) - Math.abs(p.gap));
 }
 
 /** The pair list: the widest MAX_PAIRS of the scope. */
-export function pairsFor(pairs: PairStat[], row: CalibrationRow | null): PairStat[] {
-  return pairsInScope(pairs, row).slice(0, MAX_PAIRS);
+export function pairsFor(pairs: PairStat[], row: CalibrationRow | null, filter = ANY_VOTES): PairStat[] {
+  return pairsInScope(pairs, row, filter).slice(0, MAX_PAIRS);
+}
+
+/** What the charts call the scope, and what an empty one says. */
+export interface ScopeWords {
+  /** "All pairs" or the rule's name, and past Any the step: "Ramp, pairs with 2+ score votes". */
+  label: string;
+  emptyText: string;
+}
+
+/**
+ * The scope in words: the label every chart's subtitle, name and table caption
+ * carry, so each says when the votes filter is on, and an empty scope's line.
+ */
+export function scopeWords(row: CalibrationRow | null, filter: VotesFilter): ScopeWords {
+  if (!filtersPairs(filter)) {
+    return row
+      ? {label: row.name, emptyText: 'No voted pairs for this rule yet.'}
+      : {label: 'All pairs', emptyText: 'No voted pairs yet.'};
+  }
+  const kept = votesClause(filter);
+  return row
+    ? {label: `${row.name}, ${kept}`, emptyText: `No ${kept} under this rule yet.`}
+    : {label: `All ${kept}`, emptyText: `No ${kept} yet.`};
 }
 
 /** The scope's record for a selected pair, matched either way round, or null. */

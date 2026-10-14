@@ -3,6 +3,7 @@ import {getAllRules, TUNING, type TuningConfig} from 'inkweave-synergy-engine';
 import type {PendingEdit} from '../../../tuning/useTuningAdmin';
 import type {GlobalStats, PairStat, RuleStat} from '../../voteAnalyticsTypes';
 import type {VoteLogRow} from '../../voteLogTypes';
+import {ANY_VOTES, VOTES_FILTERS} from '../../votesFilter';
 import {
   buildCalibrationRows,
   type CalibrationRow,
@@ -17,6 +18,7 @@ import {
   pairsInScope,
   pinnedEntryName,
   rowsSharingKey,
+  scopeWords,
   sortCalibrationRows,
   tuningEntry,
   tuningKeyFor,
@@ -33,7 +35,6 @@ function stat(ruleId: string, over: Partial<RuleStat> = {}): RuleStat {
     scoreVotes: 0,
     pairsVoted: 0,
     meanGap: null,
-    accuracySentiment: null,
     pairsCovered: 0,
     ...over,
   };
@@ -472,6 +473,62 @@ describe('pairsFor', () => {
     const listed = pairsFor(PAIRS, buildCalibrationRows([stat('ramp')], null)[0]);
     expect(listed).toHaveLength(15);
     expect(listed.every((p) => p.rules.includes('ramp'))).toBe(true);
+  });
+});
+
+describe('the votes filter in the scope (#33)', () => {
+  const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+  // PAIRS again, pair i with i % 6 + 1 score votes: 37 have 2+, 14 have 5+.
+  const VOTED = PAIRS.map((p, i) => ({...p, scoreVotes: (i % 6) + 1}));
+  const ramp = buildCalibrationRows([stat('ramp')], null)[0];
+
+  it('keeps every pair at Any, the default', () => {
+    expect(pairsInScope(VOTED, null)).toHaveLength(45);
+    expect(pairsInScope(VOTED, null, ANY_VOTES)).toEqual(pairsInScope(VOTED, null));
+  });
+
+  it("keeps only the pairs with the step's score votes, widest gap first", () => {
+    const scope = pairsInScope(VOTED, null, FIVE_PLUS);
+    expect(scope).toHaveLength(14);
+    expect(scope.every((p) => p.scoreVotes >= 5)).toBe(true);
+    const widths = scope.map((p) => Math.abs(p.gap));
+    expect(widths).toEqual([...widths].sort((x, y) => y - x));
+  });
+
+  it("narrows a rule's pairs the same way", () => {
+    // Ramp fired on every third pair, which carry 1 or 4 score votes.
+    const scope = pairsInScope(VOTED, ramp, TWO_PLUS);
+    expect(scope).toHaveLength(7);
+    expect(scope.every((p) => p.rules.includes('ramp'))).toBe(true);
+    expect(scope.every((p) => p.scoreVotes === 4)).toBe(true);
+  });
+
+  it('filters before the list takes its widest MAX_PAIRS, so no kept pair is lost to the cap', () => {
+    // Capped first, the widest 40 would hold only 33 pairs with 2+.
+    const listed = pairsFor(VOTED, null, TWO_PLUS);
+    expect(listed).toHaveLength(37);
+    expect(listed).toEqual(pairsInScope(VOTED, null, TWO_PLUS).slice(0, MAX_PAIRS));
+  });
+});
+
+describe('scopeWords', () => {
+  const [, TWO_PLUS, FIVE_PLUS] = VOTES_FILTERS;
+  const ramp = buildCalibrationRows([stat('ramp', {ruleName: 'Ramp'})], null)[0];
+
+  it('names the scope as before at Any', () => {
+    expect(scopeWords(null, ANY_VOTES)).toEqual({label: 'All pairs', emptyText: 'No voted pairs yet.'});
+    expect(scopeWords(ramp, ANY_VOTES)).toEqual({label: 'Ramp', emptyText: 'No voted pairs for this rule yet.'});
+  });
+
+  it('adds the step once the filter is on, so every chart that names the scope says so', () => {
+    expect(scopeWords(null, TWO_PLUS)).toEqual({
+      label: 'All pairs with 2+ score votes',
+      emptyText: 'No pairs with 2+ score votes yet.',
+    });
+    expect(scopeWords(ramp, FIVE_PLUS)).toEqual({
+      label: 'Ramp, pairs with 5+ score votes',
+      emptyText: 'No pairs with 5+ score votes under this rule yet.',
+    });
   });
 });
 

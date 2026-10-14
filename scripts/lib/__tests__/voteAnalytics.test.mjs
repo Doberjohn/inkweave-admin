@@ -9,7 +9,7 @@ describe('pairKey', () => {
   });
 });
 
-import {computePairRecord, buildPairRecords, voteWeightedMean, ruleRosterEntry, rollUpByRule, isoWeekStart, bucketWeekly, buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
+import {computePairRecord, buildPairRecords, voteWeightedMean, ruleRosterEntry, rollUpByRule, isoWeekStart, bucketWeekly, splitEngineSilent, accuracyFromVotes, buildAnalytics, buildVoteLog} from '../voteAnalytics.mjs';
 
 const enginePair = {
   engineScore: 7,
@@ -97,8 +97,8 @@ describe('rollUpByRule', () => {
     {ruleId: 'shift', ruleName: 'Shift Targets', category: 'direct'},
   ];
   const pairs = [
-    {gap: 2, scoreVotes: 3, accuracySentiment: -1, rules: ['ramp', 'toy']},
-    {gap: -1, scoreVotes: 1, accuracySentiment: 0, rules: ['ramp']},
+    {gap: 2, scoreVotes: 3, rules: ['ramp', 'toy']},
+    {gap: -1, scoreVotes: 1, rules: ['ramp']},
   ];
   const ruleTotalPairs = {ramp: 20, toy: 10, shift: 5};
 
@@ -184,6 +184,37 @@ describe('bucketWeekly', () => {
   });
 });
 
+describe('splitEngineSilent', () => {
+  const listedIds = new Set(['a1', 'b2', 'c3']);
+
+  it('splits the pairs with both cards in the card list from those with a card outside it', () => {
+    const silent = [{a: 'a1', b: 'c3'}, {a: 'a1', b: 'z9'}, {a: 'y8', b: 'b2'}, {a: 'y8', b: 'z9'}];
+    expect(splitEngineSilent(silent, listedIds)).toEqual({listed: 1, unlisted: 3});
+  });
+
+  it('is zero both ways with no engine-silent pair', () => {
+    expect(splitEngineSilent([], listedIds)).toEqual({listed: 0, unlisted: 0});
+  });
+});
+
+describe('accuracyFromVotes', () => {
+  const answer = (accuracy) => ({accuracy});
+
+  it('takes the share of "too low" (+1) less the share of "too high" (−1), over the votes that answered', () => {
+    // (2 too low − 1 too high) / 4 answers; the unanswered vote stays out.
+    expect(accuracyFromVotes([1, 1, -1, 0, null].map(answer))).toEqual({answers: 4, sentiment: 0.25});
+  });
+
+  it('rounds the sentiment to two places', () => {
+    expect(accuracyFromVotes([1, 0, 0].map(answer))).toEqual({answers: 3, sentiment: 0.33});
+  });
+
+  it('has no sentiment when no vote answered', () => {
+    expect(accuracyFromVotes([null, null].map(answer))).toEqual({answers: 0, sentiment: null});
+    expect(accuracyFromVotes([])).toEqual({answers: 0, sentiment: null});
+  });
+});
+
 describe('buildAnalytics', () => {
   const scoreRows = [
     {card_a_id: 'a1', card_b_id: 'b2', avg_score: 9, score_votes: 2, total_votes: 2, accuracy_sentiment: 0},
@@ -192,14 +223,17 @@ describe('buildAnalytics', () => {
   const allRules = [{ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle'}];
   const names = new Map([['a1', 'A'], ['b2', 'B']]);
   const ruleTotalPairs = {ramp: 4};
+  const listedIds = new Set(['a1', 'b2', 'c3']);
 
   it('assembles global+rules+pairs from pair_scores alone (no raw votes)', () => {
-    const out = buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes: null});
+    const out = buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes: null, listedIds});
     expect(out.hasRawVotes).toBe(false);
     expect(out.global.totalVotes).toBe(2);
     expect(out.global.distinctPairs).toBe(1);
     expect(out.global.distinctVoters).toBeNull();
     expect(out.global.meanGap).toBe(2);
+    expect(out.global.accuracySentiment).toBeNull();
+    expect(out.global.accuracyAnswers).toBeNull();
     expect(out.global.weekly).toEqual([]);
     expect(out.global.dimensionFill).toBeNull();
     expect(out.rules[0].meanGap).toBe(2);
@@ -211,11 +245,38 @@ describe('buildAnalytics', () => {
       {created_at: '2026-06-29T01:00:00.000Z', ip_hash: 'x', card_a_id: 'a1', card_b_id: 'b2',
        score: 9, accuracy: null, is_real: null, would_play: null, difficulty: 1},
     ];
-    const out = buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes});
+    const out = buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes, listedIds});
     expect(out.hasRawVotes).toBe(true);
     expect(out.global.distinctVoters).toBe(1);
     expect(out.global.weekly.length).toBe(1);
     expect(out.global.dimensionFill).toEqual({score: 1, accuracy: 0, isReal: 0, wouldPlay: 0, difficulty: 1});
+  });
+
+  it('splits the engine-silent pairs by the card list', () => {
+    const silentRows = [
+      ...scoreRows,
+      {card_a_id: 'a1', card_b_id: 'c3', avg_score: 6, score_votes: 1, total_votes: 1, accuracy_sentiment: null},
+      {card_a_id: 'a1', card_b_id: 'z9', avg_score: 8, score_votes: 3, total_votes: 3, accuracy_sentiment: null},
+    ];
+    const out = buildAnalytics({
+      scoreRows: silentRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes: null, listedIds,
+    });
+    expect(out.global.engineSilentPairs).toBe(2);
+    expect(out.global.engineSilentSplit).toEqual({listed: 1, unlisted: 1});
+  });
+
+  it('takes the accuracy sentiment from every raw answer, engine-silent pairs and quick votes included', () => {
+    const vote = (b, score, accuracy) => ({created_at: '2026-06-29T01:00:00.000Z', ip_hash: b, card_a_id: 'a1',
+      card_b_id: b, score, accuracy, is_real: null, would_play: null, difficulty: null});
+    // pairs[] holds only a1 × b2; the answers on a1 × z9 (engine-silent) and the quick vote count too.
+    const rawVotes = [vote('b2', 9, 1), vote('b2', 9, null), vote('z9', 8, 1), vote('z9', null, -1)];
+    const out = buildAnalytics({scoreRows, enginePairs, allRules, names, ruleTotalPairs, rawVotes, listedIds});
+    expect(out.global.accuracyAnswers).toBe(3);
+    // (2 too low − 1 too high) / 3 answers.
+    expect(out.global.accuracySentiment).toBe(0.33);
+    // The view's accuracy_sentiment, which only some pairs carry, stays out of the artifact (#30).
+    expect(out.rules[0]).not.toHaveProperty('accuracySentiment');
+    expect(out.pairs[0]).not.toHaveProperty('accuracySentiment');
   });
 
   it("writes each rule's playstyleId into the artifact, null included", () => {
@@ -223,7 +284,9 @@ describe('buildAnalytics', () => {
       {ruleId: 'ramp', ruleName: 'Ramp', category: 'playstyle', playstyleId: 'ramp'},
       {ruleId: 'shift', ruleName: 'Shift Targets', category: 'direct', playstyleId: null},
     ];
-    const out = buildAnalytics({scoreRows, enginePairs, allRules: roster, names, ruleTotalPairs, rawVotes: null});
+    const out = buildAnalytics({
+      scoreRows, enginePairs, allRules: roster, names, ruleTotalPairs, rawVotes: null, listedIds,
+    });
     // What writeOut stores: JSON.stringify keeps a null and would drop an undefined.
     const written = JSON.parse(JSON.stringify(out));
     expect(written.rules.map((r) => [r.ruleId, r.playstyleId])).toEqual([['ramp', 'ramp'], ['shift', null]]);

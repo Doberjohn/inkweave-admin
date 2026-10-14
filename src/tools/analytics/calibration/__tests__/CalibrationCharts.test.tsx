@@ -6,7 +6,7 @@ import type {LineChart as RealLineChart} from '../../../../charts/LineChart';
 import type {ScatterChart as RealScatterChart} from '../../../../charts/ScatterChart';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import type {VoteSpan} from '../../activity/activityModel';
-import {CalibrationScatter} from '../CalibrationScatter';
+import {CalibrationScatter, type CalibrationScatterProps} from '../CalibrationScatter';
 import {GapHistogram} from '../GapHistogram';
 import {WeeklyGapTrend} from '../WeeklyGapTrend';
 import {SIX_PAIRS, pairOf} from '../chartFixtures';
@@ -191,6 +191,50 @@ describe('CalibrationScatter: scope, selection, table and footnotes', () => {
     await userEvent.click(screen.getByRole('button', {name: 'Table'}));
     expect(screen.getByText(/Not plotted: 2 engine-silent pairs/)).toBeInTheDocument();
     expect(screen.queryByText(/within 0\.07 of its gap/)).not.toBeInTheDocument();
+  });
+
+  it('splits the engine-silent pairs by the card list when the artifact carries the split (#29)', () => {
+    const {rerender} = render(
+      <CalibrationScatter pairs={PAIRS} scopeLabel="All pairs" selectedPair={null} onSelectPair={vi.fn()} engineSilentPairs={2} />,
+    );
+    expect(screen.getByText(/Not plotted/)).toHaveTextContent(
+      'Not plotted: 2 engine-silent pairs (voted, but the engine gives them no score).',
+    );
+    rerender(
+      <CalibrationScatter
+        pairs={PAIRS}
+        scopeLabel="All pairs"
+        selectedPair={null}
+        onSelectPair={vi.fn()}
+        engineSilentPairs={1621}
+        engineSilentSplit={{listed: 34, unlisted: 1587}}
+      />,
+    );
+    expect(screen.getByText(/Not plotted/)).toHaveTextContent(
+      'Not plotted: 1,621 engine-silent pairs (voted, but the engine gives them no score): ' +
+        '1,587 with a card outside the current card list, 34 with both cards in Core.',
+    );
+  });
+
+  it("says the votes filter doesn't apply to the engine-silent count, which takes every vote (#33)", () => {
+    const filtered = (silent: Partial<CalibrationScatterProps>) => (
+      <CalibrationScatter
+        pairs={PAIRS}
+        scopeLabel="All pairs with 2+ score votes"
+        selectedPair={null}
+        onSelectPair={vi.fn()}
+        votesFilterOn
+        {...silent}
+      />
+    );
+    const {rerender} = render(filtered({engineSilentPairs: 1621, engineSilentSplit: {listed: 34, unlisted: 1587}}));
+    expect(screen.getByText(/Not plotted/)).toHaveTextContent(
+      /34 with both cards in Core\. The Votes filter doesn't apply to this count\.$/,
+    );
+    rerender(filtered({engineSilentPairs: 2}));
+    expect(screen.getByText(/Not plotted/)).toHaveTextContent(
+      "Not plotted: 2 engine-silent pairs (voted, but the engine gives them no score). The Votes filter doesn't apply to this count.",
+    );
   });
 
   it("describes the slider with the note's keyboard instruction alone, so a screen reader hears how to open a dot", () => {
