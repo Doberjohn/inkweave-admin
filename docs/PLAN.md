@@ -156,6 +156,7 @@ The relative submodule URL `../inkweave.git` resolves against the admin remote: 
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Admin repo Actions secrets | Vote analytics |
 | `VERCEL_ANALYTICS_TOKEN`, `ANALYTICS_VERCEL_PROJECT_ID` (the app project the query targets) | Admin repo Actions secrets | The script's current `VERCEL_PROJECT_ID` is renamed to `ANALYTICS_VERCEL_PROJECT_ID`, because in the admin workflow it would collide with the Vercel CLI's variable for the admin project |
 | `VITE_SHOW_ADMIN_ANALYTICS` | Deleted | The admin site needs no flag |
+| `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` | Admin repo Actions secrets | Error reporting to Sentry's `inkweave-admin` project, added after the split. Only the deploy's Build step gets them: the DSN turns reporting on, and the token uploads source maps |
 
 In P5, whichever of these are set get removed from the app's Vercel env: `SUPABASE_SERVICE_ROLE_KEY`, `VERCEL_ANALYTICS_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_ANALYTICS_WINDOW_DAYS`, `VITE_SHOW_ADMIN_ANALYTICS`.
 

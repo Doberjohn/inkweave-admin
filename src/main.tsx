@@ -1,3 +1,5 @@
+// First, so Sentry starts before admin's other modules run (src/sentry.ts).
+import {sentryRootOptions} from './sentry';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {RouterProvider} from 'react-router-dom';
@@ -6,7 +8,7 @@ import {router} from './router';
 const root = document.getElementById('root');
 if (!root) throw new Error('index.html is missing the #root element');
 
-createRoot(root).render(
+createRoot(root, sentryRootOptions).render(
   <StrictMode>
     <RouterProvider router={router} />
   </StrictMode>,

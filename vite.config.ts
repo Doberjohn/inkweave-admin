@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import fs from 'node:fs';
 import path from 'node:path';
+import {sentryVitePlugin} from '@sentry/vite-plugin';
 import react, {reactCompilerPreset} from '@vitejs/plugin-react';
 import babel from '@rolldown/plugin-babel';
 import {defineConfig} from 'vitest/config';
@@ -13,10 +14,38 @@ const forwarded = JSON.parse(
   fs.readFileSync(path.join(import.meta.dirname, 'forwarded-paths.json'), 'utf8'),
 ) as {origin: string; paths: string[]};
 
+// Only the deploy's build has a Sentry auth token (deploy.yml). It uploads the
+// source maps to the inkweave-admin project, stamps the build's release, then
+// deletes the maps so the deployment never serves them. A build without the
+// token emits no maps at all.
+const uploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);
+
 export default defineConfig({
+  define: {
+    // Sentry's environment (src/sentry.ts), as in the app (inkweave#740).
+    // deploy.yml sets VERCEL_ENV for the production build; any other build
+    // says 'unknown' rather than pass as production. Vitest sets VITEST before
+    // loading this config, so the shell's VERCEL_ENV never leaks into tests.
+    __DEPLOY_ENV__: JSON.stringify(
+      process.env.VITEST ? 'unknown' : (process.env.VERCEL_ENV ?? 'unknown'),
+    ),
+  },
   // Same compiler setup as the app (upstream/inkweave/apps/web/vite.config.ts),
   // so bridged components compile identically. babel() must follow react().
-  plugins: [react(), babel({presets: [reactCompilerPreset()]})],
+  plugins: [
+    react(),
+    babel({presets: [reactCompilerPreset()]}),
+    uploadSourceMaps &&
+      sentryVitePlugin({
+        org: 'fanidis-ioannis-lp',
+        project: 'inkweave-admin',
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        sourcemaps: {filesToDeleteAfterUpload: ['dist/**/*.map']},
+      }),
+  ],
+  build: {
+    sourcemap: uploadSourceMaps ? 'hidden' : false,
+  },
   resolve: {
     // Bridged files resolve packages from this root; dedupe guards against a
     // stray second copy (e.g. if someone installs inside upstream/).
