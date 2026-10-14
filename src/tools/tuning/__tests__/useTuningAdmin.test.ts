@@ -114,6 +114,21 @@ describe('useTuningAdmin', () => {
     expect(result.current.publishDisabled).toBe(true);
   });
 
+  it('marks a Shift text that drops a card placeholder invalid and disables publish', () => {
+    const {result} = renderHook(() => useTuningAdmin('tok'));
+    act(() => {
+      result.current.stageEdit({
+        path: ['ruleTexts', 'shift-targets', 'curve.gap3', 'text'],
+        rawValue: 'Wide gap: <SHIFT> lands 3 turns later.',
+        kind: 'text',
+        oldValue: 'Wide gap: <SHIFT> shifts onto <BASE> 3 turns after it lands.',
+        label: 'text',
+      });
+    });
+    expect(result.current.pending[0]).toMatchObject({valid: false, error: expect.stringContaining('<BASE>')});
+    expect(result.current.publishDisabled).toBe(true);
+  });
+
   it('revertEdit removes a single entry; clear empties all', () => {
     const {result} = renderHook(() => useTuningAdmin('tok'));
     act(() => {
