@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
 import {validateScore, validateText} from './validate';
+import {requirePlaceholders} from './placeholders';
 import {commitTuning} from './githubClient';
 
 export interface PendingEdit {
@@ -25,7 +26,8 @@ export interface StageArgs {
 function toPendingEdit(args: StageArgs): PendingEdit {
   const {path, rawValue, kind, oldValue, label} = args;
   const pathKey = JSON.stringify(path);
-  const validated = kind === 'score' ? validateScore(rawValue) : validateText(rawValue);
+  const validated =
+    kind === 'score' ? validateScore(rawValue) : requirePlaceholders(validateText(rawValue), path);
   if (!validated.ok) {
     return {pathKey, path, value: rawValue, oldValue, label, valid: false, error: validated.error};
   }

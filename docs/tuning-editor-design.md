@@ -241,7 +241,7 @@ Same commit → redeploy latency as reveal-admin today. Not instant; acceptable 
 | Risk | Mitigation |
 |------|-----------|
 | Publishing commits straight to `master`, bypassing PR + pre-push E2E + engine-validator. | These are *values*, and CLAUDE.md already sanctions "card DATA direct-to-master, rendering CODE via PR". The form (not free-text) constrains what can change. |
-| A malformed edit could break the deploy build. | Client-side validation (score integer 1–10, text non-empty, known keys) gates Publish; plus a `tuning.json` validation **test** so CI/pre-push also catch drift. |
+| A malformed edit could break the deploy build. | Client-side validation (score integer 1–10, text non-empty, Shift and Ramp texts keep their card placeholders, known keys) gates Publish; plus a `tuning.json` validation **test** so CI/pre-push also catch drift. |
 | The refactor silently changes scores. | Snapshot-equivalence test (before/after byte-identical precompute) is a hard gate. |
 | Doc drift — the CLAUDE.md / `*_RULE.md` score tables become runtime-editable. | Keep the v1 set small; note the drift explicitly; future phase: generate the doc tables *from* `tuning.json`. |
 | New JSON-import convention in the engine (none today). | Isolated to one `data/` dir + a one-line tsconfig change; validated by the shape test. |
@@ -251,7 +251,8 @@ Same commit → redeploy latency as reveal-admin today. Not instant; acceptable 
 - **Refactor snapshot-equivalence** test (Shift + Ramp precompute output unchanged).
 - **`tuning.json` validator** test: shape matches `TuningConfig`; every referenced key exists;
   where present, `score` is an integer 1–10 and `text` is non-empty.
-- **Editor unit tests**: validation rejects score 11 / empty text; batch tray accumulates and
+- **Editor unit tests**: validation rejects score 11 / empty text / a Shift or Ramp text without its
+  card placeholders; batch tray accumulates and
   clears; `commitFiles` payload shape is correct (path + base64 of edited JSON).
 - No new E2E in v1 (admin routes are discoverability-gated and E2E-light today).
 
