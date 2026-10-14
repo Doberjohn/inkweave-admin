@@ -106,8 +106,8 @@ jobs:
         run: npx "vercel@${VERCEL_CLI_VERSION:?}" pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       # Sentry (src/sentry.ts, vite.config.ts): the DSN turns error reporting
-      # on, and the auth token uploads the source maps, then deletes them from
-      # the build. Without either secret the build ships without that part.
+      # on, and with it the auth token uploads the source maps, then deletes
+      # them from the build. Without the DSN the build has neither.
       # VERCEL_ENV is Sentry's environment; it is set here, as in the app's
       # deploy, so the build never depends on whether `vercel build` exposes it.
       - name: Build

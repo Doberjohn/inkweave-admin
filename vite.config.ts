@@ -14,11 +14,12 @@ const forwarded = JSON.parse(
   fs.readFileSync(path.join(import.meta.dirname, 'forwarded-paths.json'), 'utf8'),
 ) as {origin: string; paths: string[]};
 
-// Only the deploy's build has a Sentry auth token (deploy.yml). It uploads the
-// source maps to the inkweave-admin project, stamps the build's release, then
-// deletes the maps so the deployment never serves them. A build without the
-// token emits no maps at all.
-const uploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);
+// Only the deploy's build has Sentry's DSN and auth token (deploy.yml). With
+// both, it uploads the source maps to the inkweave-admin project, stamps the
+// build's release, then deletes the maps so the deployment never serves them.
+// Without the DSN the bundle has no Sentry to use them, so a build missing
+// either emits no maps at all, and removing the DSN switches Sentry off whole.
+const uploadSourceMaps = Boolean(process.env.VITE_SENTRY_DSN && process.env.SENTRY_AUTH_TOKEN);
 
 export default defineConfig({
   define: {
