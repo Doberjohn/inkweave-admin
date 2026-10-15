@@ -81,6 +81,7 @@ export {
 // five rarities' keys, and returns undefined for anything else, printings too.
 export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
 export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
-// The pinned app's previewCards.json as text. The reveal tool's insert test
-// runs against it, so a pin bump that changes the file's layout fails here.
+// The pinned app's previewCards.json as text. The write chain's tests and Card
+// studio's Edit tests run against it, so a pin bump that changes the file's
+// layout, or what its entries hold, fails here.
 export {default as PINNED_PREVIEW_CARDS_JSON} from '../upstream/inkweave/apps/web/public/data/previewCards.json?raw';

@@ -43,7 +43,7 @@ const STATE_STATUS = {
 export function assertNoRace(run) {
   if (readFile(APP_REPO, PREVIEW_REL, run.appBase).sha !== run.baseBlob) {
     throw new UsageError(
-      `previewCards.json changed on ${APP_REPO}@${run.appBase} since this run started, probably a card published through the reveal publisher. Nothing was written. Start a new run.`,
+      `previewCards.json changed on ${APP_REPO}@${run.appBase} since this run started, probably a card published or edited in Card studio. Nothing was written. Start a new run.`,
     );
   }
   if (readFile(ADMIN_REPO, STATE_REL, run.stateBranch).sha !== run.stateBlob) {

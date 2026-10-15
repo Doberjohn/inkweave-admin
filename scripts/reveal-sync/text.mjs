@@ -9,7 +9,7 @@
  * - comparable*: a lossy key for deciding whether two readings agree. Never written.
  */
 
-// House style lives in the engine so the reveal publisher (browser) and these scripts share
+// House style lives in the engine so Card studio (browser) and these scripts share
 // one source, as cardPath does (#635). Needs the engine built: pnpm build:engine.
 import {
   canonicalizeCardLine as canonicalizeLine,

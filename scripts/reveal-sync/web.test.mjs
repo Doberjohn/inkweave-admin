@@ -16,7 +16,7 @@ describe('web', () => {
     expect(Object.keys(season.inkBlocks)).toHaveLength(6);
   }, SLOW);
 
-  it("loads the reveal publisher's write chain", async () => {
+  it("loads Card studio's write chain", async () => {
     const chain = await loadWriteChain();
     expect(Object.keys(chain).sort()).toEqual([
       'buildPreviewCard',
