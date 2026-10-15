@@ -35,6 +35,8 @@ describe('cardTag', () => {
     ['a reveal-set card after graduation (an empty file) is Released', revealCard(1), new Set<number>(), 'Released'],
     ['a reveal-set card waits for the file (R-71)', revealCard(1), null, null],
     ['another set’s card is Released without the file (R-71)', card({id: '1936', setCode: '9'}), null, 'Released'],
+    // Graduation released the set under official ids, which the file can say nothing about (R4-8a).
+    ['a reveal-set card under its official id is Released without the file', card({id: '3286', setCode: REVEAL_SET_CODE}), null, 'Released'],
     // A pin that lags a season switch (R-65): the file's own word wins over admin's set code.
     ['an entry the file holds is Preview, whatever its set', card({id: '15001', setCode: '15'}), new Set([15001]), 'Preview'],
   ])('%s', (_, subject, previewIds, expected) => {

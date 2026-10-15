@@ -1,11 +1,12 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {commitFiles} from '../../../github/githubCommit';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
 import {formFromPreviewCard} from '../cardEdit';
 import {failureOf, imageSent, keepEdits, reseeded, savePlanOf, savedDraft, type SaveInput} from '../editSave';
 import type {Draft, FieldsEdit, StagedImage} from '../editorState';
-import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf} from '../studioFixtures';
+import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf} from '../studioFixtures';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -58,14 +59,20 @@ describe('savePlanOf', () => {
     });
   });
 
+  // A card under a preview id checks previewCards.json still holds it (commitPreviewCardImage); a released one,
+  // the reveal set's included, never reads the file (R-71, R4-8a).
+  const releasedImage = (card: LorcanaCard) =>
+    input({draft: draft({image: FILE, edit: {kind: 'image', reason: 'released'}}), card, staged: READ});
   it.each([
-    ['a preview card', input({draft: draft({image: FILE}), staged: READ})],
-    ['a released card', input({draft: draft({image: FILE, edit: {kind: 'image', reason: 'released'}}), card: RELEASED_CARD, staged: READ})],
-  ])('commits an image alone on %s through commitCardImage', (_case, from) => {
+    ['a preview card', input({draft: draft({image: FILE}), staged: READ}), true],
+    ['a released card', releasedImage(RELEASED_CARD), false],
+    ['a released card of the reveal set', releasedImage(RELEASED_REVEAL_CARD), false],
+  ])('commits an image alone on %s, checking the file: %s', (_case, from, checksFile) => {
     expect(savePlanOf(from)).toEqual({
       path: 'image',
       seed: 3,
       sent: FILE,
+      checksFile,
       commit: {token: 'tok', card: {id: from.card?.id, fullName: from.card?.fullName}, imageBase64: DATA_URL, imageExt: 'png'},
     });
   });

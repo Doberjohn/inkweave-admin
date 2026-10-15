@@ -1,11 +1,12 @@
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {targetBranch} from '../../github/githubCommit';
 import {isRejectedToken} from '../../github/rejectedToken';
-import type {ImageAdminCard} from '../image/githubClient';
+import type {CardImageCommit} from '../image/githubClient';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {StaleCardError, type CardEditCommit} from '../reveal/githubClient';
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
+import {isRevealPreview} from './branchCards';
 import {hasEdits} from './cardEdit';
 import {fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput, type StagedImage} from './editorState';
 
@@ -37,23 +38,18 @@ export interface SaveInput {
   staged: StagedImage;
 }
 
-/** commitCardImage's input (image/githubClient.ts). */
-export interface CardImageCommit {
-  token: string;
-  card: ImageAdminCard;
-  imageBase64: string;
-  imageExt: string;
-}
-
 /**
  * The commit a save makes, and what it was made from: `seed` ties its outcome
  * to the draft (R-69), `form` is the form a fields save commits, the baseline
  * once it lands (R-70), and `sent` is the file it sends, which clears once it
- * lands.
+ * lands. An image-only save `checksFile` for a reveal-set card under a preview
+ * id: it goes through commitPreviewCardImage, which refuses it once
+ * previewCards.json no longer holds the card. Any other card's goes through
+ * commitCardImage, which reads nothing (R-71).
  */
 export type SavePlan =
   | {path: 'fields'; seed: number; form: RevealCardForm; sent: File | null; commit: CardEditCommit}
-  | {path: 'image'; seed: number; sent: File; commit: CardImageCommit};
+  | {path: 'image'; seed: number; sent: File; checksFile: boolean; commit: Omit<CardImageCommit, 'atBase'>};
 
 /** This draft's staged file, with its bytes once read and checked. */
 interface Upload {
@@ -88,18 +84,23 @@ function fieldsPlan({token, draft, changes, validation, upload}: PlanInput): Sav
   return {path: 'fields', seed: draft.seed, form: fields.form, sent: upload?.file ?? null, commit};
 }
 
-/** An image-only save: the staged image through commitCardImage, which never touches previewCards.json. */
+/**
+ * An image-only save: the staged image alone, which never edits
+ * previewCards.json. It checks the file still holds a reveal-set card under a
+ * preview id (isRevealPreview), the one kind the file decides.
+ */
 function imagePlan({token, draft, card, upload}: PlanInput): SavePlan | null {
   if (!upload?.dataUrl) return null;
   const commit = {token, card: {id: card.id, fullName: card.fullName}, imageBase64: upload.dataUrl, imageExt: extOf(upload.file)};
-  return {path: 'image', seed: draft.seed, sent: upload.file, commit};
+  return {path: 'image', seed: draft.seed, sent: upload.file, checksFile: isRevealPreview(card), commit};
 }
 
 /**
  * The commit Save would make now, or null when it can't. A changed card key
  * (hasEdits, the one edits rule) goes through commitCardEdit; an image alone,
- * on any card, goes through commitCardImage. A staged image whose bytes aren't
- * read yet, or failed their check, holds both back.
+ * on any card, goes through commitCardImage, checking the branch file for a
+ * preview card. A staged image whose bytes aren't read yet, or failed their
+ * check, holds both back.
  */
 export function savePlanOf(input: SaveInput): SavePlan | null {
   const {card} = input;

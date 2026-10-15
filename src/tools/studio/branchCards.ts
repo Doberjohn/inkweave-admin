@@ -52,6 +52,17 @@ export function hasPreviewId(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean
   return offset > 0 && offset < 1000;
 }
 
+/**
+ * Whether the card is a reveal-set card under a preview id: the one kind the
+ * branch file decides. Edit opens it only once the file is read, and its
+ * image-only save checks the file still holds it (commitPreviewCardImage).
+ * Any other card, the reveal set's released ones included (graduation gives
+ * them official ids), is allCards.json's, and never waits on the file (R-71).
+ */
+export function isRevealPreview(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean {
+  return card.setCode === REVEAL_SET_CODE && hasPreviewId(card);
+}
+
 /** Whether the card list holds the entry's id as allCards.json's card, which wins (the app's loader.ts:212-213). */
 function shadowed({entry, list}: {entry: LorcanaJSONCard; list: CardListView}): boolean {
   const listed = list.getCardById(String(entry.id));
@@ -132,13 +143,11 @@ function unlistedLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsF
 
 /**
  * Whether a ready card is a reveal-set card under a preview id that the file
- * no longer holds. editLookup opens a reveal-set card only once the file is
- * read (R-71), so its null entry means the read file lacks it.
+ * no longer holds. editLookup opens such a card only once the file is read
+ * (R-71), so its null entry means the read file lacks it.
  */
 function leftFile({card, entry}: {card: LorcanaCard; entry: LorcanaJSONCard | null}): boolean {
-  if (entry !== null) return false;
-  if (card.setCode !== REVEAL_SET_CODE) return false;
-  return hasPreviewId(card);
+  return entry === null && isRevealPreview(card);
 }
 
 /**

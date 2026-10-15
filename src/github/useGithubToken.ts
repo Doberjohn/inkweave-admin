@@ -1,7 +1,8 @@
 import {useSyncExternalStore} from 'react';
 
-// Keep the historical key so a token saved from reveal-admin is reused by the
-// image tool with no re-entry. Renaming it would silently drop saved tokens.
+// The historical key: reveal-admin saved the token under it, and the image tool
+// reused it with no re-entry. Every write page reads it now, Card studio and the
+// tuning aside alike. Renaming it would silently drop saved tokens.
 const KEY = 'inkweave.reveal-admin.gh-token';
 
 export interface UseGithubToken {

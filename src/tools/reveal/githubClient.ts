@@ -1,4 +1,5 @@
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {commitCardImage, type CardImageCommit} from '../image/githubClient';
 import {insertCardIntoPreviewJson} from './insertCardIntoPreviewJson';
 import {EDITABLE_CARD_KEYS, replaceCardInPreviewJson, type PreviewCardChanges} from './replaceCardInPreviewJson';
 import {
@@ -84,6 +85,11 @@ export async function readPreviewCards(token: string): Promise<LorcanaJSONCard[]
 /** What the stale check compares (R-67): every key an edit can write, and the card's identity. */
 const COMPARED_KEYS: readonly (keyof LorcanaJSONCard)[] = ['id', 'setCode', 'number', ...EDITABLE_CARD_KEYS];
 
+/** The refusal for a card that has left previewCards.json on the branch, a field save's and an image-only one's alike. */
+function leftFileError(card: Pick<LorcanaJSONCard, 'fullName'>): StaleCardError {
+  return new StaleCardError(`${card.fullName} is no longer in previewCards.json on ${targetBranch()}. Load it again.`);
+}
+
 /**
  * Refuses the edit with StaleCardError when the card's entry at the base commit
  * is gone, or differs from `loaded` in a key the edit could write or in its
@@ -92,10 +98,9 @@ const COMPARED_KEYS: readonly (keyof LorcanaJSONCard)[] = ['id', 'setCode', 'num
  */
 function checkBaseEntry({cards, loaded}: {cards: LorcanaJSONCard[]; loaded: LorcanaJSONCard}): void {
   const base = cards.find((card) => card.id === loaded.id);
-  const branch = targetBranch();
-  if (!base) throw new StaleCardError(`${loaded.fullName} is no longer in previewCards.json on ${branch}. Load it again.`);
+  if (!base) throw leftFileError(loaded);
   if (!COMPARED_KEYS.every((key) => JSON.stringify(base[key]) === JSON.stringify(loaded[key]))) {
-    throw new StaleCardError(`${loaded.fullName} changed on ${branch} since you loaded it. Load it again.`);
+    throw new StaleCardError(`${loaded.fullName} changed on ${targetBranch()} since you loaded it. Load it again.`);
   }
 }
 
@@ -151,6 +156,28 @@ export async function commitCardEdit(opts: CardEditCommit): Promise<CommitResult
       const files: CommitFile[] = [{path: PREVIEW_PATH, contentBase64: utf8ToBase64(edited)}];
       if (image) files.push({path: `${RAW_DIR}/${loaded.id}.${image.ext}`, contentBase64: stripDataUrl(image.dataUrl)});
       return files;
+    },
+  });
+}
+
+/**
+ * An image alone for a card under a preview id (Card studio's Edit card):
+ * commitCardImage's commit, sent only while previewCards.json at the commit it
+ * builds on still holds the card. One that has left the file, as graduation's
+ * cards do (R-66), or an entry removed by hand, is refused with StaleCardError,
+ * as commitCardEdit refuses a field save, and nothing is written: a raw scan
+ * under an id the app no longer has would only convert to an orphan AVIF. A
+ * released card's image goes through commitCardImage itself, which reads
+ * nothing (R-71).
+ */
+export function commitPreviewCardImage(opts: Omit<CardImageCommit, 'atBase'>): Promise<CommitResult> {
+  const {token, card} = opts;
+  return commitCardImage({
+    ...opts,
+    atBase: (raw) => async (baseCommitSha) => {
+      const {cards} = await readCardsAt({token, ref: baseCommitSha});
+      if (!cards.some((entry) => String(entry.id) === card.id)) throw leftFileError(card);
+      return [raw];
     },
   });
 }

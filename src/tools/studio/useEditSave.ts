@@ -1,7 +1,7 @@
 import {useState, type Dispatch, type SetStateAction} from 'react';
 import type {CommitResult} from '../../github/githubCommit';
 import {commitCardImage} from '../image/githubClient';
-import {commitCardEdit} from '../reveal/githubClient';
+import {commitCardEdit, commitPreviewCardImage} from '../reveal/githubClient';
 import {mergeCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {Draft} from './editorState';
 import {
@@ -55,9 +55,10 @@ export interface EditSave extends OutcomeFields {
   dropped: number | null;
 }
 
-/** The commit the plan makes. */
+/** The commit the plan makes: an image alone checks the branch file when the plan says so (savePlanOf). */
 function commitOf(plan: SavePlan): Promise<CommitResult> {
-  return plan.path === 'fields' ? commitCardEdit(plan.commit) : commitCardImage(plan.commit);
+  if (plan.path === 'fields') return commitCardEdit(plan.commit);
+  return plan.checksFile ? commitPreviewCardImage(plan.commit) : commitCardImage(plan.commit);
 }
 
 /**

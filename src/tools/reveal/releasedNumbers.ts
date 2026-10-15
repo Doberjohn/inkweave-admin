@@ -1,20 +1,12 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {REVEAL_ID_BASE, REVEAL_SET_CODE} from './constants';
+import {hasPreviewId} from '../studio/branchCards';
+import {REVEAL_SET_CODE} from './constants';
 import type {ReleasedNumbers} from './validateForm';
 
 /**
- * The last offset a preview id takes past REVEAL_ID_BASE: a numbered card's is its
- * collector number, and a card revealed with none takes one from +900 to +999.
+ * A reveal-set card with a collector number, under its official id rather than
+ * a preview one (the deployed previewCards.json's, which existingIds covers).
  */
-const PREVIEW_BAND_END = 999;
-
-/** The card holds a preview id (REVEAL_ID_BASE + 1 to + 999): the deployed previewCards.json's, which existingIds covers. */
-function hasPreviewId(card: LorcanaCard): boolean {
-  const offset = Number(card.id) - REVEAL_ID_BASE;
-  return offset >= 1 && offset <= PREVIEW_BAND_END;
-}
-
-/** A reveal-set card with a collector number, under its official id rather than a preview one. */
 function isReleasedRevealCard(card: LorcanaCard): card is LorcanaCard & {setNumber: number} {
   if (card.setCode !== REVEAL_SET_CODE) return false;
   if (card.setNumber == null) return false;

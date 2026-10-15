@@ -3,7 +3,6 @@ import {describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
-import {REVEAL_SET_CODE} from '../../../app-bridge';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
@@ -151,7 +150,8 @@ describe('EditSearch', () => {
       const alert = screen.getByRole('alert');
       expect(alert).toHaveTextContent(`Could not read previewCards.json: ${FAILED}.`);
       // True after a failed first read and a failed re-read alike: a re-read keeps the last read's cards (R4-4a).
-      expect(alert).toHaveTextContent(`Cards outside set ${REVEAL_SET_CODE} still open for a new image.`);
+      // Only a reveal-set card under a preview id waits for the file, so the reveal set's released cards open too (R-71).
+      expect(alert).toHaveTextContent('Released cards still open for a new image.');
       expect(screen.getByRole('searchbox', {name: 'Search cards'})).toBeInTheDocument();
       expect(screen.getAllByRole('link')).toHaveLength(ROWS.length);
     });

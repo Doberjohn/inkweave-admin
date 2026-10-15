@@ -10,11 +10,11 @@ import type {RevealCardForm} from '../buildPreviewCard';
 import {EMPTY_FORM} from '../emptyForm';
 import {useRevealAdmin, type RevealAdminController} from '../useRevealAdmin';
 
-// A saved token and the card list each test sets (empty unless it says); the rest of the bridge stays real.
+// A saved token and the card list each test sets (empty and loaded unless it says); the rest of the bridge stays real.
 vi.mock('../../../github/useGithubToken', () => ({
   useGithubToken: () => ({token: 'tok', setToken: () => {}, clearToken: () => {}}),
 }));
-const cardList = vi.hoisted(() => ({cards: [] as LorcanaCard[]}));
+const cardList = vi.hoisted(() => ({cards: [] as LorcanaCard[], isLoading: false, error: null as Error | null}));
 vi.mock('../../../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../app-bridge')>()),
   useCardDataContext: () => cardList,
@@ -46,7 +46,7 @@ const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'
 beforeEach(() => {
   DeferredReader.reset();
   vi.stubGlobal('FileReader', DeferredReader);
-  cardList.cards = [];
+  Object.assign(cardList, {cards: [], isLoading: false, error: null});
   // mockReset, not clearAllMocks: it also drops the last test's implementations.
   commitNewCard.mockReset();
   commitNewCard.mockResolvedValue(COMMIT);
@@ -82,7 +82,7 @@ async function publish(hook: Hook) {
 /** The ready checklist (R4-3a), read from the controller as the studio reads it. */
 function checklistOf(ctrl: RevealAdminController) {
   const imageState = {ready: ctrl.imageDataUrl !== null, error: ctrl.uploadError};
-  return revealChecklist(ctrl.form, ctrl.validation, imageState);
+  return revealChecklist(ctrl.form, ctrl.validation, imageState, ctrl.cardList);
 }
 
 /** Every item of the ready checklist is done. */
@@ -150,6 +150,22 @@ describe('useRevealAdmin', () => {
       publishable: false,
     },
     {state: 'a complete card with its image read', reach: ready, publishable: true},
+    {
+      state: 'a complete card with its image read, while the card list loads',
+      reach: async (hook: Hook) => {
+        cardList.isLoading = true;
+        await ready(hook);
+      },
+      publishable: false,
+    },
+    {
+      state: 'a complete card with its image read, after the card list failed',
+      reach: async (hook: Hook) => {
+        cardList.error = new Error('Failed to fetch local cards: 500');
+        await ready(hook);
+      },
+      publishable: false,
+    },
     {
       state: 'a card just published',
       reach: async (hook: Hook) => {
@@ -266,12 +282,18 @@ describe('useRevealAdmin', () => {
       setNumber: 21,
     });
 
-    it('refuses #21 under the card that holds it, and the checklist names that card', async () => {
+    /** #21 filled in as a complete Amber card, with its image read, and Publish pressed. */
+    async function publishTwentyOne(hook: Hook) {
+      fill(hook, {collectorNumber: '21', ink: 'Amber'});
+      choose(hook, 'a.png');
+      await DeferredReader.finish(0);
+      await act(() => hook.current.publish());
+    }
+
+    it('refuses #21 under the card that holds it, the checklist names that card, and nothing commits', async () => {
       cardList.cards = [MIGUEL];
       const {result} = renderHook(() => useRevealAdmin());
-      fill(result, {collectorNumber: '21', ink: 'Amber'});
-      choose(result, 'a.png');
-      await DeferredReader.finish(0);
+      await publishTwentyOne(result);
 
       const message = '#21 is already Miguel Rivera - Street Musician (3286)';
       expect(result.current.validation).toEqual({ok: false, errors: {collectorNumber: message}});
@@ -280,6 +302,30 @@ describe('useRevealAdmin', () => {
       expect(checklistOf(result.current).filter((item) => !item.done)).toEqual([
         {id: 'collectorNumber', label: 'Collector number', done: false, message},
       ]);
+      expect(commitNewCard).not.toHaveBeenCalled();
+    });
+
+    // The app's card list holds no card while it loads, nor after it failed, so
+    // the validator can't see Miguel, and the emptied previewCards.json can't
+    // either: Publish waits for the list, failing closed (R4-8a).
+    it.each([
+      {state: 'still loading', list: {isLoading: true, error: null}, message: "Checking the number needs the card list: it's still loading…"},
+      {
+        state: 'failed',
+        list: {isLoading: false, error: new Error('Failed to fetch local cards: 500')},
+        message: 'Checking the number needs the card list, which failed to load: Failed to fetch local cards: 500',
+      },
+    ])('holds #21 back while the card list is $state, saying why, and nothing commits', async ({list, message}) => {
+      Object.assign(cardList, {cards: [], ...list});
+      const {result} = renderHook(() => useRevealAdmin());
+      await publishTwentyOne(result);
+
+      expect(result.current.validation).toEqual({ok: true, errors: {}});
+      expect(result.current.canPublish).toBe(false);
+      expect(checklistOf(result.current).filter((item) => !item.done)).toEqual([
+        {id: 'collectorNumber', label: 'Collector number', done: false, message},
+      ]);
+      expect(commitNewCard).not.toHaveBeenCalled();
     });
 
     it('still refuses a number past the set as past the set, and the Ink item reads "fix it first"', () => {

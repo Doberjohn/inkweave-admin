@@ -93,8 +93,9 @@ function spaced(form: RevealCardForm): RevealCardForm {
   return {...form, ...Object.fromEntries(typed.map((field) => [field, ` ${form[field]}  `]))};
 }
 
-// The pinned app's previewCards.json. Graduation empties it (2026-10-23), so the
-// walk then takes the fixtures that open with fields, rather than pass over no cards.
+// The pinned app's previewCards.json. Set 14's graduation emptied it on 2026-10-14
+// (Doberjohn/inkweave#780), so until set 15's reveals reach the pin the walk takes
+// the fixtures that open with fields, rather than pass over no cards.
 const PINNED = (JSON.parse(PINNED_PREVIEW_CARDS_JSON) as {cards: LorcanaJSONCard[]}).cards;
 const WALKED: readonly LorcanaJSONCard[] =
   PINNED.length > 0 ? PINNED : [PREVIEW_ENTRY, DUAL_INK_ENTRY, VARIANTS_ENTRY, JA_SCAN_ENTRY, UNLISTED_SCAN_ENTRY, BARE];

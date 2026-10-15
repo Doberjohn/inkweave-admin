@@ -69,7 +69,7 @@ function NewRevealAside({ctrl, handoff, onForgetToken}: Omit<NewRevealPaneProps,
   const publish = () => void ctrl.publish().then(handoff.request);
   return (
     <aside aria-label="Publish" style={ASIDE}>
-      <ReadyChecklist items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl))} />
+      <ReadyChecklist items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl), ctrl.cardList)} />
       <SynergyPanel groups={ctrl.synergyGroups} />
       <CtaButton type="button" onClick={publish} disabled={!ctrl.canPublish || ctrl.publishing} style={PUBLISH}>
         {publishLabel({publishing: ctrl.publishing})}

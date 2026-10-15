@@ -6,7 +6,7 @@ import {isRejectedToken} from '../../../github/rejectedToken';
 import {DeferredReader} from '../../../test/DeferredReader';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
-import {DUAL_INK_ENTRY, JA_SCAN_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf} from '../studioFixtures';
+import {DUAL_INK_ENTRY, JA_SCAN_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf} from '../studioFixtures';
 import {useCardEditor, type CardEditorController} from '../useCardEditor';
 
 // The shell's card list, loaded. No case here moves it on; R4-4b's cases do, through R3's store.
@@ -18,11 +18,16 @@ vi.mock('../../../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useCardDataContext: () => list.value,
 }));
-// The reads and both commits settle when each case says. StaleCardError stays the real class.
-const {commitCardEdit, readPreviewCards} = vi.hoisted(() => ({commitCardEdit: vi.fn(), readPreviewCards: vi.fn()}));
+// The reads and every commit settle when each case says. StaleCardError stays the real class.
+const {commitCardEdit, commitPreviewCardImage, readPreviewCards} = vi.hoisted(() => ({
+  commitCardEdit: vi.fn(),
+  commitPreviewCardImage: vi.fn(),
+  readPreviewCards: vi.fn(),
+}));
 vi.mock('../../reveal/githubClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../reveal/githubClient')>()),
   commitCardEdit,
+  commitPreviewCardImage,
   readPreviewCards,
 }));
 const commitCardImage = vi.hoisted(() => vi.fn());
@@ -30,7 +35,7 @@ vi.mock('../../image/githubClient', () => ({commitCardImage}));
 
 const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/c0ffee'};
 const ENTRIES = [PREVIEW_ENTRY, DUAL_INK_ENTRY, JA_SCAN_ENTRY];
-const CARDS = [...ENTRIES.map(cardOf), RELEASED_CARD];
+const CARDS = [...ENTRIES.map(cardOf), RELEASED_CARD, RELEASED_REVEAL_CARD];
 const MEI = String(PREVIEW_ENTRY.id);
 const PRIYA = String(DUAL_INK_ENTRY.id);
 const UNAUTHORIZED = 'GitHub 401 on apps/web/public/data/previewCards.json: {"message":"Bad credentials"}';
@@ -44,10 +49,11 @@ function loadedList(cards: LorcanaCard[]): CardList {
 
 beforeEach(() => {
   // A block, not an arrow's value: mockReset() returns the mock, which Vitest would call as a teardown.
-  for (const mock of [commitCardEdit, commitCardImage, readPreviewCards]) mock.mockReset();
+  for (const mock of [commitCardEdit, commitCardImage, commitPreviewCardImage, readPreviewCards]) mock.mockReset();
   readPreviewCards.mockResolvedValue(ENTRIES);
   commitCardEdit.mockResolvedValue(COMMIT);
   commitCardImage.mockResolvedValue(COMMIT);
+  commitPreviewCardImage.mockResolvedValue(COMMIT);
   list.value = loadedList(CARDS);
 });
 
@@ -158,19 +164,48 @@ describe('useCardEditor: the two save paths', () => {
   });
 
   // The image tool's "clears the published card and image once the commit lands", for
-  // the studio: the card is URL state, so it stays open (R-70).
+  // the studio: the card is URL state, so it stays open (R-70). A card under a preview id
+  // goes through commitPreviewCardImage, which checks previewCards.json still holds it at
+  // the base commit (R4-8a); a released card reads no file (R-71).
   it.each([
-    {name: 'a preview card with no field edits', cardId: MEI, fullName: 'Mei - Red Panda'},
-    {name: 'a released card (R-61)', cardId: RELEASED_CARD.id, fullName: RELEASED_CARD.fullName},
-  ])('saves an image alone on $name through commitCardImage, and keeps the card open', async ({cardId, fullName}) => {
+    {name: 'a preview card with no field edits', cardId: MEI, fullName: 'Mei - Red Panda', via: commitPreviewCardImage, not: commitCardImage},
+    {name: 'a released card (R-61)', cardId: RELEASED_CARD.id, fullName: RELEASED_CARD.fullName, via: commitCardImage, not: commitPreviewCardImage},
+  ])('saves an image alone on $name, and keeps the card open', async ({cardId, fullName, via, not}) => {
     const editor = await openEditor(cardId);
     await stage(editor, 'scan.png');
     const imageBase64 = editor.result.current.imageDataUrl;
     await save(editor);
 
-    expect(commitCardImage).toHaveBeenCalledWith({token: 'tok', card: {id: cardId, fullName}, imageBase64, imageExt: 'png'});
+    expect(via).toHaveBeenCalledWith({token: 'tok', card: {id: cardId, fullName}, imageBase64, imageExt: 'png'});
+    expect(not).not.toHaveBeenCalled();
     expect(commitCardEdit).not.toHaveBeenCalled();
     expect(editor.result.current).toMatchObject({lookup: {kind: 'ready', card: {id: cardId}}, result: {withImage: true}, imageName: null});
+  });
+
+  it('refuses an image alone on a preview card the base file no longer holds, as stale, and keeps the image (R4-8a)', async () => {
+    const gone = `${PREVIEW_ENTRY.fullName} is no longer in previewCards.json on master. Load it again.`;
+    commitPreviewCardImage.mockRejectedValueOnce(new StaleCardError(gone));
+    const editor = await openEditor(MEI);
+    await stage(editor, 'scan.png');
+    await save(editor);
+
+    expect(editor.result.current).toMatchObject({result: null, saveError: gone, failure: 'stale', imageName: 'scan.png'});
+  });
+
+  it('opens a released card of the reveal set, and saves its image, while previewCards.json fails (R-71)', async () => {
+    readPreviewCards.mockReset();
+    readPreviewCards.mockRejectedValue(new Error('GitHub 500 on apps/web/public/data/previewCards.json: Server error'));
+    const editor = await openEditor(RELEASED_REVEAL_CARD.id);
+    await waitFor(() => expect(editor.result.current.previewFile.status).toBe('error'));
+    expect(editor.result.current).toMatchObject({lookup: {kind: 'ready'}, imageOnly: 'released', tag: 'Released'});
+
+    await stage(editor, 'miguel.png');
+    const imageBase64 = editor.result.current.imageDataUrl;
+    await save(editor);
+    const card = {id: RELEASED_REVEAL_CARD.id, fullName: 'Miguel Rivera - Street Musician'};
+    expect(commitCardImage).toHaveBeenCalledWith({token: 'tok', card, imageBase64, imageExt: 'png'});
+    expect(commitPreviewCardImage).not.toHaveBeenCalled();
+    expect(editor.result.current).toMatchObject({lookup: {kind: 'ready', card: {id: card.id}}, result: {withImage: true}});
   });
 
   it('refreshes a card to its English scan, renamed, in one edit (admin#14 item 3)', async () => {

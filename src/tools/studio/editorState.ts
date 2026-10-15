@@ -2,10 +2,10 @@ import type {LorcanaCard, LorcanaJSONCard, SynergyGroup} from 'inkweave-synergy-
 import type {useCardDataContext} from '../../app-bridge';
 import type {ImageUpload} from '../../components/useImageUpload';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
-import {REVEAL_SET_CODE} from '../reveal/constants';
 import {buildPreview, computeSynergies} from '../reveal/livePreview';
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
+import {isRevealPreview} from './branchCards';
 import {cardChanges, editKindOf, formFromPreviewCard, validateCardEdit, type ImageOnlyReason} from './cardEdit';
 import type {CardTag} from './editSearch';
 import type {PreviewCardsFile} from './previewCardsFile';
@@ -56,15 +56,18 @@ function opened({card, file}: {card: LorcanaCard; file: PreviewCardsFile}): Edit
 }
 
 /**
- * A card the list holds. Only a card of the reveal set waits for the file,
- * which says whether it is still a preview card; a card of any other set is
- * released and image-only straight from the list, so image fixes never wait on
- * the file or its errors (R-71). The lookup's reason becomes 'other-set' once
- * the file, read, holds it (a pin lag, R-65). Its draft, seeded as released,
- * isn't seeded again, so the page reads the reason through imageOnlyOf.
+ * A card the list holds. Only a reveal-set card under a preview id waits for
+ * the file, which says whether it is still a preview card (isRevealPreview).
+ * Any other card is released and image-only straight from the list: a card of
+ * another set, and one of the reveal set under its official id, as graduation
+ * leaves them (Doberjohn/inkweave#780). So image fixes never wait on the file
+ * or its errors (R-71). The lookup's reason becomes 'other-set' once the file,
+ * read, holds a card of another set (a pin lag, R-65). Its draft, seeded as
+ * released, isn't seeded again, so the page reads the reason through
+ * imageOnlyOf.
  */
 function cardLookup({card, file}: {card: LorcanaCard; file: PreviewCardsFile}): EditLookup {
-  if (card.setCode !== REVEAL_SET_CODE) return opened({card, file});
+  if (!isRevealPreview(card)) return opened({card, file});
   if (file.status === 'loading') return {kind: 'loading'};
   if (file.status === 'error') return {kind: 'fileFailed', error: file.error};
   return opened({card, file});
@@ -76,7 +79,7 @@ function cardLookup({card, file}: {card: LorcanaCard; file: PreviewCardsFile}): 
  * 2. No card: the search.
  * 3. A list still loading.
  * 4. An id the list doesn't hold.
- * 5. For a card of the reveal set, the file loading, then its failed read.
+ * 5. For a reveal-set card under a preview id, the file loading, then its failed read.
  * 6. The card.
  * The card is looked up here, during render, with the list's getCardById.
  */

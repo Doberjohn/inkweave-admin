@@ -21,7 +21,8 @@ function firstError(errors: Errors, keys: readonly string[]): string | null {
 /**
  * The collector number parses as the validator parses it (intField) and falls
  * inside the set, so the validator's ink-block check ran on it. A number that
- * collides with an existing id still counts: the check runs on it too.
+ * collides with an existing id still counts, and so does one a released card
+ * of the reveal set holds (R4-5y's `released`): the check runs on both.
  */
 function numberInSet(form: RevealCardForm): boolean {
   const collector = intField(form.collectorNumber) ?? 0;
@@ -41,11 +42,46 @@ export interface ImageStatus {
   error: string | null;
 }
 
+/**
+ * The shell's card list as New reveal's number check reads it
+ * (useCardDataContext). The validator refuses a number a released card of the
+ * reveal set holds (R4-5y), which only the loaded list shows: once a set
+ * graduates, previewCards.json holds none of its cards, so nothing else would
+ * catch the duplicate.
+ */
+export interface CardListStatus {
+  isLoading: boolean;
+  error: Error | null;
+}
+
+/** The list as revealChecklist takes it when none is given: loaded. */
+const LIST_LOADED: CardListStatus = {isLoading: false, error: null};
+
+const NUMBER_NEEDS_LIST = 'Checking the number needs the card list';
+
+/**
+ * Why the collector number can't be checked yet: the card list is still
+ * loading, or failed to load. Null once it has loaded without error. The
+ * Collector number item shows it, and readyToPublish refuses while it is set,
+ * so Publish fails closed rather than miss a released card's number.
+ */
+export function cardListPending({isLoading, error}: CardListStatus): string | null {
+  if (error) return `${NUMBER_NEEDS_LIST}, which failed to load: ${error.message}`;
+  if (isLoading) return `${NUMBER_NEEDS_LIST}: it's still loading…`;
+  return null;
+}
+
 export type ChecklistId = 'collectorNumber' | 'name' | 'ink' | 'cost' | 'typeStats' | 'cardText' | 'image';
 /** One line of "Ready to publish N/7". `message` says why it is open, and is null exactly when it is done. */
 export interface ChecklistItem {id: ChecklistId; label: string; done: boolean; message: string | null}
 
-interface ItemInput {form: RevealCardForm; errors: Errors; image: Pick<ImageStatus, 'ready' | 'error'>}
+interface ItemInput {
+  form: RevealCardForm;
+  errors: Errors;
+  image: Pick<ImageStatus, 'ready' | 'error'>;
+  /** The card list the collector number is checked against. */
+  list: CardListStatus;
+}
 interface ItemSpec {
   id: ChecklistId;
   label: string;
@@ -85,13 +121,19 @@ function imagePending({errors, image}: ItemInput): string | null {
   return imageError(errors, image) ?? (image.ready ? null : READING_IMAGE);
 }
 
+/** Why Collector number is open with no error of its own: the card list it is checked against isn't in (cardListPending). */
+function numberPending({list}: ItemInput): string | null {
+  return cardListPending(list);
+}
+
 /**
  * The checklist, in the form's order. Between them the keys cover every key
  * validateRevealCardForm reports but `image`, each once; the Image item reads
  * that one through imageError. Rarity is no item: it stays optional.
  */
 const CHECKLIST: readonly ItemSpec[] = [
-  {id: 'collectorNumber', label: 'Collector number', keys: ['collectorNumber']},
+  // The number's own error first; then it waits for the card list it is checked against.
+  {id: 'collectorNumber', label: 'Collector number', keys: ['collectorNumber'], pending: numberPending},
   {id: 'name', label: 'Name', keys: ['name']},
   // The tick follows the ink-block check, never the Amber default.
   {id: 'ink', label: 'Ink', keys: ['ink', 'ink2'], pending: inkPending},
@@ -103,16 +145,18 @@ const CHECKLIST: readonly ItemSpec[] = [
 
 /**
  * New reveal's checklist, from the validator. Every item is done exactly when
- * the validation passes and the image's bytes are read: readyToPublish, the
- * token aside. Each open item carries the validator's message for it, a blank
- * field's included, so the list names what is left.
+ * the validation passes, the card list has loaded without error and the
+ * image's bytes are read: readyToPublish, the token aside. Each open item
+ * carries the validator's message for it, a blank field's included, so the
+ * list names what is left. With no `list`, the card list counts as loaded.
  */
 export function revealChecklist(
   form: RevealCardForm,
   validation: ValidationResult,
   image: Pick<ImageStatus, 'ready' | 'error'>,
+  list: CardListStatus = LIST_LOADED,
 ): ChecklistItem[] {
-  const input: ItemInput = {form, errors: validation.errors, image};
+  const input: ItemInput = {form, errors: validation.errors, image, list};
   return CHECKLIST.map(({id, label, keys, pending}) => {
     const message = firstError(validation.errors, keys) ?? pending?.(input) ?? null;
     return {id, label, done: message === null, message};

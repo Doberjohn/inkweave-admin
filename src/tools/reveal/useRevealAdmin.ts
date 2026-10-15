@@ -8,6 +8,7 @@ import {validateRevealCardForm, type ValidationResult} from './validateForm';
 import {releasedRevealNumbers} from './releasedNumbers';
 import {commitNewCard} from './githubClient';
 import {useGithubToken} from '../../github/useGithubToken';
+import {cardListPending, type CardListStatus} from '../studio/readiness';
 import {buildPreview, computeSynergies, imageErrorOf} from './livePreview';
 
 /** What commitNewCard needs besides the card. */
@@ -17,14 +18,27 @@ interface PublishInput {
   imageExt: string;
 }
 
+/** What readyToPublish checks. */
+interface PublishState {
+  valid: boolean;
+  token: string | null;
+  upload: ImageUpload;
+  /** The card list the number was checked against. */
+  list: CardListStatus;
+}
+
 /**
- * The publish's inputs once the card is valid, a token is saved and the chosen
- * image's bytes are read; null while anything is missing. Publish is on exactly
- * when this is set. Single-condition guards keep it simple and narrow the types.
+ * The publish's inputs once the card is valid, checked against a loaded card
+ * list, a token is saved and the chosen image's bytes are read; null while
+ * anything is missing. The list fails closed: while it loads, or after it
+ * failed, it holds no card, so the validator can't see a released card's
+ * number (cardListPending). Publish is on exactly when this is set.
+ * Single-condition guards keep it simple and narrow the types.
  */
-function readyToPublish(p: {valid: boolean; token: string | null; upload: ImageUpload}): PublishInput | null {
+function readyToPublish(p: PublishState): PublishInput | null {
   const {file, dataUrl} = p.upload;
   if (!p.valid) return null;
+  if (cardListPending(p.list) !== null) return null;
   if (!p.token) return null;
   if (!file) return null;
   if (!dataUrl) return null;
@@ -54,6 +68,8 @@ export interface RevealAdminController {
   uploadError: string | null;
   /** The file controls' error (R-72, imageErrorOf): null until a file is chosen, then uploadError, else the validator's. */
   imageError: string | null;
+  /** The card list's state: Publish waits for it to load without error, and the checklist says why (cardListPending). */
+  cardList: CardListStatus;
   canPublish: boolean;
   publishing: boolean;
   result: {commitUrl: string} | null;
@@ -65,12 +81,13 @@ export interface RevealAdminController {
 }
 
 /**
- * Owns all reveal-admin page state and side effects. Keeping it here leaves the
- * page component as mostly-presentational JSX (and well under the complexity gate).
+ * Owns Card studio's New reveal state and side effects. Keeping it here leaves
+ * NewRevealPane as mostly-presentational JSX (and well under the complexity gate).
  */
 export function useRevealAdmin(): RevealAdminController {
   const {token, setToken} = useGithubToken();
-  const {cards} = useCardDataContext();
+  const {cards, isLoading, error} = useCardDataContext();
+  const cardList: CardListStatus = {isLoading, error};
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
   // The chosen file and its bytes, kept in step (useImageUpload).
   const upload = useImageUpload();
@@ -85,7 +102,7 @@ export function useRevealAdmin(): RevealAdminController {
   const previewCard = buildPreview(form, upload.dataUrl);
   const synergyGroups = computeSynergies(previewCard, cards);
   const validation = validateRevealCardForm(form, existingIds, imageName, released);
-  const ready = readyToPublish({valid: validation.ok, token, upload});
+  const ready = readyToPublish({valid: validation.ok, token, upload, list: cardList});
 
   function patchForm(patch: Partial<RevealCardForm>) {
     setForm((f) => ({...f, ...patch}));
@@ -122,6 +139,7 @@ export function useRevealAdmin(): RevealAdminController {
     imageDataUrl: upload.dataUrl,
     uploadError: upload.error,
     imageError: imageErrorOf({name: imageName, dataUrl: upload.dataUrl, error: upload.error}, validation),
+    cardList,
     canPublish: ready !== null,
     publishing,
     result,

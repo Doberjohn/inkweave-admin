@@ -1,7 +1,6 @@
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {filterCards} from '../image/filterCards';
-import {REVEAL_SET_CODE} from '../reveal/constants';
-import {isDeployed} from './branchCards';
+import {isDeployed, isRevealPreview} from './branchCards';
 
 /**
  * The most rows Edit card's search lists. The search screen's status line says
@@ -14,7 +13,7 @@ const NO_IDS: ReadonlySet<number> = new Set();
 /** Whether a card's data is still the branch file's (Preview) or LorcanaJSON's (Released, image only). */
 export type CardTag = 'Preview' | 'Released';
 
-/** One row of Edit card's search: the card, and its tag (null for a reveal-set card while the branch file is unread). */
+/** One row of Edit card's search: the card, and its tag (null for a reveal-set preview card while the branch file is unread). */
 export interface SearchRow {
   card: LorcanaCard;
   tag: CardTag | null;
@@ -51,15 +50,17 @@ function inFile(card: LorcanaCard, previewIds: ReadonlySet<number> | null): bool
 }
 
 /**
- * A card's tag. The branch file decides for a card of the reveal set: Preview
- * when it holds the id, Released when it doesn't, and null (no tag yet) while it
- * is unread. A card of any other set is Released straight from the card list,
- * as R-71 rules for its kind. An entry the file holds reads Preview whatever its
- * set, as during a pin lag (R-65).
+ * A card's tag. The branch file decides for a reveal-set card under a preview
+ * id (isRevealPreview): Preview when it holds the id, Released when it doesn't,
+ * and null (no tag yet) while it is unread. Any other card is Released straight
+ * from the card list, as R-71 rules for its kind: a card of another set, and
+ * one of the reveal set under its official id, as graduation leaves them. An
+ * entry the file holds reads Preview whatever its set, as during a pin lag
+ * (R-65).
  */
 export function cardTag(card: LorcanaCard, previewIds: ReadonlySet<number> | null): CardTag | null {
   if (inFile(card, previewIds)) return 'Preview';
-  if (previewIds === null && card.setCode === REVEAL_SET_CODE) return null;
+  if (previewIds === null && isRevealPreview(card)) return null;
   return 'Released';
 }
 

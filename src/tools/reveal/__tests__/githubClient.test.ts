@@ -1,7 +1,8 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {base64ToUtf8} from '../../../test/base64';
-import {commitCardEdit, commitNewCard, readPreviewCards, StaleCardError} from '../githubClient';
+import {commitCardEdit, commitNewCard, commitPreviewCardImage, readPreviewCards, StaleCardError} from '../githubClient';
+import {EDITABLE_CARD_KEYS, type EditableCardKey} from '../replaceCardInPreviewJson';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -189,7 +190,6 @@ describe('commitCardEdit', () => {
 
   // The refusal names the card the operator opened (`loaded`), never by id, which the page never shows.
   it.each([
-    ['its cost changed', [{...EDIT_CARD, cost: 2}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
     ['its setCode changed', [{...EDIT_CARD, setCode: '15'}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
     ['its number changed', [{...EDIT_CARD, number: 3}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
     // The name it was opened under, not the base's.
@@ -204,12 +204,81 @@ describe('commitCardEdit', () => {
     expect(error).toMatchObject({name: 'StaleCardError', message});
     expect(wroteNothing(calls)).toBe(true);
   });
+
+  // R-67 compares every key an edit can write, so each one, changed at the base alone, refuses the edit.
+  // The arrays must compare as JSON: the loaded entry and the base's come from separate parses.
+  const CHANGED_AT_BASE: {[K in EditableCardKey]-?: NonNullable<LorcanaJSONCard[K]>} = {
+    name: 'Other',
+    fullName: 'First - Changed',
+    version: 'Changed',
+    cost: 2,
+    color: 'Ruby',
+    inkwell: false,
+    type: 'Item',
+    rarity: 'Rare',
+    franchise: 'Frozen',
+    subtypes: ['Storyborn', 'Hero'],
+    abilities: [{type: 'keyword', keyword: 'Evasive', fullText: 'Evasive'}],
+    fullText: 'Evasive',
+    fullTextSections: ['Evasive'],
+    strength: 3,
+    willpower: 4,
+    lore: 1,
+    moveCost: 2,
+    scanLanguage: 'ja',
+  };
+
+  it('has a base value for every editable key', () => {
+    expect(Object.keys(CHANGED_AT_BASE)).toEqual([...EDITABLE_CARD_KEYS]);
+  });
+
+  it.each(EDITABLE_CARD_KEYS)('refuses with StaleCardError, writing nothing, when %s changed at the base (R-67)', async (key) => {
+    const calls = stubGitHub({preview: previewFile([{...EDIT_CARD, [key]: CHANGED_AT_BASE[key]}, NEIGHBOUR])});
+    const error = await commitCardEdit({token: 'tok', loaded: EDIT_CARD, changes: {cost: 5}, image: IMAGE}).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(StaleCardError);
+    expect(error).toMatchObject({message: 'First changed on master since you loaded it. Load it again.'});
+    expect(wroteNothing(calls)).toBe(true);
+  });
+});
+
+// An image alone on a card under a preview id (Card studio, R4-8a): commitCardImage's
+// commit, made only while previewCards.json at the base commit still holds the card.
+describe('commitPreviewCardImage', () => {
+  const SCAN = {token: 'tok', card: {id: '14001', fullName: 'First'}, imageBase64: 'data:image/png;base64,Zm9v', imageExt: 'png'};
+
+  it('commits the raw scan alone, once the file at the commit it builds on holds the card', async () => {
+    const calls = stubGitHub({preview: EDIT_PREVIEW});
+    const result = await commitPreviewCardImage(SCAN);
+
+    expect(readsOf(calls)).toEqual(['base1']);
+    expect(commitOf(calls)).toEqual({
+      paths: [RAW_SCAN],
+      blobs: ['foo'],
+      message: 'fix(card-images): update image for First [14001]',
+      refUpdates: 1,
+    });
+    expect(result).toEqual({commitUrl: 'https://github.com/x/y/commit/commit2'});
+  });
+
+  it('refuses with StaleCardError, writing nothing, once the card has left the file (graduation, R-66)', async () => {
+    const calls = stubGitHub({preview: previewFile([NEIGHBOUR])});
+    const error = await commitPreviewCardImage(SCAN).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(StaleCardError);
+    expect(error).toMatchObject({message: 'First is no longer in previewCards.json on master. Load it again.'});
+    expect(wroteNothing(calls)).toBe(true);
+  });
 });
 
 describe('a write that cannot read previewCards.json', () => {
   it.each([
     ['commitNewCard', () => commitNewCard({token: 'tok', card: card(14099), imageBase64: 'Zm9v', imageExt: 'png'})],
     ['commitCardEdit', () => commitCardEdit({token: 'tok', loaded: EDIT_CARD, changes: RENAME, image: IMAGE})],
+    [
+      'commitPreviewCardImage',
+      () => commitPreviewCardImage({token: 'tok', card: {id: '14001', fullName: 'First'}, imageBase64: 'Zm9v', imageExt: 'png'}),
+    ],
   ])('%s writes nothing', async (_writer, write) => {
     const calls = stubGitHub({previewStatus: 404});
     await expect(write()).rejects.toThrow(/^GitHub 404 on /);

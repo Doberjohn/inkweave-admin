@@ -7,11 +7,20 @@ import {
   editSources,
   goneNote,
   hasPreviewId,
+  isRevealPreview,
   type CardListView,
 } from '../branchCards';
 import type {EditLookup} from '../editorState';
 import type {PreviewCardsFile} from '../previewCardsFile';
-import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, previewEntry, studioCard} from '../studioFixtures';
+import {
+  BRANCH_ONLY_ENTRY,
+  PREVIEW_ENTRY,
+  RELEASED_CARD,
+  RELEASED_REVEAL_CARD,
+  cardOf,
+  previewEntry,
+  studioCard,
+} from '../studioFixtures';
 
 /** The card list as the shell holds it, loaded by default. */
 function listOf({cards = [], isLoading = false, error = null}: Partial<CardListView> = {}): CardListView {
@@ -107,6 +116,19 @@ describe('hasPreviewId', () => {
     {name: 'a card with no set', card: {id: String(REVEAL_ID_BASE + 21)}, expected: false},
   ])('$name: $expected', ({card, expected}) => {
     expect(hasPreviewId(card)).toBe(expected);
+  });
+});
+
+// Only such a card waits for the branch file, and only its image-only save checks it (R-71, R4-8a).
+describe('isRevealPreview', () => {
+  it.each<{name: string; card: Pick<LorcanaCard, 'id' | 'setCode'>; expected: boolean}>([
+    {name: 'a numbered card of the reveal set', card: {id: String(REVEAL_ID_BASE + 21), setCode: REVEAL_SET_CODE}, expected: true},
+    {name: 'an unnumbered one, in the +900 band', card: {id: String(REVEAL_ID_BASE + 901), setCode: REVEAL_SET_CODE}, expected: true},
+    {name: 'the reveal set released, under its official id', card: RELEASED_REVEAL_CARD, expected: false},
+    {name: "the next set's preview, while the pin lags a season (R-65)", card: {id: '15001', setCode: '15'}, expected: false},
+    {name: "another set's released card", card: RELEASED_CARD, expected: false},
+  ])('$name: $expected', ({card, expected}) => {
+    expect(isRevealPreview(card)).toBe(expected);
   });
 });
 

@@ -95,6 +95,15 @@ describe('NewRevealPane', () => {
     expect(onImageChange).toHaveBeenCalledWith(null);
   });
 
+  it('keeps Collector number open while the card list loads, saying why, with Publish off (R4-8a)', () => {
+    const form = revealForm();
+    const validation = validateRevealCardForm(form, new Set(), 'mei.png');
+    const scan = {imageName: 'mei.png', imageDataUrl: 'data:image/png;base64,AAAA'};
+    renderPane({ctrl: {form, validation, ...scan, cardList: {isLoading: true, error: null}}});
+    expect(checklist().getByText("Checking the number needs the card list: it's still loading…")).toBeInTheDocument();
+    expect(publishButton()).toHaveProperty('disabled', true);
+  });
+
   it("counts the scan as ready once the controller has read its bytes, as the checklist's invariant needs", () => {
     const form = revealForm();
     const validation = validateRevealCardForm(form, new Set(), 'mei.png');

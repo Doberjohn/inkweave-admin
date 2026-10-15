@@ -203,10 +203,17 @@ describe('replaceCardInPreviewJson', () => {
   );
 });
 
-// The file as set 14's graduation (2026-10-23) leaves it: the app's
-// graduate-canonical-set.mjs writes a metadata block and the set's sets entry,
-// and empties the cards.
+// The file as a graduation leaves it: the app's graduate-canonical-set.mjs
+// writes a metadata block and the set's sets entry, and empties the cards. Set
+// 14 graduated on 2026-10-14 (Doberjohn/inkweave#780), so until set 15's
+// reveals reach the pin, the pinned file is this one, and the two cases below
+// run the same input.
 const GRADUATED = serialize({...(JSON.parse(PINNED_PREVIEW_CARDS_JSON) as object), cards: []});
+
+// The pinned file's own layout, filled as a reveal season fills it, with
+// MIDDLE's variants: so a file that holds cards stays under test while the
+// pinned one is empty.
+const POPULATED = serialize({...(JSON.parse(PINNED_PREVIEW_CARDS_JSON) as object), cards: [FIRST, MIDDLE, LAST]});
 
 // A card with a variant printing, inserted when a file has none, as the
 // graduated file has none.
@@ -233,6 +240,7 @@ function withVariants({text}: {text: string}): {text: string; card: LorcanaJSONC
 describe.each([
   {state: 'as pinned', text: PINNED_PREVIEW_CARDS_JSON},
   {state: 'as graduation leaves it', text: GRADUATED},
+  {state: 'as a reveal season fills it', text: POPULATED},
 ])('replaceCardInPreviewJson on previewCards.json $state', (file) => {
   it("returns the file byte for byte when an edit sets a card's own values", () => {
     const {text, card} = withVariants(file);

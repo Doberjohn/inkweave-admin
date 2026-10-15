@@ -6,10 +6,12 @@ import type {RevealCardForm} from '../../reveal/buildPreviewCard';
 import {EMPTY_FORM} from '../../reveal/emptyForm';
 import {validateRevealCardForm} from '../../reveal/validateForm';
 import {
+  cardListPending,
   revealChecklist,
   sectionStatuses,
   visibleErrors,
   visibleImageError,
+  type CardListStatus,
   type ChecklistId,
   type ChecklistItem,
   type ImageStatus,
@@ -26,9 +28,12 @@ const READING: ImageStatus = {name: 'mei.png', ready: false, error: null};
 const READ: ImageStatus = {name: 'mei.png', ready: true, error: null};
 const INK_NEEDS_NUMBER = 'Checked against the collector number: set it first';
 const INK_NEEDS_FIXED_NUMBER = 'Checked against the collector number: fix it first';
+const LOADED: CardListStatus = {isLoading: false, error: null};
+const LIST_LOADING: CardListStatus = {isLoading: true, error: null};
+const LIST_FAILED: CardListStatus = {isLoading: false, error: new Error('Failed to fetch local cards: 500')};
 
-/** A form as the page holds it: the card list's ids and the image beside it. */
-interface Case {form: RevealCardForm; ids?: ReadonlySet<number>; image?: ImageStatus}
+/** A form as the page holds it: the card list's ids and state, and the image beside it. */
+interface Case {form: RevealCardForm; ids?: ReadonlySet<number>; image?: ImageStatus; list?: CardListStatus}
 
 /** The validator's verdict, as the page runs it: no test writes errors by hand. */
 function validate({form, ids = NO_IDS, image = READ}: Case) {
@@ -36,7 +41,7 @@ function validate({form, ids = NO_IDS, image = READ}: Case) {
 }
 
 function checklist(c: Case): ChecklistItem[] {
-  return revealChecklist(c.form, validate(c), c.image ?? READ);
+  return revealChecklist(c.form, validate(c), c.image ?? READ, c.list ?? LOADED);
 }
 
 /** The items still open, each as its id and message. */
@@ -149,6 +154,34 @@ describe('the Ink item', () => {
   });
 });
 
+// The number is checked against the released cards the card list holds (R4-5y),
+// and since graduation nothing else catches a duplicate, so the item stays open
+// until the list has loaded without error (R4-8a).
+describe('the Collector number item and the card list', () => {
+  const LOADING_MESSAGE = "Checking the number needs the card list: it's still loading…";
+  const FAILED_MESSAGE = 'Checking the number needs the card list, which failed to load: Failed to fetch local cards: 500';
+
+  it.each([
+    {state: 'still loading', list: LIST_LOADING, message: LOADING_MESSAGE},
+    {state: 'failed', list: LIST_FAILED, message: FAILED_MESSAGE},
+  ])('stays open, saying why, while the card list is $state, though the validator passes', ({list, message}) => {
+    const c: Case = {form: revealForm(), list};
+    expect({ok: validate(c).ok, items: openItems(c)}).toEqual({ok: true, items: [{id: 'collectorNumber', message}]});
+    expect(cardListPending(list)).toBe(message);
+  });
+
+  it("names the number's own error before the card list's", () => {
+    const c: Case = {form: revealForm({collectorNumber: '0'}), list: LIST_LOADING};
+    expect(checklist(c).find((item) => item.id === 'collectorNumber')?.message).toBe('Enter a positive collector number');
+  });
+
+  it('is done once the list has loaded, and so when none is given', () => {
+    const form = revealForm();
+    expect(cardListPending(LOADED)).toBeNull();
+    expect(revealChecklist(form, validate({form}), READ).every((item) => item.done)).toBe(true);
+  });
+});
+
 describe('the image', () => {
   it.each([
     {name: 'no file yet', image: NO_FILE, item: 'Upload a card image', input: null},
@@ -200,17 +233,20 @@ describe('visibleErrors', () => {
 });
 
 describe('readiness against readyToPublish', () => {
-  // Every item is done exactly when the validation passes and the bytes are read.
-  // Past the set, the validator once passed while Ink waited; R-73 refuses the number.
-  it.each([
+  // Every item is done exactly when the validation passes, the card list has loaded
+  // without error and the bytes are read. Past the set, the validator once passed
+  // while Ink waited; R-73 refuses the number.
+  it.each<{name: string; c: Case & {image: ImageStatus}}>([
     {name: 'a fresh form', c: {form: EMPTY_FORM, image: NO_FILE}},
     {name: 'a valid form with no image', c: {form: revealForm(), image: NO_FILE}},
     {name: 'a valid form whose image is being read', c: {form: revealForm(), image: READING}},
     {name: 'a valid form whose image is read', c: {form: revealForm(), image: READ}},
     {name: 'a colliding number', c: {form: revealForm(), ids: TAKEN, image: READ}},
     {name: 'a number past the set', c: {form: revealForm({collectorNumber: String(SET_TOTAL + 1), ink: 'Amber'}), image: READ}},
+    {name: 'a valid form whose image is read, while the card list loads', c: {form: revealForm(), image: READ, list: LIST_LOADING}},
+    {name: 'a valid form whose image is read, after the card list failed', c: {form: revealForm(), image: READ, list: LIST_FAILED}},
   ])('hold for $name', ({c}) => {
-    const validation = validate(c);
-    expect(checklist(c).every((item) => item.done)).toBe(validation.ok && c.image.ready);
+    const ready = [validate(c).ok, c.image.ready, cardListPending(c.list ?? LOADED) === null];
+    expect(checklist(c).every((item) => item.done)).toBe(ready.every(Boolean));
   });
 });

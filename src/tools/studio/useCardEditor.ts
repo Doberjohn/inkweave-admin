@@ -161,7 +161,7 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  * Edit card's controller (R4-4b: loading and editing; R4-4c adds saving).
  * The card comes from the shell's card list plus the cards only the branch
  * file holds (editSources, R-66), its entry and kind from previewCards.json on
- * the target branch (R-71: only a card of the reveal set waits for it), and
+ * the target branch (R-71: only a reveal-set card under a preview id waits for it), and
  * the draft from both. branchLookup refines the lookup with what only the file
  * can say: an id neither source holds waits for the file before it reads
  * missing, and a reveal-set preview card the file no longer holds is gone.

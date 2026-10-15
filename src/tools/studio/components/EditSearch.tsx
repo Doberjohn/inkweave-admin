@@ -1,7 +1,7 @@
 import {useId, useRef} from 'react';
 import {Link} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, FONTS, REVEAL_SET_CODE, SPACING, TRUNCATE, smallImageUrl} from '../../../app-bridge';
+import {CtaButton, FONTS, SPACING, TRUNCATE, smallImageUrl} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
@@ -207,9 +207,7 @@ function FileReadError({error, file}: {error: string; file: EditSearchFile}) {
   const {onForgetToken} = file;
   return (
     <div style={STACK}>
-      <Notice tone="error">
-        Could not read previewCards.json: {error}. Cards outside set {REVEAL_SET_CODE} still open for a new image.
-      </Notice>
+      <Notice tone="error">Could not read previewCards.json: {error}. Released cards still open for a new image.</Notice>
       {onForgetToken && isRejectedToken(error) ? (
         <ForgetTokenOffer onForget={onForgetToken} />
       ) : (

@@ -30,6 +30,7 @@ import {
   OTHER_SET_ENTRY,
   PREVIEW_ENTRY,
   RELEASED_CARD,
+  RELEASED_REVEAL_CARD,
   STUDIO_CARDS,
   UNNUMBERED_ENTRY,
   listCard,
@@ -51,9 +52,10 @@ const readFile = ({cards = BRANCH_ENTRIES, read = 1}: {cards?: LorcanaJSONCard[]
   read,
 });
 
-/** The card list, loaded with every studio card unless told otherwise. */
+/** The card list, loaded with every studio card, and the reveal set's released one, unless told otherwise. */
+const LISTED = [...STUDIO_CARDS, RELEASED_REVEAL_CARD];
 function cardList({isLoading = false, error = null}: Partial<CardListState> = {}): CardListState {
-  return {isLoading, error, getCardById: (id) => STUDIO_CARDS.find((card) => card.id === id)};
+  return {isLoading, error, getCardById: (id) => LISTED.find((card) => card.id === id)};
 }
 
 /** Mei, R4-2a's PREVIEW_ENTRY: an editable preview card, and a Singer 5. */
@@ -80,6 +82,9 @@ describe('editLookup', () => {
     ['a card of the reveal set the file lacks', {cardId: MEI_ID, file: readFile({cards: []})}, {...ready(listCard(MEI), 'released'), entry: null}],
     ['a released card while the file loads (R-71)', {cardId: RELEASED_CARD.id, file: LOADING}, ready(RELEASED_CARD, 'released')],
     ['a released card when the file fails (R-71)', {cardId: RELEASED_CARD.id, file: FAILED}, ready(RELEASED_CARD, 'released')],
+    // Graduation released the reveal set under official ids, which the file can say nothing about (R-71, R4-8a).
+    ['a released card of the reveal set while the file loads', {cardId: RELEASED_REVEAL_CARD.id, file: LOADING}, ready(RELEASED_REVEAL_CARD, 'released')],
+    ['a released card of the reveal set when the file fails', {cardId: RELEASED_REVEAL_CARD.id, file: FAILED}, ready(RELEASED_REVEAL_CARD, 'released')],
     ['an entry of another set, once the file is read (R-65)', {cardId: String(OTHER_SET_ENTRY.id)}, ready(listCard(OTHER_SET_ENTRY), 'other-set')],
     ['an entry with no number (R-65)', {cardId: String(UNNUMBERED_ENTRY.id)}, ready(listCard(UNNUMBERED_ENTRY), 'unnumbered')],
     ['an entry the form can’t hold (R-65)', {cardId: String(NAMED_ABILITY_ENTRY.id)}, ready(listCard(NAMED_ABILITY_ENTRY), 'unrepresentable')],
@@ -94,6 +99,7 @@ describe('the open card’s tag and view', () => {
     ['an editable preview card', MEI_ID, readFile(), {tag: 'Preview', imageOnly: null, name: 'Mei'}],
     ['a preview entry that opens image-only', String(UNNUMBERED_ENTRY.id), readFile(), {tag: 'Preview', imageOnly: 'unnumbered', name: undefined}],
     ['a released card', RELEASED_CARD.id, LOADING, {tag: 'Released', imageOnly: 'released', name: undefined}],
+    ['a released card of the reveal set, when the file fails', RELEASED_REVEAL_CARD.id, FAILED, {tag: 'Released', imageOnly: 'released', name: undefined}],
   ])('%s', (_, cardId, file, expected) => {
     const {lookup, draft} = opened({cardId, file});
     const view = draftView(draft);
@@ -146,6 +152,7 @@ describe('seedDraft', () => {
   it.each<[string, string, PreviewCardsFile, Pick<Draft, 'read' | 'follow' | 'edit'>]>([
     ['a card of the reveal set waits for the file', MEI_ID, LOADING, {read: null, follow: true, edit: null}],
     ['a released card opens without it, and never waits (R-71)', RELEASED_CARD.id, LOADING, {read: null, follow: false, edit: {kind: 'image', reason: 'released'}}],
+    ['so does a released card of the reveal set (R4-8a)', RELEASED_REVEAL_CARD.id, LOADING, {read: null, follow: false, edit: {kind: 'image', reason: 'released'}}],
   ])('%s', (_, cardId, file, expected) => {
     expect(opened({cardId, file}).draft).toMatchObject(expected);
   });

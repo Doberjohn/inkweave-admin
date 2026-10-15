@@ -131,6 +131,20 @@ export const NAMED_ABILITY_ENTRY = previewEntry({
 /** A released card (set 9), which only the card list holds (R-61, R-71). */
 export const RELEASED_CARD = studioCard({id: '1001', name: 'Lantern Keeper', version: 'Night Watch', setCode: '9', setNumber: 12, rarity: 'Common'});
 
+/**
+ * A released card of the reveal set, under its official id: graduation moved
+ * #21 to 3286 (Doberjohn/inkweave#780). It holds no preview id, so the branch
+ * file can't say anything about it, and it opens without it (R-71).
+ */
+export const RELEASED_REVEAL_CARD = studioCard({
+  id: '3286',
+  name: 'Miguel Rivera',
+  version: 'Street Musician',
+  setCode: REVEAL_SET_CODE,
+  setNumber: 21,
+  rarity: 'Rare',
+});
+
 /** A name printed with ’, as two pinned preview names are (R4-2b's search folds it). */
 export const CURLY_APOSTROPHE_CARD = studioCard({
   id: String(REVEAL_ID_BASE + RUBY_NUMBER + 6),
@@ -238,6 +252,7 @@ export function revealController(overrides: Partial<RevealAdminController> = {})
     uploadError: null,
     // R-72: no file chosen yet, so no error under the file controls; "Upload a card image" is the checklist's.
     imageError: null,
+    cardList: {isLoading: false, error: null},
     canPublish: false,
     publishing: false,
     result: null,

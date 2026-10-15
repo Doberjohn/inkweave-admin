@@ -41,7 +41,7 @@ export function describePr(run) {
     body: [
       ...written.map(([, card]) => `- ${card.id} ${card.title}`),
       '',
-      `From \`/fetch-reveals\` run ${run.runId} in Doberjohn/inkweave-admin. Every card is on the official list, passed a blind read of its official scan, and went through Card studio's validation. Its art is that scan.`,
+      `From \`/fetch-reveals\` run ${run.runId} in Doberjohn/inkweave-admin. Every card is on the official list, passed a blind read of its official scan, and went through Card studio's write chain (validateRevealCardForm, buildPreviewCard, insertCardIntoPreviewJson). Its art is that scan.`,
     ].join('\n'),
   };
 }
