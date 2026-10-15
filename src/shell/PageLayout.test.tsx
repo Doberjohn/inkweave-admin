@@ -107,10 +107,10 @@ describe('PageLayout', () => {
   });
 
   // jsdom lays nothing out, so this pins the style rather than measuring the
-  // document: in a browser, a positioned scroller holds an absolutely
-  // positioned descendant that has no closer positioned ancestor (SR_ONLY
-  // text below the fold), where the document would grow a second scrollbar
-  // for it (rehearsal F8).
+  // document: in a browser, a positioned scroller holds and clips an
+  // absolutely positioned descendant that has no closer positioned ancestor
+  // (SR_ONLY text below the fold). Without it, that descendant sits against
+  // the document, which grows a second scrollbar for it (rehearsal F8).
   it('makes the body, flush or padded, the containing block of what it holds, so nothing in it grows the document', () => {
     const {rerender} = render(
       <PageLayout title="Card studio" flush>

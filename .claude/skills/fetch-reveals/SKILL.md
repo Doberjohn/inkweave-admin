@@ -26,7 +26,7 @@ the scans, in Node.
 
 The season (set, size, ink blocks) comes from the pinned app through `src/app-bridge.ts`.
 When the app rotates the season, bump the pin (CLAUDE.md, "Updating the app pin") before the
-next run. Nothing here needs editing.
+next run. Nothing here needs editing at a season rotation.
 
 ## Hard rules
 
@@ -60,7 +60,8 @@ next run. Nothing here needs editing.
    tell the owner: `write` doesn't yet refuse a collector number that a released card of the
    set holds, so a run could add a duplicate of it. Card studio's New reveal already refuses
    one. Set 14 graduated on 2026-10-14 (Doberjohn/inkweave#780), and the pin names it until the
-   app rotates the season.
+   app rotates the season. This item is temporary: delete it, and the runbook's matching stop
+   (`docs/REVEAL_RUNBOOK.md`, "New reveals in bulk"), when #51 lands.
 5. Open the run:
 
    ```bash
