@@ -177,6 +177,13 @@ describe('EditSearch', () => {
       expect(handoff.done).toHaveBeenCalled();
     });
 
+    it('selects the query the field kept as it takes the handoff, so typing replaces it', () => {
+      renderSearch({handoff: handoffOf(true), query: 'mei'});
+      const field = screen.getByRole<HTMLInputElement>('searchbox', {name: 'Search cards'});
+      expect(field).toHaveFocus();
+      expect([field.selectionStart, field.selectionEnd]).toEqual([0, 'mei'.length]);
+    });
+
     it('gives it to Retry when the card list fails again', () => {
       const handoff = handoffOf(true);
       renderSearch({handoff, list: {loading: false, error: new Error('HTTP 503'), onRetry: vi.fn()}});

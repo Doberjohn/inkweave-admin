@@ -213,6 +213,9 @@ describe('StudioPage: finding a card in Edit card', () => {
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
     await waitFor(() => expect(searchField()).toHaveFocus());
     expect(searchField()).toHaveValue('mei');
+    // The old query is selected, so typing starts a new search instead of appending to it.
+    const field = searchField() as HTMLInputElement;
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, 'mei'.length]);
   });
 
   it('reads loading, not missing, for a deep link while the card list loads, and leaves focus alone after', async () => {
@@ -539,6 +542,35 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
     await user.click(within(await leaveDialog()).getByRole('button', {name: 'Leave this page'}));
     expect(await openMei(user)).toHaveValue('Mei');
+  });
+
+  it.each([
+    {
+      how: 'a click on Leave this page',
+      leave: (user: UserEvent, dialog: HTMLElement) =>
+        user.click(within(dialog).getByRole('button', {name: 'Leave this page'})),
+    },
+    {
+      how: 'the keyboard: Tab past Stay to Leave this page, then Enter',
+      leave: async (user: UserEvent) => {
+        await user.tab();
+        await user.tab();
+        expect(screen.getByRole('button', {name: 'Leave this page'})).toHaveFocus();
+        await user.keyboard('{Enter}');
+      },
+    },
+  ])('hands focus to the search once a held card change is let through by $how (R-59)', async ({leave}) => {
+    const {user} = renderStudio('/studio?mode=edit');
+    await openMei(user);
+    await rename(user);
+    await user.click(screen.getByRole('link', {name: 'Load a different card'}));
+    const dialog = await leaveDialog();
+    await waitFor(() => expect(within(dialog).getByText(LEAVES_CARD)).toHaveFocus());
+
+    await leave(user, dialog);
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+    // The banner's link that opened the dialog went with the card, so no restore can land: the search takes focus.
+    expect(document.activeElement).toBe(document.querySelector('input[aria-label="Search cards"]'));
   });
 
   it('says a card change mid-save leaves the save running (R-58)', async () => {

@@ -112,6 +112,19 @@ function messageFor(message: UnsavedMessage, to: Location | null): string {
   return to ? message(to) : '';
 }
 
+/**
+ * Lets go of focus before "Leave this page" lets the held navigation through
+ * (R-59). The button stays mounted while the dialog fades out, so focus left
+ * on it reads as moved, and the view that takes the page's handoff (the
+ * studio's search, or the next card's banner) would leave it there, to fall
+ * to <body> once the dialog unmounts. DialogShell still hands focus back to
+ * the control that opened the dialog if that control is still mounted, as a
+ * sidebar link is.
+ */
+function releaseFocus(): void {
+  (document.activeElement as HTMLElement | null)?.blur();
+}
+
 interface UnsavedChangesGuardProps {
   /** The page holds edits that leaving would lose. */
   dirty: boolean;
@@ -127,12 +140,16 @@ interface UnsavedChangesGuardProps {
  */
 export function UnsavedChangesGuard({dirty, message, leaves}: UnsavedChangesGuardProps) {
   const guard = useUnsavedChangesGuard(dirty, leaves);
+  const leave = () => {
+    releaseFocus();
+    guard.leave();
+  };
   return (
     <UnsavedChangesDialog
       open={guard.blocked}
       message={messageFor(message, guard.to)}
       onStay={guard.stay}
-      onLeave={guard.leave}
+      onLeave={leave}
     />
   );
 }

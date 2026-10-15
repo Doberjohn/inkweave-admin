@@ -152,6 +152,10 @@ type SearchFieldProps = Pick<EditSearchProps, 'query' | 'onQuery' | 'handoff'> &
  * The search field. Its wrapper takes a pending handoff, since useTakeHandoff
  * looks inside a container, but only once the card list is in, as R3's card
  * page waits out its load: Retry's request then lands here, or on Retry again.
+ * The field keeps its query after "Load a different card", so taking focus
+ * selects it, and typing starts a new search rather than adding to the old
+ * one. A click still places the caret: Chrome collapses the selection when the
+ * mouse button is released.
  */
 function SearchField({query, onQuery, handoff, ready}: SearchFieldProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -167,6 +171,7 @@ function SearchField({query, onQuery, handoff, ready}: SearchFieldProps) {
         spellCheck={false}
         value={query}
         onChange={(event) => onQuery(event.target.value)}
+        onFocus={(event) => event.currentTarget.select()}
         style={FIELD}
       />
     </div>

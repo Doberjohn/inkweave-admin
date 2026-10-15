@@ -1,7 +1,7 @@
 import {render, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {useState} from 'react';
-import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
+import {createMemoryRouter, Link, Outlet, RouterProvider} from 'react-router-dom';
 import {UnsavedChangesDialog, UnsavedChangesGuard, type UnsavedMessage} from './UnsavedChangesGuard';
 import type {LeavesPage} from './useUnsavedChangesGuard';
 import {writeInFlightMessage} from './writeInFlight';
@@ -35,11 +35,28 @@ function Editor({message = MESSAGE, leaves}: EditorProps) {
   );
 }
 
+/** The shell round both pages, with a link that outlives the page it leaves, as the sidebar's do. */
+function Shell() {
+  return (
+    <>
+      <nav aria-label="Sidebar">
+        <Link to="/elsewhere">Sidebar link</Link>
+      </nav>
+      <Outlet />
+    </>
+  );
+}
+
 function renderEditor(props: EditorProps = {}) {
   const router = createMemoryRouter(
     [
-      {path: '/editor', element: <Editor {...props} />},
-      {path: '/elsewhere', element: <h1>Elsewhere</h1>},
+      {
+        element: <Shell />,
+        children: [
+          {path: '/editor', element: <Editor {...props} />},
+          {path: '/elsewhere', element: <h1>Elsewhere</h1>},
+        ],
+      },
     ],
     {initialEntries: ['/editor']},
   );
@@ -120,6 +137,21 @@ describe('UnsavedChangesGuard', () => {
     expect(await screen.findByRole('heading', {name: 'Elsewhere'})).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/elsewhere');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {link: 'Sidebar link', path: '/elsewhere', props: {}},
+    {link: 'Another card', path: '/editor', props: {leaves: holdsCards}},
+  ])('leaves by $link, which stays mounted, and hands focus back to it', async ({link, path, props}) => {
+    const {router, user} = renderEditor(props);
+    const dialog = await tryToLeave(user, link);
+    await waitFor(() => expect(within(dialog).getByText(MESSAGE)).toHaveFocus());
+    await user.click(within(dialog).getByRole('button', {name: 'Leave this page'}));
+    // Leaving the page unmounts the dialog with it; a card change lets it fade out.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(router.state.location.pathname).toBe(path);
+    // Leave lets go of focus first (R-59), and the dialog still puts it back on the link that opened it.
+    expect(screen.getByRole('link', {name: link})).toHaveFocus();
   });
 
   it.each([

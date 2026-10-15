@@ -74,13 +74,16 @@ const card = (id: number): LorcanaJSONCard => ({id, name: 'Test', fullName: 'Tes
 describe('commitNewCard', () => {
   it('adds the card to previewCards.json as it is at the commit it builds on', async () => {
     const calls = stubGitHub();
-    await commitNewCard({token: 'tok', card: card(14099), imageBase64: 'data:image/png;base64,Zm9v', imageExt: 'png'});
+    // A set code and number, as buildPreviewCard gives every card: the message names the card by them (R-78).
+    const revealed = {...card(14085), setCode: '14', number: 85};
+    await commitNewCard({token: 'tok', card: revealed, imageBase64: 'data:image/png;base64,Zm9v', imageExt: 'png'});
 
     expect(calls.find((c) => c.url.includes('/contents/'))?.url).toContain('?ref=base1');
     const [preview, image] = calls.filter((c) => c.url.endsWith('/git/blobs'));
     const ids = (JSON.parse(base64ToUtf8(preview.body?.content ?? '')) as {cards: {id: number}[]}).cards.map((c) => c.id);
-    expect(ids).toEqual([14001, 14099]);
+    expect(ids).toEqual([14001, 14085]);
     expect(image.body?.content).toBe('Zm9v');
+    expect(commitOf(calls).message).toBe('feat(reveals): add Test (1485)');
   });
 
   it("refuses an id that is already in that commit's previewCards.json", async () => {
