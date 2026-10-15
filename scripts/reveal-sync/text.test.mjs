@@ -116,6 +116,14 @@ describe('deriveKeywords', () => {
     ).toEqual(['Singer 5', 'Alert', 'Resist +1', 'Temporary Red Panda Shift 3']);
   });
 
+  it("reads set 14's ink-drop Shift cost as the keyword's value", () => {
+    expect(
+      deriveKeywords([
+        'Shift Remove 2 ink drops (You may remove 2 ink drops to play this on top of one of your characters named Baymax.)',
+      ]),
+    ).toEqual(['Shift Remove 2 ink drops']);
+  });
+
   it('does not mistake an action effect for a keyword', () => {
     expect(
       deriveKeywords(['Chosen opponent reveals their hand and discards all non-character cards.']),
