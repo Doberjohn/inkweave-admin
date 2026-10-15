@@ -85,14 +85,16 @@ function RuleRow({row}: {row: CardRuleRow}) {
  * then name (R-35). Nothing for a card whose pairs name no rule. Under
  * TABLE_MIN_WIDTH the table scrolls sideways, and only the Rule column holds
  * links, so the scroller is a named region the keyboard reaches and scrolls
- * (WCAG 2.1.1), ringed by adm-scroll-region.
+ * (WCAG 2.1.1), ringed by adm-scroll-region. The region names the box, "Rules
+ * table", and the table its contents, so a screen reader entering both
+ * doesn't hear one name twice.
  */
 function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
   if (rows.length === 0) return null;
   return (
     <div
       role="region"
-      aria-label="Rules on this card's pairs"
+      aria-label="Rules table"
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll container the keyboard must reach, as the rule's docs advise
       tabIndex={0}
       className="adm-scroll-region"

@@ -225,9 +225,17 @@ describe('StudioForm: wide', () => {
   it('stretches the Type control across its section, and lets it wrap where the column is too narrow', () => {
     // At the wide switch (R-64) a form column is 306px: the group gets 272px, 266px inside its own border and
     // padding. Its buttons and gaps need 276px at the default 12px padding (174px of text, 96px of padding,
-    // 6px of gaps), and 212px at fill's 4px.
+    // 6px of gaps), and 212px at fill's 4px. A 320px phone gives 184px, where the two pairs wrap two and two.
     render(<Harness />);
-    expect(screen.getByRole('group', {name: 'Type'})).toHaveAttribute('data-fill', 'true');
+    const type = screen.getByRole('group', {name: 'Type'});
+    expect(type).toHaveAttribute('data-fill', 'true');
+    const pairs = Array.from(type.querySelectorAll(':scope > .adm-seg-pair'), (pair) =>
+      within(pair as HTMLElement).getAllByRole('button').map((button) => button.textContent),
+    );
+    expect(pairs).toEqual([
+      ['Character', 'Action'],
+      ['Item', 'Location'],
+    ]);
   });
 });
 

@@ -92,6 +92,13 @@ export const STUDIO_PANEL: CSSProperties = {
   borderRadius: ADMIN_RADIUS.panel,
 };
 
+/**
+ * A pick button's least width in a grid: the handoff's rarity grid (README
+ * §7). The Inkwell pair takes it too, as Uninkable needs about 103px (its 20px
+ * icon, an 8px gap, 57px of text, 16px of padding and 2px of border).
+ */
+export const PICK_MIN_WIDTH = 112;
+
 /** A field's or a picker's label, over its control. */
 export const FIELD_LABEL: CSSProperties = {fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 

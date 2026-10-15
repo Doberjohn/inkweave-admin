@@ -169,4 +169,14 @@ describe('the Inkable buttons', () => {
     expect(onPatch).toHaveBeenLastCalledWith({inkwell: false});
     expect(names(inGroup('Inkwell').queryAllByRole('button', PRESSED))).toEqual(['Uninkable']);
   });
+
+  it("stacks the two where they can't sit side by side at the rarity grid's least width, so Uninkable stays inside its button", () => {
+    // jsdom lays nothing out, so the templates are pinned. Uninkable needs about 103px. A 320px phone with the
+    // rail leaves a 190px section, where two equal columns would be 93px each: 112px columns stack there instead,
+    // and sit side by side from a 228px section, as at 360px (113px each).
+    render(<Harness />);
+    const template = (name: string) => screen.getByRole('group', {name}).style.gridTemplateColumns;
+    expect(template('Inkwell')).toBe('repeat(auto-fit, minmax(min(100%, 112px), 1fr))');
+    expect(template('Rarity')).toBe('repeat(auto-fill, minmax(112px, 1fr))');
+  });
 });

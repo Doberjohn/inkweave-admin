@@ -2,7 +2,7 @@ import {ALL_INKS, SPACING} from '../../../app-bridge';
 import {INK_TILE_SIZE} from '../../../theme/AdminStyles';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {controlProps, fieldIds} from '../fieldWiring';
-import {ERROR_TEXT, FIELD_LABEL} from '../studioStyles';
+import {ERROR_TEXT, FIELD_LABEL, PICK_MIN_WIDTH} from '../studioStyles';
 
 /**
  * How a picker lays out its buttons: the card's ink tiles share one line, the
@@ -16,7 +16,7 @@ const LAYOUTS: Readonly<Record<PickerLayout, React.CSSProperties>> = {
   inks: {display: 'grid', gridTemplateColumns: `repeat(${ALL_INKS.length}, minmax(0, ${INK_TILE_SIZE}px))`, gap: SPACING.xs},
   tiles: {display: 'flex', flexWrap: 'wrap', gap: SPACING.xs},
   // The handoff's rarity grid (README §7): 112px a button at the least.
-  grid: {display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))', gap: SPACING.xs},
+  grid: {display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${PICK_MIN_WIDTH}px, 1fr))`, gap: SPACING.xs},
 };
 
 // The handoff spaces a picker's label 8px above its buttons.

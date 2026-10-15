@@ -75,7 +75,8 @@ function CostField({form, errors, onChange}: SectionProps) {
  * prints (STAT_FIELDS), in the handoff's order (dc.html:224-227). The type
  * control fills its section's width, as the handoff draws it: its four labels
  * need 276px at the default padding, where a wide form column at the R-64
- * switch gives it 266px inside its frame, and a 360px phone 224px.
+ * switch gives it 266px inside its frame, and a 360px phone 224px. On a
+ * 320px phone (184px) it wraps two and two.
  */
 export function TypeStatsSection(section: SectionProps) {
   const {form, onChange} = section;

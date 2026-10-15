@@ -76,8 +76,10 @@ const ENABLED = ':where(:not(:disabled))';
  *
  * A segmented control is as wide as its options. With data-fill="true"
  * (SegmentedControl's fill, Card studio's Type) it fills its row instead, as
- * the handoff's Type tabs do: the buttons share the width from a 4px pad,
- * and wrap onto another line where even that doesn't fit (a 320px phone).
+ * the handoff's Type tabs do: the buttons share the width from a 4px pad.
+ * They sit two by two in adm-seg-pair, which never wraps inside, so where
+ * one line can't hold them all (a 320px phone) the second pair takes the
+ * next line whole: two and two, never three and one.
  *
  * adm-scroll-region is a box that scrolls a table sideways. It takes
  * tabIndex 0 and role="region" with a name, so the keyboard can reach it and
@@ -98,9 +100,12 @@ const ENABLED = ':where(:not(:disabled))';
  *   width so the parent's grid sizes it, or, with adm-ink-tile, an ink's
  *   square tile: 48px, or its grid column's width where that is less, so the
  *   six primary tiles shrink to fit a narrow section rather than wrap (a
- *   percentage width would wrap a row that sizes to its content). data-size="sm"
- *   is the second-ink row's fixed 40px. Its pressed fill and border are
- *   adm-card-btn's, admin's one selected look (R-75).
+ *   percentage width would wrap a row that sizes to its content). The tile
+ *   drops the pick button's 34px minimum height and its icon shrinks with
+ *   it, so a column under 34px (a 320px phone) keeps the tile square and the
+ *   icon inside its border. data-size="sm" is the second-ink row's fixed
+ *   40px. Its pressed fill and border are adm-card-btn's, admin's one
+ *   selected look (R-75).
  * - adm-switch is a native checkbox with role="switch" (Dual-ink card):
  *   :checked golds the track and moves the knob, its ::before.
  * - A file control is a <label> round a visually hidden file input
@@ -126,7 +131,8 @@ const CSS = `
 .adm-seg-btn:hover${ENABLED}{background:${C.navHover};color:${C.text};}
 .adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
 .adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
-.adm-seg[data-fill="true"]>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
+.adm-seg-pair{display:flex;flex:1 1 0;gap:${SPACING.xxs}px;}
+.adm-seg-pair>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
 
 .adm-row-btn{background:transparent;color:${C.text};cursor:pointer;transition:background-color ${FAST};}
 button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;border-radius:0;font:inherit;text-align:left;}
@@ -163,7 +169,8 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-acc-head:hover${ENABLED}{background:${C.rowHover};}
 
 .adm-pick-btn{display:flex;align-items:center;gap:${SPACING.sm}px;width:100%;min-width:0;min-height:${PICK_HEIGHT}px;margin:0;padding:0 ${SPACING.sm}px;background-color:transparent;background-clip:padding-box;border:1px solid ${C.inputBorder};border-radius:${R.control}px;color:${C.muted};font:inherit;font-size:${T.small}px;text-align:left;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},border-color ${FAST},color ${FAST};}
-.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:${INK_TILE_SIZE}px;max-width:100%;aspect-ratio:1 / 1;padding:0;border-radius:${R.panel}px;}
+.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:${INK_TILE_SIZE}px;max-width:100%;min-height:0;aspect-ratio:1 / 1;padding:0;border-radius:${R.panel}px;}
+.adm-ink-tile>img{max-width:100%;height:auto;}
 .adm-pick-btn.adm-ink-tile[data-size="sm"]{width:${INK_TILE_SIZE_SM}px;height:${INK_TILE_SIZE_SM}px;border-radius:${R.box}px;}
 .adm-pick-btn:hover${ENABLED}{border-color:${C.accentBorder};color:${C.text};}
 .adm-pick-btn[aria-pressed="true"]{background-color:${C.accentTintSoft};border-color:${C.accentStrong};color:${C.text};}

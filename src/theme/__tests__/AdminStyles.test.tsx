@@ -10,6 +10,8 @@ const CLASSES = [
   'adm-nav-mark',
   'adm-seg',
   'adm-seg-btn',
+  // A filling segmented control's two buttons to a line (R4-8b).
+  'adm-seg-pair',
   'adm-row-btn',
   'adm-card-btn',
   'adm-input',
@@ -259,8 +261,28 @@ describe('AdminStyles', () => {
       ruby: {width: '40px', maxWidth: '100%', height: '40px'},
     });
     expect(stylesheet()).toContain(
-      '.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:48px;max-width:100%;aspect-ratio:1 / 1;',
+      '.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:48px;max-width:100%;min-height:0;aspect-ratio:1 / 1;',
     );
+  });
+
+  it("keeps an ink tile square in a column under a pick button's 34px, and its icon inside its border", () => {
+    // A 320px phone with the rail gives the six tiles about 28px each, where the 34px minimum height would
+    // stretch them and the 28px icon would cover their borders.
+    render(
+      <>
+        <AdminStyles />
+        <button type="button" className="adm-pick-btn adm-ink-tile">
+          <img src="" alt="Amber" width={28} height={28} />
+        </button>
+        <button type="button" className="adm-pick-btn">
+          Rare
+        </button>
+      </>,
+    );
+    const [tile, rare] = screen.getAllByRole('button').map((button) => getComputedStyle(button).minHeight);
+    expect({tile, rare}).toEqual({tile: '0px', rare: '34px'});
+    const {maxWidth, height} = getComputedStyle(screen.getByRole('img', {name: 'Amber'}));
+    expect({maxWidth, height}).toEqual({maxWidth: '100%', height: 'auto'});
   });
 
   it('golds a checked switch and slides its knob to the far end', () => {
@@ -298,14 +320,16 @@ describe('AdminStyles', () => {
     }
   });
 
-  it('lets a filling segmented control share its row and wrap, where a plain one keeps its width and padding', () => {
+  it('lets a filling segmented control share its row and wrap a pair at a time, where a plain one keeps its width and padding', () => {
     render(
       <>
         <AdminStyles />
         <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
-          <button type="button" className="adm-seg-btn">
-            Location
-          </button>
+          <span className="adm-seg-pair">
+            <button type="button" className="adm-seg-btn">
+              Location
+            </button>
+          </span>
         </div>
         <div role="group" aria-label="Studio mode" className="adm-seg">
           <button type="button" className="adm-seg-btn">
@@ -331,6 +355,15 @@ describe('AdminStyles', () => {
     // Every other segmented control, the header's mode switch included, keeps its look.
     expect(look('Studio mode')).toMatchObject({display: 'inline-flex', padding: `0px ${SPACING.md}px`, whiteSpace: 'nowrap'});
     expect(look('Studio mode').flexWrap).not.toBe('wrap');
+    // A pair shares the row as a button does, and never wraps inside: under one line's width the whole
+    // second pair moves down, two and two (a 320px phone), never three and one.
+    const pair = getComputedStyle(screen.getByRole('group', {name: 'Type'}).firstElementChild!);
+    expect({display: pair.display, flex: pair.flex, flexWrap: pair.flexWrap, gap: pair.gap}).toEqual({
+      display: 'flex',
+      flex: '1 1 0px',
+      flexWrap: 'nowrap',
+      gap: `${SPACING.xxs}px`,
+    });
   });
 
   it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {

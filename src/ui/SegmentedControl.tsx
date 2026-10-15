@@ -6,12 +6,26 @@ interface SegmentedControlProps<T extends string> {
   ariaLabel: string;
   /**
    * Stretch the options across the width the control is given, as the
-   * handoff's Type tabs do, padded 4px at the least and wrapped onto another
-   * line where even that doesn't fit (`.adm-seg[data-fill="true"]`). Card
-   * studio's Type sets it: its column can be narrower than the four labels.
+   * handoff's Type tabs do, padded 4px at the least. They sit two by two
+   * (inPairs), so where one line can't hold them all a whole pair moves to
+   * the next (`.adm-seg[data-fill="true"]`, `.adm-seg-pair`). Card studio's
+   * Type sets it: its column can be narrower than the four labels.
    * Default false: the control is as wide as its options.
    */
   fill?: boolean;
+}
+
+/** Fill's buttons, two to a pair: a row that wraps them goes two and two, never three and one. */
+function inPairs(buttons: React.ReactElement[]) {
+  const pairs: React.ReactElement[] = [];
+  for (let start = 0; start < buttons.length; start += 2) {
+    pairs.push(
+      <span key={start} className="adm-seg-pair">
+        {buttons.slice(start, start + 2)}
+      </span>,
+    );
+  }
+  return pairs;
 }
 
 /**
@@ -24,20 +38,21 @@ interface SegmentedControlProps<T extends string> {
  * current mode adds no history entry.
  */
 export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill}: SegmentedControlProps<T>) {
+  const buttons = options.map((option) => (
+    <button
+      key={option.value}
+      type="button"
+      className="adm-seg-btn"
+      aria-pressed={option.value === value}
+      onClick={() => {
+        if (option.value !== value) onChange(option.value);
+      }}>
+      {option.label}
+    </button>
+  ));
   return (
     <div role="group" aria-label={ariaLabel} className="adm-seg" data-fill={fill || undefined}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className="adm-seg-btn"
-          aria-pressed={option.value === value}
-          onClick={() => {
-            if (option.value !== value) onChange(option.value);
-          }}>
-          {option.label}
-        </button>
-      ))}
+      {fill ? inPairs(buttons) : buttons}
     </div>
   );
 }

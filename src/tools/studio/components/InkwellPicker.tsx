@@ -1,5 +1,6 @@
 import {InkwellIcon, SPACING} from '../../../app-bridge';
 import type {SectionProps} from '../formSections';
+import {PICK_MIN_WIDTH} from '../studioStyles';
 
 /** Each button: the form's inkwell value, the app's icon for it, and its name. */
 const OPTIONS = [
@@ -7,7 +8,17 @@ const OPTIONS = [
   {inkwell: false, icon: 'uninkable', label: 'Uninkable'},
 ] as const;
 
-const PAIR: React.CSSProperties = {display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACING.xs};
+/**
+ * Side by side where both fit at PICK_MIN_WIDTH, as at 360px with the rail
+ * (113px each), and stacked where they don't, as at 320px (a 190px section),
+ * so Uninkable's label never runs past its button. auto-fit drops the empty
+ * tracks, so the two share a wider section between them.
+ */
+const PAIR: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${PICK_MIN_WIDTH}px), 1fr))`,
+  gap: SPACING.xs,
+};
 
 /**
  * Inkable or Uninkable: two aria-pressed buttons with the app's InkwellIcon,

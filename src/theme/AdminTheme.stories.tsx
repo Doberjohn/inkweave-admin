@@ -353,7 +353,7 @@ function PickDemo() {
           </button>
         ))}
       </div>
-      <div role="group" aria-label="Inkwell" style={{...PICK_GRID, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'}}>
+      <div role="group" aria-label="Inkwell" style={{...PICK_GRID, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 112px), 1fr))'}}>
         {INKWELLS.map(({value, label}) => (
           <button
             key={value}
