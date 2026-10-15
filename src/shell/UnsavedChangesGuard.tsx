@@ -65,20 +65,14 @@ function useWordsShown({open, message}: Pick<UnsavedChangesDialogProps, 'open' |
  * the overlay contract (focus trap, Escape, focus restore, scroll lock, a scrim
  * that closes). Every way out but "Leave this page" stays: the Stay button,
  * Escape and the scrim. Focus opens on the message, so a screen reader reads
- * what leaving loses and no single key press leaves; Tab reaches "Stay on this
- * page" first, and Shift+Tab goes to "Leave this page", never out of the dialog.
+ * what leaving loses and no single key press leaves. The app's trap counts the
+ * message as sitting before the first button (Doberjohn/inkweave#769, for
+ * #732), so Tab reaches "Stay on this page" first, and Shift+Tab goes to
+ * "Leave this page", never out of the dialog.
  */
 export function UnsavedChangesDialog({open, message, onStay, onLeave}: UnsavedChangesDialogProps) {
   const words = useWordsShown({open, message});
   const messageRef = useRef<HTMLParagraphElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
-  // Focus opens on the message, which the app's trap does not count as its first
-  // control, so Shift+Tab would climb out of the dialog. Send it to the last button.
-  const wrapBackwards = (event: React.KeyboardEvent) => {
-    if (event.key !== 'Tab' || !event.shiftKey) return;
-    event.preventDefault();
-    (actionsRef.current?.lastElementChild as HTMLElement | null)?.focus();
-  };
   return (
     <DialogShell
       isOpen={open}
@@ -88,11 +82,10 @@ export function UnsavedChangesDialog({open, message, onStay, onLeave}: UnsavedCh
       initialFocusRef={messageRef}
       panelStyle={PANEL}>
       <h2 style={HEADING}>{TITLE}</h2>
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the message holds focus on open (focus trap) */}
-      <p ref={messageRef} tabIndex={-1} onKeyDown={wrapBackwards} style={MESSAGE}>
+      <p ref={messageRef} tabIndex={-1} style={MESSAGE}>
         {words}
       </p>
-      <div ref={actionsRef} style={ACTIONS}>
+      <div style={ACTIONS}>
         <CtaButton type="button" onClick={onStay} style={ACTION}>
           Stay on this page
         </CtaButton>
