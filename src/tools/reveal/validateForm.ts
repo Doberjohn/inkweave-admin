@@ -20,6 +20,26 @@ export interface ValidationResult {
 type Errors = Record<string, string>;
 
 /**
+ * A released card of the reveal set, under its official id. Graduation moves a
+ * set's cards off their preview ids: 14021 became 3286.
+ */
+export interface ReleasedCard {
+  id: number;
+  fullName: string;
+}
+
+/** Each reveal-set collector number a released card holds, with that card (releasedRevealNumbers). */
+export type ReleasedNumbers = ReadonlyMap<number, ReleasedCard>;
+
+/** What a new card's collector number can't take: an existing card's id, or a released card's number. */
+interface TakenNumbers {
+  ids: ReadonlySet<number>;
+  released: ReleasedNumbers;
+}
+
+const NONE_RELEASED: ReleasedNumbers = new Map();
+
+/**
  * Parse a trimmed whole number, or null when blank or anything else ("1.5",
  * "3foo", or digits past what a JavaScript number holds exactly). Exported so the
  * Card studio's checklist reads the collector number exactly as this file does.
@@ -34,19 +54,23 @@ export function intField(value: string): number | null {
  * Why the collector number can't be a new card's, or undefined. Every number past
  * the set is an Epic, Enchanted or Iconic printing of one of its cards, and a
  * printing is never a card: it goes in through scripts/reveal-sync/variants.mjs.
+ * A number a released card holds is taken under that card's official id, which
+ * the preview id's check can't see.
  */
-function collectorError(form: RevealCardForm, existingIds: ReadonlySet<number>): string | undefined {
+function collectorError(form: RevealCardForm, {ids, released}: TakenNumbers): string | undefined {
   const collector = intField(form.collectorNumber);
   if (collector === null || collector <= 0) return 'Enter a positive collector number';
   if (collector > SET_TOTAL) {
     return `#${collector} is past the ${SET_TOTAL}-card set: special printings go in through variants.mjs stage`;
   }
-  if (existingIds.has(REVEAL_ID_BASE + collector)) return `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  const holder = released.get(collector);
+  if (holder) return `#${collector} is already ${holder.fullName} (${holder.id})`;
+  if (ids.has(REVEAL_ID_BASE + collector)) return `Card id ${REVEAL_ID_BASE + collector} already exists`;
   return undefined;
 }
 
-function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {
-  const collector = collectorError(form, existingIds);
+function checkIdentity(form: RevealCardForm, taken: TakenNumbers, errors: Errors): void {
+  const collector = collectorError(form, taken);
   if (collector) errors.collectorNumber = collector;
   if (form.name.trim() === '') errors.name = 'Name is required';
 }
@@ -120,15 +144,17 @@ function checkImage(imageName: string | null, errors: Errors): void {
 /**
  * Validate the reveal-card form before publish. Returns a map of field name ->
  * error message; `ok` is true only when there are no errors. Each concern is a
- * focused helper so no single function carries all the branching.
+ * focused helper so no single function carries all the branching. `released`
+ * is optional, so a caller with no card list (reveal-sync) checks as before.
  */
 export function validateRevealCardForm(
   form: RevealCardForm,
   existingIds: ReadonlySet<number>,
   imageName: string | null,
+  released: ReleasedNumbers = NONE_RELEASED,
 ): ValidationResult {
   const errors: Errors = {};
-  checkIdentity(form, existingIds, errors);
+  checkIdentity(form, {ids: existingIds, released}, errors);
   checkCostAndInk(form, errors);
   checkInkBlock(form, errors);
   checkStats(form, errors);

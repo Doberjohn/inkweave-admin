@@ -5,6 +5,7 @@ import {useImageUpload, type ImageUpload} from '../../components/useImageUpload'
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
 import {EMPTY_FORM, sameForm} from './emptyForm';
 import {validateRevealCardForm, type ValidationResult} from './validateForm';
+import {releasedRevealNumbers} from './releasedNumbers';
 import {commitNewCard} from './githubClient';
 import {useGithubToken} from '../../github/useGithubToken';
 import {buildPreview, computeSynergies, imageErrorOf} from './livePreview';
@@ -79,9 +80,11 @@ export function useRevealAdmin(): RevealAdminController {
 
   const imageName = upload.file?.name ?? null;
   const existingIds = new Set(cards.map((c) => Number(c.id)));
+  // A released reveal-set card holds its number under its official id, which existingIds can't match.
+  const released = releasedRevealNumbers(cards);
   const previewCard = buildPreview(form, upload.dataUrl);
   const synergyGroups = computeSynergies(previewCard, cards);
-  const validation = validateRevealCardForm(form, existingIds, imageName);
+  const validation = validateRevealCardForm(form, existingIds, imageName, released);
   const ready = readyToPublish({valid: validation.ok, token, upload});
 
   function patchForm(patch: Partial<RevealCardForm>) {

@@ -55,6 +55,40 @@ describe('validateRevealCardForm', () => {
     expect(validateRevealCardForm(form({ink: lastInk, collectorNumber: String(SET_TOTAL)}), NO_IDS, 'mei.png').ok).toBe(true);
   });
 
+  // Graduation moves a set to its official ids (#21 became 3286), so no preview id
+  // shows the number is taken: the released card that holds it does.
+  describe('a number a released card of the reveal set holds', () => {
+    const MIGUEL = {id: 3286, fullName: 'Miguel Rivera - Street Musician'};
+    const RELEASED = new Map([
+      [21, MIGUEL],
+      [SET_TOTAL + 1, {id: 3266 + SET_TOTAL, fullName: 'Past The Set - Not A Card'}],
+    ]);
+    const amber = (n: number) => form({ink: 'Amber', collectorNumber: String(n)});
+
+    it('refuses #21, naming the card that holds it', () => {
+      const r = validateRevealCardForm(amber(21), NO_IDS, 'mei.png', RELEASED);
+      expect(r.errors).toEqual({collectorNumber: '#21 is already Miguel Rivera - Street Musician (3286)'});
+    });
+
+    it('passes a number no released card holds', () => {
+      expect(validateRevealCardForm(amber(22), NO_IDS, 'mei.png', RELEASED).ok).toBe(true);
+    });
+
+    it('passes #21 without the map, as every three-argument call does', () => {
+      expect(validateRevealCardForm(amber(21), NO_IDS, 'mei.png').ok).toBe(true);
+    });
+
+    it('names the released card before an id collision', () => {
+      const r = validateRevealCardForm(amber(21), new Set([REVEAL_ID_BASE + 21]), 'mei.png', RELEASED);
+      expect(r.errors.collectorNumber).toBe('#21 is already Miguel Rivera - Street Musician (3286)');
+    });
+
+    it('still refuses a number past the set as past the set, first', () => {
+      const r = validateRevealCardForm(amber(SET_TOTAL + 1), NO_IDS, 'mei.png', RELEASED);
+      expect(r.errors.collectorNumber).toMatch(/is past the \d+-card set/);
+    });
+  });
+
   it('requires a positive collector number', () => {
     const r = validateRevealCardForm(form({collectorNumber: '0'}), NO_IDS, 'mei.png');
     expect(r.errors.collectorNumber).toBeDefined();

@@ -2,19 +2,22 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import {DeferredReader} from '../../../test/DeferredReader';
 import {imageDataUrl, pngFile} from '../../../test/images';
-import {inkBlock, REVEAL_ID_BASE} from '../../../app-bridge';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
+import {inkBlock, REVEAL_ID_BASE, REVEAL_SET_CODE, SET_TOTAL} from '../../../app-bridge';
 import {revealChecklist} from '../../studio/readiness';
+import {studioCard} from '../../studio/studioFixtures';
 import type {RevealCardForm} from '../buildPreviewCard';
 import {EMPTY_FORM} from '../emptyForm';
 import {useRevealAdmin, type RevealAdminController} from '../useRevealAdmin';
 
-// A saved token and an empty card list; the rest of the bridge stays real.
+// A saved token and the card list each test sets (empty unless it says); the rest of the bridge stays real.
 vi.mock('../../../github/useGithubToken', () => ({
   useGithubToken: () => ({token: 'tok', setToken: () => {}, clearToken: () => {}}),
 }));
+const cardList = vi.hoisted(() => ({cards: [] as LorcanaCard[]}));
 vi.mock('../../../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../app-bridge')>()),
-  useCardDataContext: () => ({cards: []}),
+  useCardDataContext: () => cardList,
 }));
 // Each test decides how the commit settles; the rest of the client stays real.
 const commitNewCard = vi.hoisted(() => vi.fn());
@@ -43,6 +46,7 @@ const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'
 beforeEach(() => {
   DeferredReader.reset();
   vi.stubGlobal('FileReader', DeferredReader);
+  cardList.cards = [];
   // mockReset, not clearAllMocks: it also drops the last test's implementations.
   commitNewCard.mockReset();
   commitNewCard.mockResolvedValue(COMMIT);
@@ -75,10 +79,15 @@ async function publish(hook: Hook) {
   await waitFor(() => expect(hook.current.result).toEqual(COMMIT));
 }
 
-/** Every item of the ready checklist (R4-3a) is done, read from the controller as the studio reads it. */
-function checklistDone(ctrl: RevealAdminController): boolean {
+/** The ready checklist (R4-3a), read from the controller as the studio reads it. */
+function checklistOf(ctrl: RevealAdminController) {
   const imageState = {ready: ctrl.imageDataUrl !== null, error: ctrl.uploadError};
-  return revealChecklist(ctrl.form, ctrl.validation, imageState).every((item) => item.done);
+  return revealChecklist(ctrl.form, ctrl.validation, imageState);
+}
+
+/** Every item of the ready checklist is done. */
+function checklistDone(ctrl: RevealAdminController): boolean {
+  return checklistOf(ctrl).every((item) => item.done);
 }
 
 describe('useRevealAdmin', () => {
@@ -243,6 +252,45 @@ describe('useRevealAdmin', () => {
 
       await publish(result);
       expect(result.current).toMatchObject({commitError: null});
+    });
+  });
+
+  // Graduation (Doberjohn/inkweave#780) moved #21 to its official id, 3286, and
+  // emptied previewCards.json, so no preview id shows the number is taken.
+  describe('a number a released card of the reveal set holds', () => {
+    const MIGUEL = studioCard({
+      id: '3286',
+      name: 'Miguel Rivera',
+      version: 'Street Musician',
+      setCode: REVEAL_SET_CODE,
+      setNumber: 21,
+    });
+
+    it('refuses #21 under the card that holds it, and the checklist names that card', async () => {
+      cardList.cards = [MIGUEL];
+      const {result} = renderHook(() => useRevealAdmin());
+      fill(result, {collectorNumber: '21', ink: 'Amber'});
+      choose(result, 'a.png');
+      await DeferredReader.finish(0);
+
+      const message = '#21 is already Miguel Rivera - Street Musician (3286)';
+      expect(result.current.validation).toEqual({ok: false, errors: {collectorNumber: message}});
+      expect(result.current.canPublish).toBe(false);
+      // The ink-block check runs on a number in the set, as on an id collision, so only the number is open.
+      expect(checklistOf(result.current).filter((item) => !item.done)).toEqual([
+        {id: 'collectorNumber', label: 'Collector number', done: false, message},
+      ]);
+    });
+
+    it('still refuses a number past the set as past the set, and the Ink item reads "fix it first"', () => {
+      cardList.cards = [MIGUEL];
+      const {result} = renderHook(() => useRevealAdmin());
+      fill(result, {collectorNumber: String(SET_TOTAL + 1)});
+
+      expect(result.current.validation.errors.collectorNumber).toMatch(/is past the \d+-card set/);
+      expect(checklistOf(result.current).find((item) => item.id === 'ink')?.message).toBe(
+        'Checked against the collector number: fix it first',
+      );
     });
   });
 });
