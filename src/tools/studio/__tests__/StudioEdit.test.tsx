@@ -9,6 +9,7 @@ import {pngFile} from '../../../test/images';
 import {commitCardImage} from '../../image/githubClient';
 import {StaleCardError, commitCardEdit, commitNewCard} from '../../reveal/githubClient';
 import {goneNote} from '../branchCards';
+import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import {loadAgainNote} from '../loadAgainNote';
 import {StudioPage} from '../StudioPage';
 import {newRevealNote} from '../studioCopy';
@@ -70,6 +71,12 @@ const MING = cardOf(VARIANTS_ENTRY);
 const WREN = cardOf(BRANCH_ONLY_ENTRY);
 const CARDS: LorcanaCard[] = [RELEASED_CARD, MEI, MING];
 const FILE: LorcanaJSONCard[] = [PREVIEW_ENTRY, VARIANTS_ENTRY];
+/** commitCardEdit's refusal for Mei's entry once it changed on the branch (R-67), naming her as the page does. */
+const STALE = `${MEI.fullName} changed on master since you loaded it. Load it again.`;
+/** Mei once the branch changed only her version: her full name no longer follows it, so the form can't hold her (R-65). */
+const UNHELD_MEI: LorcanaJSONCard = {...PREVIEW_ENTRY, version: 'Panda Rising'};
+/** Mei once a later branch commit fixed her full name to match: she round-trips again. */
+const FIXED_MEI: LorcanaJSONCard = {...UNHELD_MEI, fullName: 'Mei - Panda Rising'};
 
 type Answer = () => Response | Promise<Response>;
 /** previewCards.json holding `cards`, as GitHub's raw contents answer it. */
@@ -276,6 +283,11 @@ describe('StudioPage: finding a card in Edit card', () => {
     expect(screen.getByText('Card data comes from LorcanaJSON; only the image can be replaced here.')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: 'Synergies'})).not.toBeInTheDocument();
+    // No field can change, so the change list asks only for an image.
+    const aside = screen.getByRole('complementary', {name: 'Changes'});
+    expect(within(aside).getByText("Replace the image to make a change. It's listed here before you save.")).toBeInTheDocument();
+    // A released card's data can't change on the branch, so it offers no read of the file.
+    expect(screen.queryByRole('button', {name: 'Read previewCards.json again'})).not.toBeInTheDocument();
   });
 
   it('opens a card only the branch file holds, not deployed yet, with no analytics link (R-66, R-33)', async () => {
@@ -385,7 +397,7 @@ describe('StudioPage: saving in Edit card', () => {
     // Someone retitled the franchise on the branch: the rename doesn't touch it, so it still applies.
     const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
     stubFetch(() => fileOf(++reads === 1 ? FILE : [changed, VARIANTS_ENTRY]));
-    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(`Card ${MEI.id} changed on master since you loaded it. Load it again.`));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
     const {user} = renderStudio('/studio?mode=edit');
     await openMei(user);
     await rename(user);
@@ -395,6 +407,75 @@ describe('StudioPage: saving in Edit card', () => {
     // The outcome line says what Load it again kept (R4-5e), and takes focus once the re-read lands.
     await waitFor(() => expect(screen.getByText(loadAgainNote({dropped: 0}))).toHaveFocus());
     expect(await nameField()).toHaveValue(RENAMED);
+  });
+
+  it("opens a card loaded again into an entry the form can't hold read-only, and reads the file again into its form (R-65, R-68)", async () => {
+    // The first read opens Mei; Load it again finds her version changed alone; the read after it finds her fixed.
+    const reads = [FILE, [UNHELD_MEI, VARIANTS_ENTRY], [FIXED_MEI, VARIANTS_ENTRY]];
+    let read = 0;
+    stubFetch(() => fileOf(reads[Math.min(read++, reads.length - 1)]));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio(studioHref('edit', MEI.id));
+    await rename(user);
+    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei.png'));
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+    await user.click(saveButton());
+    expect(commitCardEdit).toHaveBeenCalledWith(expect.objectContaining({image: expect.objectContaining({ext: 'png'})}));
+
+    await user.click(await screen.findByRole('button', {name: 'Load it again'}));
+    // The card's facts and why, and the line says the rename went with the form, not that its field changed (R-68).
+    await waitFor(() => expect(screen.getByText(loadAgainNote({dropped: 1, editable: false}))).toHaveFocus());
+    expect(screen.getByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
+    // The staged scan stays (R-68).
+    expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei.png');
+
+    // A branch edit can fix an entry the form can't hold, so the card can read the file again: its form opens.
+    await user.click(screen.getByRole('button', {name: 'Read previewCards.json again'}));
+    await waitFor(() => expect(screen.getByText(loadAgainNote({dropped: 0}))).toHaveFocus());
+    expect(await nameField()).toHaveValue('Mei');
+    expect(screen.getByRole('textbox', {name: /^Version/})).toHaveValue('Panda Rising');
+    expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei.png');
+    expect(read).toBe(3);
+  });
+
+  it("keeps an image-only card's facts once a later read gives its entry fields, and its re-read opens the form (R-65)", async () => {
+    let reads = 0;
+    // The branch holds Mei unrepresentable as the studio opens; the read after a New reveal publish finds her fixed.
+    stubFetch(() => fileOf([++reads === 1 ? UNHELD_MEI : FIXED_MEI, VARIANTS_ENTRY]));
+    vi.mocked(commitNewCard).mockResolvedValue({commitUrl: COMMIT_URL});
+    const {user} = renderStudio(studioHref('edit', MEI.id));
+    expect(await screen.findByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    await fillNewCard(user);
+    await user.click(screen.getByRole('button', {name: /^Publish/}));
+    await screen.findByRole('link', {name: 'View commit'});
+    await waitFor(() => expect(reads).toBe(2));
+
+    // Her draft was seeded image-only and follows no read, so the facts stay, never a blank column.
+    await user.click(screen.getByRole('button', {name: 'Edit card'}));
+    expect(await screen.findByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', {name: 'Read previewCards.json again'}));
+    expect(await nameField()).toHaveValue('Mei');
+  });
+
+  it('says so when Load it again cannot read the file, and keeps the refusal and its button (R4-4c)', async () => {
+    let reads = 0;
+    stubFetch(() => (++reads === 1 ? fileOf(FILE) : refusal({status: 500, message: 'Server Error'})));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio(studioHref('edit', MEI.id));
+    await rename(user);
+    await user.click(saveButton());
+    await user.click(await screen.findByRole('button', {name: 'Load it again'}));
+
+    // The search's words for a failed read, under the outcome, so the press shows what happened.
+    const aside = screen.getByRole('complementary', {name: 'Changes'});
+    expect(await within(aside).findByText(/^Could not read previewCards\.json: GitHub 500 on /)).toBeInTheDocument();
+    expect(within(aside).getByText(STALE)).toBeInTheDocument();
+    expect(within(aside).getByRole('button', {name: 'Load it again'})).toBeInTheDocument();
+    expect(await nameField()).toHaveValue(RENAMED);
+    expect(reads).toBe(2);
   });
 
   it('offers Forget token for a save GitHub refuses, and asks first while the draft is dirty (R-26, R-84)', async () => {
@@ -505,7 +586,7 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     // The branch retitled the franchise, which the rename doesn't touch, so Load it again re-seeds and keeps it.
     const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
     stubFetch(() => fileOf(++reads === 1 ? FILE : [changed, VARIANTS_ENTRY]));
-    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(`Card ${MEI.id} changed on master since you loaded it. Load it again.`));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
     const {user} = renderStudio(studioHref('edit', MEI.id));
     await rename(user);
     await user.click(screen.getByRole('button', {name: /^Card text/}));

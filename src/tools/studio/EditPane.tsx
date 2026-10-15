@@ -1,10 +1,11 @@
 import {useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {CtaButton, useCardDataContext} from '../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
 import {Notice} from '../../ui/Notice';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {goneNote} from './branchCards';
-import {IMAGE_ONLY_NOTES} from './cardEdit';
+import {IMAGE_ONLY_NOTES, type ImageOnlyReason} from './cardEdit';
 import {ChangeList} from './components/ChangeList';
 import {CommitOutcome} from './components/CommitOutcome';
 import {EditingBanner} from './components/EditingBanner';
@@ -32,6 +33,9 @@ const WHOLE_ROW: Readonly<Record<StudioLayout, CSSProperties>> = {
 // The handoff draws the aside as one column, Save across its width (README §7).
 const ASIDE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const SAVE: CSSProperties = {width: '100%'};
+// An image-only card's facts over their way out, spaced as the aside's panels are.
+const FACTS_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
+const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
 const LINE: CSSProperties = {margin: 0};
 
 export interface EditPaneProps {
@@ -154,13 +158,59 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
   );
 }
 
-/** A preview card's form, the collector number locked (R-91 1); or, for an image-only card, its facts and why (R-61, R-65). */
-function EditForm({edit, ready, layout}: {edit: CardEditorController; ready: ReadyLookup; layout: StudioLayout}) {
-  if (ready.imageOnly) return <ReleasedCardFacts card={ready.card} note={IMAGE_ONLY_NOTES[ready.imageOnly]} />;
+/**
+ * An image-only card's facts and why (R-61, R-65). An entry the form can't
+ * hold is the one reason a branch edit can lift (a released, unnumbered or
+ * other-set card can't change here), so it offers to read the file again. The
+ * read goes through Load it again, never previewFile.reload: the draft follows
+ * it, keeps a staged image, and opens the form once the entry round-trips
+ * (R-68). The re-seed replaces this view, button and all, so it asks for the
+ * handoff once the read lands, and the outcome line, saying what the read
+ * did, takes it.
+ */
+function ImageOnlyFacts({edit, card, reason, handoff}: Pick<PartProps, 'edit' | 'handoff'> & {
+  card: LorcanaCard;
+  reason: ImageOnlyReason;
+}) {
+  const facts = <ReleasedCardFacts card={card} note={IMAGE_ONLY_NOTES[reason]} />;
+  if (reason !== 'unrepresentable') return facts;
+  return (
+    <div style={FACTS_COLUMN}>
+      {facts}
+      <CtaButton
+        type="button"
+        variant="neutral"
+        onClick={askWhenLanded(edit.loadAgain, handoff)}
+        disabled={edit.saving}
+        style={READ_AGAIN}>
+        Read previewCards.json again
+      </CtaButton>
+    </div>
+  );
+}
+
+/**
+ * A preview card's form, the collector number locked (R-91 1); or, for an
+ * image-only card, its facts and why (R-61, R-65). It goes by the controller's
+ * reason (imageOnlyOf), not the lookup's: an image draft whose entry now has
+ * fields still has no form to show, so it keeps its facts.
+ */
+function EditForm({edit, ready, layout, handoff}: Pick<PartProps, 'edit' | 'handoff'> & {ready: ReadyLookup; layout: StudioLayout}) {
+  if (edit.imageOnly) return <ImageOnlyFacts edit={edit} card={ready.card} reason={edit.imageOnly} handoff={handoff} />;
   if (edit.form === null) return null;
   return (
     <StudioForm form={edit.form} errors={edit.validation.errors} onChange={edit.patchForm} layout={layout} locked={EDIT_LOCKS} />
   );
+}
+
+/**
+ * previewCards.json's failed read while a card is open, in the search's words
+ * (EditSearch). A Load it again whose read fails leaves the refusal and its
+ * button in place (R4-4c), so this says why the press changed nothing.
+ */
+function FileError({error}: {error: string | null}) {
+  if (error === null) return null;
+  return <Notice tone="error">Could not read previewCards.json: {error}.</Notice>;
 }
 
 /**
@@ -170,13 +220,14 @@ function EditForm({edit, ready, layout}: {edit: CardEditorController; ready: Rea
  * once the commit settles: it went off while it ran, which drops focus to
  * <body> in a browser, so the outcome line takes it. Discard is held while it
  * runs, as Save is (R4-4c). Load it again asks once its re-read lands, and
- * the line then says what it kept (R-68).
+ * the line then says what it kept (R-68), or that the card can't be edited
+ * now; a read that fails shows its error under the outcome.
  */
 function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDiscard: () => void}) {
   const save = () => void edit.save().then(handoff.request);
   return (
     <aside aria-label="Changes" style={ASIDE}>
-      <ChangeList rows={edit.changes} onDiscard={onDiscard} busy={edit.saving} />
+      <ChangeList rows={edit.changes} onDiscard={onDiscard} busy={edit.saving} imageOnly={edit.form === null} />
       {edit.form !== null && <SynergyPanel groups={edit.synergyGroups} />}
       <CtaButton type="button" onClick={save} disabled={!edit.canSave} style={SAVE}>
         {saveLabel(edit)}
@@ -186,10 +237,12 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
         error={edit.saveError}
         note={editNote(edit.result)}
         dropped={edit.dropped}
+        editable={edit.form !== null}
         onLoadAgain={edit.failure === 'stale' ? askWhenLanded(edit.loadAgain, handoff) : undefined}
         onForgetToken={onForgetToken}
         handoff={handoff}
       />
+      <FileError error={edit.previewFile.error} />
     </aside>
   );
 }
@@ -236,7 +289,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
               onRevertImage={edit.revertImage}
             />
           ),
-          form: <EditForm key={`${edit.seed}:${discards}`} edit={edit} ready={ready} layout={layout} />,
+          form: <EditForm key={`${edit.seed}:${discards}`} edit={edit} ready={ready} layout={layout} handoff={handoff} />,
           aside: <EditAside edit={edit} handoff={handoff} onForgetToken={onForgetToken} onDiscard={discard} />,
         }}
       />

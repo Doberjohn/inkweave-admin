@@ -211,7 +211,7 @@ describe('useCardEditor: an open card that leaves the branch file', () => {
 
   it.each(LEAVERS)('ends a save refused as stale once Load it again lands without the card: $name (R-68, R-69)', async (leaver) => {
     const {result} = await edited(leaver);
-    const stale = `Card ${leaver.entry.id} is no longer in previewCards.json on master. Load it again.`;
+    const stale = `${leaver.entry.fullName} is no longer in previewCards.json on master. Load it again.`;
     commitCardEdit.mockRejectedValueOnce(new StaleCardError(stale));
     await act(() => result.current.save());
     expect(result.current).toMatchObject({failure: 'stale', saveError: stale});

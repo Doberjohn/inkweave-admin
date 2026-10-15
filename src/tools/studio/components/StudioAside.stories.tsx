@@ -190,7 +190,7 @@ export const EditStale: Story = {
       <Commit label="Save changes" />
       <CommitOutcome
         result={null}
-        error={`Card ${JA_SCAN_ENTRY.id} changed on ${targetBranch()} since you loaded it. Load it again.`}
+        error={`${JA_SCAN_ENTRY.fullName} changed on ${targetBranch()} since you loaded it. Load it again.`}
         note={IMAGE_NOTE}
         onLoadAgain={noop}
         onForgetToken={noop}

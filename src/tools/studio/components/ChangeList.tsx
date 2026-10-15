@@ -15,10 +15,17 @@ interface ChangeListProps {
    * undoing the save once it lands on the new baseline (R-70, R4-4c's hand-off).
    */
   busy?: boolean;
+  /**
+   * The open card is image-only (released, unnumbered, other-set or
+   * unrepresentable; R-61, R-65): no field can change here, so the empty list
+   * asks only for an image. The Edit pane passes it while it shows no form.
+   */
+  imageOnly?: boolean;
 }
 
-/** What the list says before anything changes (dc.html:262). */
+/** What the list says before anything changes (dc.html:262), and on a card whose fields can't change here. */
 const EMPTY = 'Edit any field or replace the image. Changes are listed here before you save.';
+const IMAGE_ONLY_EMPTY = "Replace the image to make a change. It's listed here before you save.";
 
 const LIST: React.CSSProperties = {
   listStyle: 'none',
@@ -60,8 +67,8 @@ function ChangeItem({row}: {row: ChangeRow}) {
   );
 }
 
-function ChangeRows({rows}: {rows: readonly ChangeRow[]}) {
-  if (rows.length === 0) return <p style={NOTE}>{EMPTY}</p>;
+function ChangeRows({rows, empty}: {rows: readonly ChangeRow[]; empty: string}) {
+  if (rows.length === 0) return <p style={NOTE}>{empty}</p>;
   return (
     <ul style={LIST}>
       {rows.map((row) => (
@@ -78,7 +85,7 @@ function ChangeRows({rows}: {rows: readonly ChangeRow[]}) {
  * button with it, so focus moves to the heading first, never to <body> (R-48,
  * as R2's Clear all does).
  */
-export function ChangeList({rows, onDiscard, busy}: ChangeListProps) {
+export function ChangeList({rows, onDiscard, busy, imageOnly}: ChangeListProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const discard = () => {
     rootRef.current?.querySelector<HTMLElement>('h2')?.focus();
@@ -100,7 +107,7 @@ export function ChangeList({rows, onDiscard, busy}: ChangeListProps) {
   return (
     <div ref={rootRef}>
       <Panel title={changeCount(rows)} titleFocusable action={action}>
-        <ChangeRows rows={rows} />
+        <ChangeRows rows={rows} empty={imageOnly ? IMAGE_ONLY_EMPTY : EMPTY} />
       </Panel>
     </div>
   );

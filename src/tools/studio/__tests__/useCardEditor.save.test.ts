@@ -34,7 +34,7 @@ const CARDS = [...ENTRIES.map(cardOf), RELEASED_CARD];
 const MEI = String(PREVIEW_ENTRY.id);
 const PRIYA = String(DUAL_INK_ENTRY.id);
 const UNAUTHORIZED = 'GitHub 401 on apps/web/public/data/previewCards.json: {"message":"Bad credentials"}';
-const STALE = `Card ${MEI} changed on master since you loaded it. Load it again.`;
+const STALE = `${PREVIEW_ENTRY.fullName} changed on master since you loaded it. Load it again.`;
 const RACE = 'master changed while publishing, so nothing was published. Publish again.';
 
 function loadedList(cards: LorcanaCard[]): CardList {

@@ -184,11 +184,14 @@ describe('commitCardEdit', () => {
     expect(commitOf(calls).blobs).toEqual([previewFile([{...base, cost: 2}, NEIGHBOUR])]);
   });
 
+  // The refusal names the card the operator opened (`loaded`), never by id, which the page never shows.
   it.each([
-    ['its cost changed', [{...EDIT_CARD, cost: 2}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
-    ['its setCode changed', [{...EDIT_CARD, setCode: '15'}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
-    ['its number changed', [{...EDIT_CARD, number: 3}, NEIGHBOUR], 'Card 14001 changed on master since you loaded it. Load it again.'],
-    ['it left the file', [NEIGHBOUR], 'Card 14001 is no longer in previewCards.json on master. Load it again.'],
+    ['its cost changed', [{...EDIT_CARD, cost: 2}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
+    ['its setCode changed', [{...EDIT_CARD, setCode: '15'}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
+    ['its number changed', [{...EDIT_CARD, number: 3}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
+    // The name it was opened under, not the base's.
+    ['it was renamed', [{...EDIT_CARD, name: 'Other', fullName: 'Other'}, NEIGHBOUR], 'First changed on master since you loaded it. Load it again.'],
+    ['it left the file', [NEIGHBOUR], 'First is no longer in previewCards.json on master. Load it again.'],
   ])('refuses with StaleCardError, writing nothing, when %s at the base (R-67)', async (_case, cards, message) => {
     const calls = stubGitHub({preview: previewFile(cards)});
     const error = await commitCardEdit({token: 'tok', loaded: EDIT_CARD, changes: RENAME, image: IMAGE}).catch(
@@ -244,7 +247,7 @@ describe('on VITE_ADMIN_TARGET_BRANCH', () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
     stubGitHub({preview: previewFile([NEIGHBOUR])});
     await expect(commitCardEdit({token: 'tok', loaded: EDIT_CARD, changes: RENAME, image: null})).rejects.toThrow(
-      'Card 14001 is no longer in previewCards.json on admin-verify. Load it again.',
+      'First is no longer in previewCards.json on admin-verify. Load it again.',
     );
   });
 });

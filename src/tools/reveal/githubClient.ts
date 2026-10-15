@@ -93,9 +93,9 @@ const COMPARED_KEYS: readonly (keyof LorcanaJSONCard)[] = ['id', 'setCode', 'num
 function checkBaseEntry({cards, loaded}: {cards: LorcanaJSONCard[]; loaded: LorcanaJSONCard}): void {
   const base = cards.find((card) => card.id === loaded.id);
   const branch = targetBranch();
-  if (!base) throw new StaleCardError(`Card ${loaded.id} is no longer in previewCards.json on ${branch}. Load it again.`);
+  if (!base) throw new StaleCardError(`${loaded.fullName} is no longer in previewCards.json on ${branch}. Load it again.`);
   if (!COMPARED_KEYS.every((key) => JSON.stringify(base[key]) === JSON.stringify(loaded[key]))) {
-    throw new StaleCardError(`Card ${loaded.id} changed on ${branch} since you loaded it. Load it again.`);
+    throw new StaleCardError(`${loaded.fullName} changed on ${branch} since you loaded it. Load it again.`);
   }
 }
 

@@ -10,7 +10,7 @@ const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 /** New reveal's go-live note on master (the R4 header's "Labels and notes"); the page picks it, the outcome prints it. */
 const NOTE = 'Vercel is deploying it: allow 15 to 20 minutes before it shows on inkweave.ink.';
 /** R4-1b's StaleCardError message for a card whose entry changed at the base (R-67). */
-const STALE = 'Card 14023 changed on master since you loaded it. Load it again.';
+const STALE = 'Mei - Red Panda changed on master since you loaded it. Load it again.';
 const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 /** commitFiles' race, as New reveal gets it (githubCommit.ts) and as Edit's controller words it for a save (R4-4c). */
 const NEW_RACE = 'master changed while publishing, so nothing was published. Publish again.';
@@ -96,6 +96,11 @@ describe('CommitOutcome', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toBe(status);
     expect(status).toHaveTextContent(loadAgainNote({dropped: 2}));
+  });
+
+  it("says Load it again dropped the edits with the form when the card can't be edited now (R-65, R-68)", () => {
+    render(outcomeElement({dropped: 1, editable: false}));
+    expect(screen.getByRole('status')).toHaveTextContent(loadAgainNote({dropped: 1, editable: false}));
   });
 
   it('puts a landed commit before an older Load it again note', () => {

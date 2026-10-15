@@ -176,13 +176,16 @@ function withFields(form: RevealCardForm, edits: RevealCardForm, fields: (keyof 
  * card left with nothing to edit. Each field the old draft changed is kept
  * while the fresh form still holds the value that edit started from; the rest
  * take the fresh values, and `dropped` counts them. A card that no longer
- * opens with fields drops every edit. A draft with no form (before its first
- * read) has nothing to count.
+ * opens with fields drops every edit. A draft before its first read has
+ * nothing to count. An image-only draft has no field edit to drop, so a read
+ * it asked for (the image-only view's re-read of an entry the form can't
+ * hold, R-65) counts none, and the outcome says the read landed.
  */
 export function keepEdits(draft: Draft, fresh: Draft): Draft {
   const was = fieldsOf(draft);
   const kept = {...fresh, image: draft.image};
-  if (was === null) return kept;
+  if (draft.edit === null) return kept;
+  if (was === null) return {...kept, dropped: 0};
   const now = fieldsOf(fresh);
   const edited = editedFields(was);
   const stay = edited.filter((field) => now?.before[field] === was.before[field]);

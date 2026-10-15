@@ -20,6 +20,12 @@ interface CommitOutcomeProps {
   note: string;
   /** How many edits the last "Load it again" dropped (R-68); null or absent before one lands. */
   dropped?: number | null;
+  /**
+   * Whether the card still opens with its fields once "Load it again" lands
+   * (default true). Edit passes false while it shows no form: the entry read
+   * can't be held by the form (R-65), so the note says the edits went with it.
+   */
+  editable?: boolean;
   /** Reads the card again after a stale refusal (R-68). The page passes it for that failure only. */
   onLoadAgain?: () => void;
   /** Forgets the saved token: offered when GitHub rejected it (a 401) only, and only when given (R-26). */
@@ -57,13 +63,15 @@ function Committed({commitUrl, note}: {commitUrl: string; note: string}) {
   );
 }
 
+type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note' | 'editable'> & {dropped: number | null};
+
 /**
  * The live region, mounted with the outcome so its text is announced when it
  * arrives: a live region mounted with its text often isn't (R2's tray). It
  * holds a landed commit, else what the last "Load it again" kept.
  */
-function StatusLine({result, note, dropped}: {result: {commitUrl: string} | null; note: string; dropped: number | null}) {
-  const kept = dropped === null ? null : loadAgainNote({dropped});
+function StatusLine({result, note, dropped, editable}: StatusLineProps) {
+  const kept = dropped === null ? null : loadAgainNote({dropped, editable});
   return (
     <p role="status" tabIndex={-1} style={result ? SUCCESS : NOTE}>
       {result ? <Committed commitUrl={result.commitUrl} note={note} /> : kept}
@@ -104,14 +112,23 @@ function CommitFailure({
  * or what "Load it again" kept. The status line is always mounted, empty
  * until there is something to say.
  */
-export function CommitOutcome({result, error, note, dropped = null, onLoadAgain, onForgetToken, handoff}: CommitOutcomeProps) {
+export function CommitOutcome({
+  result,
+  error,
+  note,
+  dropped = null,
+  editable,
+  onLoadAgain,
+  onForgetToken,
+  handoff,
+}: CommitOutcomeProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const showing = [result, error, dropped].some((value) => value !== null);
   useTakeHandoff(handoff, rootRef, FOCUS_TARGET, showing);
   return (
     <div ref={rootRef} style={COLUMN}>
       {error !== null && <CommitFailure error={error} onLoadAgain={onLoadAgain} onForgetToken={onForgetToken} />}
-      <StatusLine result={result} note={note} dropped={dropped} />
+      <StatusLine result={result} note={note} dropped={dropped} editable={editable} />
     </div>
   );
 }

@@ -55,11 +55,13 @@ describe('ChangeList', () => {
     expect(within(panel).getByRole('heading', {level: 2, name: heading})).toBeInTheDocument();
   });
 
-  it('says where changes will show, and offers no Discard, before anything changes', () => {
-    render(<ChangeList rows={[]} onDiscard={() => {}} />);
-    expect(
-      screen.getByText('Edit any field or replace the image. Changes are listed here before you save.'),
-    ).toBeInTheDocument();
+  it.each<[string, boolean | undefined, string]>([
+    ['a card whose fields can change', undefined, 'Edit any field or replace the image. Changes are listed here before you save.'],
+    // Released, unnumbered, other-set or unrepresentable: no field can change here (R-61, R-65).
+    ['an image-only card', true, "Replace the image to make a change. It's listed here before you save."],
+  ])('says where changes will show on %s, and offers no Discard, before anything changes', (_case, imageOnly, empty) => {
+    render(<ChangeList rows={[]} onDiscard={() => {}} imageOnly={imageOnly} />);
+    expect(screen.getByText(empty)).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: /^Discard/})).not.toBeInTheDocument();
   });
 

@@ -82,7 +82,7 @@ async function raceRefusal(): Promise<unknown> {
 }
 
 describe('failureOf', () => {
-  const stale = 'Card 14001 changed on master since you loaded it. Load it again.';
+  const stale = `${PREVIEW_ENTRY.fullName} changed on master since you loaded it. Load it again.`;
   const unauthorized = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials';
 
   it.each([
@@ -155,6 +155,12 @@ describe('keepEdits', () => {
   it('drops every edit when the card no longer opens with fields, and keeps the image for an image-only save', () => {
     const imageOnly = draft({seed: 4, read: 2, edit: {kind: 'image', reason: 'released'}});
     expect(keepEdits(edited, imageOnly)).toEqual({...imageOnly, image: FILE, dropped: 2});
+  });
+
+  // An image-only card's "Read previewCards.json again" re-seeds through Load it again, and its line says the read landed.
+  it('counts none dropped for an image-only draft read again, keeping its image', () => {
+    const unheld = draft({edit: {kind: 'image', reason: 'unrepresentable'}, image: FILE});
+    expect(keepEdits(unheld, fresh)).toEqual({...fresh, image: FILE, dropped: 0});
   });
 
   it('takes a first read as it is, with no count', () => {
