@@ -41,7 +41,15 @@ const SUMMARY: Readonly<Record<SectionState, React.CSSProperties>> = {
   incomplete: {...SUMMARY_LINE, color: ADMIN_COLORS.muted},
 };
 
-const SECTION: React.CSSProperties = {...STUDIO_PANEL, display: 'flex', flexDirection: 'column'};
+/**
+ * The section clips to its rounded border, so the narrow header's square ring
+ * and hover fill (adm-acc-head, flush with the section's edges) stay inside
+ * it. A field's ring reaches 4px out: into BODY's 16px padding at the sides
+ * and the foot, and into the heading above, so the clip cuts nothing else.
+ * clip, not hidden: the section never becomes a scroll container, so focus
+ * can't scroll its fields out of place.
+ */
+const SECTION: React.CSSProperties = {...STUDIO_PANEL, display: 'flex', flexDirection: 'column', overflow: 'clip'};
 const HEADING: React.CSSProperties = {margin: 0};
 // The wide header: the accordion header's padding and type, with no button.
 const PLAIN_HEADING: React.CSSProperties = {

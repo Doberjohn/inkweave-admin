@@ -128,6 +128,9 @@ describe('ADMIN_COLORS', () => {
     for (const [band, fill] of Object.entries(chartMarks)) {
       expect(contrast(over(fill, card), card), `${band} on a card`).toBeGreaterThanOrEqual(3);
     }
+    // Card studio's cost slider (adm-range) on its section's card fill. A blank cost hides the thumb, so the
+    // track is all that shows the slider is there.
+    expect(contrast(over(ADMIN_COLORS.barNeutral, card), card), 'cost slider track on a card').toBeGreaterThanOrEqual(3);
   });
 });
 

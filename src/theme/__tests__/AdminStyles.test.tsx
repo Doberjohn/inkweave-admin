@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import {COLORS, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
@@ -39,6 +39,8 @@ const CLASSES = [
   'adm-file-btn',
   'adm-file-cover',
   'adm-range',
+  // A box that scrolls a table sideways, which the keyboard reaches (R4-8b).
+  'adm-scroll-region',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -286,6 +288,55 @@ describe('AdminStyles', () => {
     const vendored = [...css.matchAll(/([^{}]*::-(?:webkit|moz)-[^{]*)\{/g)].map(([, selector]) => selector.trim());
     expect(vendored).toHaveLength(8);
     for (const selector of vendored) expect(selector).not.toContain(',');
+  });
+
+  it("draws the cost slider's track in barNeutral, so a blank cost's slider, which has no thumb, still shows (1.4.11)", () => {
+    const css = stylesheet();
+    for (const track of ['::-webkit-slider-runnable-track', '::-moz-range-track']) {
+      const rule = css.split(`.adm-range${track}{`)[1]?.split('}')[0];
+      expect(rule, track).toContain(`background:${ADMIN_COLORS.barNeutral};`);
+    }
+  });
+
+  it('lets a filling segmented control share its row and wrap, where a plain one keeps its width and padding', () => {
+    render(
+      <>
+        <AdminStyles />
+        <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
+          <button type="button" className="adm-seg-btn">
+            Location
+          </button>
+        </div>
+        <div role="group" aria-label="Studio mode" className="adm-seg">
+          <button type="button" className="adm-seg-btn">
+            Edit card
+          </button>
+        </div>
+      </>,
+    );
+    const look = (name: string) => {
+      const group = screen.getByRole('group', {name});
+      const button = getComputedStyle(within(group).getByRole('button'));
+      const {display, flexWrap} = getComputedStyle(group);
+      return {display, flexWrap, flex: button.flex, padding: button.padding, whiteSpace: button.whiteSpace};
+    };
+    // The handoff's Type tabs (dc.html:224): the buttons share the width, and a label never breaks.
+    expect(look('Type')).toEqual({
+      display: 'flex',
+      flexWrap: 'wrap',
+      flex: '1 1 0px',
+      padding: `0px ${SPACING.xs}px`,
+      whiteSpace: 'nowrap',
+    });
+    // Every other segmented control, the header's mode switch included, keeps its look.
+    expect(look('Studio mode')).toMatchObject({display: 'inline-flex', padding: `0px ${SPACING.md}px`, whiteSpace: 'nowrap'});
+    expect(look('Studio mode').flexWrap).not.toBe('wrap');
+  });
+
+  it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
+    expect(stylesheet()).toContain(
+      `.adm-scroll-region:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+    );
   });
 
   it("switches the studio controls' transitions off for reduced motion", () => {

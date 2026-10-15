@@ -72,7 +72,10 @@ function CostField({form, errors, onChange}: SectionProps) {
 
 /**
  * The card's type, then Inkable or Uninkable, its cost and the stats its type
- * prints (STAT_FIELDS), in the handoff's order (dc.html:224-227).
+ * prints (STAT_FIELDS), in the handoff's order (dc.html:224-227). The type
+ * control fills its section's width, as the handoff draws it: its four labels
+ * need 276px at the default padding, where a wide form column at the R-64
+ * switch gives it 266px inside its frame, and a 360px phone 224px.
  */
 export function TypeStatsSection(section: SectionProps) {
   const {form, onChange} = section;
@@ -84,6 +87,7 @@ export function TypeStatsSection(section: SectionProps) {
         value={form.type}
         onChange={(type) => onChange({type})}
         ariaLabel="Type"
+        fill
       />
       <InkwellPicker form={form} onChange={onChange} />
       <CostField {...section} />

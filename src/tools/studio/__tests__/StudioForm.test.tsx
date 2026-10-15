@@ -193,6 +193,13 @@ describe('StudioForm: narrow, an accordion', () => {
     expect(toggle(/^Card text/)).not.toHaveAttribute('aria-controls');
   });
 
+  it("clips each section to its rounded border, so a header's square ring and hover fill stay inside it", () => {
+    render(<Harness layout="narrow" />);
+    for (const title of ['Identity', 'Ink & rarity', 'Type & stats', 'Card text']) {
+      expect(screen.getByRole('region', {name: title}), title).toHaveStyle({overflow: 'clip'});
+    }
+  });
+
   it("sums up a closed section, and shows a section's error in its place", () => {
     render(<Harness layout="narrow" initial={revealForm({cost: '1.5'})} />);
     expect(toggle(/^Ink & rarity/)).toHaveAccessibleName('Ink & rarity, complete Ruby · Rare');
@@ -213,6 +220,14 @@ describe('StudioForm: wide', () => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     expect(screen.getByRole('region', {name: 'Type & stats'})).toBeInTheDocument();
+  });
+
+  it('stretches the Type control across its section, and lets it wrap where the column is too narrow', () => {
+    // At the wide switch (R-64) a form column is 306px: the group gets 272px, 266px inside its own border and
+    // padding. Its buttons and gaps need 276px at the default 12px padding (174px of text, 96px of padding,
+    // 6px of gaps), and 212px at fill's 4px.
+    render(<Harness />);
+    expect(screen.getByRole('group', {name: 'Type'})).toHaveAttribute('data-fill', 'true');
   });
 });
 

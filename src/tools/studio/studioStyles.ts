@@ -44,7 +44,10 @@ export const STUDIO_GRID: Readonly<Record<StudioLayout, CSSProperties>> = {
 /**
  * Where each slot sits. Wide: the form spans the two middle columns. Narrow:
  * the form keeps 300-400px, the card panel takes the free width, and the aside
- * wraps under them when it doesn't fit.
+ * wraps under them when it doesn't fit. On a phone the root's content box is
+ * the viewport less the 64px rail and 32px of padding, under 300px below a
+ * 396px screen, so there the form takes the whole line, and no slot holds a
+ * minimum the line can't give (WCAG 1.4.10, down to 320px).
  */
 export const STUDIO_SLOT: Readonly<Record<StudioLayout, Readonly<Record<StudioSlot, CSSProperties>>>> = {
   wide: {
@@ -53,7 +56,7 @@ export const STUDIO_SLOT: Readonly<Record<StudioLayout, Readonly<Record<StudioSl
     aside: {gridColumn: '4', minWidth: 0},
   },
   narrow: {
-    form: {flex: '0 1 400px', minWidth: 300},
+    form: {flex: '0 1 400px', minWidth: 'min(300px, 100%)'},
     card: {flex: '999 1 240px', minWidth: 0},
     aside: {flex: '1 1 280px', minWidth: 0},
   },

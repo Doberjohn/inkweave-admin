@@ -10,7 +10,8 @@ import type {CardTag} from '../editSearch';
 import {CardTags} from './CardMarks';
 
 // A strip across the page under its header, in the panels' fill (README §7),
-// its text in line with the page title's.
+// its text in line with the page title's. The fill is translucent, so it stops
+// at the bottom border, or the line lands lighter than the ladder (adminTheme.ts).
 const BANNER: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -19,6 +20,7 @@ const BANNER: React.CSSProperties = {
   gap: `${SPACING.sm}px ${SPACING.xl}px`,
   padding: `${SPACING.md}px ${PAGE_GUTTER}`,
   backgroundColor: ADMIN_COLORS.panel,
+  backgroundClip: 'padding-box',
   borderBottom: `1px solid ${ADMIN_COLORS.border}`,
 };
 const IDENTITY: React.CSSProperties = {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: SPACING.md, minWidth: 0};

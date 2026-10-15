@@ -59,6 +59,12 @@ describe('EditingBanner', () => {
     expect(screen.queryByText(/^#/)).not.toBeInTheDocument();
   });
 
+  it("stops its translucent fill at its bottom border, as a panel's fill stops at its border", () => {
+    renderBanner();
+    const banner = screen.getByRole('heading', {level: 2}).parentElement!.parentElement!;
+    expect(banner).toHaveStyle({backgroundClip: 'padding-box'});
+  });
+
   it('gives a pending focus handoff to its h2 (R-59)', () => {
     const handoff = handoffOf(true);
     renderBanner({handoff});

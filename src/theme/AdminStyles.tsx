@@ -74,6 +74,15 @@ const ENABLED = ':where(:not(:disabled))';
  * Nav items pad 8px, not the handoff's 6 (off the spacing scale): in the 64px
  * rail, 12px gutters leave 40px, and 8 + 24 + 8 centres the mark exactly.
  *
+ * A segmented control is as wide as its options. With data-fill="true"
+ * (SegmentedControl's fill, Card studio's Type) it fills its row instead, as
+ * the handoff's Type tabs do: the buttons share the width from a 4px pad,
+ * and wrap onto another line where even that doesn't fit (a 320px phone).
+ *
+ * adm-scroll-region is a box that scrolls a table sideways. It takes
+ * tabIndex 0 and role="region" with a name, so the keyboard can reach it and
+ * scroll it (WCAG 2.1.1), and it rings 2px out, as a chart plot does.
+ *
  * A text link inside data (adm-link: a card name in a log row, a list or a
  * heading) keeps its text colour and takes a muted underline: gold sits at
  * 1.41:1 against the text beside it, under the 3:1 that colour alone would
@@ -99,9 +108,10 @@ const ENABLED = ':where(:not(:disabled))';
  *   data-focused="true", from the hook's `focused`. adm-file-btn is a bordered
  *   button (Replace card image); adm-file-cover lies over the card preview.
  * - adm-range is the cost slider. data-unset="true" hides its thumb, so a
- *   blank cost never reads as 0. Its track and thumb rules repeat per engine:
- *   a selector list with a pseudo-element the browser doesn't know is dropped
- *   whole.
+ *   blank cost never reads as 0. The track alone then shows the slider, so it
+ *   is barNeutral, 3.3:1 on a card (WCAG 1.4.11), not the meters' barTrack.
+ *   Its track and thumb rules repeat per engine: a selector list with a
+ *   pseudo-element the browser doesn't know is dropped whole.
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -115,6 +125,8 @@ const CSS = `
 .adm-seg-btn{display:inline-flex;align-items:center;justify-content:center;min-height:${SEG_BUTTON_HEIGHT}px;margin:0;padding:0 ${SPACING.md}px;border:none;border-radius:${R.control}px;background:transparent;color:${C.muted};font-family:inherit;font-size:${T.small}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},color ${FAST};}
 .adm-seg-btn:hover${ENABLED}{background:${C.navHover};color:${C.text};}
 .adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
+.adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
+.adm-seg[data-fill="true"]>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
 
 .adm-row-btn{background:transparent;color:${C.text};cursor:pointer;transition:background-color ${FAST};}
 button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;border-radius:0;font:inherit;text-align:left;}
@@ -136,6 +148,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
+.adm-scroll-region:focus-visible{${FOCUS_RING}outline-offset:2px;}
 
 .adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;color:${C.text};font-size:${T.body}px;cursor:pointer;transition:background-color ${FAST};}
 .adm-option[aria-selected="true"]{background:${C.rowHover};box-shadow:inset 2px 0 0 ${C.accent};}
@@ -168,8 +181,8 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{${FOCUS_RING}outline-offset:2px;}
 
 .adm-range{appearance:none;display:block;flex:1 1 auto;min-width:${RANGE_MIN_WIDTH}px;height:${RANGE_HEIGHT}px;margin:0;background:transparent;cursor:pointer;}
-.adm-range::-webkit-slider-runnable-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barTrack};}
-.adm-range::-moz-range-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barTrack};}
+.adm-range::-webkit-slider-runnable-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}
+.adm-range::-moz-range-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}
 .adm-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:${RANGE_THUMB}px;height:${RANGE_THUMB}px;margin-top:${(RANGE_TRACK - RANGE_THUMB) / 2}px;border:none;border-radius:${R.pill}px;background:${C.accent};}
 .adm-range::-moz-range-thumb{width:${RANGE_THUMB}px;height:${RANGE_THUMB}px;border:none;border-radius:${R.pill}px;background:${C.accent};}
 .adm-range:hover${ENABLED}::-webkit-slider-thumb{background:${C.accentHover};}

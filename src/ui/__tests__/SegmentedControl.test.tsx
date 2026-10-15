@@ -68,4 +68,15 @@ describe('SegmentedControl', () => {
     await userEvent.click(screen.getByRole('button', {name: '|Gap|'}));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('marks a control that fills its width for AdminStyles (data-fill), and leaves the default as wide as its options', () => {
+    render(
+      <>
+        <SegmentedControl ariaLabel="Type" options={OPTIONS} value="gap" onChange={() => {}} fill />
+        <SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={() => {}} />
+      </>,
+    );
+    expect(screen.getByRole('group', {name: 'Type'})).toHaveAttribute('data-fill', 'true');
+    expect(screen.getByRole('group', {name: 'Sort rules'})).not.toHaveAttribute('data-fill');
+  });
 });

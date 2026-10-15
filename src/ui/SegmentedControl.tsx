@@ -4,6 +4,14 @@ interface SegmentedControlProps<T extends string> {
   onChange: (v: T) => void;
   /** Names the group for assistive tech: "Sort rules", "Score band". */
   ariaLabel: string;
+  /**
+   * Stretch the options across the width the control is given, as the
+   * handoff's Type tabs do, padded 4px at the least and wrapped onto another
+   * line where even that doesn't fit (`.adm-seg[data-fill="true"]`). Card
+   * studio's Type sets it: its column can be narrower than the four labels.
+   * Default false: the control is as wide as its options.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -15,9 +23,9 @@ interface SegmentedControlProps<T extends string> {
  * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
  * current mode adds no history entry.
  */
-export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel}: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill}: SegmentedControlProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className="adm-seg">
+    <div role="group" aria-label={ariaLabel} className="adm-seg" data-fill={fill || undefined}>
       {options.map((option) => (
         <button
           key={option.value}
