@@ -53,7 +53,7 @@ function openItems(c: Case): Array<Pick<ChecklistItem, 'id' | 'message'>> {
 
 /** The sections that aren't complete, with their status. */
 function openSections(c: Case): Partial<Record<SectionId, SectionStatus>> {
-  const statuses = sectionStatuses(c.form, validate(c).errors);
+  const statuses = sectionStatuses(c.form, validate(c).errors, c.list ?? LOADED);
   return Object.fromEntries(Object.entries(statuses).filter(([, status]) => status.state !== 'complete'));
 }
 
@@ -168,6 +168,20 @@ describe('the Collector number item and the card list', () => {
     const c: Case = {form: revealForm(), list};
     expect({ok: validate(c).ok, items: openItems(c)}).toEqual({ok: true, items: [{id: 'collectorNumber', message}]});
     expect(cardListPending(list)).toBe(message);
+  });
+
+  // R4-8f: Identity's dot agrees with the item: incomplete, never red, until the number can be checked.
+  it.each([
+    {state: 'still loading', list: LIST_LOADING},
+    {state: 'failed', list: LIST_FAILED},
+  ])("leaves Identity's dot incomplete while the card list is $state", ({list}) => {
+    expect(openSections({form: revealForm(), list})).toEqual({identity: {state: 'incomplete', message: null}});
+  });
+
+  it("turns Identity's dot complete once the list has loaded, and so when none is given", () => {
+    const form = revealForm();
+    expect(openSections({form, list: LOADED})).toEqual({});
+    expect(sectionStatuses(form, validate({form}).errors).identity.state).toBe('complete');
   });
 
   it("names the number's own error before the card list's", () => {

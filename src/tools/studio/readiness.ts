@@ -198,43 +198,56 @@ export type SectionState = 'error' | 'complete' | 'incomplete';
 /** `message` is the section's first shown error, and null unless the state is 'error'. */
 export interface SectionStatus {state: SectionState; message: string | null}
 
+interface SectionInput {form: RevealCardForm; errors: Errors; shown: Errors; list: CardListStatus}
+
 interface SectionSpec {
   /** The section's form keys, in the order it shows them. */
   keys: readonly (keyof RevealCardForm)[];
-  /** Whether the validator could check the section yet: Ink waits for a number in the set. */
-  checked: (form: RevealCardForm) => boolean;
+  /**
+   * Whether the validator could check the section yet: Identity waits for the
+   * card list its number is checked against (cardListPending, R4-8f), and Ink
+   * for a number in the set.
+   */
+  checked: (input: SectionInput) => boolean;
 }
 
 const ALWAYS = () => true;
+/** The card list has loaded without error, so the number's check against it ran (cardListPending). */
+const LIST_IN = ({list}: SectionInput) => cardListPending(list) === null;
+const NUMBER_IN_SET = ({form}: SectionInput) => numberInSet(form);
 
 /**
  * The studio form's four sections and the keys each holds. Which values a section
  * requires is the validator's to say: it reports every blank required value.
  */
 const SECTIONS: Readonly<Record<SectionId, SectionSpec>> = {
-  identity: {keys: ['collectorNumber', 'name', 'version', 'franchise', 'subtypes'], checked: ALWAYS},
-  ink: {keys: ['ink', 'ink2', 'rarity'], checked: numberInSet},
+  identity: {keys: ['collectorNumber', 'name', 'version', 'franchise', 'subtypes'], checked: LIST_IN},
+  ink: {keys: ['ink', 'ink2', 'rarity'], checked: NUMBER_IN_SET},
   type: {keys: ['type', 'inkwell', 'cost', ...STAT_KEYS], checked: ALWAYS},
   text: {keys: ['keywords', 'fullText', 'scanLanguage'], checked: ALWAYS},
 };
 
-interface SectionInput {form: RevealCardForm; errors: Errors; shown: Errors}
-
 /** Red for a shown error; green with no error at all once checked; else neutral, as for a blank required value. */
-function statusOf(spec: SectionSpec, {form, errors, shown}: SectionInput): SectionStatus {
-  const error = firstError(shown, spec.keys);
+function statusOf(spec: SectionSpec, input: SectionInput): SectionStatus {
+  const error = firstError(input.shown, spec.keys);
   if (error !== null) return {state: 'error', message: error};
-  const complete = firstError(errors, spec.keys) === null && spec.checked(form);
+  const complete = firstError(input.errors, spec.keys) === null && spec.checked(input);
   return {state: complete ? 'complete' : 'incomplete', message: null};
 }
 
 /**
  * Each section's status, for its header dot and, when closed, its summary.
  * Only an error visibleErrors shows turns a section red (R-72): a fresh form's
- * sections are neutral, never red. The image belongs to no section.
+ * sections are neutral, never red. The image belongs to no section. Identity
+ * stays incomplete, as the Collector number item stays open, until the card
+ * list has loaded without error; with no `list`, it counts as loaded.
  */
-export function sectionStatuses(form: RevealCardForm, errors: Errors): Record<SectionId, SectionStatus> {
-  const input: SectionInput = {form, errors, shown: visibleErrors(form, errors)};
+export function sectionStatuses(
+  form: RevealCardForm,
+  errors: Errors,
+  list: CardListStatus = LIST_LOADED,
+): Record<SectionId, SectionStatus> {
+  const input: SectionInput = {form, errors, shown: visibleErrors(form, errors), list};
   const {identity, ink, type, text} = SECTIONS;
   return {
     identity: statusOf(identity, input),

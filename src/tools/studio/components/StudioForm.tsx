@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {RevealCardForm} from '../../reveal/buildPreviewCard';
 import {SECTION_SUMMARY, SECTIONS, dualInk, type SectionProps} from '../formSections';
-import {sectionStatuses, visibleErrors, type SectionId} from '../readiness';
+import {sectionStatuses, visibleErrors, type CardListStatus, type SectionId} from '../readiness';
 import type {StudioLayout} from '../studioLayout';
 import {STUDIO_FORM} from '../studioStyles';
 import {CardTextSection} from './CardTextSection';
@@ -28,6 +28,11 @@ interface StudioFormProps {
   layout: StudioLayout;
   /** Text fields shown read-only: Edit locks the collector number (R-91). */
   locked?: ReadonlySet<keyof RevealCardForm>;
+  /**
+   * The card list New reveal checks the number against: Identity's dot waits
+   * for it, as the checklist does (sectionStatuses, R4-8f). Edit passes none.
+   */
+  list?: CardListStatus;
 }
 
 /**
@@ -41,12 +46,12 @@ interface StudioFormProps {
  * Dual-ink switch, lifted here so closing the Ink & rarity section can't drop
  * it. Edit keys the form by card (R-46), which resets both; New keeps them.
  */
-export function StudioForm({form, errors, onChange, layout, locked = NO_LOCKS}: StudioFormProps) {
+export function StudioForm({form, errors, onChange, layout, locked = NO_LOCKS, list}: StudioFormProps) {
   const [openId, setOpenId] = useState<SectionId | null>('identity');
   // Open from the start for a card that has a second ink (R-75): a primary pick
   // that takes the second ink clears it, and the switch stays on for the next.
   const [dualOpen, setDualOpen] = useState(() => form.ink2 !== '');
-  const statuses = sectionStatuses(form, errors);
+  const statuses = sectionStatuses(form, errors, list);
   const section: SectionProps = {
     form,
     errors: visibleErrors(form, errors),

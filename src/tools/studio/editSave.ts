@@ -7,7 +7,7 @@ import {StaleCardError, type CardEditCommit} from '../reveal/githubClient';
 import type {ChosenImage} from '../reveal/livePreview';
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
-import {isRevealPreview} from './branchCards';
+import {hasPreviewId} from './branchCards';
 import {hasEdits} from './cardEdit';
 import {draftChanges, fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput} from './editorState';
 
@@ -43,10 +43,11 @@ export interface SaveInput {
  * The commit a save makes, and what it was made from: `seed` ties its outcome
  * to the draft (R-69), `form` is the form a fields save commits, the baseline
  * once it lands (R-70), and `sent` is the file it sends, which clears once it
- * lands. An image-only save `checksFile` for a reveal-set card under a preview
- * id: it goes through commitPreviewCardImage, which refuses it once
- * previewCards.json no longer holds the card. Any other card's goes through
- * commitCardImage, which reads nothing (R-71).
+ * lands. An image-only save `checksFile` for a card under a preview id
+ * (hasPreviewId): the reveal set's, or another set's during a pin lag, both
+ * from previewCards.json (R4-8f). It goes through commitPreviewCardImage,
+ * which refuses it once the file no longer holds the card. A released card's
+ * goes through commitCardImage, which reads nothing (R-71).
  */
 export type SavePlan =
   | {path: 'fields'; seed: number; form: RevealCardForm; sent: File | null; commit: CardEditCommit}
@@ -87,13 +88,14 @@ function fieldsPlan({token, draft, changes, validation, upload}: PlanInput): Sav
 
 /**
  * An image-only save: the staged image alone, which never edits
- * previewCards.json. It checks the file still holds a reveal-set card under a
- * preview id (isRevealPreview), the one kind the file decides.
+ * previewCards.json. It checks the file still holds a card under a preview id
+ * (hasPreviewId), whichever set it is in: only previewCards.json holds such a
+ * card, so a raw scan under an id the file has dropped would be an orphan.
  */
 function imagePlan({token, draft, card, upload}: PlanInput): SavePlan | null {
   if (!upload?.dataUrl) return null;
   const commit = {token, card: {id: card.id, fullName: card.fullName}, imageBase64: upload.dataUrl, imageExt: extOf(upload.file)};
-  return {path: 'image', seed: draft.seed, sent: upload.file, checksFile: isRevealPreview(card), commit};
+  return {path: 'image', seed: draft.seed, sent: upload.file, checksFile: hasPreviewId(card), commit};
 }
 
 /**
@@ -197,13 +199,14 @@ export function keepEdits(draft: Draft, fresh: Draft): Draft {
 
 /**
  * A re-seed that counted what it dropped (keepEdits) records what it kept, as
- * its read lands: a field edit, and a staged image (R4-8c). Any other seed
- * has nothing to report.
+ * its read lands: a field edit, and a staged image (R4-8c), and whether the
+ * draft it replaced had the card's fields (R4-8f). Any other seed has nothing
+ * to report.
  */
-function withKept(next: Draft): Draft {
+function withKept({next, was}: {next: Draft; was: Draft}): Draft {
   if (next.dropped === undefined) return next;
   const edits = hasEdits({changes: draftChanges(next), imageName: null});
-  return {...next, kept: {edits, staged: next.image !== null}};
+  return {...next, kept: {edits, staged: next.image !== null, wasEditable: fieldsOf(was) !== null}};
 }
 
 /**
@@ -218,5 +221,5 @@ export function reseeded({draft, ...input}: Omit<SeedInput, 'seed'> & {draft: Dr
   const fresh = seedDraft({...input, seed: draft.seed + 1});
   if (draft.cardId !== input.cardId) return fresh;
   const same = keepEdits(draft, fresh);
-  return withKept(fresh.edit === null ? {...same, image: null} : same);
+  return withKept({next: fresh.edit === null ? {...same, image: null} : same, was: draft});
 }

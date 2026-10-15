@@ -94,6 +94,13 @@ const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the car
 const CARD_CHANGE: UnsavedWords = {title: 'Leave this card?', stay: 'Keep editing', leave: 'Drop changes'};
 
 /**
+ * A held card change that drops nothing, as its line says: the card's save
+ * landed while the dialog was open (CARD_SAVED), or is still in flight, which
+ * leaving doesn't stop. Its leave answer names only where it goes (R4-8f).
+ */
+const CARD_KEPT: UnsavedWords = {...CARD_CHANGE, leave: 'Leave the card'};
+
+/**
  * A held card change whose Edit draft went clean meanwhile: its save landed.
  * The guard ends a hold only once neither draft is dirty, so with New reveal
  * dirty the dialog stays open, and it shows what the message returns.
@@ -126,15 +133,22 @@ export function studioUnsavedMessage(leave: StudioLeave): string {
   return lines.length > 0 ? lines.join(' ') : CARD_SAVED;
 }
 
+/** Whether a card change drops the Edit draft's edits: they are unsaved, and no save of theirs is in flight. */
+function dropsEdits(leave: StudioLeave): boolean {
+  return draftsAtRisk(leave.from, leave.to, leave.drafts).edit && !leave.busy.edit;
+}
+
 /**
  * UnsavedChangesGuard's message for the studio: studioUnsavedMessage's line.
- * A card change stays on the page, so it asks about the card (CARD_CHANGE);
+ * A card change stays on the page, so it asks about the card (CARD_CHANGE),
+ * and says "Drop changes" only while it drops some (CARD_KEPT, R4-8f);
  * leaving Card studio asks in the guard's own words, "Leave this page?"
  * (R4-8c).
  */
 export function studioUnsavedQuestion(leave: StudioLeave): string | UnsavedQuestion {
   const message = studioUnsavedMessage(leave);
-  return leave.from.pathname === leave.to.pathname ? {...CARD_CHANGE, message} : message;
+  if (leave.from.pathname !== leave.to.pathname) return message;
+  return {...(dropsEdits(leave) ? CARD_CHANGE : CARD_KEPT), message};
 }
 
 /** How the confirm before Forget token names each draft. */

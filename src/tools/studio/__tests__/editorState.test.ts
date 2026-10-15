@@ -16,6 +16,7 @@ import {
   openTag,
   patchDraft,
   previewFileView,
+  revertDraftImage,
   seedDraft,
   stageImage,
   stagedImage,
@@ -206,6 +207,30 @@ describe('the draft’s edits', () => {
   it('discards back to the form as loaded, and drops the image', () => {
     const staged = stageImage(renamed, {seed: renamed.seed, image: pngFile('a.png')});
     expect(discardDraft(staged)).toEqual({...draft, image: null});
+  });
+
+  // R4-8f: Draft.kept is what the last re-read kept, for its line, so Discard and Revert image take back what they drop.
+  describe('after a re-read that kept an edit and an image', () => {
+    const reread: Draft = {
+      ...stageImage(renamed, {seed: renamed.seed, image: pngFile('a.png')}),
+      dropped: 0,
+      kept: {edits: true, staged: true, wasEditable: true},
+    };
+
+    it('discards the claims that an edit and the image stay', () => {
+      expect(discardDraft(reread)).toEqual({...draft, image: null, dropped: 0, kept: {edits: false, staged: false, wasEditable: true}});
+    });
+
+    it('reverts the image and the claim that it stays, keeping the edit', () => {
+      expect(revertDraftImage(reread)).toEqual({...reread, image: null, kept: {edits: true, staged: false, wasEditable: true}});
+    });
+
+    it('records nothing on a draft no re-read has landed on', () => {
+      const staged = stageImage(renamed, {seed: renamed.seed, image: pngFile('a.png')});
+      expect(Object.keys(discardDraft(staged))).not.toContain('kept');
+      expect(revertDraftImage(staged)).toEqual({...renamed, image: null});
+      expect(Object.keys(revertDraftImage(staged))).not.toContain('kept');
+    });
   });
 
   it('leaves an image-only card without a form or changes, and with nothing to validate', () => {

@@ -37,7 +37,11 @@ const CARDS: LorcanaCard[] = [
 const READY: EditSearchList = {loading: false, error: null, onRetry: () => {}};
 const READ: EditSearchFile = {error: null, onRetry: () => {}};
 
-/** As cardTag tags them: the reveal set's cards wait for the file (R-71), and every other card is Released. */
+/**
+ * As cardTag tags them: the reveal set's cards under a preview id wait for the
+ * file (R-71), and every other card is Released. Every reveal-set card here
+ * has a preview id.
+ */
 function rowOf({card, fileRead}: {card: LorcanaCard; fileRead: boolean}): SearchRow {
   if (card.setCode !== REVEAL_SET_CODE) return {card, tag: 'Released', deployed: true};
   return {card, tag: fileRead ? 'Preview' : null, deployed: card !== PRIYA};

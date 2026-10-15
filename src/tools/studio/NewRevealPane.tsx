@@ -1,9 +1,10 @@
 import {useEffect, useRef, type RefObject} from 'react';
-import {CtaButton} from '../../app-bridge';
+import {CtaButton, LinkButton} from '../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
+import {ADMIN_TYPE} from '../../theme/adminTheme';
 import type {RevealAdminController} from '../reveal/useRevealAdmin';
 import {CommitOutcome} from './components/CommitOutcome';
-import {ReadyChecklist} from './components/ReadyChecklist';
+import {ReadyChecklist, type ChecklistActions} from './components/ReadyChecklist';
 import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
 import {StudioSlots} from './components/StudioSlots';
@@ -16,6 +17,8 @@ import {STUDIO_GAP} from './studioStyles';
 // The handoff draws the aside as one column: the checklist, the synergies, then Publish across its width.
 const ASIDE: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const PUBLISH: React.CSSProperties = {width: '100%'};
+// Under the checklist item's message, in its size, as ForgetTokenOffer sets its LinkButton.
+const RETRY_LIST: React.CSSProperties = {alignSelf: 'flex-start', fontSize: ADMIN_TYPE.small};
 
 // The form's first control: Identity's header in the narrow accordion, its first field when wide.
 const FIRST_CONTROL = 'input, select, textarea, button';
@@ -24,9 +27,11 @@ export interface NewRevealPaneProps {
   ctrl: RevealAdminController;
   layout: StudioLayout;
   /**
-   * The page's (R-59). Two requests reach this pane: Save token's, which the
-   * form takes (the workspace has just mounted, with no outcome), and a
-   * publish's once it lands, which the outcome line takes.
+   * The page's (R-59). Three requests reach this pane: Save token's, which the
+   * form takes (the workspace has just mounted, with no outcome); the card
+   * list's, once "Load the card list again" clears its error (R4-8f), which
+   * the form takes too while no outcome shows; and a publish's once it lands,
+   * which the outcome line takes.
    */
   handoff: FocusHandoff;
   /**
@@ -60,8 +65,9 @@ function scanOf(ctrl: RevealAdminController): ImageStatus {
 
 /**
  * The form, in its slot. It takes a pending handoff only while no outcome
- * shows: that is Save token's, since a publish's request comes with its
- * outcome, which the outcome line takes.
+ * shows: that is Save token's or the card list's, since a publish's request
+ * comes with its outcome, which the outcome line takes. Identity's dot waits
+ * for the card list, as the checklist's Collector number does.
  */
 function NewRevealForm({ctrl, layout, handoff}: PartProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -69,9 +75,34 @@ function NewRevealForm({ctrl, layout, handoff}: PartProps) {
   useTakeHandoff(handoff, ref, FIRST_CONTROL, !outcome);
   return (
     <div ref={ref}>
-      <StudioForm form={ctrl.form} errors={ctrl.validation.errors} onChange={ctrl.patchForm} layout={layout} />
+      <StudioForm
+        form={ctrl.form}
+        errors={ctrl.validation.errors}
+        onChange={ctrl.patchForm}
+        layout={layout}
+        list={ctrl.cardList}
+      />
     </div>
   );
+}
+
+/**
+ * The way out of a failed card list, under the Collector number item that
+ * names it (R4-8f): the list's own retry, so the operator needn't leave New
+ * reveal or reload, which would drop the draft. The retry clears the list's
+ * error as its read starts, and the control goes with it: StudioPage asks for
+ * the handoff as the error clears (useStudioHandoff, R-48), and the form takes
+ * it.
+ */
+function listActions(ctrl: RevealAdminController): ChecklistActions {
+  if (ctrl.cardList.error === null) return {};
+  return {
+    collectorNumber: (
+      <LinkButton type="button" onClick={ctrl.retryCardList} style={RETRY_LIST}>
+        Load the card list again
+      </LinkButton>
+    ),
+  };
 }
 
 /**
@@ -92,7 +123,10 @@ function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealP
     });
   return (
     <aside aria-label="Publish" style={ASIDE}>
-      <ReadyChecklist items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl), ctrl.cardList)} />
+      <ReadyChecklist
+        items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl), ctrl.cardList)}
+        actions={listActions(ctrl)}
+      />
       <SynergyPanel groups={ctrl.synergyGroups} />
       <CtaButton type="button" onClick={publish} disabled={!ctrl.canPublish || ctrl.publishing} style={PUBLISH}>
         {publishLabel({publishing: ctrl.publishing})}

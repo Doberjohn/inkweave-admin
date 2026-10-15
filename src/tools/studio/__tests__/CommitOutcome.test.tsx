@@ -113,6 +113,13 @@ describe('CommitOutcome', () => {
     expect(screen.getByRole('status')).toHaveTextContent(loadAgainNote({dropped: 1, editable: false}));
   });
 
+  it("says a card Load it again turned read-only can't be edited now, though it dropped no edit (R-65, R4-8f)", () => {
+    render(outcomeElement({dropped: 0, editable: false, wasEditable: true}));
+    expect(screen.getByRole('status').textContent).toBe(
+      "Loaded the card again from master. It can't be edited here now, because it holds data the form can't.",
+    );
+  });
+
   it('puts a landed commit before an older Load it again note', () => {
     render(outcomeElement({result: {commitUrl: COMMIT_URL}, dropped: 1}));
     expect(screen.getByRole('status')).toHaveTextContent(`Committed. View commit. ${NOTE}`);

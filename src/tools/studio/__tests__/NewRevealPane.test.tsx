@@ -127,6 +127,32 @@ describe('NewRevealPane', () => {
     expect(publishButton()).toHaveProperty('disabled', true);
   });
 
+  it("leaves Identity's dot incomplete while the card list loads, as its checklist item is (R4-8f)", () => {
+    const form = revealForm();
+    const validation = validateRevealCardForm(form, new Set(), 'mei.png');
+    renderPane({ctrl: {form, validation, cardList: {isLoading: true, error: null}}});
+    expect(screen.getByRole('heading', {name: 'Identity, incomplete'})).toBeInTheDocument();
+  });
+
+  it('offers to load a failed card list again, by the checklist line that names it (R4-8f)', async () => {
+    const retryCardList = vi.fn();
+    const failed = {isLoading: false, error: new Error('Failed to fetch local cards: 500')};
+    const form = revealForm();
+    const validation = validateRevealCardForm(form, new Set(), 'mei.png');
+    const {user} = renderPane({ctrl: {form, validation, cardList: failed, retryCardList}});
+    const item = checklist().getByText(/failed to load: Failed to fetch local cards: 500$/).closest('li') as HTMLElement;
+    await user.click(within(item).getByRole('button', {name: 'Load the card list again'}));
+    expect(retryCardList).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    {state: 'loaded', cardList: {isLoading: false, error: null}},
+    {state: 'still loading', cardList: {isLoading: true, error: null}},
+  ])('offers no reload while the card list is $state', ({cardList}) => {
+    renderPane({ctrl: {cardList}});
+    expect(screen.queryByRole('button', {name: 'Load the card list again'})).not.toBeInTheDocument();
+  });
+
   it("counts the scan as ready once the controller has read its bytes, as the checklist's invariant needs", () => {
     const form = revealForm();
     const validation = validateRevealCardForm(form, new Set(), 'mei.png');

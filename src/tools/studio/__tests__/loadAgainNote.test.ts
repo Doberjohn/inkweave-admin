@@ -37,6 +37,15 @@ describe('loadAgainNote', () => {
     expect(loadAgainNote({dropped: 0, editable: false, ...left})).toBe(note);
   });
 
+  // R4-8f: a read that turned an editable card read-only, with no edit to drop (a stale save's edit discarded).
+  // "Still" fits only a card that was read-only before the read, so this says what changed.
+  it.each([
+    [{}, "Loaded the card again from master. It can't be edited here now, because it holds data the form can't."],
+    [{staged: true}, "Loaded the card again from master. It can't be edited here now, because it holds data the form can't."],
+  ])('says a card the read turned read-only can’t be edited now: %j', (left, note) => {
+    expect(loadAgainNote({dropped: 0, editable: false, wasEditable: true, ...left})).toBe(note);
+  });
+
   it('names a rehearsal branch', () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
     expect(loadAgainNote({dropped: 0, edits: true})).toBe('Loaded the card again from admin-verify. Every edit still applies.');

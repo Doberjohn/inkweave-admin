@@ -225,6 +225,7 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
         editable={edit.form !== null}
         edits={edit.kept?.edits}
         staged={edit.kept?.staged}
+        wasEditable={edit.kept?.wasEditable}
         onLoadAgain={edit.failure === 'stale' ? askWhenLanded(edit.loadAgain, handoff) : undefined}
         onForgetToken={onForgetToken}
         handoff={handoff}

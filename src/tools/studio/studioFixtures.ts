@@ -253,6 +253,7 @@ export function revealController(overrides: Partial<RevealAdminController> = {})
     // R-72: no file chosen yet, so no error under the file controls; "Upload a card image" is the checklist's.
     imageError: null,
     cardList: {isLoading: false, error: null},
+    retryCardList: () => {},
     canPublish: false,
     publishing: false,
     result: null,

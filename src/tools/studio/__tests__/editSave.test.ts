@@ -7,7 +7,8 @@ import type {ChosenImage} from '../../reveal/livePreview';
 import {formFromPreviewCard} from '../cardEdit';
 import {failureOf, imageSent, keepEdits, reseeded, savePlanOf, savedDraft, type SaveInput} from '../editSave';
 import type {Draft, FieldsEdit} from '../editorState';
-import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf} from '../studioFixtures';
+import {REVEAL_SET_NUMBER} from '../../../app-bridge';
+import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf, studioCard} from '../studioFixtures';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -15,6 +16,9 @@ afterEach(() => {
 });
 
 const MEI = cardOf(PREVIEW_ENTRY);
+/** The set after the pin's, under its first preview id: 15001 under a set-14 pin. */
+const NEXT_SET = REVEAL_SET_NUMBER + 1;
+const NEXT_SET_CARD = studioCard({id: String(NEXT_SET * 1000 + 1), name: 'Ming', version: 'Next Season', setCode: String(NEXT_SET), setNumber: 1});
 const FORM = formFromPreviewCard(PREVIEW_ENTRY);
 const FIELDS: FieldsEdit = {kind: 'fields', loaded: PREVIEW_ENTRY, before: FORM, form: FORM};
 const FILE = pngFile('mei.png');
@@ -64,10 +68,14 @@ describe('savePlanOf', () => {
   // the reveal set's included, never reads the file (R-71, R4-8a).
   const releasedImage = (card: LorcanaCard) =>
     input({draft: draft({image: FILE, edit: {kind: 'image', reason: 'released'}}), card, staged: READ});
+  const otherSetImage = (card: LorcanaCard) =>
+    input({draft: draft({image: FILE, edit: {kind: 'image', reason: 'other-set'}}), card, staged: READ});
   it.each([
     ['a preview card', input({draft: draft({image: FILE}), staged: READ}), true],
     ['a released card', releasedImage(RELEASED_CARD), false],
     ['a released card of the reveal set', releasedImage(RELEASED_REVEAL_CARD), false],
+    // R4-8f: the app rotated to the next set before admin's pin did, so the file holds that set's cards too.
+    ['the next set’s preview card, during a pin lag', otherSetImage(NEXT_SET_CARD), true],
   ])('commits an image alone on %s, checking the file: %s', (_case, from, checksFile) => {
     expect(savePlanOf(from)).toEqual({
       path: 'image',
@@ -204,6 +212,14 @@ describe('reseeded', () => {
     {what: 'nothing', from: draft(), kept: {edits: false, staged: false}},
   ])('records that the read kept $what', ({from, kept}) => {
     expect(reseeded({draft: from, cardId: MEI.id, lookup, file})).toMatchObject({dropped: 0, kept});
+  });
+
+  // R4-8f: whether the card was editable before the read, so the line says "still" only for one that wasn't.
+  it.each([
+    {what: 'an editable card', from: draft(), wasEditable: true},
+    {what: 'a card that was read-only', from: draft({edit: {kind: 'image', reason: 'unrepresentable'}}), wasEditable: false},
+  ])('records that the read landed on $what', ({from, wasEditable}) => {
+    expect(reseeded({draft: from, cardId: MEI.id, lookup, file}).kept).toEqual(expect.objectContaining({wasEditable}));
   });
 
   it('records that a read leaving the card out of the file kept nothing, the image included (R-66)', () => {

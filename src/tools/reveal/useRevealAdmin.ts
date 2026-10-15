@@ -70,6 +70,12 @@ export interface RevealAdminController {
   imageError: string | null;
   /** The card list's state: Publish waits for it to load without error, and the checklist says why (cardListPending). */
   cardList: CardListStatus;
+  /**
+   * Loads a failed card list again (useCardDataContext's retryLoad): New
+   * reveal's "Load the card list again", which keeps the draft a page reload
+   * would drop (R4-8f).
+   */
+  retryCardList: () => void;
   canPublish: boolean;
   publishing: boolean;
   result: {commitUrl: string} | null;
@@ -86,7 +92,7 @@ export interface RevealAdminController {
  */
 export function useRevealAdmin(): RevealAdminController {
   const {token, setToken} = useGithubToken();
-  const {cards, isLoading, error} = useCardDataContext();
+  const {cards, isLoading, error, retryLoad} = useCardDataContext();
   const cardList: CardListStatus = {isLoading, error};
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
   // The chosen file and its bytes, kept in step (useImageUpload).
@@ -140,6 +146,7 @@ export function useRevealAdmin(): RevealAdminController {
     uploadError: upload.error,
     imageError: imageErrorOf({name: imageName, dataUrl: upload.dataUrl, error: upload.error}, validation),
     cardList,
+    retryCardList: retryLoad,
     canPublish: ready !== null,
     publishing,
     result,

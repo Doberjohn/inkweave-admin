@@ -94,10 +94,10 @@ function useWordsShown({open, question}: {open: boolean; question: UnsavedQuesti
  * the stay answer ("Stay on this page"), Escape and the scrim. Focus opens on
  * the message, so a screen reader reads what leaving loses and no single key
  * press leaves. The app's trap counts the message as sitting before the first
- * button (for inkweave#732), so Tab reaches the stay answer first, and
- * Shift+Tab goes to the leave answer, never out of the dialog. A page words
- * the title and answers for what its hold keeps (`words`): the studio's card
- * change stays on the page, so it asks "Leave this card?" (R4-8c).
+ * button (for Doberjohn/inkweave#732), so Tab reaches the stay answer first,
+ * and Shift+Tab goes to the leave answer, never out of the dialog. A page
+ * words the title and answers for what its hold keeps (`words`): the studio's
+ * card change stays on the page, so it asks "Leave this card?" (R4-8c).
  */
 export function UnsavedChangesDialog({open, message, words = LEAVE_PAGE, onStay, onLeave}: UnsavedChangesDialogProps) {
   const shown = useWordsShown({open, question: {...words, message}});

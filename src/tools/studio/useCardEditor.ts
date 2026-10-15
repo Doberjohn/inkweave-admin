@@ -24,6 +24,7 @@ import {
   openTag,
   patchDraft,
   previewFileView,
+  revertDraftImage,
   seedDraft,
   stageImage,
   stagedImage,
@@ -149,7 +150,7 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
       return upload.choose(image);
     },
     revertImage() {
-      setDraft((d) => ({...d, image: null}));
+      setDraft(revertDraftImage);
       void upload.choose(null);
     },
     discard() {

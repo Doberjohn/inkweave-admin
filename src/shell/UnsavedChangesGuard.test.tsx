@@ -104,7 +104,7 @@ describe('UnsavedChangesGuard', () => {
     const dialog = await tryToLeave(user);
     await waitFor(() => expect(within(dialog).getByText(MESSAGE)).toHaveFocus());
     await user.tab({shift: true});
-    // The message is no tabbable control. The app's trap counts it as sitting before the first one (Doberjohn/inkweave#769),
+    // The message is no tabbable control. The app's trap counts it as sitting before the first one (Doberjohn/inkweave#732),
     // so Shift+Tab wraps to the last button and never climbs behind the scrim: this pins that fix through the bridge.
     expect(within(dialog).getByRole('button', {name: 'Leave this page'})).toHaveFocus();
     expect(dialog).toContainElement(document.activeElement as HTMLElement);

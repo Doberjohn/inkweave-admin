@@ -415,6 +415,54 @@ describe('StudioPage: saving in Edit card', () => {
     expect(screen.getByText(line)).toBeInTheDocument();
   });
 
+  // R4-8f: the line says what the read left. Discard and Revert image take back what they drop, and nothing else changes it.
+  it('takes "Every edit still applies." back once Discard drops the edits', async () => {
+    const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
+    stubReads(fileOf(FILE), fileOf([changed, VARIANTS_ENTRY]));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    await rename(user);
+    await user.click(saveButton());
+    await user.click(await screen.findByRole('button', {name: 'Load it again'}));
+    await screen.findByText('Loaded the card again from master. Every edit still applies.');
+
+    await user.click(screen.getByRole('button', {name: 'Discard all changes'}));
+    expect(await nameField()).toHaveValue('Mei');
+    expect(screen.getByText('Loaded the card again from master.')).toHaveAttribute('role', 'status');
+  });
+
+  it('takes "Your image is still staged." back once Revert image drops it, and a new image never brings it back', async () => {
+    stubReads(fileOf([UNHELD_MEI, VARIANTS_ENTRY]), fileOf([FIXED_MEI, VARIANTS_ENTRY]));
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    await user.upload(await screen.findByLabelText('Click to replace image'), pngFile('mei.png'));
+    await user.click(await screen.findByRole('button', {name: 'Read previewCards.json again'}));
+    await screen.findByText('Loaded the card again from master. Your image is still staged.');
+
+    await user.click(screen.getByRole('button', {name: 'Revert image'}));
+    const line = screen.getByText('Loaded the card again from master.');
+    expect(line).toHaveAttribute('role', 'status');
+    // The line was recorded as the read landed: an image staged after it is no image the read kept.
+    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei-2.png'));
+    expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei-2.png');
+    expect(line).toHaveTextContent(/^Loaded the card again from master\.$/);
+  });
+
+  it("says a card Load it again turned read-only can't be edited now, not that it still can't (R-65, R4-8f)", async () => {
+    // Mei opens editable; the stale save's edit is discarded, so the read that finds her unheld drops none.
+    stubReads(fileOf(FILE), fileOf([UNHELD_MEI, VARIANTS_ENTRY]));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    await rename(user);
+    await user.click(saveButton());
+    const loadAgain = await screen.findByRole('button', {name: 'Load it again'});
+    await user.click(screen.getByRole('button', {name: 'Discard all changes'}));
+    await user.click(loadAgain);
+
+    const line = "Loaded the card again from master. It can't be edited here now, because it holds data the form can't.";
+    await waitFor(() => expect(screen.getByText(line)).toHaveFocus());
+    expect(screen.getByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
+  });
+
   it("keeps an image-only card's facts once a later read gives its entry fields, and its re-read opens the form (R-65)", async () => {
     // The branch holds Mei unrepresentable as the studio opens; the read after a New reveal publish finds her fixed.
     const reads = stubReads(fileOf([UNHELD_MEI, VARIANTS_ENTRY]), fileOf([FIXED_MEI, VARIANTS_ENTRY]));
@@ -588,7 +636,9 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
     const dialog = await cardDialog();
     expect(dialog).toHaveTextContent(SAVING);
-    await user.click(within(dialog).getByRole('button', {name: 'Drop changes'}));
+    // The save takes the edits with it, so the leave answer doesn't say it drops them (R4-8f).
+    expect(within(dialog).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep editing', 'Leave the card']);
+    await user.click(within(dialog).getByRole('button', {name: 'Leave the card'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
 
     // Mei's save still runs, but it was made from her draft: Ming's edit is what the next card change drops.

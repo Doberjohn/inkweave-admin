@@ -11,10 +11,22 @@ export interface LoadAgainOutcome {
    * and every field edit went with the form.
    */
   editable?: boolean;
+  /**
+   * Whether the card opened with its fields before the read (default false).
+   * With `editable` false, the read turned it read-only, so the line says it
+   * can't be edited now, never that it "still" can't (R4-8f).
+   */
+  wasEditable?: boolean;
   /** Whether the draft still holds a field edit once the read lands (default false). */
   edits?: boolean;
   /** Whether a staged image stays (default false). */
   staged?: boolean;
+}
+
+/** The read left the card read-only: it already was, or the read turned an editable card read-only (R4-8f). */
+function readOnlyLine({wasEditable = false}: LoadAgainOutcome): string {
+  if (wasEditable) return "It can't be edited here now, because it holds data the form can't.";
+  return "It still holds data the form can't.";
 }
 
 /** What a read that dropped edits says: every one went with the form, or each whose field changed there. */
@@ -28,12 +40,13 @@ function droppedLine({dropped, editable = true}: LoadAgainOutcome): string {
 }
 
 /**
- * What a read that dropped nothing says: that the card still holds data the
- * form can't (R-65), that every edit still applies, that the staged image
+ * What a read that dropped nothing says: that the card can't be edited here
+ * (R-65, readOnlyLine), that every edit still applies, that the staged image
  * stays, or nothing more when the draft holds none of them (R4-8c).
  */
-function keptLine({editable = true, edits = false, staged = false}: LoadAgainOutcome): string | null {
-  if (!editable) return "It still holds data the form can't.";
+function keptLine(outcome: LoadAgainOutcome): string | null {
+  const {editable = true, edits = false, staged = false} = outcome;
+  if (!editable) return readOnlyLine(outcome);
   if (edits) return 'Every edit still applies.';
   return staged ? 'Your image is still staged.' : null;
 }

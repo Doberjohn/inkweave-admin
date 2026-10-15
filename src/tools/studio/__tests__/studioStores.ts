@@ -9,9 +9,9 @@ import type {useCardDataContext} from '../../../app-bridge';
  *
  * Each page test's app-bridge vi.mock spreads STORE_HOOKS over the real bridge,
  * through `await import('./studioStores')`. This module imports nothing that
- * imports the bridge: a module the factory loads binds to the real bridge, not
- * the mock, so studioHarness.tsx, which renders the page, can't be the one the
- * factory loads.
+ * imports the bridge at run time (the bridge import is type-only): a module the
+ * factory loads binds to the real bridge, not the mock, so studioHarness.tsx,
+ * which renders the page, can't be the one the factory loads.
  */
 
 /** What the studio reads from the shell's card list. */

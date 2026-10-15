@@ -75,6 +75,10 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
+      // The recommended options, plus 'region': a scroll container the keyboard
+      // must reach (WCAG 2.1.1) is a named region with tabIndex={0}, as Card
+      // analytics' rules table is, so it needs no inline disable.
+      'jsx-a11y/no-noninteractive-tabindex': ['error', {tags: [], roles: ['tabpanel', 'region'], allowExpressionValues: true}],
       'react-refresh/only-export-components': ['warn', {allowConstantExport: true}],
       'react-compiler/react-compiler': 'error',
       'no-restricted-syntax': ['error', ...MEMO_BAN],

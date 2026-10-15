@@ -10,10 +10,10 @@ import type {PreviewCardsFile} from './previewCardsFile';
  * serves: allCards.json plus the deployed previewCards.json, read once per
  * session. A card that New reveal publishes, or a /fetch-reveals PR merges,
  * reaches it only once the app deploys, 15 to 20 minutes later
- * (REVEAL_RUNBOOK.md:34), and a rehearsal branch's cards never do. Edit card
- * reads previewCards.json from the target branch itself, so it adds the
- * entries the card list lacks, as R2's rule list adds the tuning.json entries
- * the analytics lack (calibrationModel.ts:67-87).
+ * (REVEAL_RUNBOOK.md, "One card at a time"), and a rehearsal branch's cards
+ * never do. Edit card reads previewCards.json from the target branch itself,
+ * so it adds the entries the card list lacks, as R2's rule list adds the
+ * tuning.json entries the analytics lack (calibrationModel.ts:67-87).
  */
 
 /** What Edit card reads from the shell's card list (useCardDataContext). */
@@ -45,7 +45,9 @@ const NONE: ReadonlySet<number> = new Set();
  * collector number, or the +900..+999 band for a card revealed without one
  * (the app's revealSet.ts:15-22). allCards.json's ids are sequential and stay
  * clear of every Core set's band, so a card-list card with a preview id came
- * from previewCards.json, and any other from allCards.json.
+ * from previewCards.json, and any other from allCards.json. So an image-only
+ * save of such a card checks the file still holds it (commitPreviewCardImage),
+ * whatever its set (R4-8f).
  */
 export function hasPreviewId(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean {
   const offset = Number(card.id) - Number(card.setCode) * 1000;
@@ -54,10 +56,12 @@ export function hasPreviewId(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean
 
 /**
  * Whether the card is a reveal-set card under a preview id: the one kind the
- * branch file decides. Edit opens it only once the file is read, and its
- * image-only save checks the file still holds it (commitPreviewCardImage).
- * Any other card, the reveal set's released ones included (graduation gives
- * them official ids), is allCards.json's, and never waits on the file (R-71).
+ * branch file decides. Edit opens it only once the file is read. Another
+ * set's preview card, during a pin lag, comes from previewCards.json too, but
+ * it opens image-only straight from the card list ('other-set' once the file
+ * is read, R-65). Any other card, the reveal set's released ones included
+ * (graduation gives them official ids), is allCards.json's, and never waits
+ * on the file (R-71).
  */
 export function isRevealPreview(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean {
   return card.setCode === REVEAL_SET_CODE && hasPreviewId(card);

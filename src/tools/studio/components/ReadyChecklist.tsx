@@ -1,12 +1,18 @@
+import type {ReactNode} from 'react';
 import {COLORS, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {MeterBar} from '../../../ui/MeterBar';
 import {Panel} from '../../../ui/Panel';
-import type {ChecklistItem} from '../readiness';
+import type {ChecklistId, ChecklistItem} from '../readiness';
+
+/** A control under an item's message: the way out of what it names. */
+export type ChecklistActions = Partial<Record<ChecklistId, ReactNode>>;
 
 interface ReadyChecklistProps {
   /** revealChecklist's items (R4-3a), in the form's order. An open item carries its message. */
   items: readonly ChecklistItem[];
+  /** New reveal's "Load the card list again", under Collector number while the list has failed (R4-8f). */
+  actions?: ChecklistActions;
 }
 
 // The handoff's 16px round mark and 4px bar (dc.html:256-257).
@@ -59,7 +65,7 @@ const LOOK = {
   },
 } as const;
 
-function ChecklistRow({item}: {item: ChecklistItem}) {
+function ChecklistRow({item, action}: {item: ChecklistItem; action: ReactNode}) {
   const look = item.done ? LOOK.done : LOOK.open;
   return (
     <li style={ROW}>
@@ -69,6 +75,7 @@ function ChecklistRow({item}: {item: ChecklistItem}) {
       <span style={TEXT}>
         <span style={{color: look.label}}>{item.label}</span>
         {item.message && <span style={MESSAGE}>{item.message}</span>}
+        {action}
       </span>
     </li>
   );
@@ -78,16 +85,17 @@ function ChecklistRow({item}: {item: ChecklistItem}) {
  * New reveal's "Ready to publish N/7" (R4-3a's checklist): the count, a bar,
  * then each item with its message while it is open, so the list names what
  * is left. Every item is done exactly when Publish can run. The count prints
- * beside the bar, so the bar is decoration (MeterBar with no label).
+ * beside the bar, so the bar is decoration (MeterBar with no label). An item
+ * may carry a control under its message (`actions`).
  */
-export function ReadyChecklist({items}: ReadyChecklistProps) {
+export function ReadyChecklist({items, actions = {}}: ReadyChecklistProps) {
   const done = items.filter((item) => item.done).length;
   return (
     <Panel title="Ready to publish" action={`${done}/${items.length}`}>
       <MeterBar fraction={done / items.length} color={ADMIN_COLORS.accent} height={BAR_HEIGHT} />
       <ul style={LIST}>
         {items.map((item) => (
-          <ChecklistRow key={item.id} item={item} />
+          <ChecklistRow key={item.id} item={item} action={actions[item.id]} />
         ))}
       </ul>
     </Panel>

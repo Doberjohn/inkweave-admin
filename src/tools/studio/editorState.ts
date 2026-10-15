@@ -150,13 +150,21 @@ export interface Draft {
 /**
  * What a same-card re-seed kept, recorded as its read lands (R4-8c): Load it
  * again's line says what the read left, so an edit made after it never reads
- * as one that "still applies".
+ * as one that "still applies". Discard and Revert image take back what they
+ * drop, so the line never names an edit or an image that has gone since
+ * (R4-8f).
  */
 export interface KeptEdits {
   /** A field edit (hasEdits on the draft's changes). */
   edits: boolean;
   /** A staged image. */
   staged: boolean;
+  /**
+   * The card opened with its fields before the read (R4-8f): a read that
+   * leaves it read-only says it "still" holds data the form can't only when
+   * it already did.
+   */
+  wasEditable: boolean;
 }
 
 /** What the draft opens with: the fields of an editable entry, the reason for any other card, null while it waits. */
@@ -271,11 +279,21 @@ export function patchDraft(draft: Draft, patch: Partial<RevealCardForm>): Draft 
   return {...draft, edit: {...fields, form}};
 }
 
-/** The form as loaded, and no image (Discard). */
+/** What the last re-read kept, less what an action has just dropped; nothing for a draft no re-read landed on. */
+function keptLess(draft: Draft, gone: Partial<KeptEdits>): Pick<Draft, 'kept'> {
+  return draft.kept ? {kept: {...draft.kept, ...gone}} : {};
+}
+
+/** The form as loaded, and no image (Discard): the last re-read's line no longer says either stays. */
 export function discardDraft(draft: Draft): Draft {
   const fields = fieldsOf(draft);
   const edit = fields === null ? draft.edit : {...fields, form: fields.before};
-  return {...draft, edit, image: null};
+  return {...draft, edit, image: null, ...keptLess(draft, {edits: false, staged: false})};
+}
+
+/** No staged image (Revert image): the last re-read's line no longer says one stays. */
+export function revertDraftImage(draft: Draft): Draft {
+  return {...draft, image: null, ...keptLess(draft, {staged: false})};
 }
 
 /** The draft with this image staged, if it is still the draft it was chosen in. */

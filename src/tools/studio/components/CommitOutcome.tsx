@@ -28,12 +28,16 @@ interface CommitOutcomeProps {
    */
   editable?: boolean;
   /**
-   * What the draft held as that read landed (R4-8c): a field edit, and a
-   * staged image. The line says "Every edit still applies." only with an edit
-   * left, and that the image stays only with one staged.
+   * What the draft held as that read landed (R4-8c), less what Discard or
+   * Revert image dropped since (R4-8f): a field edit, and a staged image. The
+   * line says "Every edit still applies." only with an edit left, and that the
+   * image stays only with one staged. `wasEditable`: the card opened with its
+   * fields before the read, so a read that left it read-only says it can't be
+   * edited now, not that it still can't.
    */
   edits?: boolean;
   staged?: boolean;
+  wasEditable?: boolean;
   /** Reads the card again after a stale refusal (R-68). The page passes it for that failure only. */
   onLoadAgain?: () => void;
   /** Forgets the saved token: offered when GitHub rejected it (a 401) only, and only when given (R-26). */
@@ -71,8 +75,12 @@ function Committed({commitUrl, note}: {commitUrl: string; note: string}) {
   );
 }
 
-type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note' | 'editable' | 'edits' | 'staged'> & {
+/** What the status line says a "Load it again" left: CommitOutcomeProps' re-read fields, as loadAgainNote takes them. */
+type KeptProps = Pick<CommitOutcomeProps, 'editable' | 'edits' | 'staged' | 'wasEditable'>;
+
+type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note'> & {
   dropped: number | null;
+  kept: KeptProps;
 };
 
 /**
@@ -80,11 +88,11 @@ type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note' | 'editable' |
  * arrives: a live region mounted with its text often isn't (R2's tray). It
  * holds a landed commit, else what the last "Load it again" kept.
  */
-function StatusLine({result, note, dropped, editable, edits, staged}: StatusLineProps) {
-  const kept = dropped === null ? null : loadAgainNote({dropped, editable, edits, staged});
+function StatusLine({result, note, dropped, kept}: StatusLineProps) {
+  const line = dropped === null ? null : loadAgainNote({dropped, ...kept});
   return (
     <p role="status" tabIndex={-1} style={result ? SUCCESS : NOTE}>
-      {result ? <Committed commitUrl={result.commitUrl} note={note} /> : kept}
+      {result ? <Committed commitUrl={result.commitUrl} note={note} /> : line}
     </p>
   );
 }
@@ -127,19 +135,17 @@ export function CommitOutcome({
   error,
   note,
   dropped = null,
-  editable,
-  edits,
-  staged,
   onLoadAgain,
   onForgetToken,
   handoff,
+  ...kept
 }: CommitOutcomeProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   useTakeHandoff(handoff, rootRef, FOCUS_TARGET, outcomeShows({result, error, dropped}));
   return (
     <div ref={rootRef} style={COLUMN}>
       {error !== null && <CommitFailure error={error} onLoadAgain={onLoadAgain} onForgetToken={onForgetToken} />}
-      <StatusLine result={result} note={note} dropped={dropped} editable={editable} edits={edits} staged={staged} />
+      <StatusLine result={result} note={note} dropped={dropped} kept={kept} />
     </div>
   );
 }

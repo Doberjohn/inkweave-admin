@@ -1,6 +1,8 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import type {FocusHandoff} from '../../shell/focusHandoff';
+import {revealForm} from '../../test/revealForm';
 import type {RevealAdminController} from '../reveal/useRevealAdmin';
+import {validateRevealCardForm} from '../reveal/validateForm';
 import {NewRevealPane} from './NewRevealPane';
 import {revealController} from './studioFixtures';
 import type {StudioLayout} from './studioLayout';
@@ -52,6 +54,24 @@ export const RejectedToken: Story = {
     ctrl: revealController({
       dirty: true,
       commitError: 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}',
+    }),
+  },
+};
+
+const LIST_FAILED_FORM = revealForm();
+
+/**
+ * A valid card while the card list has failed to load (R4-8f): Collector
+ * number stays open, saying why, with "Load the card list again" under it,
+ * and Identity's dot stays incomplete. The scan is still to come.
+ */
+export const CardListFailed: Story = {
+  args: {
+    ctrl: revealController({
+      dirty: true,
+      form: LIST_FAILED_FORM,
+      validation: validateRevealCardForm(LIST_FAILED_FORM, new Set(), null),
+      cardList: {isLoading: false, error: new Error('Failed to fetch local cards: 500')},
     }),
   },
 };

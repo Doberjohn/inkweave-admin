@@ -126,6 +126,16 @@ describe('studioUnsavedQuestion (R4-8c)', () => {
     });
   });
 
+  // R4-8f: where the line says the change drops nothing, the leave answer doesn't say it drops changes.
+  it.each([
+    {why: 'its save landed while the dialog was open', drafts: REVEAL, busy: CLEAN, says: SAVED_CARD, leave: 'Leave the card'},
+    {why: 'its own save is in flight', drafts: EDIT, busy: EDIT, says: SAVING, leave: 'Leave the card'},
+    {why: "only New reveal's publish is in flight", drafts: BOTH, busy: REVEAL, says: UNSAVED_CARD, leave: 'Drop changes'},
+  ])('answers a card change in words that fit when $why', ({drafts, busy, says, leave}) => {
+    const change = {from: at('/studio?mode=edit&card=1'), to: at('/studio?mode=edit&card=2'), drafts, busy};
+    expect(studioUnsavedQuestion(change)).toEqual({title: 'Leave this card?', message: says, stay: 'Keep editing', leave});
+  });
+
   it.each([
     {where: 'the Overview', to: '/', says: UNSAVED},
     {where: 'Card analytics', to: '/cards/1', says: UNSAVED},

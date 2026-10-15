@@ -14,7 +14,7 @@ import {useRevealAdmin, type RevealAdminController} from '../useRevealAdmin';
 vi.mock('../../../github/useGithubToken', () => ({
   useGithubToken: () => ({token: 'tok', setToken: () => {}, clearToken: () => {}}),
 }));
-const cardList = vi.hoisted(() => ({cards: [] as LorcanaCard[], isLoading: false, error: null as Error | null}));
+const cardList = vi.hoisted(() => ({cards: [] as LorcanaCard[], isLoading: false, error: null as Error | null, retryLoad: vi.fn()}));
 vi.mock('../../../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../app-bridge')>()),
   useCardDataContext: () => cardList,
@@ -48,6 +48,7 @@ beforeEach(() => {
   vi.stubGlobal('FileReader', DeferredReader);
   Object.assign(cardList, {cards: [], isLoading: false, error: null});
   // mockReset, not clearAllMocks: it also drops the last test's implementations.
+  cardList.retryLoad.mockReset();
   commitNewCard.mockReset();
   commitNewCard.mockResolvedValue(COMMIT);
 });
@@ -179,6 +180,15 @@ describe('useRevealAdmin', () => {
     await reach(result);
     expect(result.current.canPublish).toBe(publishable);
     expect(checklistDone(result.current)).toBe(publishable);
+  });
+
+  it("loads a failed card list again through the list's own retry, keeping the draft (R4-8f)", () => {
+    cardList.error = new Error('Failed to fetch local cards: 500');
+    const {result} = renderHook(() => useRevealAdmin());
+    fill(result);
+    act(() => result.current.retryCardList());
+    expect(cardList.retryLoad).toHaveBeenCalledOnce();
+    expect(result.current.form.name).toBe('Mei');
   });
 
   describe('dirty', () => {

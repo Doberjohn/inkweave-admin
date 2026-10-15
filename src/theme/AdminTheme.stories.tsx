@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {MemoryRouter, NavLink} from 'react-router-dom';
 import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING} from '../app-bridge';
 import {useHiddenFileInput} from '../components/useHiddenFileInput';
+import {PICK_MIN_WIDTH} from '../tools/studio/studioStyles';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS, ADMIN_TYPE} from './adminTheme';
 
 type ColorKey = keyof typeof ADMIN_COLORS;
@@ -257,7 +258,12 @@ export const Controls: Story = {render: () => <ControlsDemo />};
 // Card studio's controls (R4-5a), before the studio's own components use them.
 const ROW: React.CSSProperties = {display: 'flex', flexWrap: 'wrap', gap: SPACING.xs};
 const INLINE: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.sm, fontSize: ADMIN_TYPE.body};
-const PICK_GRID: React.CSSProperties = {display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))', gap: SPACING.xs};
+// The studio's own pick width, as PickerGroup and InkwellPicker lay their grids out.
+const PICK_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: `repeat(auto-fill, minmax(${PICK_MIN_WIDTH}px, 1fr))`,
+  gap: SPACING.xs,
+};
 const PILL: React.CSSProperties = {
   margin: SPACING.md,
   padding: `${SPACING.xs}px ${SPACING.md}px`,
@@ -353,7 +359,10 @@ function PickDemo() {
           </button>
         ))}
       </div>
-      <div role="group" aria-label="Inkwell" style={{...PICK_GRID, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 112px), 1fr))'}}>
+      <div
+        role="group"
+        aria-label="Inkwell"
+        style={{...PICK_GRID, gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${PICK_MIN_WIDTH}px), 1fr))`}}>
         {INKWELLS.map(({value, label}) => (
           <button
             key={value}

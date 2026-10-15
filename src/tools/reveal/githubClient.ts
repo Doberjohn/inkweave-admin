@@ -109,7 +109,11 @@ export interface CardEditCommit {
   token: string;
   /** The entry as the editor loaded it (readPreviewCards), or as its last save left it. */
   loaded: LorcanaJSONCard;
-  /** At least one change (replaceCardInPreviewJson refuses none): a new image alone goes through commitCardImage. */
+  /**
+   * At least one change (replaceCardInPreviewJson refuses none). A new image
+   * alone goes through commitCardImage, or for a card under a preview id
+   * through commitPreviewCardImage, which checks the file still holds it.
+   */
   changes: PreviewCardChanges;
   /** A staged scan: useImageUpload's data URL (or raw base64) and its extension (jpg, jpeg, png or webp). */
   image: {dataUrl: string; ext: string} | null;

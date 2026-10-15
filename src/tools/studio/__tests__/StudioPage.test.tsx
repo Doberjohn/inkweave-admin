@@ -5,7 +5,7 @@ import {lorcanaCard} from '../../analytics/cards/cardFixtures';
 import {STUDIO_SUBTITLE} from '../studioCopy';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {TOKEN_KEY, dropFocusToBody, fillNewCard, renderStudio, setCardList, stubFetch} from './studioHarness';
-import {measured} from './studioStores';
+import {cardList, measured} from './studioStores';
 
 // Every GitHub read stays real against the fetch stub; only New reveal's commit is faked.
 vi.mock('../../reveal/githubClient', async (importOriginal) => ({
@@ -239,6 +239,23 @@ describe('StudioPage: New reveal', () => {
       "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.",
     );
     expect(dialog).not.toHaveTextContent('drops it');
+  });
+
+  it('loads a failed card list again from the checklist, keeping the draft, and hands focus to the form (R4-8f, R-48)', async () => {
+    const retryLoad = vi.fn();
+    setCardList({cards: [], error: new Error('Failed to fetch local cards: 500')});
+    Object.assign(cardList.value ?? {}, {retryLoad});
+    const {user} = renderStudio();
+    await user.type(nameField(), 'Mei');
+    const checklist = within(screen.getByRole('region', {name: 'Ready to publish'}));
+    await user.click(checklist.getByRole('button', {name: 'Load the card list again'}));
+    expect(retryLoad).toHaveBeenCalledOnce();
+
+    // The list's retry clears its error as its read starts (the app's useCardData), and the control goes with it.
+    setCardList({cards: [ELSA], isLoading: true});
+    await waitFor(() => expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus());
+    expect(checklist.queryByRole('button', {name: 'Load the card list again'})).not.toBeInTheDocument();
+    expect(nameField()).toHaveValue('Mei');
   });
 
   it('forgets a token GitHub rejects only once asked, then hands focus to the gate (R-26, R-84)', async () => {

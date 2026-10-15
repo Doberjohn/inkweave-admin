@@ -95,7 +95,6 @@ function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
     <div
       role="region"
       aria-label="Rules table"
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll container the keyboard must reach, as the rule's docs advise
       tabIndex={0}
       className="adm-scroll-region"
       style={SCROLLER}>
