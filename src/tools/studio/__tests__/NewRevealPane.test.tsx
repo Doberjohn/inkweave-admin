@@ -54,6 +54,22 @@ describe('NewRevealPane', () => {
     expect(handoff.request).toHaveBeenCalledOnce();
   });
 
+  it('asks for nothing when the publish lands after a switch to Edit card took the pane away (R-59)', async () => {
+    let land: () => void = () => {};
+    const publish = vi.fn(() => new Promise<void>((resolve) => (land = resolve)));
+    const handoff = handoffOf();
+    const user = userEvent.setup();
+    const {unmount} = render(
+      <NewRevealPane ctrl={revealController({canPublish: true, publish})} layout="wide" handoff={handoff} onForgetToken={vi.fn()} />,
+    );
+    await user.click(publishButton());
+    // The workspace renders this pane only in New reveal, so a switch unmounts it.
+    unmount();
+
+    await act(async () => land());
+    expect(handoff.request).not.toHaveBeenCalled();
+  });
+
   it("gives the form Save token's pending handoff while no outcome shows", () => {
     const {handoff} = renderPane({handoff: handoffOf({pending: true})});
     expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus();
@@ -67,11 +83,18 @@ describe('NewRevealPane', () => {
 
   it('shows a refused scan under the card panel, never as the outcome', () => {
     const validation = validateRevealCardForm(revealForm(), new Set(), 'mei.png');
-    renderPane({ctrl: {imageName: 'mei.png', uploadError: 'Not a PNG', validation}});
+    // The controller's imageError (R4-3b's imageErrorOf) is what the panel shows: here, the upload's own error.
+    renderPane({ctrl: {imageName: 'mei.png', uploadError: 'Not a PNG', imageError: 'Not a PNG', validation}});
     expect(panel().getByText('Not a PNG')).toBeInTheDocument();
     // The checklist's Image item words it too (R4-3a); the outcome under Publish stays empty.
     expect(aside().queryByRole('alert')).not.toBeInTheDocument();
     expect(aside().getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it("shows the controller's image error under the card panel, as the Edit pane does, never working it out again", () => {
+    const BAD_BYTES = 'mei.png holds a JPEG image; rename it to end in .jpg.';
+    renderPane({ctrl: {imageName: 'mei.png', imageError: BAD_BYTES}});
+    expect(panel().getByText(BAD_BYTES)).toBeInTheDocument();
   });
 
   it("keeps a fresh draft's missing scan out of the card panel: the checklist names it (R-72)", () => {

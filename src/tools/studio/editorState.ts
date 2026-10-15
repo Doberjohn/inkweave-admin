@@ -143,6 +143,20 @@ export interface Draft {
    * missing, R-66; needsSeed). Unset until one lands on this draft.
    */
   dropped?: number;
+  /** What that re-seed kept, set with `dropped`. */
+  kept?: KeptEdits;
+}
+
+/**
+ * What a same-card re-seed kept, recorded as its read lands (R4-8c): Load it
+ * again's line says what the read left, so an edit made after it never reads
+ * as one that "still applies".
+ */
+export interface KeptEdits {
+  /** A field edit (hasEdits on the draft's changes). */
+  edits: boolean;
+  /** A staged image. */
+  staged: boolean;
 }
 
 /** What the draft opens with: the fields of an editable entry, the reason for any other card, null while it waits. */

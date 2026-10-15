@@ -6,6 +6,7 @@ import {
   studioCardOf,
   studioModeOf,
   studioUnsavedMessage,
+  studioUnsavedQuestion,
 } from '../studioPaths';
 
 // A URL has the pathname and search a router Location has.
@@ -87,12 +88,18 @@ const UNSAVED_CARD = "Your changes to this card aren't saved yet. Leaving the ca
 const SAVED_CARD = 'Your changes to this card are saved. Leaving the card drops nothing.';
 const PUBLISHING = "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
 const SAVING = "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
+// R4-8c: both drafts in one sentence, so "Leaving Card studio drops" isn't said twice.
+const UNSAVED_BOTH =
+  "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
 
 describe('studioUnsavedMessage', () => {
   it.each([
     {why: 'leaving names the New reveal draft', from: '/studio', to: '/', drafts: REVEAL, busy: CLEAN, says: UNPUBLISHED},
     {why: 'leaving names the Edit draft', from: '/studio?mode=edit&card=1', to: '/cards/1', drafts: EDIT, busy: CLEAN, says: UNSAVED},
-    {why: 'leaving names both drafts, New reveal first', from: '/studio?card=1', to: '/', drafts: BOTH, busy: CLEAN, says: `${UNPUBLISHED} ${UNSAVED}`},
+    {why: 'leaving names both drafts in one sentence, New reveal first', from: '/studio?card=1', to: '/', drafts: BOTH, busy: CLEAN, says: UNSAVED_BOTH},
+    // StudioWorkspace passes Edit's busy only for a save made from the draft on screen (R4-8c): one left running on
+    // another card isn't this card's, so the card's own edits are what the change drops.
+    {why: 'a card change after leaving a save on another card names the edits', from: '/studio?mode=edit&card=2', to: '/studio?mode=edit&card=3', drafts: EDIT, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'another card names only the Edit draft', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: BOTH, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'the search names only the Edit draft', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit', drafts: BOTH, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'a publish in flight takes the shared line', from: '/studio', to: '/', drafts: REVEAL, busy: REVEAL, says: PUBLISHING},
@@ -105,6 +112,26 @@ describe('studioUnsavedMessage', () => {
     {why: 'a card change held past its save says nothing is left to drop', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: REVEAL, busy: CLEAN, says: SAVED_CARD},
   ])('$why', ({from, to, drafts, busy, says}) => {
     expect(studioUnsavedMessage({from: at(from), to: at(to), drafts, busy})).toBe(says);
+  });
+});
+
+describe('studioUnsavedQuestion (R4-8c)', () => {
+  it('asks about the card on a card change, which stays on the page', () => {
+    const leave = {from: at('/studio?mode=edit&card=1'), to: at('/studio?mode=edit&card=2'), drafts: EDIT, busy: CLEAN};
+    expect(studioUnsavedQuestion(leave)).toEqual({
+      title: 'Leave this card?',
+      message: UNSAVED_CARD,
+      stay: 'Keep editing',
+      leave: 'Drop changes',
+    });
+  });
+
+  it.each([
+    {where: 'the Overview', to: '/', says: UNSAVED},
+    {where: 'Card analytics', to: '/cards/1', says: UNSAVED},
+  ])("leaves a way out to $where in the guard's own words: the line alone", ({to, says}) => {
+    const leave = {from: at('/studio?mode=edit&card=1'), to: at(to), drafts: EDIT, busy: CLEAN};
+    expect(studioUnsavedQuestion(leave)).toBe(says);
   });
 });
 

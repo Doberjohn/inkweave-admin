@@ -3,7 +3,7 @@ import type {CommitResult} from '../../github/githubCommit';
 import {commitCardImage} from '../image/githubClient';
 import {commitCardEdit, commitPreviewCardImage} from '../reveal/githubClient';
 import {mergeCardChanges} from '../reveal/replaceCardInPreviewJson';
-import type {Draft} from './editorState';
+import type {Draft, KeptEdits} from './editorState';
 import {
   failureOf,
   imageSent,
@@ -42,10 +42,21 @@ export interface EditSaveInput extends SaveInput {
 export interface EditSave extends OutcomeFields {
   /** Nothing is saving, and savePlanOf has a commit to make. */
   canSave: boolean;
+  /** A save is running, whichever card it was made from: no other starts until it settles. */
   saving: boolean;
+  /**
+   * A save made from the draft on screen is running (R-69): what the guard
+   * words as a save in flight. One left running on another card isn't this
+   * draft's, so the guard names this draft's own edits instead (R4-8c).
+   */
+  savingThisDraft: boolean;
   /** Settles once the commit lands or fails; the outcome says which. */
   save: () => Promise<void>;
-  /** After a 'stale' failure: read the file again. Resolves true once that read lands and re-seeds the draft (R-68). */
+  /**
+   * Reads the file again and re-seeds the draft, keeping what still applies
+   * (R-68): Load it again after a 'stale' failure, and the image-only view's
+   * "Read previewCards.json again" (R-65). Resolves true once that read lands.
+   */
   loadAgain: () => Promise<boolean>;
   /**
    * How many edits the last Load it again dropped (R-68), or the read that left
@@ -53,6 +64,8 @@ export interface EditSave extends OutcomeFields {
    * this card, and again once a save starts.
    */
   dropped: number | null;
+  /** What that read kept (a field edit, a staged image), as it landed; null whenever `dropped` is. */
+  kept: KeptEdits | null;
 }
 
 /** The commit the plan makes: an image alone checks the branch file when the plan says so (savePlanOf). */
@@ -88,9 +101,9 @@ function outcomeFor({outcome, draft}: {outcome: Outcome | null; draft: Draft}): 
   return {result, saveError, failure};
 }
 
-/** The draft without its "Load it again" count, once a save starts. */
+/** The draft without what its last "Load it again" did, once a save starts. */
 function withoutDropped(draft: Draft): Draft {
-  return {...draft, dropped: undefined};
+  return {...draft, dropped: undefined, kept: undefined};
 }
 
 /**
@@ -104,13 +117,15 @@ function withoutDropped(draft: Draft): Draft {
  */
 export function useEditSave(input: EditSaveInput): EditSave {
   const {draft, setDraft, file} = input;
-  const [saving, setSaving] = useState(false);
+  // The running save's seed: the draft it was made from, or null while none runs.
+  const [running, setRunning] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const saving = running !== null;
   const plan = saving ? null : savePlanOf(input);
 
   async function save(): Promise<void> {
     if (!plan) return;
-    setSaving(true);
+    setRunning(plan.seed);
     setOutcome(null);
     setDraft(withoutDropped);
     try {
@@ -121,7 +136,7 @@ export function useEditSave(input: EditSaveInput): EditSave {
       const {failure, message} = failureOf(e);
       setOutcome({...NO_OUTCOME, seed: plan.seed, saveError: message, failure});
     } finally {
-      setSaving(false);
+      setRunning(null);
     }
   }
 
@@ -131,5 +146,14 @@ export function useEditSave(input: EditSaveInput): EditSave {
     return file.reload().then((cards) => cards !== null);
   }
 
-  return {canSave: plan !== null, saving, save, loadAgain, dropped: draft.dropped ?? null, ...outcomeFor({outcome, draft})};
+  return {
+    canSave: plan !== null,
+    saving,
+    savingThisDraft: running === draft.seed,
+    save,
+    loadAgain,
+    dropped: draft.dropped ?? null,
+    kept: draft.kept ?? null,
+    ...outcomeFor({outcome, draft}),
+  };
 }

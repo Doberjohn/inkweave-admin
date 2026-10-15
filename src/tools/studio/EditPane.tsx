@@ -1,6 +1,8 @@
 import {useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, useCardDataContext} from '../../app-bridge';
+import {CtaButton, SPACING, useCardDataContext} from '../../app-bridge';
+import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
+import {isRejectedToken} from '../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
 import {Notice} from '../../ui/Notice';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
@@ -15,7 +17,7 @@ import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
 import {StudioSlots} from './components/StudioSlots';
 import {SynergyPanel} from './components/SynergyPanel';
-import type {EditLookup} from './editorState';
+import type {EditLookup, PreviewFileView} from './editorState';
 import {searchCards} from './editSearch';
 import {editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
@@ -37,6 +39,8 @@ const SAVE: CSSProperties = {width: '100%'};
 const FACTS_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
 const LINE: CSSProperties = {margin: 0};
+// A read error over its way out, spaced as the search's is.
+const FILE_ERROR: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
 
 export interface EditPaneProps {
   edit: CardEditorController;
@@ -204,13 +208,22 @@ function EditForm({edit, ready, layout, handoff}: Pick<PartProps, 'edit' | 'hand
 }
 
 /**
- * previewCards.json's failed read while a card is open, in the search's words
- * (EditSearch). A Load it again whose read fails leaves the refusal and its
- * button in place (R4-4c), so this says why the press changed nothing.
+ * A failed re-read of previewCards.json while a card is open, in the search's
+ * words (EditSearch): Load it again, or the image-only view's "Read
+ * previewCards.json again". Either leaves its button in place (R4-4c), so this
+ * says why the press changed nothing, and offers Forget token when GitHub
+ * rejected the token (R-26), as the search does. A failed first read is the
+ * search's to show: a card open through it doesn't need the file (R-71).
  */
-function FileError({error}: {error: string | null}) {
+function FileError({file, onForgetToken}: {file: PreviewFileView; onForgetToken: () => void}) {
+  const error = file.status === 'ready' ? file.error : null;
   if (error === null) return null;
-  return <Notice tone="error">Could not read previewCards.json: {error}.</Notice>;
+  return (
+    <div style={FILE_ERROR}>
+      <Notice tone="error">Could not read previewCards.json: {error}.</Notice>
+      {isRejectedToken(error) && <ForgetTokenOffer onForget={onForgetToken} />}
+    </div>
+  );
 }
 
 /**
@@ -238,11 +251,13 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
         note={editNote(edit.result)}
         dropped={edit.dropped}
         editable={edit.form !== null}
+        edits={edit.kept?.edits}
+        staged={edit.kept?.staged}
         onLoadAgain={edit.failure === 'stale' ? askWhenLanded(edit.loadAgain, handoff) : undefined}
         onForgetToken={onForgetToken}
         handoff={handoff}
       />
-      <FileError error={edit.previewFile.error} />
+      <FileError file={edit.previewFile} onForgetToken={onForgetToken} />
     </aside>
   );
 }

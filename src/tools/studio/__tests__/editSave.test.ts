@@ -195,4 +195,30 @@ describe('reseeded', () => {
   it("keeps the same card's edits on its newer read (R-68)", () => {
     expect(reseeded({draft: typed, cardId: MEI.id, lookup, file})).toMatchObject({seed: 4, read: 2, image: FILE, dropped: 0, edit: {form: {name: 'Mei Lee'}}});
   });
+
+  // R4-8c: Load it again's line says what the read left, so the re-seed records it as it lands, not as edits come after.
+  it.each([
+    {what: 'an edit and an image', from: typed, kept: {edits: true, staged: true}},
+    {what: 'an image alone', from: draft({image: FILE}), kept: {edits: false, staged: true}},
+    {what: 'nothing', from: draft(), kept: {edits: false, staged: false}},
+  ])('records that the read kept $what', ({from, kept}) => {
+    expect(reseeded({draft: from, cardId: MEI.id, lookup, file})).toMatchObject({dropped: 0, kept});
+  });
+
+  it('records that a read leaving the card out of the file kept nothing, the image included (R-66)', () => {
+    const gone = {kind: 'gone' as const, card: MEI};
+    expect(reseeded({draft: typed, cardId: MEI.id, lookup: gone, file})).toMatchObject({
+      image: null,
+      dropped: 1,
+      kept: {edits: false, staged: false},
+    });
+  });
+
+  it('records nothing for another card, or for a first read: neither had a draft to keep', () => {
+    const priya = cardOf(DUAL_INK_ENTRY);
+    const next = {kind: 'ready' as const, card: priya, entry: DUAL_INK_ENTRY, imageOnly: null};
+    expect(reseeded({draft: typed, cardId: priya.id, lookup: next, file})).not.toHaveProperty('kept');
+    const waiting = draft({read: null, follow: true, edit: null});
+    expect(reseeded({draft: waiting, cardId: MEI.id, lookup, file})).not.toHaveProperty('kept');
+  });
 });

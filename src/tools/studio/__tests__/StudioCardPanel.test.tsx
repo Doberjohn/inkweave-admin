@@ -128,6 +128,25 @@ describe('StudioCardPanel', () => {
     expect(screen.getByText(BAD_BYTES).parentElement).toHaveAttribute('aria-live', 'polite');
   });
 
+  // R4-8c: the file input empties itself after a pick, and its name doesn't change, so only the region speaks.
+  it.each<{mode: StudioMode; note: string}>([
+    {mode: 'edit', note: 'New image staged (mei.png). It replaces the current art when you save.'},
+    {mode: 'new', note: "Scan staged (mei.png). It's published with the card."},
+  ])('$mode: announces the staged note through the polite region mounted before the pick', ({mode, note}) => {
+    const {props, rerender} = renderPanel({mode, card: CURRENT, current: mode === 'edit' ? CURRENT : null});
+    // The panel's one region: the preview's art draws a skeleton with a polite region of its own, inside aria-hidden.
+    const [region, ...more] = [...document.querySelectorAll('[aria-live="polite"]')].filter(
+      (element) => !element.closest('[aria-hidden="true"]'),
+    );
+    expect(more).toEqual([]);
+    expect(region).toBeEmptyDOMElement();
+
+    rerender(<StudioCardPanel {...props} card={STAGED_CARD} staged={STAGED} />);
+    expect(screen.getByText(note).closest('[aria-live="polite"]')).toBe(region);
+    // The thumbnail beside it isn't read out with it: the note says what changed.
+    expect(region).not.toContainElement(screen.queryByRole('img', {name: /^Current art for/}));
+  });
+
   it.each<{label: string; props: Partial<StudioCardPanelProps>; expected: ReturnType<typeof shown>}>([
     {label: 'New, nothing chosen', props: {}, expected: {note: null, revert: false, replace: false, current: null}},
     {

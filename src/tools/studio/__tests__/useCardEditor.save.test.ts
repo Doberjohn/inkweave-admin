@@ -235,9 +235,23 @@ describe('useCardEditor: when Save is on', () => {
 
     const commit = deferred(commitCardEdit);
     act(() => void editor.result.current.save());
-    expect(editor.result.current).toMatchObject({saving: true, canSave: false});
+    expect(editor.result.current).toMatchObject({saving: true, savingThisDraft: true, canSave: false});
     await commit.finish(COMMIT);
-    expect(editor.result.current.saving).toBe(false);
+    expect(editor.result.current).toMatchObject({saving: false, savingThisDraft: false});
+  });
+
+  // R4-8c: `saving` spans cards, so no save starts while one runs; the guard's in-flight line is the draft's own.
+  it("holds Save back on the next card while the last card's save runs, which isn't that draft's", async () => {
+    const editor = await openEditor(MEI);
+    const commit = deferred(commitCardEdit);
+    act(() => editor.result.current.patchForm({cost: '5'}));
+    act(() => void editor.result.current.save());
+    editor.rerender({cardId: PRIYA});
+    act(() => editor.result.current.patchForm({name: 'Priya Lee'}));
+
+    expect(editor.result.current).toMatchObject({saving: true, savingThisDraft: false, canSave: false, dirty: true});
+    await commit.finish(COMMIT);
+    expect(editor.result.current).toMatchObject({saving: false, canSave: true});
   });
 
   it("holds a field edit back until its staged image's bytes are read", async () => {
@@ -372,13 +386,20 @@ describe('useCardEditor: failures and reading again', () => {
     const {read, loaded} = loadAgain(editor);
     // Nothing moves until the read lands.
     expect(await settled(loaded)).toBe(false);
-    expect(editor.result.current).toMatchObject({failure: 'stale', form: {cost: '5'}, dropped: null});
+    expect(editor.result.current).toMatchObject({failure: 'stale', form: {cost: '5'}, dropped: null, kept: null});
 
     // Someone changed Mei's cost on the branch; her name is as it was.
     const fresh = {...PREVIEW_ENTRY, cost: 6};
     await read.finish([fresh, DUAL_INK_ENTRY, JA_SCAN_ENTRY]);
     await expect(loaded).resolves.toBe(true);
-    expect(editor.result.current).toMatchObject({failure: null, saveError: null, dropped: 1, form: {name: 'Mei Lee', cost: '6'}, imageName: 'mei.png'});
+    expect(editor.result.current).toMatchObject({
+      failure: null,
+      saveError: null,
+      dropped: 1,
+      kept: {edits: true, staged: true},
+      form: {name: 'Mei Lee', cost: '6'},
+      imageName: 'mei.png',
+    });
     expect(changed(editor)).toEqual(expect.arrayContaining(['name', 'image']));
     expect(changed(editor)).not.toContain('cost');
 
@@ -386,7 +407,7 @@ describe('useCardEditor: failures and reading again', () => {
     expect(commitCardEdit).toHaveBeenLastCalledWith(
       expect.objectContaining({loaded: fresh, changes: {name: 'Mei Lee', fullName: 'Mei Lee - Red Panda'}}),
     );
-    expect(editor.result.current.dropped).toBeNull();
+    expect(editor.result.current).toMatchObject({dropped: null, kept: null});
   });
 
   it("Load it again after a landed save waits for its own read, not the save's", async () => {

@@ -51,7 +51,10 @@ export interface CardEditorController extends EditSave {
    * read, or a later read's reloadError). Resolves as retryReads says.
    */
   retry: () => Promise<boolean>;
-  /** previewCards.json for the search, whatever card is open (R-71); `reload` reads it again. */
+  /**
+   * previewCards.json as read, whatever card is open (R-71): the search's tags
+   * and file error, and the open card's failed re-read; `reload` reads it again.
+   */
   previewFile: PreviewFileView & {reload: () => void};
   /** The open card's tag, as the search tags it (cardTag); null until it is ready. */
   tag: CardTag | null;

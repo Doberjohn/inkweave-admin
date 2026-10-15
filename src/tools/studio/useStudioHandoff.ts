@@ -23,20 +23,33 @@ export function asksForFocus(before: StudioWatch, now: StudioWatch & {replaced: 
 }
 
 /**
+ * Where the page starts watching from: no card, when another page's link
+ * pushed it here, as Card analytics starts (#34). That link went with its
+ * page, so the card it opens takes focus ("Edit in Card studio", R-82). A
+ * load, Back or a redirect starts from what the URL names, and asks for
+ * nothing.
+ */
+function arrival(watched: StudioWatch, navigation: NavigationType): StudioWatch {
+  return navigation === NavigationType.Push ? {cardId: null, failed: false} : watched;
+}
+
+/**
  * Card studio's one focus handoff (R-59, R-48). StudioPage holds it, above the
  * gate, so Save token can ask for it before the workspace mounts. It also asks
  * when the URL's card changes and when the card list's Retry lands: during
  * render, from what it saw last, as Card analytics' useCardHandoff does
- * (CardAnalyticsPage.tsx:41-50). Never in a click handler: a router link's
+ * (CardAnalyticsPage.tsx:41-50), and from no card when another page's link
+ * opened the studio (arrival). Never in a click handler: a router link's
  * navigation renders as a transition, so the old card's view would take a
  * request made on click. The view that replaces the control that went takes
  * it, and moves focus only if focus fell to <body> (useTakeHandoff).
  */
 export function useStudioHandoff(): FocusHandoff {
   const handoff = useFocusHandoff();
-  const replaced = useNavigationType() === NavigationType.Replace;
+  const navigation = useNavigationType();
+  const replaced = navigation === NavigationType.Replace;
   const watched: StudioWatch = {cardId: studioCardOf(useLocation()), failed: useCardDataContext().error !== null};
-  const [seen, setSeen] = useState(watched);
+  const [seen, setSeen] = useState(() => arrival(watched, navigation));
   if (seen.cardId !== watched.cardId || seen.failed !== watched.failed) {
     setSeen(watched);
     if (asksForFocus(seen, {...watched, replaced})) handoff.request();

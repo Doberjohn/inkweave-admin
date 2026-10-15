@@ -18,7 +18,7 @@ import {
   shouldBlockStudioNavigation,
   studioCardOf,
   studioModeOf,
-  studioUnsavedMessage,
+  studioUnsavedQuestion,
   type StudioDrafts,
 } from './studioPaths';
 import {STUDIO_GRID} from './studioStyles';
@@ -74,7 +74,8 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
   const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
-  const busy = {reveal: ctrl.publishing, edit: edit.saving};
+  // Edit's save only while it was made from the draft on screen: one left running on another card isn't this card's.
+  const busy = {reveal: ctrl.publishing, edit: edit.savingThisDraft};
   const forgetToken = useForgetToken({drafts, handoff});
   useReloadAfterPublish({published: ctrl.result, reload: edit.reloadFile});
 
@@ -98,7 +99,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
       <UnsavedChangesGuard
         dirty={drafts.reveal || drafts.edit}
         leaves={(from, to) => shouldBlockStudioNavigation(from, to, drafts)}
-        message={(to) => studioUnsavedMessage({from: location, to, drafts, busy})}
+        message={(to) => studioUnsavedQuestion({from: location, to, drafts, busy})}
       />
       <div ref={rootRef} style={STUDIO_GRID[layout]}>
         {mode === 'new' ? (

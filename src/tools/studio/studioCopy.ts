@@ -20,13 +20,23 @@ export function publishLabel({publishing}: {publishing: boolean}): string {
 }
 
 /**
- * What follows "Committed." after a New reveal publish (R-66): the card's
- * commit starts the app's deploy, and the runbook allows 15 to 20 minutes for
- * it (REVEAL_RUNBOOK.md, "One card at a time"). A rehearsal branch never
- * deploys, and goLiveNote says so instead.
+ * The one go-live sentence on master (R-66): a commit there starts the app's
+ * deploy, and the runbook allows 15 to 20 minutes for it (REVEAL_RUNBOOK.md,
+ * "One card at a time"). The deploy converts a raw scan itself (build:vercel),
+ * so a new image takes the same wait; the convert workflow's own commit
+ * deploys nothing (R4-8c).
+ */
+function deploying(what: string): string {
+  return `Vercel is deploying it: allow 15 to 20 minutes before ${what} shows on inkweave.ink.`;
+}
+
+/**
+ * What follows "Committed." after a New reveal publish: the card goes live
+ * with the deploy its commit starts. A rehearsal branch never deploys, and
+ * goLiveNote says so instead.
  */
 export function newRevealNote(): string {
-  return goLiveNote('Vercel is deploying it: allow 15 to 20 minutes before it shows on inkweave.ink.');
+  return goLiveNote(deploying('it'));
 }
 
 /** What names the tab: the mode, and the card Edit card has open (null until one resolves). */
@@ -49,15 +59,12 @@ export function saveLabel({saving}: {saving: boolean}): string {
   return saving ? 'Saving…' : `Save changes to ${targetBranch()}`;
 }
 
-/** The image tool's go-live sentence, word for word: the convert workflow turns the raw scan into the card's art. */
-const IMAGE_ON_MASTER = 'The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).';
-
 /**
- * What follows "Committed." after an Edit save (R4-6b): IMAGE_ON_MASTER when
- * an image went with the commit, else New reveal's note, since a fields
- * commit deploys as a new card's does. A rehearsal branch never deploys, and
- * goLiveNote says so.
+ * What follows "Committed." after an Edit save (R4-6b): the same wait as New
+ * reveal's, naming the new image when one went with the commit, since that is
+ * what the operator waits to see. A fields commit deploys as a new card's
+ * does. A rehearsal branch never deploys, and goLiveNote says so.
  */
 export function editNote(result: Pick<EditResult, 'withImage'> | null): string {
-  return result?.withImage ? goLiveNote(IMAGE_ON_MASTER) : newRevealNote();
+  return result?.withImage ? goLiveNote(deploying('the new image')) : newRevealNote();
 }

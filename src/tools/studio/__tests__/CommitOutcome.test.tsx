@@ -98,6 +98,16 @@ describe('CommitOutcome', () => {
     expect(status).toHaveTextContent(loadAgainNote({dropped: 2}));
   });
 
+  // R4-8c: what the draft holds once the read lands decides the line, so "Every edit still applies." needs an edit.
+  it.each<[string, Partial<Props>, string]>([
+    ['an edit', {dropped: 0, edits: true}, 'Loaded the card again from master. Every edit still applies.'],
+    ['a staged image alone', {dropped: 0, staged: true}, 'Loaded the card again from master. Your image is still staged.'],
+    ['nothing', {dropped: 0}, 'Loaded the card again from master.'],
+  ])('says what Load it again left when the draft holds %s', (_case, props, line) => {
+    render(outcomeElement(props));
+    expect(screen.getByRole('status').textContent).toBe(line);
+  });
+
   it("says Load it again dropped the edits with the form when the card can't be edited now (R-65, R-68)", () => {
     render(outcomeElement({dropped: 1, editable: false}));
     expect(screen.getByRole('status')).toHaveTextContent(loadAgainNote({dropped: 1, editable: false}));

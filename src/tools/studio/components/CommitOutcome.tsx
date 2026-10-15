@@ -26,6 +26,13 @@ interface CommitOutcomeProps {
    * can't be held by the form (R-65), so the note says the edits went with it.
    */
   editable?: boolean;
+  /**
+   * What the draft held as that read landed (R4-8c): a field edit, and a
+   * staged image. The line says "Every edit still applies." only with an edit
+   * left, and that the image stays only with one staged.
+   */
+  edits?: boolean;
+  staged?: boolean;
   /** Reads the card again after a stale refusal (R-68). The page passes it for that failure only. */
   onLoadAgain?: () => void;
   /** Forgets the saved token: offered when GitHub rejected it (a 401) only, and only when given (R-26). */
@@ -63,15 +70,17 @@ function Committed({commitUrl, note}: {commitUrl: string; note: string}) {
   );
 }
 
-type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note' | 'editable'> & {dropped: number | null};
+type StatusLineProps = Pick<CommitOutcomeProps, 'result' | 'note' | 'editable' | 'edits' | 'staged'> & {
+  dropped: number | null;
+};
 
 /**
  * The live region, mounted with the outcome so its text is announced when it
  * arrives: a live region mounted with its text often isn't (R2's tray). It
  * holds a landed commit, else what the last "Load it again" kept.
  */
-function StatusLine({result, note, dropped, editable}: StatusLineProps) {
-  const kept = dropped === null ? null : loadAgainNote({dropped, editable});
+function StatusLine({result, note, dropped, editable, edits, staged}: StatusLineProps) {
+  const kept = dropped === null ? null : loadAgainNote({dropped, editable, edits, staged});
   return (
     <p role="status" tabIndex={-1} style={result ? SUCCESS : NOTE}>
       {result ? <Committed commitUrl={result.commitUrl} note={note} /> : kept}
@@ -118,6 +127,8 @@ export function CommitOutcome({
   note,
   dropped = null,
   editable,
+  edits,
+  staged,
   onLoadAgain,
   onForgetToken,
   handoff,
@@ -128,7 +139,7 @@ export function CommitOutcome({
   return (
     <div ref={rootRef} style={COLUMN}>
       {error !== null && <CommitFailure error={error} onLoadAgain={onLoadAgain} onForgetToken={onForgetToken} />}
-      <StatusLine result={result} note={note} dropped={dropped} editable={editable} />
+      <StatusLine result={result} note={note} dropped={dropped} editable={editable} edits={edits} staged={staged} />
     </div>
   );
 }

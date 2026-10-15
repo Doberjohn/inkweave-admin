@@ -70,7 +70,7 @@ const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'
 // The notes the page picks (the R4 header's "Labels and notes"; R4-6a's newRevealNote, R4-6b's editNote):
 // New reveal's, and Edit's when an image went with the save.
 const NEW_NOTE = goLiveNote('Vercel is deploying it: allow 15 to 20 minutes before it shows on inkweave.ink.');
-const IMAGE_NOTE = goLiveNote('The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).');
+const IMAGE_NOTE = goLiveNote('Vercel is deploying it: allow 15 to 20 minutes before the new image shows on inkweave.ink.');
 
 /** Stands in for the page's button, which R4-6 owns. */
 function Commit({label, disabled = false}: {label: 'Publish' | 'Save changes'; disabled?: boolean}) {
@@ -169,7 +169,7 @@ export const EditImageOnly: Story = {
   ),
 };
 
-/** Saved with an image: the card stays open with no changes left (R-70), and the image tool's note. */
+/** Saved with an image: the card stays open with no changes left (R-70), and the image's note. */
 export const EditSaved: Story = {
   render: () => (
     <>

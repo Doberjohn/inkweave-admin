@@ -154,8 +154,9 @@ type SearchFieldProps = Pick<EditSearchProps, 'query' | 'onQuery' | 'handoff'> &
  * page waits out its load: Retry's request then lands here, or on Retry again.
  * The field keeps its query after "Load a different card", so taking focus
  * selects it, and typing starts a new search rather than adding to the old
- * one. A click still places the caret: Chrome collapses the selection when the
- * mouse button is released.
+ * one. In Chrome a click still places the caret, since it collapses the
+ * selection when the mouse button is released; Firefox keeps the selection
+ * after a click, so there a click selects the old query too.
  */
 function SearchField({query, onQuery, handoff, ready}: SearchFieldProps) {
   const ref = useRef<HTMLDivElement>(null);

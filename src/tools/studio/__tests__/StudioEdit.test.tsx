@@ -1,13 +1,13 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, render, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
 import userEvent, {type UserEvent} from '@testing-library/user-event';
-import {createMemoryRouter, RouterProvider} from 'react-router-dom';
+import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {inkBlock, type useCardDataContext} from '../../../app-bridge';
 import {studioHref} from '../../../shell/nav';
 import {pngFile} from '../../../test/images';
 import {commitCardImage} from '../../image/githubClient';
-import {StaleCardError, commitCardEdit, commitNewCard} from '../../reveal/githubClient';
+import {StaleCardError, commitCardEdit, commitNewCard, commitPreviewCardImage} from '../../reveal/githubClient';
 import {goneNote} from '../branchCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import {loadAgainNote} from '../loadAgainNote';
@@ -21,6 +21,7 @@ vi.mock('../../reveal/githubClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../reveal/githubClient')>()),
   commitCardEdit: vi.fn(),
   commitNewCard: vi.fn(),
+  commitPreviewCardImage: vi.fn(),
 }));
 vi.mock('../../image/githubClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../image/githubClient')>()),
@@ -58,11 +59,14 @@ const PREVIEW_URL =
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 /** What a save says when GitHub rejects the token (R-26). */
 const REJECTED_SAVE = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
-const IMAGE_NOTE = 'The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).';
-// R4-6a's wording (studioPaths.ts): what a held card change, and a held leave, drop.
+const IMAGE_NOTE = 'Vercel is deploying it: allow 15 to 20 minutes before the new image shows on inkweave.ink.';
+// R4-6a's wording (studioPaths.ts): what a held card change, and a held leave, drop. Both drafts take one sentence (R4-8c).
 const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
-const LEAVES_REVEAL = "Your New reveal card isn't published yet. Leaving Card studio drops it.";
 const LEAVES_EDIT = "Your Edit card changes aren't saved yet. Leaving Card studio drops them.";
+const LEAVES_BOTH =
+  "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
+/** R2's in-flight line for Edit's save (writeInFlight.ts), on master. */
+const SAVING = "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
 const RENAMED = 'Mei Lee';
 
 // The card list as inkweave.ink serves it: a released card, then the deployed preview cards (loader.ts:195-198).
@@ -102,13 +106,17 @@ function setCardList({cards = CARDS, isLoading = false, error = null}: Partial<C
   act(() => cardList.listeners.forEach((onChange) => onChange()));
 }
 
-/** Card studio at `path` in a data router, which the guard needs, beside a page to leave to. */
+/**
+ * Card studio at `path` in a data router, which the guard needs, beside a page to leave to, and a card page whose
+ * "Edit in Card studio" links into it, as Card analytics' does (R-82).
+ */
 function renderStudio(path: string) {
   localStorage.setItem(TOKEN_KEY, 'tok');
   const router = createMemoryRouter(
     [
       {path: '/studio', element: <StudioPage />},
       {path: '/', element: <h1>Overview</h1>},
+      {path: '/cards/:cardId', element: <Link to={studioHref('edit', MEI.id)}>Edit in Card studio</Link>},
     ],
     {initialEntries: [path]},
   );
@@ -123,6 +131,8 @@ const searchField = () => screen.getByRole('searchbox', {name: 'Search cards'});
 const nameField = () => screen.findByRole('textbox', {name: 'Name'});
 const saveButton = () => screen.getByRole('button', {name: /^Save/});
 const leaveDialog = () => screen.findByRole('dialog', {name: 'Leave this page?'});
+/** A held card change stays on the page, so it asks about the card (R4-8c). */
+const cardDialog = () => screen.findByRole('dialog', {name: 'Leave this card?'});
 const outcomeOf = (link: HTMLElement) => link.closest<HTMLElement>('[role="status"]');
 
 /** Opens Mei from Edit card's search, and waits for her form. */
@@ -178,6 +188,7 @@ beforeEach(() => {
   vi.mocked(commitCardEdit).mockReset();
   vi.mocked(commitCardImage).mockReset();
   vi.mocked(commitNewCard).mockReset();
+  vi.mocked(commitPreviewCardImage).mockReset();
   // Wide, so every field of the form shows at once.
   measured.width = STUDIO_WIDE_MIN;
   setCardList();
@@ -227,6 +238,22 @@ describe('StudioPage: finding a card in Edit card', () => {
     setCardList();
     expect(await banner(MEI)).toBeInTheDocument();
     // A deep link is no one's action in the page, so nothing asks for the handoff.
+    expect(document.body).toHaveFocus();
+  });
+
+  it("hands focus to the banner when another page's link opens the card: the link went with that page (R-59, #34)", async () => {
+    const {router, user} = renderStudio(`/cards/${MEI.id}`);
+    await user.click(screen.getByRole('link', {name: 'Edit in Card studio'}));
+    expect(router.state.location.search).toBe(`?mode=edit&card=${MEI.id}`);
+    await waitFor(async () => expect(await banner(MEI)).toHaveFocus());
+  });
+
+  it('asks for no handoff when a redirect names the card: a REPLACE is no one’s action (R-59)', async () => {
+    const {router} = renderStudio('/studio?mode=edit');
+    act(() => void router.navigate(studioHref('edit', MEI.id), {replace: true}));
+    expect(await banner(MEI)).toBeInTheDocument();
+    // Settle the effects a request would run, then check nothing took focus.
+    await act(async () => {});
     expect(document.body).toHaveFocus();
   });
 
@@ -291,6 +318,20 @@ describe('StudioPage: finding a card in Edit card', () => {
     expect(within(aside).getByText("Replace the image to make a change. It's listed here before you save.")).toBeInTheDocument();
     // A released card's data can't change on the branch, so it offers no read of the file.
     expect(screen.queryByRole('button', {name: 'Read previewCards.json again'})).not.toBeInTheDocument();
+  });
+
+  it("leaves a failed first read to the search: a released card, which doesn't need the file, shows no read error (R-71)", async () => {
+    stubFetch(() => refusal({status: 500, message: 'Server Error'}));
+    const {user} = renderStudio(studioHref('edit', RELEASED_CARD.id));
+    expect(await banner(RELEASED_CARD)).toBeInTheDocument();
+    // Give the refused read time to land before looking at the aside.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    const aside = screen.getByRole('complementary', {name: 'Changes'});
+    expect(within(aside).queryByText(/^Could not read previewCards\.json/)).not.toBeInTheDocument();
+
+    // The read did fail: the search says so, with its way out.
+    await user.click(screen.getByRole('link', {name: 'Load a different card'}));
+    expect(await screen.findByText(/^Could not read previewCards\.json/)).toBeInTheDocument();
   });
 
   it('opens a card only the branch file holds, not deployed yet, with no analytics link (R-66, R-33)', async () => {
@@ -408,7 +449,7 @@ describe('StudioPage: saving in Edit card', () => {
 
     await user.click(await screen.findByRole('button', {name: 'Load it again'}));
     // The outcome line says what Load it again kept (R4-5e), and takes focus once the re-read lands.
-    await waitFor(() => expect(screen.getByText(loadAgainNote({dropped: 0}))).toHaveFocus());
+    await waitFor(() => expect(screen.getByText('Loaded the card again from master. Every edit still applies.')).toHaveFocus());
     expect(await nameField()).toHaveValue(RENAMED);
   });
 
@@ -434,12 +475,19 @@ describe('StudioPage: saving in Edit card', () => {
     expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei.png');
 
     // A branch edit can fix an entry the form can't hold, so the card can read the file again: its form opens.
+    // It had no field edit to keep, so the line says only what the read did, and that the scan stays (R4-8c).
     await user.click(screen.getByRole('button', {name: 'Read previewCards.json again'}));
-    await waitFor(() => expect(screen.getByText(loadAgainNote({dropped: 0}))).toHaveFocus());
+    const line = 'Loaded the card again from master. Your image is still staged.';
+    await waitFor(() => expect(screen.getByText(line)).toHaveFocus());
     expect(await nameField()).toHaveValue('Mei');
     expect(screen.getByRole('textbox', {name: /^Version/})).toHaveValue('Panda Rising');
     expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei.png');
     expect(read).toBe(3);
+
+    // The line says what the read left, so an edit made after it doesn't turn it into "Every edit still applies."
+    await user.type(await nameField(), ' Lee');
+    expect(screen.getByRole('region', {name: '2 changes'})).toBeInTheDocument();
+    expect(screen.getByText(line)).toBeInTheDocument();
   });
 
   it("keeps an image-only card's facts once a later read gives its entry fields, and its re-read opens the form (R-65)", async () => {
@@ -481,6 +529,38 @@ describe('StudioPage: saving in Edit card', () => {
     expect(reads).toBe(2);
   });
 
+  it('offers Forget token when GitHub refuses the token on a re-read, as the search does (R-26, R-84)', async () => {
+    let reads = 0;
+    stubFetch(() => (++reads === 1 ? fileOf(FILE) : refusal({status: 401, message: 'Bad credentials'})));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio(studioHref('edit', MEI.id));
+    await rename(user);
+    await user.click(saveButton());
+    await user.click(await screen.findByRole('button', {name: 'Load it again'}));
+
+    const aside = screen.getByRole('complementary', {name: 'Changes'});
+    expect(await within(aside).findByText(/^Could not read previewCards\.json: GitHub 401 on /)).toBeInTheDocument();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await user.click(within(aside).getByRole('button', {name: 'Forget token'}));
+    // The workspace asks first, since the rename is still unsaved (R-84).
+    expect(confirm).toHaveBeenCalledWith('Forget the token and drop your Edit card changes?');
+  });
+
+  it("holds an image-only card's Read previewCards.json again while its save runs (R4-4c)", async () => {
+    // The branch holds Mei unrepresentable, so she opens image-only, and her image saves alone, checking the file.
+    stubFetch(() => fileOf([UNHELD_MEI, VARIANTS_ENTRY]));
+    vi.mocked(commitPreviewCardImage).mockReturnValue(new Promise(() => {}));
+    const {user} = renderStudio(studioHref('edit', MEI.id));
+    expect(await screen.findByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
+    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei.png'));
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+    await user.click(saveButton());
+
+    expect(commitPreviewCardImage).toHaveBeenCalledOnce();
+    // A re-read now would re-seed the draft the save was made from, and drop its outcome (R-69).
+    expect(screen.getByRole('button', {name: 'Read previewCards.json again'})).toBeDisabled();
+  });
+
   it('offers Forget token for a save GitHub refuses, and asks first while the draft is dirty (R-26, R-84)', async () => {
     vi.mocked(commitCardEdit).mockRejectedValue(new Error(REJECTED_SAVE));
     const {user} = renderStudio('/studio?mode=edit');
@@ -517,45 +597,50 @@ describe('StudioPage: saving in Edit card', () => {
 });
 
 describe('StudioPage: the guard and the view in Edit card', () => {
-  it('asks before a card change drops the Edit draft, naming only it, and Stay keeps it (R-58)', async () => {
+  it('asks before a card change drops the Edit draft, as a question about the card, and Keep editing keeps it (R-58, R4-8c)', async () => {
     const {router, user} = renderStudio('/studio?mode=edit');
     await twoDrafts(user);
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
-    const dialog = await leaveDialog();
+    // It stays on the page, so it asks about the card, never "Leave this page?".
+    const dialog = await cardDialog();
+    expect(within(dialog).getByRole('heading', {level: 2, name: 'Leave this card?'})).toBeInTheDocument();
     expect(dialog).toHaveTextContent(LEAVES_CARD);
     expect(dialog).not.toHaveTextContent('New reveal');
+    expect(within(dialog).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep editing', 'Drop changes']);
 
-    await user.click(within(dialog).getByRole('button', {name: 'Stay on this page'}));
+    await user.click(within(dialog).getByRole('button', {name: 'Keep editing'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
     expect(router.state.location.search).toBe(`?mode=edit&card=${MEI.id}`);
     expect(await nameField()).toHaveValue(RENAMED);
   });
 
-  it('names both drafts when leaving the studio, and a card left is opened fresh (R-58, R-46)', async () => {
+  it('names both drafts in one sentence when leaving the studio, and a card left is opened fresh (R-58, R-46)', async () => {
     const {router, user} = renderStudio('/studio?mode=edit');
     await twoDrafts(user);
     act(() => void router.navigate('/'));
-    expect(await leaveDialog()).toHaveTextContent(`${LEAVES_REVEAL} ${LEAVES_EDIT}`);
-    await user.click(screen.getByRole('button', {name: 'Stay on this page'}));
+    // Leaving Card studio keeps the guard's own words.
+    const dialog = await leaveDialog();
+    expect(within(dialog).getByText(LEAVES_BOTH)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', {name: 'Stay on this page'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
 
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
-    await user.click(within(await leaveDialog()).getByRole('button', {name: 'Leave this page'}));
+    await user.click(within(await cardDialog()).getByRole('button', {name: 'Drop changes'}));
     expect(await openMei(user)).toHaveValue('Mei');
   });
 
   it.each([
     {
-      how: 'a click on Leave this page',
+      how: 'a click on Drop changes',
       leave: (user: UserEvent, dialog: HTMLElement) =>
-        user.click(within(dialog).getByRole('button', {name: 'Leave this page'})),
+        user.click(within(dialog).getByRole('button', {name: 'Drop changes'})),
     },
     {
-      how: 'the keyboard: Tab past Stay to Leave this page, then Enter',
+      how: 'the keyboard: Tab past Keep editing to Drop changes, then Enter',
       leave: async (user: UserEvent) => {
         await user.tab();
         await user.tab();
-        expect(screen.getByRole('button', {name: 'Leave this page'})).toHaveFocus();
+        expect(screen.getByRole('button', {name: 'Drop changes'})).toHaveFocus();
         await user.keyboard('{Enter}');
       },
     },
@@ -564,7 +649,7 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     await openMei(user);
     await rename(user);
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
-    const dialog = await leaveDialog();
+    const dialog = await cardDialog();
     await waitFor(() => expect(within(dialog).getByText(LEAVES_CARD)).toHaveFocus());
 
     await leave(user, dialog);
@@ -573,16 +658,38 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     expect(document.activeElement).toBe(document.querySelector('input[aria-label="Search cards"]'));
   });
 
-  it('says a card change mid-save leaves the save running (R-58)', async () => {
+  it("says a card change mid-save leaves the save running, and words the next card's edits as unsaved (R-58, R-69)", async () => {
     vi.mocked(commitCardEdit).mockReturnValue(new Promise(() => {}));
-    const {user} = renderStudio('/studio?mode=edit');
+    const {router, user} = renderStudio('/studio?mode=edit');
     await openMei(user);
     await rename(user);
     await user.click(saveButton());
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
-    expect(await leaveDialog()).toHaveTextContent(
-      "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed.",
-    );
+    const dialog = await cardDialog();
+    expect(dialog).toHaveTextContent(SAVING);
+    await user.click(within(dialog).getByRole('button', {name: 'Drop changes'}));
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+
+    // Mei's save still runs, but it was made from her draft: Ming's edit is what the next card change drops.
+    act(() => void router.navigate(studioHref('edit', MING.id)));
+    await user.type(await nameField(), ' Two');
+    await user.click(screen.getByRole('link', {name: 'Load a different card'}));
+    const next = await cardDialog();
+    expect(within(next).getByText(LEAVES_CARD)).toBeInTheDocument();
+    expect(next).not.toHaveTextContent('in progress');
+  });
+
+  it.each([
+    {draft: 'an unsaved Edit draft alone', saving: false, says: LEAVES_EDIT},
+    {draft: 'its save in flight', saving: true, says: SAVING},
+  ])("words leaving the studio with $draft: Edit's dirty and busy reach the guard (R-58)", async ({saving, says}) => {
+    vi.mocked(commitCardEdit).mockReturnValue(new Promise(() => {}));
+    const {router, user} = renderStudio('/studio?mode=edit');
+    await openMei(user);
+    await rename(user);
+    if (saving) await user.click(saveButton());
+    act(() => void router.navigate('/'));
+    expect(within(await leaveDialog()).getByText(says)).toBeInTheDocument();
   });
 
   it("gives each card a fresh view: the open accordion section doesn't carry over (R-46)", async () => {
@@ -625,7 +732,7 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     await user.click(saveButton());
 
     await user.click(await screen.findByRole('button', {name: 'Load it again'}));
-    await screen.findByText(loadAgainNote({dropped: 0}));
+    await screen.findByText(loadAgainNote({dropped: 0, edits: true}));
     expect(screen.getByRole('button', {name: /^Card text/})).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', {name: /^Identity/})).toHaveAttribute('aria-expanded', 'true');
     expect(await nameField()).toHaveValue(RENAMED);

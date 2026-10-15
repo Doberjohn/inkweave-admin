@@ -1,4 +1,4 @@
-import {useRef} from 'react';
+import {useEffect, useRef, type RefObject} from 'react';
 import {CtaButton} from '../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
 import type {RevealAdminController} from '../reveal/useRevealAdmin';
@@ -8,7 +8,7 @@ import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
 import {StudioSlots} from './components/StudioSlots';
 import {SynergyPanel} from './components/SynergyPanel';
-import {revealChecklist, visibleImageError, type ImageStatus} from './readiness';
+import {revealChecklist, type ImageStatus} from './readiness';
 import {newRevealNote, publishLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
@@ -38,6 +38,21 @@ export interface NewRevealPaneProps {
 
 type PartProps = Omit<NewRevealPaneProps, 'onForgetToken'>;
 
+/**
+ * Whether the pane is still on screen. The workspace renders it only in New
+ * reveal, so a switch to Edit card unmounts it, and this reads false.
+ */
+function useShowing(): RefObject<boolean> {
+  const showing = useRef(false);
+  useEffect(() => {
+    showing.current = true;
+    return () => {
+      showing.current = false;
+    };
+  }, []);
+  return showing;
+}
+
 /** The chosen scan as readiness reads it: its name, whether its bytes are read, and the upload's own error. */
 function scanOf(ctrl: RevealAdminController): ImageStatus {
   return {name: ctrl.imageName, ready: ctrl.imageDataUrl !== null, error: ctrl.uploadError};
@@ -63,10 +78,18 @@ function NewRevealForm({ctrl, layout, handoff}: PartProps) {
  * The aside: what's left before the card can publish, its synergies, Publish,
  * and the outcome. Publish asks for the handoff once the commit lands, failed
  * or not: the button went off while it ran, which drops focus to <body> in a
- * browser, so the outcome line takes it (R-59).
+ * browser, so the outcome line takes it (R-59). It asks only while New reveal
+ * is still the mode (`showing`): after a switch to Edit card, focus is where
+ * the operator put it, and Edit's views would take a request meant for this
+ * outcome.
  */
-function NewRevealAside({ctrl, handoff, onForgetToken}: Omit<NewRevealPaneProps, 'layout'>) {
-  const publish = () => void ctrl.publish().then(handoff.request);
+function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealPaneProps, 'layout'> & {
+  showing: RefObject<boolean>;
+}) {
+  const publish = () =>
+    void ctrl.publish().then(() => {
+      if (showing.current) handoff.request();
+    });
   return (
     <aside aria-label="Publish" style={ASIDE}>
       <ReadyChecklist items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl), ctrl.cardList)} />
@@ -92,6 +115,7 @@ function NewRevealAside({ctrl, handoff, onForgetToken}: Omit<NewRevealPaneProps,
  * switch keeps the draft (R-57).
  */
 export function NewRevealPane({ctrl, layout, handoff, onForgetToken}: NewRevealPaneProps) {
+  const showing = useShowing();
   return (
     <StudioSlots
       layout={layout}
@@ -102,12 +126,12 @@ export function NewRevealPane({ctrl, layout, handoff, onForgetToken}: NewRevealP
             card={ctrl.previewCard}
             mode="new"
             layout={layout}
-            staged={{name: ctrl.imageName, error: visibleImageError(ctrl.validation.errors, scanOf(ctrl))}}
+            staged={{name: ctrl.imageName, error: ctrl.imageError}}
             onImageChange={ctrl.onImageChange}
           />
         ),
         form: <NewRevealForm ctrl={ctrl} layout={layout} handoff={handoff} />,
-        aside: <NewRevealAside ctrl={ctrl} handoff={handoff} onForgetToken={onForgetToken} />,
+        aside: <NewRevealAside ctrl={ctrl} handoff={handoff} onForgetToken={onForgetToken} showing={showing} />,
       }}
     />
   );

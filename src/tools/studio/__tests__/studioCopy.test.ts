@@ -55,9 +55,10 @@ describe('saveLabel (R4-6b)', () => {
 });
 
 describe('editNote (R4-6b)', () => {
+  // The save's own deploy converts the raw scan, so the runbook's 15 to 20 minutes hold for the image too (R-66).
   it('says when the new image goes live, when an image went with the save', () => {
     expect(editNote({withImage: true})).toBe(
-      'The new image goes live after the convert workflow runs and Vercel redeploys (~a few minutes).',
+      'Vercel is deploying it: allow 15 to 20 minutes before the new image shows on inkweave.ink.',
     );
   });
 

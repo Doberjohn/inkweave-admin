@@ -1,5 +1,6 @@
 import type {Location} from 'react-router-dom';
 import type {StudioMode} from '../../shell/nav';
+import type {UnsavedQuestion, UnsavedWords} from '../../shell/UnsavedChangesGuard';
 import {writeInFlightMessage, type WriteInFlight} from '../../shell/writeInFlight';
 
 /**
@@ -75,8 +76,22 @@ const LEAVES_STUDIO: Readonly<Record<Draft, string>> = {
   edit: "Your Edit card changes aren't saved yet. Leaving Card studio drops them.",
 };
 
+/**
+ * Both drafts' lines when the navigation leaves Card studio with neither commit
+ * in flight, as one sentence, so "Leaving Card studio drops" isn't said twice
+ * (R4-8c).
+ */
+const LEAVES_STUDIO_BOTH =
+  "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
+
 /** The Edit draft's line when the navigation opens another card, or the search, in the studio. */
 const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
+
+/**
+ * A held card change's title and answers (R4-8c): it stays on the page, so it
+ * asks about the card. Leaving Card studio keeps the guard's own words.
+ */
+const CARD_CHANGE: UnsavedWords = {title: 'Leave this card?', stay: 'Keep editing', leave: 'Drop changes'};
 
 /**
  * A held card change whose Edit draft went clean meanwhile: its save landed.
@@ -91,17 +106,35 @@ function draftLine(draft: Draft, leave: StudioLeave): string {
   return leave.from.pathname === leave.to.pathname ? LEAVES_CARD : LEAVES_STUDIO[draft];
 }
 
+/** Whether the navigation drops both drafts, neither with its commit in flight: they share one sentence. */
+function dropsBoth({atRisk, busy}: {atRisk: StudioDrafts; busy: StudioDrafts}): boolean {
+  return DRAFTS.every((draft) => atRisk[draft] && !busy[draft]);
+}
+
 /**
- * UnsavedChangesGuard's message for the studio (R-58): a line for each draft
- * the held navigation would drop (draftsAtRisk, the hold's own rule), so a
- * card change names only the Edit draft and leaving names every dirty one. A
- * draft whose commit is in flight gets the shared in-flight line instead. It
- * never returns '': a hold can outlast the draft it protects (R4-5s).
+ * The guard's line for the studio (R-58): a line for each draft the held
+ * navigation would drop (draftsAtRisk, the hold's own rule), so a card change
+ * names only the Edit draft and leaving names every dirty one: both in one
+ * sentence while neither commit is in flight. A draft whose commit is in
+ * flight gets the shared in-flight line instead. It never returns '': a hold
+ * can outlast the draft it protects (R4-5s).
  */
 export function studioUnsavedMessage(leave: StudioLeave): string {
   const atRisk = draftsAtRisk(leave.from, leave.to, leave.drafts);
+  if (dropsBoth({atRisk, busy: leave.busy})) return LEAVES_STUDIO_BOTH;
   const lines = DRAFTS.filter((draft) => atRisk[draft]).map((draft) => draftLine(draft, leave));
   return lines.length > 0 ? lines.join(' ') : CARD_SAVED;
+}
+
+/**
+ * UnsavedChangesGuard's message for the studio: studioUnsavedMessage's line.
+ * A card change stays on the page, so it asks about the card (CARD_CHANGE);
+ * leaving Card studio asks in the guard's own words, "Leave this page?"
+ * (R4-8c).
+ */
+export function studioUnsavedQuestion(leave: StudioLeave): string | UnsavedQuestion {
+  const message = studioUnsavedMessage(leave);
+  return leave.from.pathname === leave.to.pathname ? {...CARD_CHANGE, message} : message;
 }
 
 /** How the confirm before Forget token names each draft. */

@@ -200,7 +200,13 @@ function ImageActions({slot, wiring, onRevert}: {slot: ImageSlot; wiring: FileWi
   );
 }
 
-/** The formats, the file's error (a polite live region, since the bytes are checked after the pick) and the staged note. */
+/**
+ * The formats, then what the pick did: the file's error (its bytes are checked
+ * after the pick), or the staged note beside the current art. Both speak
+ * through one polite live region, mounted before the pick: the file input
+ * empties itself and keeps its name, so nothing else announces a file staged
+ * (R4-8c). The thumbnail sits outside the region, so only the note is read.
+ */
 function ImageNotes({slot, current, ids}: {slot: ImageSlot; current: LorcanaCard | null; ids: ImageNoteIds}) {
   const note = stagedNote(slot);
   return (
@@ -208,19 +214,17 @@ function ImageNotes({slot, current, ids}: {slot: ImageSlot; current: LorcanaCard
       <p id={ids.hint} style={{...HINT, ...CENTRED}}>
         {IMAGE_FORMATS}
       </p>
-      <div aria-live="polite" style={CENTRED}>
-        {slot.staged.error !== null && (
-          <p id={ids.error} style={ERROR_TEXT}>
-            {slot.staged.error}
-          </p>
-        )}
-      </div>
-      {note !== null && (
-        <div style={STAGED}>
-          <CurrentArt current={current} />
-          <p style={HINT}>{note}</p>
+      <div style={note === null ? CENTRED : STAGED}>
+        {note !== null && <CurrentArt current={current} />}
+        <div aria-live="polite">
+          {slot.staged.error !== null && (
+            <p id={ids.error} style={ERROR_TEXT}>
+              {slot.staged.error}
+            </p>
+          )}
+          {note !== null && <p style={HINT}>{note}</p>}
         </div>
-      )}
+      </div>
     </>
   );
 }

@@ -12,6 +12,13 @@ const MESSAGE = "2 pending tuning edits aren't published yet. Leaving this page 
 const holdsCards: LeavesPage = (from, to) => from.pathname !== to.pathname || from.search !== to.search;
 /** A line worded for the held navigation, as the studio's names the drafts it drops (R-58). */
 const goingTo: UnsavedMessage = (to) => `Going to ${to.pathname}${to.search} drops them.`;
+/** The words a held card change asks with, as the studio's do (R4-8c): it stays on the page. */
+const CARD_WORDS = {title: 'Leave this card?', stay: 'Keep editing', leave: 'Drop changes'};
+const CARD_LINE = 'Leaving the card drops them.';
+/** A question about the card for a card change, and the page's own line for anything that leaves the page. */
+const aboutTheCard: UnsavedMessage = (to) => (to.pathname === '/editor' ? {...CARD_WORDS, message: CARD_LINE} : MESSAGE);
+/** The dialog's answers, in order. */
+const answersIn = (dialog: HTMLElement) => within(dialog).getAllByRole('button').map((button) => button.textContent);
 
 interface EditorProps {
   message?: UnsavedMessage;
@@ -65,10 +72,10 @@ function renderEditor(props: EditorProps = {}) {
 }
 
 /** Stages an edit, then follows a link the guard holds (by default the one away), and returns its question. */
-async function tryToLeave(user: ReturnType<typeof userEvent.setup>, link = 'Elsewhere') {
+async function tryToLeave(user: ReturnType<typeof userEvent.setup>, link = 'Elsewhere', title = 'Leave this page?') {
   await user.click(screen.getByRole('checkbox', {name: 'Unsaved edits'}));
   await user.click(screen.getByRole('link', {name: link}));
-  return screen.findByRole('dialog', {name: 'Leave this page?'});
+  return screen.findByRole('dialog', {name: title});
 }
 
 describe('UnsavedChangesGuard', () => {
@@ -162,6 +169,27 @@ describe('UnsavedChangesGuard', () => {
     expect(await tryToLeave(user, link)).toHaveTextContent(line);
   });
 
+  it('asks in the words the page gives for the held navigation: its title, its line and both answers (R4-8c)', async () => {
+    const {router, user} = renderEditor({message: aboutTheCard, leaves: holdsCards});
+    const dialog = await tryToLeave(user, 'Another card', 'Leave this card?');
+    expect(within(dialog).getByRole('heading', {level: 2, name: 'Leave this card?'})).toBeInTheDocument();
+    expect(answersIn(dialog)).toEqual(['Keep editing', 'Drop changes']);
+    await waitFor(() => expect(within(dialog).getByText(CARD_LINE)).toHaveFocus());
+    // The trap is the app's, whatever the words: Shift+Tab from the message wraps to the last answer.
+    await user.tab({shift: true});
+    expect(within(dialog).getByRole('button', {name: 'Drop changes'})).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(router.state.location.search).toBe('?card=2');
+  });
+
+  it("keeps the page's words for a line alone, from a function too", async () => {
+    const {user} = renderEditor({message: aboutTheCard, leaves: holdsCards});
+    const dialog = await tryToLeave(user);
+    expect(within(dialog).getByText(MESSAGE)).toBeInTheDocument();
+    expect(answersIn(dialog)).toEqual(['Stay on this page', 'Leave this page']);
+  });
+
   it('keeps the words it asked with while the dialog fades out after Stay', async () => {
     const {user} = renderEditor({message: goingTo});
     const dialog = await tryToLeave(user);
@@ -186,6 +214,18 @@ describe('UnsavedChangesDialog', () => {
     // The edits cleared, so the question closes: it fades out with the words it showed, not the page's new ones.
     rerender(<UnsavedChangesDialog open={false} message="" {...answers} />);
     expect(dialog).toHaveTextContent(MESSAGE);
+    await waitForElementToBeRemoved(dialog);
+  });
+
+  it('fades out with the title and answers it asked with, as with its line (R4-8c)', async () => {
+    const {rerender} = render(<UnsavedChangesDialog open message={CARD_LINE} words={CARD_WORDS} {...answers} />);
+    const dialog = screen.getByRole('dialog', {name: 'Leave this card?'});
+    expect(answersIn(dialog)).toEqual(['Keep editing', 'Drop changes']);
+    // Closing with no words of its own would read as a page leave: the fading panel keeps the card's.
+    rerender(<UnsavedChangesDialog open={false} message="" {...answers} />);
+    expect(dialog).toHaveAccessibleName('Leave this card?');
+    expect(within(dialog).getByRole('heading', {level: 2})).toHaveTextContent('Leave this card?');
+    expect(answersIn(dialog)).toEqual(['Keep editing', 'Drop changes']);
     await waitForElementToBeRemoved(dialog);
   });
 });

@@ -8,7 +8,7 @@ import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
 import {isRevealPreview} from './branchCards';
 import {hasEdits} from './cardEdit';
-import {fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput, type StagedImage} from './editorState';
+import {draftChanges, fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput, type StagedImage} from './editorState';
 
 /*
  * Edit card's save side as pure helpers (R4-4c): the commit a save makes, how
@@ -195,6 +195,17 @@ export function keepEdits(draft: Draft, fresh: Draft): Draft {
 }
 
 /**
+ * A re-seed that counted what it dropped (keepEdits) records what it kept, as
+ * its read lands: a field edit, and a staged image (R4-8c). Any other seed
+ * has nothing to report.
+ */
+function withKept(next: Draft): Draft {
+  if (next.dropped === undefined) return next;
+  const edits = hasEdits({changes: draftChanges(next), imageName: null});
+  return {...next, kept: {edits, staged: next.image !== null}};
+}
+
+/**
  * The draft a seed during render gives (R4-4b's needsSeed): another card starts
  * afresh, and the same card's newer read keeps what still applies (keepEdits).
  * A read that leaves the card out of the file (gone or missing, R-66) seeds it
@@ -205,6 +216,6 @@ export function keepEdits(draft: Draft, fresh: Draft): Draft {
 export function reseeded({draft, ...input}: Omit<SeedInput, 'seed'> & {draft: Draft}): Draft {
   const fresh = seedDraft({...input, seed: draft.seed + 1});
   if (draft.cardId !== input.cardId) return fresh;
-  const kept = keepEdits(draft, fresh);
-  return fresh.edit === null ? {...kept, image: null} : kept;
+  const same = keepEdits(draft, fresh);
+  return withKept(fresh.edit === null ? {...same, image: null} : same);
 }
