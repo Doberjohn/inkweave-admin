@@ -1,15 +1,11 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {act, render, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
-import userEvent, {type UserEvent} from '@testing-library/user-event';
-import {createMemoryRouter, RouterProvider} from 'react-router-dom';
-import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {inkBlock, type useCardDataContext} from '../../../app-bridge';
-import {pngFile} from '../../../test/images';
+import {act, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
 import {commitNewCard} from '../../reveal/githubClient';
-import {StudioPage} from '../StudioPage';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
 import {STUDIO_SUBTITLE} from '../studioCopy';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
+import {TOKEN_KEY, dropFocusToBody, fillNewCard, renderStudio, setCardList, stubFetch} from './studioHarness';
+import {measured} from './studioStores';
 
 // Every GitHub read stays real against the fetch stub; only New reveal's commit is faked.
 vi.mock('../../reveal/githubClient', async (importOriginal) => ({
@@ -17,39 +13,12 @@ vi.mock('../../reveal/githubClient', async (importOriginal) => ({
   commitNewCard: vi.fn(),
 }));
 
-/** What the studio reads from the shell's card list. */
-type CardList = Pick<
-  ReturnType<typeof useCardDataContext>,
-  'cards' | 'isLoading' | 'error' | 'getCardById' | 'retryLoad'
->;
+// The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
+vi.mock('../../../app-bridge', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ...(await import('./studioStores')).STORE_HOOKS,
+}));
 
-// Two stores a test moves on, so the page re-renders as it would in the app: the card list
-// (R3's pattern, CardAnalyticsPage.test.tsx), and the width a ResizeObserver would report.
-// jsdom has no ResizeObserver, so the real useContainerWidth stays at 0: narrow.
-const cardList = vi.hoisted(() => ({value: null as CardList | null, listeners: new Set<() => void>()}));
-const measured = vi.hoisted(() => ({width: 0, listeners: new Set<() => void>()}));
-vi.mock('../../../app-bridge', async (importOriginal) => {
-  const {useSyncExternalStore} = await import('react');
-  const subscribe = (listeners: Set<() => void>) => (onChange: () => void) => {
-    listeners.add(onChange);
-    return () => listeners.delete(onChange);
-  };
-  const onCards = subscribe(cardList.listeners);
-  const onWidth = subscribe(measured.listeners);
-  return {
-    ...(await importOriginal<Record<string, unknown>>()),
-    useCardDataContext: function useCardDataContext() {
-      return useSyncExternalStore(onCards, () => cardList.value);
-    },
-    useContainerWidth: function useContainerWidth() {
-      return useSyncExternalStore(onWidth, () => measured.width);
-    },
-  };
-});
-
-const TOKEN_KEY = 'inkweave.reveal-admin.gh-token';
-/** The call the gate's "Save token" makes to check a token can push. */
-const REPO_URL = 'https://api.github.com/repos/Doberjohn/inkweave';
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 /** What a publish says when GitHub rejects the token (R-26). */
 const REJECTED_PUBLISH = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
@@ -57,43 +26,10 @@ const REJECTED_PUBLISH = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/
 /** A released card (set 9): Edit card opens it from the card list alone, never waiting on previewCards.json (R-71). */
 const ELSA = lorcanaCard({id: '2983', name: 'Elsa', version: 'Snow Queen', setCode: '9', setNumber: 42});
 
-const json = (body: unknown) => new Response(JSON.stringify(body), {headers: {'content-type': 'application/json'}});
-/** A request that never settles: previewCards.json, which New reveal never needs, stays loading. */
-const never = () => new Promise<Response>(() => {});
-
-/** The token can push; every other request never settles. */
-function stubFetch() {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url: string) => (url === REPO_URL ? Promise.resolve(json({permissions: {push: true}})) : never())),
-  );
-}
-
-/** Sets the card list the page reads, and re-renders. By default it has loaded, with one released card. */
-function setCardList({cards = [ELSA]}: {cards?: LorcanaCard[]} = {}) {
-  const getCardById = (id: string) => cards.find((c) => c.id === id);
-  cardList.value = {cards, isLoading: false, error: null, getCardById, retryLoad: () => {}};
-  act(() => cardList.listeners.forEach((onChange) => onChange()));
-}
-
 /** The width the root's ResizeObserver reports, as a sidebar toggle or a window resize would change it. */
 function resize(width: number) {
   measured.width = width;
   act(() => measured.listeners.forEach((onChange) => onChange()));
-}
-
-/** Card studio at `path` in a data router, which the guard needs, beside a page to leave to. */
-function renderStudio({path = '/studio', token = 'tok' as string | null} = {}) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  const router = createMemoryRouter(
-    [
-      {path: '/studio', element: <StudioPage />},
-      {path: '/', element: <h1>Overview</h1>},
-    ],
-    {initialEntries: [path]},
-  );
-  render(<RouterProvider router={router} />);
-  return {router, user: userEvent.setup()};
 }
 
 /** The mode switch's buttons, in the header once a token is saved. The header stays mounted, and so do they. */
@@ -118,36 +54,11 @@ function regionOrder() {
   });
 }
 
-/** Fills a card New reveal can publish: a Character numbered in Amber's block, the form's default ink, with its scan. */
-async function fillCard(user: UserEvent) {
-  await user.type(screen.getByRole('textbox', {name: 'Collector number'}), String(inkBlock('Amber').first));
-  await user.type(nameField(), 'Mei');
-  for (const [name, value] of [['Cost', '4'], ['Strength', '3'], ['Willpower', '5'], ['Lore', '2']] as const) {
-    await user.type(screen.getByRole('textbox', {name}), value);
-  }
-  // The card panel's file input: the only one New reveal has.
-  const input = document.querySelector<HTMLInputElement>('input[type="file"]');
-  if (input) await user.upload(input, pngFile('mei.png'));
-  await waitFor(() => expect(publishButton()).toBeEnabled());
-}
-
-/**
- * Where a browser leaves focus once the focused Publish button goes off: on <body> (HTML's focus fixup rule).
- * jsdom keeps it on the disabled button, which can't blur, so focus another control and let that go.
- */
-function dropFocusToBody() {
-  const field = nameField();
-  act(() => {
-    field.focus();
-    field.blur();
-  });
-}
-
 beforeEach(() => {
   // A block, not an arrow's value: mockReset() returns the mock, and Vitest calls a function a hook returns as its teardown.
   vi.mocked(commitNewCard).mockReset();
   measured.width = 0;
-  setCardList();
+  setCardList({cards: [ELSA]});
   stubFetch();
 });
 
@@ -300,7 +211,7 @@ describe('StudioPage: New reveal', () => {
     let land: (result: {commitUrl: string}) => void = () => {};
     vi.mocked(commitNewCard).mockReturnValue(new Promise((resolve) => (land = resolve)));
     const {router, user} = renderStudio();
-    await fillCard(user);
+    await fillNewCard({user, name: 'Mei'});
     await user.click(publishButton());
     expect(publishButton()).toHaveTextContent('Publishing…');
     expect(commitNewCard).toHaveBeenCalledWith(expect.objectContaining({token: 'tok', imageExt: 'png'}));
@@ -320,7 +231,7 @@ describe('StudioPage: New reveal', () => {
   it("says leaving mid-publish won't stop it (R-58)", async () => {
     vi.mocked(commitNewCard).mockReturnValue(new Promise(() => {}));
     const {router, user} = renderStudio();
-    await fillCard(user);
+    await fillNewCard({user, name: 'Mei'});
     await user.click(publishButton());
     act(() => void router.navigate('/'));
     const dialog = await leaveDialog();
@@ -333,7 +244,7 @@ describe('StudioPage: New reveal', () => {
   it('forgets a token GitHub rejects only once asked, then hands focus to the gate (R-26, R-84)', async () => {
     vi.mocked(commitNewCard).mockRejectedValue(new Error(REJECTED_PUBLISH));
     const {user} = renderStudio();
-    await fillCard(user);
+    await fillNewCard({user, name: 'Mei'});
     await user.click(publishButton());
     const forget = await screen.findByRole('button', {name: 'Forget token'});
 

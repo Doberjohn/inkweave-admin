@@ -3,9 +3,10 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {commitFiles} from '../../../github/githubCommit';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
+import type {ChosenImage} from '../../reveal/livePreview';
 import {formFromPreviewCard} from '../cardEdit';
 import {failureOf, imageSent, keepEdits, reseeded, savePlanOf, savedDraft, type SaveInput} from '../editSave';
-import type {Draft, FieldsEdit, StagedImage} from '../editorState';
+import type {Draft, FieldsEdit} from '../editorState';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf} from '../studioFixtures';
 
 afterEach(() => {
@@ -18,9 +19,9 @@ const FORM = formFromPreviewCard(PREVIEW_ENTRY);
 const FIELDS: FieldsEdit = {kind: 'fields', loaded: PREVIEW_ENTRY, before: FORM, form: FORM};
 const FILE = pngFile('mei.png');
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
-const NOTHING: StagedImage = {name: null, dataUrl: null, error: null};
-const READ: StagedImage = {name: 'mei.png', dataUrl: DATA_URL, error: null};
-const READING: StagedImage = {name: 'mei.png', dataUrl: null, error: null};
+const NOTHING: ChosenImage = {name: null, dataUrl: null, error: null};
+const READ: ChosenImage = {name: 'mei.png', dataUrl: DATA_URL, error: null};
+const READING: ChosenImage = {name: 'mei.png', dataUrl: null, error: null};
 
 /** Mei's draft, seed 3, as R4-4b seeds it from the file's first read. */
 function draft(patch: Partial<Draft> = {}): Draft {

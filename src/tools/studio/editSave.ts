@@ -4,11 +4,12 @@ import {isRejectedToken} from '../../github/rejectedToken';
 import type {CardImageCommit} from '../image/githubClient';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {StaleCardError, type CardEditCommit} from '../reveal/githubClient';
+import type {ChosenImage} from '../reveal/livePreview';
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
 import {isRevealPreview} from './branchCards';
 import {hasEdits} from './cardEdit';
-import {draftChanges, fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput, type StagedImage} from './editorState';
+import {draftChanges, fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput} from './editorState';
 
 /*
  * Edit card's save side as pure helpers (R4-4c): the commit a save makes, how
@@ -35,7 +36,7 @@ export interface SaveInput {
   changes: PreviewCardChanges;
   validation: ValidationResult;
   /** stagedImage's result: the upload, when it holds this draft's file. */
-  staged: StagedImage;
+  staged: ChosenImage;
 }
 
 /**

@@ -2,7 +2,7 @@ import type {LorcanaCard, LorcanaJSONCard, SynergyGroup} from 'inkweave-synergy-
 import type {useCardDataContext} from '../../app-bridge';
 import type {ImageUpload} from '../../components/useImageUpload';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
-import {buildPreview, computeSynergies} from '../reveal/livePreview';
+import {buildPreview, computeSynergies, type ChosenImage} from '../reveal/livePreview';
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
 import {isRevealPreview} from './branchCards';
@@ -283,22 +283,15 @@ export function stageImage(draft: Draft, choice: {seed: number; image: File | nu
   return draft.seed === choice.seed ? {...draft, image: choice.image} : draft;
 }
 
-/** The staged image as the editor shows it. */
-export interface StagedImage {
-  name: string | null;
-  /** Its bytes, once read and checked (useImageUpload). */
-  dataUrl: string | null;
-  /** Why the file can't be used: its byte check, or a failed read. */
-  error: string | null;
-}
-
-const NOTHING_STAGED: StagedImage = {name: null, dataUrl: null, error: null};
+const NOTHING_STAGED: ChosenImage = {name: null, dataUrl: null, error: null};
 
 /**
- * The upload, when it holds this draft's file. A file chosen for another
- * card, and a read that lands after the card changed, show nothing.
+ * The staged image as the editor shows it: the upload, when it holds this
+ * draft's file, as the ChosenImage both controllers derive their file
+ * controls' error from (imageErrorOf). A file chosen for another card, and a
+ * read that lands after the card changed, show nothing.
  */
-export function stagedImage({draft, upload}: {draft: Draft; upload: Pick<ImageUpload, 'file' | 'dataUrl' | 'error'>}): StagedImage {
+export function stagedImage({draft, upload}: {draft: Draft; upload: Pick<ImageUpload, 'file' | 'dataUrl' | 'error'>}): ChosenImage {
   if (draft.image === null) return NOTHING_STAGED;
   if (upload.file !== draft.image) return NOTHING_STAGED;
   return {name: draft.image.name, dataUrl: upload.dataUrl, error: upload.error};

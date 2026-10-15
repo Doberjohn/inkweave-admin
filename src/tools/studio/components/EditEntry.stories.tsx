@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
 import {MemoryRouter} from 'react-router-dom';
-import {userEvent, within} from 'storybook/test';
+import {expect, userEvent, waitFor, within} from 'storybook/test';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {REVEAL_SET_CODE, SPACING} from '../../../app-bridge';
 import {PageLayout} from '../../../shell/PageLayout';
@@ -92,7 +92,11 @@ export const Search: Story = {
 export const NoMatch: Story = {
   render: Search.render,
   play: async ({canvasElement}) => {
-    await userEvent.type(within(canvasElement).getByRole('searchbox', {name: 'Search cards'}), 'zzz');
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('list', {name: 'Cards'})).toBeInTheDocument();
+    await userEvent.type(canvas.getByRole('searchbox', {name: 'Search cards'}), 'zzz');
+    await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('No cards match "zzz".'));
+    await expect(canvas.queryByRole('list', {name: 'Cards'})).not.toBeInTheDocument();
   },
 };
 

@@ -158,6 +158,17 @@ export const EditRefresh: Story = {
   ),
 };
 
+/** A released card with nothing staged yet: the empty list asks only for an image, since no field can change (R-61). */
+export const EditImageOnlyNoChanges: Story = {
+  render: () => (
+    <>
+      <ChangeList rows={[]} onDiscard={noop} imageOnly />
+      <Commit label="Save changes" disabled />
+      <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
+    </>
+  ),
+};
+
 /** A released card: the image is its only change, and the page shows no synergies (R-61). */
 export const EditImageOnly: Story = {
   render: () => (
@@ -207,6 +218,43 @@ export const EditLoadedAgain: Story = {
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={1} />
+    </>
+  ),
+};
+
+/**
+ * Load it again landed on an entry the form can't hold (R-65): the card opens
+ * image-only, so the edit went with the form, and the staged image stays (R-68).
+ */
+export const EditLoadedAgainReadOnly: Story = {
+  render: () => (
+    <>
+      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} imageOnly />
+      <Commit label="Save changes" />
+      <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={1} editable={false} />
+    </>
+  ),
+};
+
+/** The image-only view's Read previewCards.json again landed, and the entry still holds data the form can't (R-65). */
+export const EditReadAgainStillReadOnly: Story = {
+  render: () => (
+    <>
+      <ChangeList rows={[]} onDiscard={noop} imageOnly />
+      <Commit label="Save changes" disabled />
+      <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={0} editable={false} />
+    </>
+  ),
+};
+
+/** That read found the entry fixed: the form opens, with no edit to keep, and the staged image stays (R4-8c). */
+export const EditReadAgainOpened: Story = {
+  render: () => (
+    <>
+      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} />
+      <SynergyPanel groups={SYNERGY_GROUPS} />
+      <Commit label="Save changes" />
+      <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={0} staged />
     </>
   ),
 };

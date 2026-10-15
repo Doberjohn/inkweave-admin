@@ -6,6 +6,7 @@ import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {loadAgainNote} from '../loadAgainNote';
+import {outcomeShows} from '../outcomeShows';
 
 interface CommitOutcomeProps {
   /** The last commit that landed, or null. */
@@ -134,8 +135,7 @@ export function CommitOutcome({
   handoff,
 }: CommitOutcomeProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const showing = [result, error, dropped].some((value) => value !== null);
-  useTakeHandoff(handoff, rootRef, FOCUS_TARGET, showing);
+  useTakeHandoff(handoff, rootRef, FOCUS_TARGET, outcomeShows({result, error, dropped}));
   return (
     <div ref={rootRef} style={COLUMN}>
       {error !== null && <CommitFailure error={error} onLoadAgain={onLoadAgain} onForgetToken={onForgetToken} />}

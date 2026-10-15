@@ -5,11 +5,17 @@ import {CardName} from '../tools/analytics/CardName';
 import {StudioPage} from '../tools/studio/StudioPage';
 import {AdminShell} from './AdminShell';
 
-// The pages read a card list that holds one card, 2983; the rest of the bridge
+// The pages read a card list that holds one card, 2983, loaded and with no
+// error, as the bridged useCardDataContext reports one; the rest of the bridge
 // stays real. CardDataProvider still mounts, and its own load never settles.
 vi.mock('../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../app-bridge')>()),
-  useCardDataContext: () => ({cards: [], getCardById: (id: string) => (id === '2983' ? {id} : undefined)}),
+  useCardDataContext: () => ({
+    cards: [],
+    isLoading: false,
+    error: null,
+    getCardById: (id: string) => (id === '2983' ? {id} : undefined),
+  }),
 }));
 
 /** A page that prints two card names: one the card list holds, one it doesn't. */

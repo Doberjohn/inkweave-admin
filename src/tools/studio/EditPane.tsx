@@ -1,9 +1,10 @@
-import {useRef, useState, type CSSProperties, type ReactNode} from 'react';
+import {useState, type CSSProperties, type ReactNode} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {CtaButton, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
-import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
+import type {FocusHandoff} from '../../shell/focusHandoff';
+import {FocusNotice} from '../../shell/FocusNotice';
 import {Notice} from '../../ui/Notice';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {goneNote} from './branchCards';
@@ -19,6 +20,7 @@ import {StudioSlots} from './components/StudioSlots';
 import {SynergyPanel} from './components/SynergyPanel';
 import type {EditLookup, PreviewFileView} from './editorState';
 import {searchCards} from './editSearch';
+import {outcomeShows} from './outcomeShows';
 import {editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
@@ -38,7 +40,6 @@ const SAVE: CSSProperties = {width: '100%'};
 // An image-only card's facts over their way out, spaced as the aside's panels are.
 const FACTS_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
-const LINE: CSSProperties = {margin: 0};
 // A read error over its way out, spaced as the search's is.
 const FILE_ERROR: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
 
@@ -58,16 +59,6 @@ type EntryLookup = Exclude<EditLookup, {kind: 'ready' | 'loading'}>;
 type PartProps = Pick<EditPaneProps, 'edit' | 'handoff' | 'onForgetToken'>;
 
 /**
- * Whether the outcome line shows something: a save's commit or failure, or
- * what a Load it again kept. While it does, the outcome is the open card's
- * focus target (CommitOutcome takes the handoff once it shows), so the banner
- * leaves the handoff alone: one handoff, never two takers (R-59).
- */
-function outcomeShowing({result, saveError, dropped}: Pick<CardEditorController, 'result' | 'saveError' | 'dropped'>) {
-  return [result, saveError, dropped].some((value) => value !== null);
-}
-
-/**
  * A control whose read replaces it: it asks for the handoff once the read
  * lands, never on the click, so the view that replaced it takes focus, and a
  * read that fails again leaves none waiting (TuningAside's readAgainWith). The
@@ -83,25 +74,6 @@ function askWhenLanded(read: () => Promise<boolean>, handoff: FocusHandoff): () 
 }
 
 /**
- * A line for a state with no control of its own, as R3's FocusNotice is: it
- * takes a pending handoff after a link opened a card the studio can't, so
- * focus lands on what says why.
- */
-function FocusLine({handoff, children}: {handoff: FocusHandoff; children: ReactNode}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useTakeHandoff(handoff, ref, 'p');
-  return (
-    <div ref={ref}>
-      <Notice>
-        <p tabIndex={-1} style={LINE}>
-          {children}
-        </p>
-      </Notice>
-    </div>
-  );
-}
-
-/**
  * Why the URL's card isn't open, above the search: an id neither the card list
  * nor previewCards.json holds (R-29), a card that waits on a failed read of the
  * file (R-71; the search shows the read's error and its way out), or a preview
@@ -112,19 +84,19 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
   switch (lookup.kind) {
     case 'missing':
       return (
-        <FocusLine handoff={handoff}>
+        <FocusNotice handoff={handoff}>
           No card has the id <code>{lookup.cardId}</code> in the card list or in previewCards.json. Cards from sets
           before 9 rotated out of Core, and a preview id changes when its card is released: find it by name below.
-        </FocusLine>
+        </FocusNotice>
       );
     case 'fileFailed':
       return (
-        <FocusLine handoff={handoff}>
+        <FocusNotice handoff={handoff}>
           Card <code>{cardId}</code> opens once previewCards.json can be read.
-        </FocusLine>
+        </FocusNotice>
       );
     case 'gone':
-      return <FocusLine handoff={handoff}>{goneNote(lookup.card)}</FocusLine>;
+      return <FocusNotice handoff={handoff}>{goneNote(lookup.card)}</FocusNotice>;
     default:
       return null;
   }
@@ -270,8 +242,8 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
  * draft's seed and by Discard, so a re-seed (Load it again) or a Discard opens
  * it fresh too: its open section and its Dual-ink switch follow the form it
  * shows. The banner's h2 takes the page's handoff while the outcome line has
- * nothing to say; after that the line does. A ready card always has its tag;
- * 'Released' only narrows the type.
+ * nothing to say (outcomeShows, CommitOutcome's own rule); after that the line
+ * does. A ready card always has its tag; 'Released' only narrows the type.
  */
 function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {ready: ReadyLookup; layout: StudioLayout}) {
   // Discard keeps the draft's seed, so it counts its own resets.
@@ -280,6 +252,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
     edit.discard();
     setDiscards(discards + 1);
   };
+  const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
   return (
     <>
       <div style={WHOLE_ROW[layout]}>
@@ -287,7 +260,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
           card={ready.card}
           tag={edit.tag ?? 'Released'}
           deployed={edit.deployed}
-          handoff={outcomeShowing(edit) ? undefined : handoff}
+          handoff={outcomeShowing ? undefined : handoff}
         />
       </div>
       <StudioSlots
