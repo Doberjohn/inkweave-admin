@@ -307,7 +307,7 @@ describe('LineChart: crosshair, tooltip and keyboard', () => {
     const {container} = render(<LineChart series={[SEARCHES, VIEWS]} ariaLabel="Events per day" />);
     await userEvent.tab();
     const shown = tip(container)!;
-    expect(within(shown).getByText('40').previousElementSibling).toHaveStyle({background: ADMIN_COLORS.accent});
-    expect(within(shown).getByText('18').previousElementSibling).toHaveStyle({background: ADMIN_COLORS.under});
+    expect(within(shown).getByText('40').previousElementSibling).toHaveStyle({backgroundColor: ADMIN_COLORS.accent});
+    expect(within(shown).getByText('18').previousElementSibling).toHaveStyle({backgroundColor: ADMIN_COLORS.under});
   });
 });
