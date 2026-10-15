@@ -22,8 +22,11 @@ export {canonicalizeLine, canonicalizeText};
 export const INKS = ['Amber', 'Amethyst', 'Emerald', 'Ruby', 'Sapphire', 'Steel'];
 export const CARD_TYPES = ['Character', 'Action', 'Item', 'Location'];
 
-/** A keyword ability line: "Singer 5 (...)", "Alert (...)", "Puppy Shift 3 ⬡ (...)", "Rush". */
-const KEYWORD_LINE = /^((?:[A-Z][a-z]+ ){0,3}[A-Z][a-z]+)(?: ([+-]?\d+))?(?: ⬡)?(?: \(.*\))?$/;
+/**
+ * A keyword ability line: "Singer 5 (...)", "Alert (...)", "Puppy Shift 3 ⬡ (...)", "Rush", and
+ * set 14's ink-drop Shift, "Shift Remove 2 ink drops (...)" (Baymax - Amped Up).
+ */
+const KEYWORD_LINE = /^((?:[A-Z][a-z]+ ){0,3}[A-Z][a-z]+)(?: ([+-]?\d+|Remove \d+ ink drops?))?(?: ⬡)?(?: \(.*\))?$/;
 
 /**
  * Without accents, as the owner rules card names ("Hector Rivera", "Mama Coco"): NFD, then

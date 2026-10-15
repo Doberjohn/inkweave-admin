@@ -14,14 +14,14 @@ describe('BiasBar', () => {
     const fill = fillOf(container);
     expect(fill).toHaveAttribute('data-direction', 'over');
     // 1 / 2.5 of a half-track = 20% of the whole track.
-    expect(fill).toHaveStyle({right: '50%', width: '20%', background: ADMIN_COLORS.over});
+    expect(fill).toHaveStyle({right: '50%', width: '20%', backgroundColor: ADMIN_COLORS.over});
   });
 
   it('leans right in the under-rates colour for a positive gap', () => {
     const {container} = render(<BiasBar gap={0.5} />);
     const fill = fillOf(container);
     expect(fill).toHaveAttribute('data-direction', 'under');
-    expect(fill).toHaveStyle({left: '50%', width: '10%', background: ADMIN_COLORS.under});
+    expect(fill).toHaveStyle({left: '50%', width: '10%', backgroundColor: ADMIN_COLORS.under});
   });
 
   it.each([4, -10])('clamps a gap of %s to the end of its half', (gap) => {

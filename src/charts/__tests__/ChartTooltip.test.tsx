@@ -42,7 +42,7 @@ describe('ChartTooltip', () => {
   it('keys a coloured row with a short line in the series colour, never the text', () => {
     const {getByText} = render(<ChartTooltip content={CONTENT} x={10} y={10} bounds={BOUNDS} />);
     const value = getByText('12');
-    expect(value.previousElementSibling).toHaveStyle({background: ADMIN_COLORS.under, height: '2px'});
+    expect(value.previousElementSibling).toHaveStyle({backgroundColor: ADMIN_COLORS.under, height: '2px'});
     expect(value).not.toHaveStyle({color: ADMIN_COLORS.under});
   });
 
