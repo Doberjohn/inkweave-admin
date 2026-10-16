@@ -10,13 +10,12 @@ reveal-sync reads the season from the pinned app. Bump the pin (CLAUDE.md, "Upda
 
 Run `/fetch-reveals` from an admin session. The skill (`.claude/skills/fetch-reveals/SKILL.md`) drives the owner's Chrome for lorcanaplayer, and `node scripts/reveal-sync/run.mjs` does the rest. A run ends with one PR in the app repo and one commit of `state.json` on admin's `main`.
 
-- **Not for a set that has graduated, until Doberjohn/inkweave-admin#51 lands.** Unlike New reveal, a run's `write` doesn't yet refuse a collector number that a released card of the set holds, so it could add a duplicate of that card. Set 14 graduated on 2026-10-14 (Doberjohn/inkweave#780), and admin's pin names it as the reveal set until the app rotates the season. This stop is temporary: delete it, and the fetch-reveals skill's preflight item 4, when #51 lands.
 - Merge the reveal PR before the next run: `start` refuses while one is open.
 - If `write` stops part-way (a network error, GitHub down), run `write RUN` again. It resumes, and never opens a second PR.
 - `run.mjs report RUN` reprints a run's report.
 - `git pull` in admin brings each run's committed `state.json` into your checkout. No run reads the local copy.
 
-What a run will not write, by design, is in the skill: leaks, non-English cards, cards with no collector number, and anything the two sites or the readers cannot settle. Each lands in the report instead.
+What a run will not write, by design, is in the skill: leaks, non-English cards, cards with no collector number, and anything the two sites or the readers cannot settle. Each lands in the report instead. Nor does it write a second copy of a card Inkweave holds, released cards included: `start` reads `allCards.json` for the numbers the reveal set's released cards hold, under their official ids, so a set that has graduated is safe to run (Doberjohn/inkweave-admin#51).
 
 ## Closing a reveal PR unmerged
 

@@ -145,7 +145,7 @@ function checkImage(imageName: string | null, errors: Errors): void {
  * Validate the reveal-card form before publish. Returns a map of field name ->
  * error message; `ok` is true only when there are no errors. Each concern is a
  * focused helper so no single function carries all the branching. `released`
- * is optional, so a caller with no card list (reveal-sync) checks as before.
+ * is optional: Edit card, whose number is locked, passes none.
  */
 export function validateRevealCardForm(
   form: RevealCardForm,

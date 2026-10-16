@@ -2,7 +2,8 @@
  * The write phase: everything a run publishes, staged in the run dir, ordered so the preview
  * data is never ahead of the art.
  *
- *   1. every ready card goes through validateRevealCardForm, and is refused if its name is
+ *   1. every ready card goes through validateRevealCardForm, which also refuses a collector
+ *      number a released card of the set holds (released.mjs), and is refused if its name is
  *      already in the set's preview data
  *   2. the accepted cards' scans are converted to AVIFs, unless the app already has their art
  *   3. only the cards whose art is in place are inserted into the base's previewCards.json
@@ -17,6 +18,7 @@ import {toRevealForm} from './adjudicate.mjs';
 import {UsageError, byNumber, entries, say} from './cli.mjs';
 import {VARIANTS, convertScans, removeScratch} from './convert.mjs';
 import {ADMIN_REPO, APP_REPO, listDir, readFile} from './github.mjs';
+import {releasedByNumber} from './released.mjs';
 import {markVanished, recordOutcome, setSection} from './state.mjs';
 import {comparableName, fullName, unaccentReferences, unaccented} from './text.mjs';
 import {
@@ -69,9 +71,12 @@ export function writtenForm(card) {
   });
 }
 
-/** Why the chain or the preview data refuses this card, or null. `seen` holds ids and names. */
+/**
+ * Why the chain or the preview data refuses this card, or null. `seen` holds ids, names and
+ * the numbers the set's released cards hold.
+ */
 function problemWith(chain, form, image, seen) {
-  const check = chain.validateRevealCardForm(form, seen.ids, image);
+  const check = chain.validateRevealCardForm(form, seen.ids, image, seen.released);
   if (!check.ok) return Object.values(check.errors).join('; ');
   if (seen.names.has(nameKey(form))) return 'a card with this name is already in the preview data';
   return null;
@@ -84,6 +89,7 @@ function acceptReady(run, chain, previewText) {
   const seen = {
     ids: new Set(cards.map((c) => c.id)),
     names: new Set(sameSet.map((c) => comparableName(c.fullName))),
+    released: releasedByNumber(run.released),
   };
   const accepted = [];
   for (const [slug, entry] of entries(run, 'ready').sort(byNumber)) {

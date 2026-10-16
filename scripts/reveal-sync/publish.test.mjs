@@ -89,7 +89,7 @@ describe('publishRun', () => {
     const pr = calls.find(({endpoint}) => endpoint === `${APP}/pulls`).body;
     expect(pr).toMatchObject({head: BRANCH, base: 'master', title: 'Set 14 reveals: 1 card (2026-10-01)'});
     expect(pr.body).toMatch(/^- 14040 Test Pup - Tiny Troublemaker\n/);
-    // What the run checked, and no more: the write chain skips Card studio's released-number refusal (admin#51).
+    // What the run checked, by name: the write chain, whose validator has refused released numbers since admin#51.
     expect(pr.body).toContain(
       "went through Card studio's write chain (validateRevealCardForm, buildPreviewCard, insertCardIntoPreviewJson).",
     );

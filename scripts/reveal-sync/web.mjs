@@ -1,8 +1,9 @@
 /**
  * Load admin's TypeScript from Node: the season through the app bridge (src/app-bridge.ts,
- * the one module that reaches the pinned app), and the write chain Card studio's New reveal uses
- * (src/tools/reveal/). Vite's `runnerImport` transforms them the way the dev server does, so
- * nothing is duplicated, and a season rotation reaches the skill with a pin bump.
+ * the one module that reaches the pinned app), the write chain Card studio's New reveal uses
+ * (src/tools/reveal/), and the map of the numbers released cards hold, which New reveal checks.
+ * Vite's `runnerImport` transforms them the way the dev server does, so nothing is
+ * duplicated, and a season rotation reaches the skill with a pin bump.
  *
  * The bridge imports the app's CSS, and Vite's CSS plugins only work inside a running dev
  * server ("Cannot read properties of undefined (reading 'get')"). No stylesheet matters
@@ -55,6 +56,22 @@ export async function loadSeason() {
     setTotal: app.SET_TOTAL,
     idBase: app.REVEAL_ID_BASE,
     inkBlocks: Object.fromEntries(app.ALL_INKS.map((ink) => [ink, app.inkBlock(ink)])),
+  };
+}
+
+/**
+ * transformRawCards and releasedRevealNumbers: allCards.json's cards built as the app's loader
+ * builds them, then the numbers the reveal set's released cards hold, mapped as Card studio's
+ * New reveal maps them (released.mjs, Doberjohn/inkweave-admin#51).
+ */
+export async function loadReleasedChain() {
+  const [bridge, released] = await Promise.all([
+    importTs('src/app-bridge.ts'),
+    importTs('src/tools/reveal/releasedNumbers.ts'),
+  ]);
+  return {
+    transformRawCards: bridge.transformRawCards,
+    releasedRevealNumbers: released.releasedRevealNumbers,
   };
 }
 

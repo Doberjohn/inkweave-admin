@@ -167,6 +167,7 @@ describe('existingVerdict', () => {
     expect(existingVerdict(lionheart(), [card(147, 'Bellwether - Super Capable')])).toMatchObject({
       status: 'conflict',
       reason: 'number-taken',
+      detail: '#147 is already in Inkweave as "Bellwether - Super Capable" (14147)',
     });
   });
 
@@ -182,7 +183,7 @@ describe('existingVerdict', () => {
   it('flags a card Inkweave holds under a different number', () => {
     expect(
       existingVerdict(lionheart(), [card(148, 'Lionheart - Cleaning Up the City')]),
-    ).toMatchObject({status: 'conflict', reason: 'name-taken'});
+    ).toMatchObject({status: 'conflict', reason: 'name-taken', detail: 'already in Inkweave as #148 (14148)'});
   });
 
   it('recognises a numberless site card that is already in Inkweave by name', () => {
