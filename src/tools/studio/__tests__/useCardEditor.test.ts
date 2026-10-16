@@ -374,7 +374,7 @@ describe('useCardEditor: the staged image (useImageAdmin.test.ts’s cases)', ()
 });
 
 describe('useCardEditor: synergies', () => {
-  const groupIds = (result: Editor) => result.current.synergyGroups.flatMap((group) => group.synergies.map((s) => s.card.id));
+  const groupIds = (result: Editor) => result.current.findSynergies().flatMap((group) => group.synergies.map((s) => s.card.id));
 
   it('finds the edit’s synergies live, and none for an image-only card', async () => {
     const {result, open} = await renderEditor({cardId: idOf(MEI)});
@@ -384,6 +384,6 @@ describe('useCardEditor: synergies', () => {
     act(() => result.current.patchForm({keywords: ''}));
     expect(groupIds(result)).not.toContain(RELEASED_SONG.id);
     open(RELEASED_CARD.id);
-    expect(result.current.synergyGroups).toEqual([]);
+    expect(result.current.findSynergies()).toEqual([]);
   });
 });

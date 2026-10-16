@@ -28,7 +28,7 @@ function listOf({cards = [], isLoading = false, error = null}: Partial<CardListV
 }
 
 /** previewCards.json once a read of it has landed. */
-function readFile(cards: LorcanaJSONCard[]): PreviewCardsFile {
+function readFile(cards: LorcanaJSONCard[]): Extract<PreviewCardsFile, {status: 'ready'}> {
   return {status: 'ready', cards, ids: new Set(cards.map((entry) => entry.id)), read: 1};
 }
 
@@ -119,7 +119,7 @@ describe('hasPreviewId', () => {
   });
 });
 
-// Only such a card waits for the branch file, and only its image-only save checks it (R-71, R4-8a).
+// Only such a card waits for the branch file (R-71). Any card under a preview id reads gone once a read lacks it.
 describe('isRevealPreview', () => {
   it.each<{name: string; card: Pick<LorcanaCard, 'id' | 'setCode'>; expected: boolean}>([
     {name: 'a numbered card of the reveal set', card: {id: String(REVEAL_ID_BASE + 21), setCode: REVEAL_SET_CODE}, expected: true},
@@ -172,10 +172,30 @@ describe('branchLookup', () => {
       expected: ready({card: RELEASED_MEI}),
     },
     {
-      name: "another set's preview id is never gone (R-65)",
+      name: "another set's preview card the read file no longer holds is gone too (R-65)",
       lookup: ready({card: NEXT_SET_PREVIEW}),
       file: readFile([]),
+      expected: {kind: 'gone', card: NEXT_SET_PREVIEW},
+    },
+    // It opens straight from the card list (R-71), so its entry is null before a read lands as well.
+    {
+      name: "another set's preview card stays ready while the file loads",
+      lookup: ready({card: NEXT_SET_PREVIEW}),
+      file: {status: 'loading'},
       expected: ready({card: NEXT_SET_PREVIEW}),
+    },
+    {
+      name: "another set's preview card stays ready after a failed read",
+      lookup: ready({card: NEXT_SET_PREVIEW}),
+      file: {status: 'error', error: FILE_ERROR},
+      expected: ready({card: NEXT_SET_PREVIEW}),
+    },
+    // A failed reload keeps the cards an earlier read gave, beside its error (C1): that read lacked the card.
+    {
+      name: "another set's preview card stays gone while a reload fails",
+      lookup: ready({card: NEXT_SET_PREVIEW}),
+      file: {...readFile([]), reloadError: FILE_ERROR},
+      expected: {kind: 'gone', card: NEXT_SET_PREVIEW},
     },
     {name: 'no card stays no card', lookup: {kind: 'none'}, file: readFile([]), expected: {kind: 'none'}},
   ])('$name', ({lookup, file, expected}) => {

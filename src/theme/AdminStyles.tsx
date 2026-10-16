@@ -79,11 +79,16 @@ const ENABLED = ':where(:not(:disabled))';
  * the handoff's Type tabs do: the buttons share the width from a 4px pad.
  * They sit two by two in adm-seg-pair, which never wraps inside, so where
  * one line can't hold them all (a 320px phone) the second pair takes the
- * next line whole: two and two, never three and one.
+ * next line whole: two and two, never three and one. A pair grows by its
+ * button count, from the gap inside it, so on a line they share every button
+ * takes the same width, an odd count's last one, alone in its pair
+ * (data-lone="true"), too. A lone button alone on the last line fills that
+ * line.
  *
- * adm-scroll-region is a box that scrolls a table sideways. It takes
- * tabIndex 0 and role="region" with a name, so the keyboard can reach it and
- * scroll it (WCAG 2.1.1), and it rings 2px out, as a chart plot does.
+ * adm-scroll-region is a box that scrolls a table sideways. While the table
+ * overflows it, it takes tabIndex 0 and role="region" with a name, so the
+ * keyboard can reach it and scroll it (WCAG 2.1.1), and it rings 2px out, as
+ * a chart plot does.
  *
  * A text link inside data (adm-link: a card name in a log row, a list or a
  * heading) keeps its text colour and takes a muted underline: gold sits at
@@ -131,7 +136,8 @@ const CSS = `
 .adm-seg-btn:hover${ENABLED}{background:${C.navHover};color:${C.text};}
 .adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
 .adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
-.adm-seg-pair{display:flex;flex:1 1 0;gap:${SPACING.xxs}px;}
+.adm-seg-pair{display:flex;flex:2 1 ${SPACING.xxs}px;gap:${SPACING.xxs}px;}
+.adm-seg-pair[data-lone="true"]{flex:1 1 0;}
 .adm-seg-pair>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
 
 .adm-row-btn{background:transparent;color:${C.text};cursor:pointer;transition:background-color ${FAST};}

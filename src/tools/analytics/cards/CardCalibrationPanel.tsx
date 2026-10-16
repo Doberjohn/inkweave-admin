@@ -1,5 +1,6 @@
+import {useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {FONTS, SPACING} from '../../../app-bridge';
+import {FONTS, SPACING, useContainerWidth} from '../../../app-bridge';
 import {calibrationHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
@@ -80,24 +81,69 @@ function RuleRow({row}: {row: CardRuleRow}) {
 }
 
 /**
+ * Whether the element itself has focus, and the handlers that track it. React's
+ * focus events bubble, so the target is the element only while it is the one
+ * focused, not a link inside it.
+ */
+function useOwnFocus() {
+  const [held, setHeld] = useState(false);
+  const own = (event: React.FocusEvent) => event.target === event.currentTarget;
+  return {
+    held,
+    onFocus: (event: React.FocusEvent) => {
+      if (own(event)) setHeld(true);
+    },
+    onBlur: (event: React.FocusEvent) => {
+      if (own(event)) setHeld(false);
+    },
+  };
+}
+
+/**
+ * The box the rules table scrolls sideways in. Only the Rule column holds
+ * links, so while the table overflows the box, and until the box is measured,
+ * it is a region the keyboard reaches and scrolls (WCAG 2.1.1), ringed by
+ * adm-scroll-region. Its name says what it adds, and the table names what it
+ * holds. A table that fits needs neither, so the box is then a plain one, out
+ * of the Tab order. It stays a region while it has focus itself, though a
+ * resize, a rotation or a zoom makes the table fit: taking its tabindex would
+ * blur it, and admin moves focus only through a handoff (R-48). A focused link
+ * in the table doesn't hold it. The table fills the box down to
+ * TABLE_MIN_WIDTH, so it overflows exactly when the box's content width
+ * (useContainerWidth's) is narrower. Its own component, so the measured ref
+ * holds the box from mount: useContainerWidth observes only what its ref held
+ * then, and CardRulesTable renders nothing for a card whose pairs name no rule.
+ */
+function RulesScroller({children}: {children: React.ReactNode}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const focus = useOwnFocus();
+  // 0 until a ResizeObserver reports, and always in jsdom: read as overflowing, so the keyboard keeps the box.
+  const scrolls = useContainerWidth(boxRef) < TABLE_MIN_WIDTH || focus.held;
+  return (
+    <div
+      ref={boxRef}
+      role={scrolls ? 'region' : undefined}
+      aria-label={scrolls ? 'Scrolls sideways' : undefined}
+      tabIndex={scrolls ? 0 : undefined}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
+      className="adm-scroll-region"
+      style={SCROLLER}>
+      {children}
+    </div>
+  );
+}
+
+/**
  * The rules that scored the card's voted pairs, as rulesForCard orders them:
  * rules with enough score votes first, each group by |gap|, then score votes,
  * then name (R-35). Nothing for a card whose pairs name no rule. Under
- * TABLE_MIN_WIDTH the table scrolls sideways, and only the Rule column holds
- * links, so the scroller is a named region the keyboard reaches and scrolls
- * (WCAG 2.1.1), ringed by adm-scroll-region. The region names the box, "Rules
- * table", and the table its contents, so a screen reader entering both
- * doesn't hear one name twice.
+ * TABLE_MIN_WIDTH it scrolls sideways in RulesScroller.
  */
 function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
   if (rows.length === 0) return null;
   return (
-    <div
-      role="region"
-      aria-label="Rules table"
-      tabIndex={0}
-      className="adm-scroll-region"
-      style={SCROLLER}>
+    <RulesScroller>
       <table aria-label="Rules on this card's pairs, low n last" style={TABLE}>
         <colgroup>
           <col />
@@ -131,7 +177,7 @@ function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
           ))}
         </tbody>
       </table>
-    </div>
+    </RulesScroller>
   );
 }
 

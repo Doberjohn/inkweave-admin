@@ -1,7 +1,7 @@
 import type {Location} from 'react-router-dom';
 import type {StudioMode} from '../../shell/nav';
 import type {UnsavedQuestion, UnsavedWords} from '../../shell/UnsavedChangesGuard';
-import {writeInFlightMessage, type WriteInFlight} from '../../shell/writeInFlight';
+import {writeInFlightMessage} from '../../shell/writeInFlight';
 
 /**
  * The parts of a location the studio reads. react-router's Location fits, and
@@ -67,8 +67,21 @@ type Draft = keyof StudioDrafts;
 /** The drafts in the order the studio names them. */
 const DRAFTS: readonly Draft[] = ['reveal', 'edit'];
 
-/** Each draft's commit, in R2's shared in-flight line (writeInFlight.ts). */
-const COMMIT: Readonly<Record<Draft, WriteInFlight>> = {reveal: {action: 'publish'}, edit: {action: 'save'}};
+/**
+ * Each draft's line while its commit is in flight: R2's shared sentence
+ * (writeInFlight.ts), built when asked for, since it names the branch. Edit's
+ * adds what leaving still drops. The form stays editable while a save runs,
+ * and a landed save makes only what it sent the baseline (useEditSave's land,
+ * savedDraft), so edits typed since it started stay in the draft that leaving
+ * drops; and a failed save's own changes are lost with that draft. "Any"
+ * keeps the line true when there are no later edits.
+ */
+const IN_FLIGHT: Readonly<Record<Draft, () => string>> = {
+  reveal: () => writeInFlightMessage({action: 'publish'}),
+  edit: () =>
+    `${writeInFlightMessage({action: 'save'})} ` +
+    'Any edits made since the save started are dropped, and if the save fails, its changes are lost too.',
+};
 
 /** A dirty draft's line when the navigation leaves Card studio. */
 const LEAVES_STUDIO: Readonly<Record<Draft, string>> = {
@@ -94,9 +107,12 @@ const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the car
 const CARD_CHANGE: UnsavedWords = {title: 'Leave this card?', stay: 'Keep editing', leave: 'Drop changes'};
 
 /**
- * A held card change that drops nothing, as its line says: the card's save
- * landed while the dialog was open (CARD_SAVED), or is still in flight, which
- * leaving doesn't stop. Its leave answer names only where it goes (R4-8f).
+ * A held card change whose edits went with the card's save: it landed while
+ * the dialog was open, so the change drops nothing (CARD_SAVED), or it is
+ * still in flight, which leaving doesn't stop, and the change drops the edits
+ * made since it started, and the save's own changes if it fails, as the
+ * in-flight line says (IN_FLIGHT). Its leave answer names only where it goes
+ * (R4-8f).
  */
 const CARD_KEPT: UnsavedWords = {...CARD_CHANGE, leave: 'Leave the card'};
 
@@ -109,7 +125,7 @@ const CARD_SAVED = 'Your changes to this card are saved. Leaving the card drops 
 
 /** One draft's line: its commit in flight, or what the navigation drops. */
 function draftLine(draft: Draft, leave: StudioLeave): string {
-  if (leave.busy[draft]) return writeInFlightMessage(COMMIT[draft]);
+  if (leave.busy[draft]) return IN_FLIGHT[draft]();
   return leave.from.pathname === leave.to.pathname ? LEAVES_CARD : LEAVES_STUDIO[draft];
 }
 
@@ -123,8 +139,8 @@ function dropsBoth({atRisk, busy}: {atRisk: StudioDrafts; busy: StudioDrafts}): 
  * navigation would drop (draftsAtRisk, the hold's own rule), so a card change
  * names only the Edit draft and leaving names every dirty one: both in one
  * sentence while neither commit is in flight. A draft whose commit is in
- * flight gets the shared in-flight line instead. It never returns '': a hold
- * can outlast the draft it protects (R4-5s).
+ * flight gets its in-flight line instead (IN_FLIGHT). It never returns '': a
+ * hold can outlast the draft it protects (R4-5s).
  */
 export function studioUnsavedMessage(leave: StudioLeave): string {
   const atRisk = draftsAtRisk(leave.from, leave.to, leave.drafts);
@@ -133,7 +149,11 @@ export function studioUnsavedMessage(leave: StudioLeave): string {
   return lines.length > 0 ? lines.join(' ') : CARD_SAVED;
 }
 
-/** Whether a card change drops the Edit draft's edits: they are unsaved, and no save of theirs is in flight. */
+/**
+ * Whether a card change drops the Edit draft's edits outright: they are
+ * unsaved, and no save of theirs is in flight. While one is, its line says
+ * what the change still drops (IN_FLIGHT).
+ */
 function dropsEdits(leave: StudioLeave): boolean {
   return draftsAtRisk(leave.from, leave.to, leave.drafts).edit && !leave.busy.edit;
 }
@@ -141,9 +161,9 @@ function dropsEdits(leave: StudioLeave): boolean {
 /**
  * UnsavedChangesGuard's message for the studio: studioUnsavedMessage's line.
  * A card change stays on the page, so it asks about the card (CARD_CHANGE),
- * and says "Drop changes" only while it drops some (CARD_KEPT, R4-8f);
- * leaving Card studio asks in the guard's own words, "Leave this page?"
- * (R4-8c).
+ * and says "Drop changes" only while it drops the edits outright, with no
+ * save of theirs in flight (CARD_KEPT, R4-8f); leaving Card studio asks in the
+ * guard's own words, "Leave this page?" (R4-8c).
  */
 export function studioUnsavedQuestion(leave: StudioLeave): string | UnsavedQuestion {
   const message = studioUnsavedMessage(leave);

@@ -1,5 +1,5 @@
-import {describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {COLORS} from '../../../../app-bridge';
@@ -27,6 +27,34 @@ import {
   viewCard,
   voteRow,
 } from '../cardFixtures';
+
+// jsdom has no ResizeObserver, so the real useContainerWidth stays at 0, unmeasured. The stub gives the
+// view's measured boxes a width, the rules table's scroller, the KPI row and the charts, and re-renders them
+// when a test resizes them, as a ResizeObserver's report would.
+const measured = vi.hoisted(() => ({width: 0, listeners: new Set<() => void>()}));
+vi.mock('../../../../app-bridge', async (importOriginal) => {
+  const {useSyncExternalStore} = await import('react');
+  const subscribe = (onChange: () => void) => {
+    measured.listeners.add(onChange);
+    return () => void measured.listeners.delete(onChange);
+  };
+  return {
+    ...(await importOriginal<Record<string, unknown>>()),
+    useContainerWidth: function useContainerWidth() {
+      return useSyncExternalStore(subscribe, () => measured.width);
+    },
+  };
+});
+
+/** The width the boxes' ResizeObserver reports, as a resize, a rotation or a zoom would change it. */
+function resize(width: number) {
+  measured.width = width;
+  act(() => measured.listeners.forEach((onChange) => onChange()));
+}
+
+afterEach(() => {
+  measured.width = 0;
+});
 
 const BASE: CardAnalyticsViewProps = {
   card: MAUI_CARD,
@@ -220,12 +248,51 @@ describe('CardAnalyticsView', () => {
       });
     });
 
-    it("lets the keyboard reach the rules table's scroller, a named region with a ring, to scroll it sideways (WCAG 2.1.1)", () => {
+    /** The box round the rules table, which scrolls it sideways. */
+    const scroller = () => within(panel()).getByRole('table').parentElement;
+
+    // The table is 360px at the least (TABLE_MIN_WIDTH), and useContainerWidth's 0 means not measured yet.
+    it.each([
+      {when: 'until it is measured', width: 0},
+      {when: 'while the table overflows it', width: 359},
+    ])("lets the keyboard reach the rules table's scroller $when: a region named for what it adds, with a ring (WCAG 2.1.1)", ({width}) => {
+      measured.width = width;
       renderView();
-      const scroller = within(panel()).getByRole('region', {name: 'Rules table'});
-      expect(scroller).toBe(within(panel()).getByRole('table').parentElement);
-      expect(scroller).toHaveAttribute('tabindex', '0');
-      expect(scroller).toHaveClass('adm-scroll-region');
+      const region = within(panel()).getByRole('region', {name: 'Scrolls sideways'});
+      expect(region).toBe(scroller());
+      expect(region).toHaveAttribute('tabindex', '0');
+      expect(region).toHaveClass('adm-scroll-region');
+    });
+
+    it('leaves the scroller out of the Tab order, a plain box with no name, while the table fits', () => {
+      measured.width = 360;
+      renderView();
+      expect(within(panel()).queryByRole('region', {name: 'Scrolls sideways'})).not.toBeInTheDocument();
+      for (const attribute of ['role', 'aria-label', 'tabindex']) expect(scroller()).not.toHaveAttribute(attribute);
+    });
+
+    // A resize, a rotation or a zoom can make the table fit while the box has focus. Taking its tabindex then
+    // would blur it, and admin moves focus only through a handoff (R-48).
+    it('keeps a focused scroller a region, focus and all, once the table fits, and lets it go when it blurs', () => {
+      measured.width = 359;
+      renderView();
+      const box = scroller()!;
+      act(() => box.focus());
+      resize(600);
+      expect(within(panel()).getByRole('region', {name: 'Scrolls sideways'})).toBe(box);
+      expect(box).toHaveAttribute('tabindex', '0');
+      expect(box).toHaveFocus();
+
+      act(() => box.blur());
+      for (const attribute of ['role', 'aria-label', 'tabindex']) expect(box).not.toHaveAttribute(attribute);
+    });
+
+    it("doesn't hold the scroller for a focused link in the table: the table that fits leaves it a plain box", () => {
+      measured.width = 359;
+      renderView();
+      act(() => within(panel()).getByRole('link', {name: 'Ramp'}).focus());
+      resize(600);
+      for (const attribute of ['role', 'aria-label', 'tabindex']) expect(scroller()).not.toHaveAttribute(attribute);
     });
 
     it('names the scroller apart from its table, so entering both reads two names, not one twice', () => {

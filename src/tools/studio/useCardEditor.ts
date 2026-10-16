@@ -77,7 +77,15 @@ export interface CardEditorController extends EditSave {
   /** The form as loaded, and no image. */
   discard: () => void;
   previewCard: LorcanaCard | null;
-  synergyGroups: SynergyGroup[];
+  /**
+   * Runs the engine on the live preview: the edit's synergies, none for an
+   * image-only card (editSynergies). A call, not a value: StudioWorkspace runs
+   * this hook on every render in either mode, and the React Compiler leaves
+   * its chain unmemoized, so a value here ran the engine on every keystroke in
+   * New reveal too. The Edit pane calls it as it shows the synergies, which it
+   * does only in Edit card (Doberjohn/inkweave-admin#55).
+   */
+  findSynergies: () => SynergyGroup[];
   imageName: string | null;
   /** The staged image's bytes; null while they are read, and for a file that fails its check. */
   imageDataUrl: string | null;
@@ -168,7 +176,8 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  * the target branch (R-71: only a reveal-set card under a preview id waits for it), and
  * the draft from both. branchLookup refines the lookup with what only the file
  * can say: an id neither source holds waits for the file before it reads
- * missing, and a reveal-set preview card the file no longer holds is gone.
+ * missing, and a card under a preview id that the read file no longer holds
+ * is gone, whatever its set.
  * Every rule lives in editorState.ts and branchCards.ts; this hook is wiring.
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
@@ -208,7 +217,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     dirty: hasEdits({changes, imageName: staged.name}),
     discard: image.discard,
     previewCard,
-    synergyGroups: editSynergies({preview: previewCard, draft, cards: list.cards}),
+    findSynergies: () => editSynergies({preview: previewCard, draft, cards: list.cards}),
     imageName: staged.name,
     imageDataUrl: staged.dataUrl,
     imageError: imageErrorOf(staged, validation),

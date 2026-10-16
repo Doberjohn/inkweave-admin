@@ -58,7 +58,15 @@ export interface RevealAdminController {
   /** The form differs from an empty one, or a file is chosen. A publish that lands clears both. */
   dirty: boolean;
   previewCard: LorcanaCard | null;
-  synergyGroups: SynergyGroup[];
+  /**
+   * Runs the engine on the live preview (computeSynergies). A call, not a
+   * value: StudioWorkspace runs this hook on every render in either mode, and
+   * the React Compiler leaves the hook uncompiled, so a value here ran the
+   * engine on every keystroke in Edit card too. New reveal's aside calls it as
+   * it shows the synergies, which it does only in New reveal
+   * (Doberjohn/inkweave-admin#55).
+   */
+  findSynergies: () => SynergyGroup[];
   validation: ValidationResult;
   /** The chosen file's name, or null. */
   imageName: string | null;
@@ -106,7 +114,6 @@ export function useRevealAdmin(): RevealAdminController {
   // A released reveal-set card holds its number under its official id, which existingIds can't match.
   const released = releasedRevealNumbers(cards);
   const previewCard = buildPreview(form, upload.dataUrl);
-  const synergyGroups = computeSynergies(previewCard, cards);
   const validation = validateRevealCardForm(form, existingIds, imageName, released);
   const ready = readyToPublish({valid: validation.ok, token, upload, list: cardList});
 
@@ -139,7 +146,7 @@ export function useRevealAdmin(): RevealAdminController {
     patchForm,
     dirty: hasDraft(form, upload),
     previewCard,
-    synergyGroups,
+    findSynergies: () => computeSynergies(previewCard, cards),
     validation,
     imageName,
     imageDataUrl: upload.dataUrl,

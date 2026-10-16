@@ -1,7 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
 import type {UserEvent} from '@testing-library/user-event';
-import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {synergyEngine, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {REVEAL_ID_BASE, inkBlock} from '../../../app-bridge';
 import {studioHref} from '../../../shell/nav';
 import {pngFile} from '../../../test/images';
 import {commitCardImage} from '../../image/githubClient';
@@ -52,8 +53,10 @@ const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the car
 const LEAVES_EDIT = "Your Edit card changes aren't saved yet. Leaving Card studio drops them.";
 const LEAVES_BOTH =
   "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
-/** R2's in-flight line for Edit's save (writeInFlight.ts), on master. */
-const SAVING = "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
+/** Edit's in-flight line, on master: R2's (writeInFlight.ts), then what leaving still drops (studioPaths.ts). */
+const SAVING =
+  "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed. " +
+  'Any edits made since the save started are dropped, and if the save fails, its changes are lost too.';
 const RENAMED = 'Mei Lee';
 
 // The card list as inkweave.ink serves it: a released card, then the deployed preview cards (loader.ts:195-198).
@@ -635,8 +638,9 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     await user.click(saveButton());
     await user.click(screen.getByRole('link', {name: 'Load a different card'}));
     const dialog = await cardDialog();
-    expect(dialog).toHaveTextContent(SAVING);
-    // The save takes the edits with it, so the leave answer doesn't say it drops them (R4-8f).
+    expect(within(dialog).getByText(SAVING)).toBeInTheDocument();
+    // The save takes what it sent, and the line names what leaving still drops, so the leave answer names only where
+    // it goes (R4-8f).
     expect(within(dialog).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep editing', 'Leave the card']);
     await user.click(within(dialog).getByRole('button', {name: 'Leave the card'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
@@ -706,5 +710,51 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     expect(screen.getByRole('button', {name: /^Card text/})).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', {name: /^Identity/})).toHaveAttribute('aria-expanded', 'true');
     expect(await nameField()).toHaveValue(RENAMED);
+  });
+});
+
+/*
+ * StudioWorkspace runs both controllers on every render, in either mode, and
+ * the React Compiler, which vitest runs too (vite.config.ts), memoizes neither
+ * one's synergies. So each controller hands them over as a call
+ * (findSynergies) that only its own pane makes. The spy counts the engine's
+ * runs for one mode's card while the other mode's form is typed in; afterEach
+ * restores it (Doberjohn/inkweave-admin#55).
+ */
+describe("StudioPage: a keystroke in one mode and the other mode's synergies", () => {
+  it("never runs the engine again for the card open in Edit card while New reveal's form is typed in", async () => {
+    const findSynergies = vi.spyOn(synergyEngine, 'findSynergies');
+    const meiRuns = () => findSynergies.mock.calls.filter(([card]) => card.id === MEI.id).length;
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    expect(await nameField()).toHaveValue('Mei');
+    // Edit scored her as she opened, so the spy sees Edit's runs.
+    expect(meiRuns()).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    const opened = meiRuns();
+    await user.type(await nameField(), 'Wren');
+    expect(await nameField()).toHaveValue('Wren');
+    // While the controller ran them, each of the four keystrokes scored her again.
+    expect(meiRuns()).toBe(opened);
+  });
+
+  it("never runs the engine again for New reveal's preview while Edit card's form is typed in", async () => {
+    const findSynergies = vi.spyOn(synergyEngine, 'findSynergies');
+    const number = inkBlock('Amber').first;
+    // New reveal's preview takes its id from its collector number (buildPreviewCard).
+    const wrenRuns = () => findSynergies.mock.calls.filter(([card]) => card.id === String(REVEAL_ID_BASE + number)).length;
+    const {user} = renderStudio({path: studioHref('new', MEI.id)});
+    await user.type(screen.getByRole('textbox', {name: 'Collector number'}), String(number));
+    await user.type(await nameField(), 'Wren');
+    // New reveal scored its preview as it was typed, so the spy sees its runs.
+    expect(wrenRuns()).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', {name: 'Edit card'}));
+    expect(await nameField()).toHaveValue('Mei');
+    const switched = wrenRuns();
+    await user.type(await nameField(), ' Lee');
+    expect(await nameField()).toHaveValue('Mei Lee');
+    // While the controller ran them, each of the four keystrokes scored Wren again.
+    expect(wrenRuns()).toBe(switched);
   });
 });

@@ -225,11 +225,16 @@ describe('the draft’s edits', () => {
       expect(revertDraftImage(reread)).toEqual({...reread, image: null, kept: {edits: true, staged: false, wasEditable: true}});
     });
 
+    it('takes the claim back, as Revert image does, when a change event brings no file', () => {
+      expect(stageImage(reread, {seed: reread.seed, image: null})).toEqual(revertDraftImage(reread));
+    });
+
     it('records nothing on a draft no re-read has landed on', () => {
       const staged = stageImage(renamed, {seed: renamed.seed, image: pngFile('a.png')});
       expect(Object.keys(discardDraft(staged))).not.toContain('kept');
       expect(revertDraftImage(staged)).toEqual({...renamed, image: null});
       expect(Object.keys(revertDraftImage(staged))).not.toContain('kept');
+      expect(Object.keys(stageImage(staged, {seed: staged.seed, image: null}))).not.toContain('kept');
     });
   });
 
@@ -285,8 +290,10 @@ describe('the staged image', () => {
   const staged = stageImage(draft, {seed: draft.seed, image: file});
   const upload = {file, dataUrl: imageDataUrl('a.png'), error: null};
 
-  it('is dropped when chosen in an older draft', () => {
+  it('is dropped when chosen in an older draft, and so is a change event with no file', () => {
     expect(stageImage(draft, {seed: draft.seed - 1, image: file})).toBe(draft);
+    // The seed check comes first: an older draft's empty pick takes back nothing on this one.
+    expect(stageImage(staged, {seed: staged.seed - 1, image: null})).toBe(staged);
   });
 
   it.each<[string, Draft, typeof upload, ReturnType<typeof stagedImage>]>([
