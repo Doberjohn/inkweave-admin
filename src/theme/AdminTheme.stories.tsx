@@ -3,7 +3,7 @@ import type {Ink} from 'inkweave-synergy-engine';
 import {useState} from 'react';
 import {MemoryRouter, NavLink} from 'react-router-dom';
 import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING} from '../app-bridge';
-import {useFileDrop} from '../components/useFileDrop';
+import {useFileDrop, useFileDropGuard} from '../components/useFileDrop';
 import {useHiddenFileInput} from '../components/useHiddenFileInput';
 import {PICK_MIN_WIDTH} from '../tools/studio/studioStyles';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS, ADMIN_TYPE} from './adminTheme';
@@ -412,13 +412,15 @@ function CostDemo() {
 /**
  * The two file labels: the cover over the card preview, and Replace card
  * image. Each rings while its input has focus, and while a file is dragged
- * over it (useFileDrop).
+ * over it (useFileDrop). The story mounts useFileDropGuard as the studio
+ * does, so a file dropped beside the labels never opens in Storybook's tab.
  */
 function FileDemo() {
   const cover = useHiddenFileInput(() => {});
   const replace = useHiddenFileInput(() => {});
   const coverDrop = useFileDrop(() => {});
   const replaceDrop = useFileDrop(() => {});
+  useFileDropGuard();
   return (
     <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: SPACING.xl}}>
       <div style={{position: 'relative', width: 160, aspectRatio: '5 / 7', ...bordered(ADMIN_COLORS.card), borderRadius: ADMIN_RADIUS.preview}}>

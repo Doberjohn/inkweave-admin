@@ -57,8 +57,9 @@ export const EditCurrent: Story = {args: {mode: 'edit', card: CURRENT, current: 
 
 /**
  * Holds a scan from the desktop over the file control `selector` names, as a
- * drag that hasn't dropped: it shows the drop target (data-dragging), which
- * stays until a real drag leaves. A play function builds a real DataTransfer,
+ * drag that hasn't dropped: it shows the drop target (data-dragging). The held
+ * drag never leaves, so the target stays lit until a drag ends: a file dropped
+ * anywhere, or a drag cancelled. A play function builds a real DataTransfer,
  * which the browser's DragEvent needs.
  */
 function holdScanOver(selector: string) {
