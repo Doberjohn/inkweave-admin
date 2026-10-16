@@ -59,9 +59,7 @@ const CHARTS = importBan(
 );
 
 export default tseslint.config(
-  // docs/redesign/ is the design handoff. Its support.js is the prototype's
-  // browser runtime, not admin code.
-  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert', 'docs/redesign/']},
+  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -75,6 +73,10 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
+      // The recommended options, plus 'region': a scroll container the keyboard
+      // must reach (WCAG 2.1.1) is a named region with tabIndex={0}, as Card
+      // analytics' rules table is, so it needs no inline disable.
+      'jsx-a11y/no-noninteractive-tabindex': ['error', {tags: [], roles: ['tabpanel', 'region'], allowExpressionValues: true}],
       'react-refresh/only-export-components': ['warn', {allowConstantExport: true}],
       'react-compiler/react-compiler': 'error',
       'no-restricted-syntax': ['error', ...MEMO_BAN],

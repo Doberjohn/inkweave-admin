@@ -1,6 +1,6 @@
 import {findGlyphWords, findSpelledGlyphWords, type Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from './buildPreviewCard';
-import {ALL_INKS, inkBlock} from '../../app-bridge';
+import {ALL_INKS, SET_TOTAL, inkBlock} from '../../app-bridge';
 import {CARD_TYPES, REVEAL_ID_BASE, STAT_FIELDS, STAT_LABELS} from './constants';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
@@ -20,22 +20,58 @@ export interface ValidationResult {
 type Errors = Record<string, string>;
 
 /**
- * Parse a trimmed whole number, or null when blank or anything else ("1.5",
- * "3foo", or digits past what a JavaScript number holds exactly).
+ * A released card of the reveal set, under its official id. Graduation moves a
+ * set's cards off their preview ids: 14021 became 3286.
  */
-function intField(value: string): number | null {
+export interface ReleasedCard {
+  id: number;
+  fullName: string;
+}
+
+/** Each reveal-set collector number a released card holds, with that card (releasedRevealNumbers). */
+export type ReleasedNumbers = ReadonlyMap<number, ReleasedCard>;
+
+/** What a new card's collector number can't take: an existing card's id, or a released card's number. */
+interface TakenNumbers {
+  ids: ReadonlySet<number>;
+  released: ReleasedNumbers;
+}
+
+const NONE_RELEASED: ReleasedNumbers = new Map();
+
+/**
+ * Parse a trimmed whole number, or null when blank or anything else ("1.5",
+ * "3foo", or digits past what a JavaScript number holds exactly). Exported so the
+ * Card studio's checklist reads the collector number exactly as this file does.
+ */
+export function intField(value: string): number | null {
   const t = value.trim();
   const n = Number(t);
   return /^-?\d+$/.test(t) && Number.isSafeInteger(n) ? n : null;
 }
 
-function checkIdentity(form: RevealCardForm, existingIds: ReadonlySet<number>, errors: Errors): void {
+/**
+ * Why the collector number can't be a new card's, or undefined. Every number past
+ * the set is an Epic, Enchanted or Iconic printing of one of its cards, and a
+ * printing is never a card: it goes in through scripts/reveal-sync/variants.mjs.
+ * A number a released card holds is taken under that card's official id, which
+ * the preview id's check can't see.
+ */
+function collectorError(form: RevealCardForm, {ids, released}: TakenNumbers): string | undefined {
   const collector = intField(form.collectorNumber);
-  if (collector === null || collector <= 0) {
-    errors.collectorNumber = 'Enter a positive collector number';
-  } else if (existingIds.has(REVEAL_ID_BASE + collector)) {
-    errors.collectorNumber = `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  if (collector === null || collector <= 0) return 'Enter a positive collector number';
+  if (collector > SET_TOTAL) {
+    return `#${collector} is past the ${SET_TOTAL}-card set: special printings go in through variants.mjs stage`;
   }
+  const holder = released.get(collector);
+  if (holder) return `#${collector} is already ${holder.fullName} (${holder.id})`;
+  if (ids.has(REVEAL_ID_BASE + collector)) return `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  return undefined;
+}
+
+function checkIdentity(form: RevealCardForm, taken: TakenNumbers, errors: Errors): void {
+  const collector = collectorError(form, taken);
+  if (collector) errors.collectorNumber = collector;
   if (form.name.trim() === '') errors.name = 'Name is required';
 }
 
@@ -58,8 +94,8 @@ function inkOwning(collector: number): Ink | undefined {
 /**
  * A set is numbered ink by ink, so the collector number implies the card's (first)
  * ink. Catches the form's default ink being left unchanged, which caused both of
- * last season's wrong-ink publishes. Numbers past the numbered set (promos,
- * enchanteds) belong to no block and are not checked.
+ * last season's wrong-ink publishes. A number past the set belongs to no block, so
+ * it isn't checked here: collectorError already refuses it.
  */
 function checkInkBlock(form: RevealCardForm, errors: Errors): void {
   if (errors.ink) return;
@@ -108,15 +144,17 @@ function checkImage(imageName: string | null, errors: Errors): void {
 /**
  * Validate the reveal-card form before publish. Returns a map of field name ->
  * error message; `ok` is true only when there are no errors. Each concern is a
- * focused helper so no single function carries all the branching.
+ * focused helper so no single function carries all the branching. `released`
+ * is optional, so a caller with no card list (reveal-sync) checks as before.
  */
 export function validateRevealCardForm(
   form: RevealCardForm,
   existingIds: ReadonlySet<number>,
   imageName: string | null,
+  released: ReleasedNumbers = NONE_RELEASED,
 ): ValidationResult {
   const errors: Errors = {};
-  checkIdentity(form, existingIds, errors);
+  checkIdentity(form, {ids: existingIds, released}, errors);
   checkCostAndInk(form, errors);
   checkInkBlock(form, errors);
   checkStats(form, errors);

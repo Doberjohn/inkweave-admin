@@ -10,7 +10,6 @@ import {
   VIEW_ANALYTICS,
   VIEW_LOG,
   VOTED_CARD,
-  lorcanaCard,
   viewCard,
   voteRow,
 } from '../cardFixtures';
@@ -22,7 +21,6 @@ import {
   NO_RAW_SILENT_NOTE,
   calibrationData,
   calibrationOf,
-  cardFacts,
   rawFigures,
   rawVotesFor,
   silentNote,
@@ -162,14 +160,5 @@ describe('silentNote', () => {
       'Not listed: 1 engine-silent pair (voted, but the engine gives it no score): ' +
         '0 with a card outside the current card list, 1 with both cards in Core.',
     );
-  });
-});
-
-describe('cardFacts', () => {
-  it.each([
-    [{type: 'Character', cost: 8, inkwell: true} as const, 'Character · cost 8 · inkable'],
-    [{type: 'Action', cost: 3, inkwell: false} as const, 'Action · cost 3 · uninkable'],
-  ])('%o reads "%s"', (card, text) => {
-    expect(cardFacts(lorcanaCard({id: '1', name: 'Any', ...card}))).toBe(text);
   });
 });

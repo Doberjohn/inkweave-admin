@@ -1,7 +1,10 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
+import type {Ink} from 'inkweave-synergy-engine';
 import {useState} from 'react';
 import {MemoryRouter, NavLink} from 'react-router-dom';
-import {FONTS, SPACING} from '../app-bridge';
+import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING} from '../app-bridge';
+import {useHiddenFileInput} from '../components/useHiddenFileInput';
+import {PICK_MIN_WIDTH} from '../tools/studio/studioStyles';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS, ADMIN_TYPE} from './adminTheme';
 
 type ColorKey = keyof typeof ADMIN_COLORS;
@@ -251,3 +254,189 @@ function ControlsDemo() {
 }
 
 export const Controls: Story = {render: () => <ControlsDemo />};
+
+// Card studio's controls (R4-5a), before the studio's own components use them.
+const ROW: React.CSSProperties = {display: 'flex', flexWrap: 'wrap', gap: SPACING.xs};
+const INLINE: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.sm, fontSize: ADMIN_TYPE.body};
+// The studio's own pick width, as PickerGroup and InkwellPicker lay their grids out.
+const PICK_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: `repeat(auto-fill, minmax(${PICK_MIN_WIDTH}px, 1fr))`,
+  gap: SPACING.xs,
+};
+const PILL: React.CSSProperties = {
+  margin: SPACING.md,
+  padding: `${SPACING.xs}px ${SPACING.md}px`,
+  borderRadius: ADMIN_RADIUS.pill,
+  backgroundColor: ADMIN_COLORS.page,
+  fontSize: ADMIN_TYPE.small,
+  color: ADMIN_COLORS.text,
+};
+const ACC_BODY: React.CSSProperties = {fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+const ACCEPT = 'image/jpeg,image/png,image/webp';
+const RARITY_SAMPLES = [
+  {label: 'Common', key: 'common'},
+  {label: 'Rare', key: 'rare'},
+  {label: 'Super Rare', key: 'super rare'},
+  {label: 'Legendary', key: 'legendary'},
+] as const;
+const INKWELLS = [
+  {value: 'inkable', label: 'Inkable'},
+  {value: 'uninkable', label: 'Uninkable'},
+] as const;
+
+/** A form section's accordion header (narrow layout), over its body. */
+function AccordionDemo() {
+  const [open, setOpen] = useState(true);
+  return (
+    <section style={{maxWidth: 400, ...bordered(ADMIN_COLORS.card), borderRadius: ADMIN_RADIUS.panel, overflow: 'hidden'}}>
+      <h2 style={{margin: 0}}>
+        <button type="button" className="adm-acc-head" aria-expanded={open} aria-controls="demo-identity" onClick={() => setOpen(!open)}>
+          Identity
+        </button>
+      </h2>
+      {/* No display in this style: one would override `hidden`. */}
+      <p id="demo-identity" hidden={!open} style={{margin: 0, padding: `0 ${SPACING.lg}px ${SPACING.lg}px`, ...ACC_BODY}}>
+        Collector #, name, version, franchise
+      </p>
+    </section>
+  );
+}
+
+/** The ink tiles, the Dual-ink switch and the smaller second-ink tiles. Each tile's InkIcon alt names it (R4-5c's markup). */
+function InkDemo() {
+  const [ink, setInk] = useState<Ink>('Amber');
+  const [ink2, setInk2] = useState<Ink | null>(null);
+  const [dual, setDual] = useState(true);
+  return (
+    <div style={{display: 'grid', gap: SPACING.md, justifyItems: 'start'}}>
+      <div role="group" aria-label="Ink" style={ROW}>
+        {ALL_INKS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className="adm-pick-btn adm-ink-tile"
+            aria-pressed={ink === name}
+            onClick={() => setInk(name)}>
+            <InkIcon ink={name} size={28} decorative={false} />
+          </button>
+        ))}
+      </div>
+      <label style={INLINE}>
+        <input type="checkbox" role="switch" className="adm-switch" checked={dual} onChange={(e) => setDual(e.target.checked)} />
+        Dual-ink card
+      </label>
+      {dual && (
+        <div role="group" aria-label="Second ink" style={ROW}>
+          {ALL_INKS.filter((name) => name !== ink).map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="adm-pick-btn adm-ink-tile"
+              data-size="sm"
+              aria-pressed={ink2 === name}
+              onClick={() => setInk2(name)}>
+              <InkIcon ink={name} size={22} decorative={false} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The rarity and inkwell pick buttons: full width, so their grid sizes them. */
+function PickDemo() {
+  const [rarity, setRarity] = useState('Super Rare');
+  const [inkable, setInkable] = useState(true);
+  return (
+    <div style={{display: 'grid', gap: SPACING.md, maxWidth: 480}}>
+      <div role="group" aria-label="Rarity" style={PICK_GRID}>
+        {RARITY_SAMPLES.map(({label, key}) => (
+          <button key={key} type="button" className="adm-pick-btn" aria-pressed={rarity === label} onClick={() => setRarity(label)}>
+            <RaritySymbol rarity={key} size={18} />
+            {label}
+          </button>
+        ))}
+      </div>
+      <div
+        role="group"
+        aria-label="Inkwell"
+        style={{...PICK_GRID, gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${PICK_MIN_WIDTH}px), 1fr))`}}>
+        {INKWELLS.map(({value, label}) => (
+          <button
+            key={value}
+            type="button"
+            className="adm-pick-btn"
+            aria-pressed={inkable === (value === 'inkable')}
+            onClick={() => setInkable(value === 'inkable')}>
+            <InkwellIcon value={value} />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The cost box and slider: the slider shows no thumb until a cost is set. */
+function CostDemo() {
+  const [cost, setCost] = useState('');
+  const unset = cost === '';
+  return (
+    <div style={{...INLINE, maxWidth: 360}}>
+      <label style={INLINE}>
+        Cost
+        <input className="adm-input" inputMode="numeric" value={cost} onChange={(e) => setCost(e.target.value)} style={{width: 64}} />
+      </label>
+      <input
+        type="range"
+        className="adm-range"
+        min={0}
+        max={10}
+        step={1}
+        aria-label="Cost slider"
+        aria-valuetext={unset ? 'Not set' : undefined}
+        data-unset={unset ? 'true' : undefined}
+        value={Math.min(10, Number(cost) || 0)}
+        onPointerDown={() => {
+          if (unset) setCost('0');
+        }}
+        onChange={(e) => setCost(e.target.value)}
+      />
+    </div>
+  );
+}
+
+/** The two file labels: the cover over the card preview, and Replace card image. */
+function FileDemo() {
+  const cover = useHiddenFileInput(() => {});
+  const replace = useHiddenFileInput(() => {});
+  return (
+    <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: SPACING.xl}}>
+      <div style={{position: 'relative', width: 160, aspectRatio: '5 / 7', ...bordered(ADMIN_COLORS.card), borderRadius: ADMIN_RADIUS.preview}}>
+        <label className="adm-file-cover" data-focused={cover.focused ? 'true' : undefined}>
+          <span style={PILL}>Click to upload scan</span>
+          <input {...cover.inputProps} accept={ACCEPT} />
+        </label>
+      </div>
+      <label className="adm-file-btn" data-focused={replace.focused ? 'true' : undefined}>
+        Replace card image
+        <input {...replace.inputProps} accept={ACCEPT} />
+      </label>
+    </div>
+  );
+}
+
+/** Card studio's adm-* classes in their states. Tab through it to see the rings. */
+export const StudioControls: Story = {
+  render: () => (
+    <>
+      <AccordionDemo />
+      <InkDemo />
+      <PickDemo />
+      <CostDemo />
+      <FileDemo />
+    </>
+  ),
+};

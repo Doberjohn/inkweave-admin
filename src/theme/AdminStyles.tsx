@@ -9,6 +9,21 @@ const INPUT_HEIGHT = 38;
 // 32 + the track's 2px padding and 1px border on each side = INPUT_HEIGHT, so a
 // segmented control lines up with the inputs beside it in a filter row.
 const SEG_BUTTON_HEIGHT = 32;
+// Card studio's controls (R4), sized as the handoff draws them (README §7).
+const CHEVRON_SIZE = 6;
+/** An ink tile's widest, which the primary ink row's grid columns cap too (PickerGroup's `inks` layout). */
+export const INK_TILE_SIZE = 48;
+const INK_TILE_SIZE_SM = 40;
+const PICK_HEIGHT = 34;
+const FILE_BUTTON_HEIGHT = 36;
+const SWITCH_WIDTH = 34;
+const SWITCH_HEIGHT = 20;
+const SWITCH_INSET = 2;
+const SWITCH_KNOB = SWITCH_HEIGHT - 2 * SWITCH_INSET;
+const RANGE_HEIGHT = 20;
+const RANGE_MIN_WIDTH = 60;
+const RANGE_TRACK = 4;
+const RANGE_THUMB = 16;
 
 const FAST = `.2s ${EASING.snappy}`;
 // Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
@@ -59,12 +74,49 @@ const ENABLED = ':where(:not(:disabled))';
  * Nav items pad 8px, not the handoff's 6 (off the spacing scale): in the 64px
  * rail, 12px gutters leave 40px, and 8 + 24 + 8 centres the mark exactly.
  *
+ * A segmented control is as wide as its options. With data-fill="true"
+ * (SegmentedControl's fill, Card studio's Type) it fills its row instead, as
+ * the handoff's Type tabs do: the buttons share the width from a 4px pad.
+ * They sit two by two in adm-seg-pair, which never wraps inside, so where
+ * one line can't hold them all (a 320px phone) the second pair takes the
+ * next line whole: two and two, never three and one.
+ *
+ * adm-scroll-region is a box that scrolls a table sideways. It takes
+ * tabIndex 0 and role="region" with a name, so the keyboard can reach it and
+ * scroll it (WCAG 2.1.1), and it rings 2px out, as a chart plot does.
+ *
  * A text link inside data (adm-link: a card name in a log row, a list or a
  * heading) keeps its text colour and takes a muted underline: gold sits at
  * 1.41:1 against the text beside it, under the 3:1 that colour alone would
  * need (WCAG 1.4.1), so the underline is what tells a linked name from a
  * plain one. Hover golds it. Its ring sits 2px out, as a control's does, and
  * a line that clips keeps room for it (CardName's PairLine).
+ *
+ * Card studio's controls (R4):
+ * - adm-acc-head is an accordion section's header, the button inside its h2.
+ *   aria-expanded turns its chevron, which ::after draws from two borders, so
+ *   it adds nothing to the button's name. It rings inside, as a row does.
+ * - adm-pick-btn is a compact pressable: a rarity, Inkable or Uninkable, full
+ *   width so the parent's grid sizes it, or, with adm-ink-tile, an ink's
+ *   square tile: 48px, or its grid column's width where that is less, so the
+ *   six primary tiles shrink to fit a narrow section rather than wrap (a
+ *   percentage width would wrap a row that sizes to its content). The tile
+ *   drops the pick button's 34px minimum height and its icon shrinks with
+ *   it, so a column under 34px (a 320px phone) keeps the tile square and the
+ *   icon inside its border. data-size="sm" is the second-ink row's fixed
+ *   40px. Its pressed fill and border are adm-card-btn's, admin's one
+ *   selected look (R-75).
+ * - adm-switch is a native checkbox with role="switch" (Dual-ink card):
+ *   :checked golds the track and moves the knob, its ::before.
+ * - A file control is a <label> round a visually hidden file input
+ *   (useHiddenFileInput). The input takes the focus, so the label rings on
+ *   data-focused="true", from the hook's `focused`. adm-file-btn is a bordered
+ *   button (Replace card image); adm-file-cover lies over the card preview.
+ * - adm-range is the cost slider. data-unset="true" hides its thumb, so a
+ *   blank cost never reads as 0. The track alone then shows the slider, so it
+ *   is barNeutral, 3.3:1 on a card (WCAG 1.4.11), not the meters' barTrack.
+ *   Its track and thumb rules repeat per engine: a selector list with a
+ *   pseudo-element the browser doesn't know is dropped whole.
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -78,6 +130,9 @@ const CSS = `
 .adm-seg-btn{display:inline-flex;align-items:center;justify-content:center;min-height:${SEG_BUTTON_HEIGHT}px;margin:0;padding:0 ${SPACING.md}px;border:none;border-radius:${R.control}px;background:transparent;color:${C.muted};font-family:inherit;font-size:${T.small}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},color ${FAST};}
 .adm-seg-btn:hover${ENABLED}{background:${C.navHover};color:${C.text};}
 .adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
+.adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
+.adm-seg-pair{display:flex;flex:1 1 0;gap:${SPACING.xxs}px;}
+.adm-seg-pair>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
 
 .adm-row-btn{background:transparent;color:${C.text};cursor:pointer;transition:background-color ${FAST};}
 button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;border-radius:0;font:inherit;text-align:left;}
@@ -99,6 +154,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 
 .adm-hover-row{transition:background-color ${FAST};}
 .adm-hover-row:hover,.adm-hover-row:focus-within{background:${C.rowHover};}
+.adm-scroll-region:focus-visible{${FOCUS_RING}outline-offset:2px;}
 
 .adm-option{display:flex;align-items:center;gap:${SPACING.sm}px;padding:${SPACING.sm}px ${SPACING.md}px;color:${C.text};font-size:${T.body}px;cursor:pointer;transition:background-color ${FAST};}
 .adm-option[aria-selected="true"]{background:${C.rowHover};box-shadow:inset 2px 0 0 ${C.accent};}
@@ -107,10 +163,45 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-link:hover{color:${C.accent};text-decoration-color:${C.accent};}
 .adm-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 
+.adm-acc-head{display:flex;align-items:center;gap:${SPACING.md}px;width:100%;margin:0;padding:${SPACING.section}px ${SPACING.lg}px;border:none;border-radius:0;background:transparent;color:${C.text};font:inherit;font-size:${T.body}px;font-weight:700;text-align:left;cursor:pointer;transition:background-color ${FAST};}
+.adm-acc-head::after{content:"";flex:none;width:${CHEVRON_SIZE}px;height:${CHEVRON_SIZE}px;margin-left:auto;border-right:2px solid ${C.muted};border-bottom:2px solid ${C.muted};transform:rotate(-45deg);transition:transform ${FAST};}
+.adm-acc-head[aria-expanded="true"]::after{transform:rotate(45deg);}
+.adm-acc-head:hover${ENABLED}{background:${C.rowHover};}
+
+.adm-pick-btn{display:flex;align-items:center;gap:${SPACING.sm}px;width:100%;min-width:0;min-height:${PICK_HEIGHT}px;margin:0;padding:0 ${SPACING.sm}px;background-color:transparent;background-clip:padding-box;border:1px solid ${C.inputBorder};border-radius:${R.control}px;color:${C.muted};font:inherit;font-size:${T.small}px;text-align:left;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},border-color ${FAST},color ${FAST};}
+.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:${INK_TILE_SIZE}px;max-width:100%;min-height:0;aspect-ratio:1 / 1;padding:0;border-radius:${R.panel}px;}
+.adm-ink-tile>img{max-width:100%;height:auto;}
+.adm-pick-btn.adm-ink-tile[data-size="sm"]{width:${INK_TILE_SIZE_SM}px;height:${INK_TILE_SIZE_SM}px;border-radius:${R.box}px;}
+.adm-pick-btn:hover${ENABLED}{border-color:${C.accentBorder};color:${C.text};}
+.adm-pick-btn[aria-pressed="true"]{background-color:${C.accentTintSoft};border-color:${C.accentStrong};color:${C.text};}
+
+.adm-switch{appearance:none;position:relative;flex:none;width:${SWITCH_WIDTH}px;height:${SWITCH_HEIGHT}px;margin:0;border:none;border-radius:${R.pill}px;background-color:${C.barNeutral};cursor:pointer;transition:background-color ${FAST},box-shadow ${FAST};}
+.adm-switch::before{content:"";position:absolute;top:${SWITCH_INSET}px;left:${SWITCH_INSET}px;width:${SWITCH_KNOB}px;height:${SWITCH_KNOB}px;border-radius:${R.pill}px;background:${C.page};transition:transform ${FAST};}
+.adm-switch:checked{background-color:${C.accent};}
+.adm-switch:checked::before{transform:translateX(${SWITCH_WIDTH - SWITCH_HEIGHT}px);}
+.adm-switch:hover${ENABLED}{box-shadow:0 0 0 1px ${C.accentBorder};}
+
+.adm-file-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:${SPACING.sm}px;min-height:${FILE_BUTTON_HEIGHT}px;padding:0 ${SPACING.section}px;border:1px solid ${C.strongBorder};border-radius:${R.control}px;color:${C.text};font-size:${T.body}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:border-color ${FAST},color ${FAST};}
+.adm-file-btn:hover{border-color:${C.accentStrong};color:${C.accent};}
+.adm-file-cover{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;border-radius:${R.preview}px;cursor:pointer;transition:box-shadow ${FAST};}
+.adm-file-cover:hover{box-shadow:inset 0 0 0 1px ${C.accentStrong};}
+.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{${FOCUS_RING}outline-offset:2px;}
+
+.adm-range{appearance:none;display:block;flex:1 1 auto;min-width:${RANGE_MIN_WIDTH}px;height:${RANGE_HEIGHT}px;margin:0;background:transparent;cursor:pointer;}
+.adm-range::-webkit-slider-runnable-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}
+.adm-range::-moz-range-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}
+.adm-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:${RANGE_THUMB}px;height:${RANGE_THUMB}px;margin-top:${(RANGE_TRACK - RANGE_THUMB) / 2}px;border:none;border-radius:${R.pill}px;background:${C.accent};}
+.adm-range::-moz-range-thumb{width:${RANGE_THUMB}px;height:${RANGE_THUMB}px;border:none;border-radius:${R.pill}px;background:${C.accent};}
+.adm-range:hover${ENABLED}::-webkit-slider-thumb{background:${C.accentHover};}
+.adm-range:hover${ENABLED}::-moz-range-thumb{background:${C.accentHover};}
+.adm-range[data-unset="true"]::-webkit-slider-thumb{opacity:0;}
+.adm-range[data-unset="true"]::-moz-range-thumb{opacity:0;}
 .adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
-.adm-row-btn:focus-visible{${FOCUS_RING}outline-offset:-2px;}
+.adm-pick-btn:focus-visible,.adm-switch:focus-visible,.adm-range:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-row-btn:focus-visible,.adm-acc-head:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
 .adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
+.adm-acc-head:disabled,.adm-pick-btn:disabled,.adm-switch:disabled,.adm-range:disabled{opacity:.4;cursor:not-allowed;}
 
 .adm-chart-plot{border-radius:${R.control}px;outline:none;touch-action:pan-y;}
 .adm-chart-plot:focus-visible{${FOCUS_RING}outline-offset:2px;}
@@ -134,6 +225,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @media (prefers-reduced-motion: reduce){
 .adm-link{transition:none;}
 .adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
+.adm-acc-head,.adm-acc-head::after,.adm-pick-btn,.adm-switch,.adm-switch::before,.adm-file-btn,.adm-file-cover{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}
 }

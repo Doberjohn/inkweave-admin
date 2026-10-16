@@ -43,7 +43,13 @@ const META: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color:
 
 // A single-column grid, not a column flexbox: flex children with overflow:hidden
 // collapse to nothing there (handoff README, section 1).
+// Both bodies are positioned, so an absolutely positioned descendant with no
+// closer positioned ancestor, such as SR_ONLY text, is laid out and clipped
+// inside the scroller, never against the document, which would grow a second
+// scrollbar for it (rehearsal F8; Card studio's R-64 switch measures its root,
+// and that scrollbar would take its width).
 const BODY: React.CSSProperties = {
+  position: 'relative',
   flex: 1,
   minHeight: 0,
   overflowY: 'auto',
@@ -54,9 +60,19 @@ const BODY: React.CSSProperties = {
   padding: `${SPACING.xxl}px ${PAGE_GUTTER}`,
 };
 
-// `flush`: the same scroller with no padding and no grid, for a page that lays
-// out its own columns edge to edge (R2's tuning aside, R4's studio).
-const FLUSH_BODY: React.CSSProperties = {flex: 1, minHeight: 0, overflowY: 'auto'};
+// `flush`: the same scroller, positioned as BODY is, with no padding and no
+// grid, for a page that lays out its own columns edge to edge (R2's tuning
+// aside, R4's studio). Its scrollbar's gutter stays reserved whether or not it
+// scrolls: Card studio picks its layout from its own measured width (R-64), and
+// a scrollbar that came and went with the layout would flip it back and forth
+// at the threshold.
+const FLUSH_BODY: React.CSSProperties = {
+  position: 'relative',
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
+  scrollbarGutter: 'stable',
+};
 
 interface PageLayoutProps {
   title: string;

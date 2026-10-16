@@ -26,7 +26,7 @@ the scans, in Node.
 
 The season (set, size, ink blocks) comes from the pinned app through `src/app-bridge.ts`.
 When the app rotates the season, bump the pin (CLAUDE.md, "Updating the app pin") before the
-next run. Nothing here needs editing.
+next run. Nothing here needs editing at a season rotation.
 
 ## Hard rules
 
@@ -55,7 +55,14 @@ next run. Nothing here needs editing.
 3. After a pin bump or on a fresh clone, build the engine: `pnpm build:engine`. The house-style
    rules and the write chain load its build output (Doberjohn/inkweave#635), and a stale build
    fails at import with "does not provide an export named".
-4. Open the run:
+4. If the reveal set has graduated (its cards are released on inkweave.ink, and the app's
+   `previewCards.json` holds none of them), stop until Doberjohn/inkweave-admin#51 lands, and
+   tell the owner: `write` doesn't yet refuse a collector number that a released card of the
+   set holds, so a run could add a duplicate of it. Card studio's New reveal already refuses
+   one. Set 14 graduated on 2026-10-14 (Doberjohn/inkweave#780), and the pin names it until the
+   app rotates the season. This item is temporary: delete it, and the runbook's matching stop
+   (`docs/REVEAL_RUNBOOK.md`, "New reveals in bulk"), when #51 lands.
+5. Open the run:
 
    ```bash
    node scripts/reveal-sync/run.mjs start
@@ -64,7 +71,7 @@ next run. Nothing here needs editing.
    It prints the run id (`RUN` below) and the exact `discover` call for Step 2. It refuses to
    start while a reveal PR is still open in the app repo: merge or close that one first. It
    reads the app's `previewCards.json` from `master` and admin's `state.json` from `main`, and
-   records both blobs so Step 6 can tell if a card was published through the reveal publisher,
+   records both blobs so Step 6 can tell if a card was published or edited in Card studio,
    or another run finished, in the meantime.
 
    It also reads the official list, keeps it for the whole run (`official.json`), and prints
@@ -252,12 +259,15 @@ words `resolve` takes.
   `number-taken`, `name-taken` and `ink-block-mismatch`, it needs a fix in the data by hand.
   It stays in the report and is retried on every run. A card with no collector number is
   added with a reserved-band id (see `docs/PREVIEW_CARD_PARSER.md`), and renumbered once the
-  site shows its number.
+  site shows its number. One `number-taken` is quicker: when Inkweave holds the card under
+  another name (a name translated from a first non-English reveal, say) and the site's name
+  is right, rename the card in Card studio's Edit card. Edit card can't renumber, so the
+  rest still go by hand.
 - A card the write chain refuses (`validation-failed`) carries the validator's message as its
   detail, for example `"Strength" is spelled out: use ¤ ("their ¤")` for a glyph word house
   style cannot place (Doberjohn/inkweave#635). `resolve` cannot rule on it, and it is retried
-  on every run. Add it by hand in the reveal publisher
-  (https://inkweave-admin.vercel.app/reveal), writing the text the way the detail says.
+  on every run. Add it by hand in Card studio's New reveal
+  (https://inkweave-admin.vercel.app/studio), writing the text the way the detail says.
 
 Anything unresolved is simply not written, and is retried next run.
 
@@ -270,7 +280,7 @@ node scripts/reveal-sync/run.mjs write RUN
 `write` first checks that the app's `previewCards.json` on `master` and admin's `state.json` on
 `main` are still what `start` read, and aborts, writing nothing, if either changed. Then, in an
 order that never leaves the card data ahead of its art, it:
-- validates each verified card through the same chain the reveal publisher uses
+- validates each verified card through the same chain Card studio's New reveal uses
   (`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`);
 - converts the accepted cards' scans to AVIFs with the app's own converter, never replacing art
   the app already has;
@@ -314,15 +324,19 @@ Besides the card sections, the report ends with two lists the owner should see:
 
 ## Cards shown with a non-English scan
 
-The pipeline never writes these, but the owner can add one through admin's reveal publisher: an
-official reveal whose only scan is Japanese, German or Italian, shown with that scan as its art
-and lorcanaplayer's English name and text. The publisher's "Scan language" field writes
+The pipeline never writes these, but the owner can add one through Card studio's New reveal:
+an official reveal whose only scan is Japanese, German, Italian or French, shown with that scan
+as its art and lorcanaplayer's English name and text. Its "Scan language" field writes
 `scanLanguage` on the card in `previewCards.json` (the scan's two-letter code: `"ja"`, `"de"`,
-`"it"`), which gives it a "See translation" toggle in the card modal and the lightbox.
+`"it"`, `"fr"`), which gives it a "See translation" toggle in the card modal and the lightbox.
 
 A later run counts such a card as `known`, whatever its scan, so it never refreshes one. When
-its English scan is out and the card is refreshed to it, delete `scanLanguage` (the publisher
-gets a way to do that in Doberjohn/inkweave-admin#14).
+its English scan is out, refresh the card in Card studio's Edit card: load it, replace the
+image with the English scan, set Scan language to English, and fix the name and text wherever
+the English printing differs. One save commits both and drops `scanLanguage`
+(`docs/REVEAL_RUNBOOK.md`, "Editing a card, and refreshing it to its English scan"). A
+printing marked with its own `scanLanguage` is refreshed by hand in the app: Edit card keeps
+`variants` as they are.
 
 `scanLanguage` is the mark's only record (`docs/plans/P3-pipelines.md`, P3-5): `state.json`
 needs no `provisional-translation` entry, and the app's `reveal-set-integrity.test.ts` checks

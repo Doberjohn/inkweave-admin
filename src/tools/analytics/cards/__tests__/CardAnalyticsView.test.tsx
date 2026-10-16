@@ -220,6 +220,23 @@ describe('CardAnalyticsView', () => {
       });
     });
 
+    it("lets the keyboard reach the rules table's scroller, a named region with a ring, to scroll it sideways (WCAG 2.1.1)", () => {
+      renderView();
+      const scroller = within(panel()).getByRole('region', {name: 'Rules table'});
+      expect(scroller).toBe(within(panel()).getByRole('table').parentElement);
+      expect(scroller).toHaveAttribute('tabindex', '0');
+      expect(scroller).toHaveClass('adm-scroll-region');
+    });
+
+    it('names the scroller apart from its table, so entering both reads two names, not one twice', () => {
+      renderView();
+      const table = within(panel()).getByRole('table');
+      const region = table.parentElement!;
+      const [regionName, tableName] = [region, table].map((el) => el.getAttribute('aria-label') ?? '');
+      expect(regionName).not.toBe('');
+      expect(tableName.startsWith(regionName)).toBe(false);
+    });
+
     it('lists the rules on its pairs, low n last (R-35), each a link to the rule on /calibration (R-34)', () => {
       renderView();
       const table = within(panel()).getByRole('table', {name: "Rules on this card's pairs, low n last"});

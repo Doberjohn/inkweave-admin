@@ -4,6 +4,6 @@
 // the app's names, VITE_SENTRY_DSN and the __DEPLOY_ENV__ define, so the app's
 // declarations cover src/sentry.ts.
 interface ImportMetaEnv {
-  /** App branch the reveal, image and tuning tools read from and commit to. Unset means master (docs/PLAN.md, D6). */
+  /** App branch Card studio and the tuning editor read from and commit to. Unset means master (docs/PLAN.md, D6). */
   readonly VITE_ADMIN_TARGET_BRANCH?: string;
 }

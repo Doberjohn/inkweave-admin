@@ -20,6 +20,16 @@ function gitStub(url: string): Response {
   return new Response(JSON.stringify(route[1]), {status: route[2]});
 }
 
+/** Stubs the git-data API, and returns the URLs it is asked for. */
+function stubGitUrls(): string[] {
+  const urls: string[] = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    urls.push(String(url));
+    return gitStub(String(url));
+  });
+  return urls;
+}
+
 describe('commitCardImage', () => {
   it('commits one raw file to card-images-raw and no previewCards path', async () => {
     const bodies: unknown[] = [];
@@ -41,5 +51,34 @@ describe('commitCardImage', () => {
     expect(tree.tree).toHaveLength(1);
     expect(tree.tree[0].path).toBe('apps/web/public/card-images-raw/5001.png');
     expect(JSON.stringify(bodies)).not.toContain('previewCards.json');
+  });
+
+  // Card studio's check for a card under a preview id builds on this (commitPreviewCardImage, R4-8a).
+  describe('with atBase', () => {
+    const SCAN = {token: 'tok', card: {id: '5001', fullName: 'Elsa - Snow Queen'}, imageBase64: 'data:image/png;base64,Zm9v', imageExt: 'png'};
+    const RAW = {path: 'apps/web/public/card-images-raw/5001.png', contentBase64: 'Zm9v'};
+
+    it('hands it the raw scan, and commits the files its callback returns at the base commit', async () => {
+      const urls = stubGitUrls();
+      const seen: unknown[] = [];
+      const res = await commitCardImage({
+        ...SCAN,
+        atBase: (raw) => async (baseCommitSha) => {
+          seen.push({raw, baseCommitSha});
+          return [raw];
+        },
+      });
+
+      expect(seen).toEqual([{raw: RAW, baseCommitSha: 'c0'}]);
+      expect(res.commitUrl).toBe('https://gh/commit/c1');
+      expect(urls.some((url) => url.endsWith('/git/refs/heads/master'))).toBe(true);
+    });
+
+    it('writes nothing when the callback refuses', async () => {
+      const urls = stubGitUrls();
+      const refusal = new Error('refused at the base');
+      await expect(commitCardImage({...SCAN, atBase: () => () => Promise.reject(refusal)})).rejects.toBe(refusal);
+      expect(urls.some((url) => url.endsWith('/git/blobs'))).toBe(false);
+    });
   });
 });

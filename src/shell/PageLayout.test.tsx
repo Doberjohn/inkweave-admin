@@ -97,6 +97,38 @@ describe('PageLayout', () => {
     expect(body?.style.padding).toBe('');
   });
 
+  it("reserves a flush body's scrollbar gutter, so a page that measures its own width never sees it jump (R-64)", () => {
+    render(
+      <PageLayout title="Card studio" flush>
+        <p>Body</p>
+      </PageLayout>,
+    );
+    expect(screen.getByText('Body').parentElement?.style.scrollbarGutter).toBe('stable');
+  });
+
+  // jsdom lays nothing out, so this pins the style rather than measuring the
+  // document: in a browser, a positioned scroller holds and clips an
+  // absolutely positioned descendant that has no closer positioned ancestor
+  // (SR_ONLY text below the fold). Without it, that descendant sits against
+  // the document, which grows a second scrollbar for it (rehearsal F8).
+  it('makes the body, flush or padded, the containing block of what it holds, so nothing in it grows the document', () => {
+    const {rerender} = render(
+      <PageLayout title="Card studio" flush>
+        <p>Body</p>
+      </PageLayout>,
+    );
+    const body = screen.getByText('Body').parentElement;
+    expect(body).toHaveStyle({position: 'relative'});
+    rerender(
+      <PageLayout title="Vote activity">
+        <p>Body</p>
+      </PageLayout>,
+    );
+    // The same scroller, now the padded grid.
+    expect(screen.getByText('Body').parentElement).toBe(body);
+    expect(body).toHaveStyle({position: 'relative', display: 'grid'});
+  });
+
   it('scrolls the body back to the top when scrollKey changes, and not while it stays the same', () => {
     const {rerender} = render(
       <PageLayout title="Card analytics" scrollKey="2983">

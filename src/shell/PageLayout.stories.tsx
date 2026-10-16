@@ -39,7 +39,7 @@ export const ReadOnly: Story = {
 
 /** A page that writes: the branch notice names the app branch it commits to. */
 export const Writes: Story = {
-  args: {title: 'Card images', writes: true},
+  args: {title: 'Card studio', writes: true},
 };
 
 /** A page that writes, with its own notice label. */

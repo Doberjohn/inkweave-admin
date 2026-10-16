@@ -34,7 +34,8 @@ function contrast(a: Rgb, b: Rgb): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// The handoff's neutral ladder (docs/redesign/handoff/README.md, Design tokens).
+// The design handoff's neutral ladder, from its README's "Design tokens" (R-1). The
+// handoff left the working copy after R4 (R-88), so these values are its record.
 // barNeutral is left out: it sits above the handoff's value for WCAG 1.4.11,
 // which the last ADMIN_COLORS test holds.
 const HANDOFF: Record<string, string> = {
@@ -128,6 +129,9 @@ describe('ADMIN_COLORS', () => {
     for (const [band, fill] of Object.entries(chartMarks)) {
       expect(contrast(over(fill, card), card), `${band} on a card`).toBeGreaterThanOrEqual(3);
     }
+    // Card studio's cost slider (adm-range) on its section's card fill. A blank cost hides the thumb, so the
+    // track is all that shows the slider is there.
+    expect(contrast(over(ADMIN_COLORS.barNeutral, card), card), 'cost slider track on a card').toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -10,11 +10,29 @@ function renderAt(path: string) {
   return render(<RouterProvider router={createMemoryRouter(routes, {initialEntries: [path]})} />);
 }
 
+/** Render the routes at `path` and hand back the router, so a test can read where it ended up. */
+function routerAt(path: string) {
+  const router = createMemoryRouter(routes, {initialEntries: [path]});
+  render(<RouterProvider router={router} />);
+  return router;
+}
+
 const sidebarNav = () => within(screen.getByRole('navigation', {name: 'Admin'}));
 const WRITE_PATHS = NAV_ITEMS.filter((item) => item.writes).map((item) => item.path);
 // Every page that writes names the repo: "Writes to Doberjohn/inkweave", or its
 // own label that keeps it ("Tuning writes to Doberjohn/inkweave").
 const BRANCH_NOTICE = /writes to Doberjohn\/inkweave/i;
+
+/**
+ * A write page's frame (R1-7), whether the gate or the tool fills its body: one
+ * main landmark, one h1 named `title`, and the branch notice naming master.
+ */
+function expectWritePage(title: string) {
+  expect(screen.getAllByRole('main')).toHaveLength(1);
+  expect(screen.getAllByRole('heading', {level: 1})).toHaveLength(1);
+  expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+  expect(screen.getByText(BRANCH_NOTICE)).toHaveTextContent(/writes to Doberjohn\/inkweave master/i);
+}
 
 beforeEach(() => {
   // The shell's CardDataProvider loads the card data on mount, and the
@@ -40,7 +58,7 @@ describe('admin routes', () => {
 
   it('marks Overview current on / only', () => {
     // NavLink treats to="/" as exact, so the sidebar needs no `end` prop.
-    renderAt('/reveal');
+    renderAt('/studio');
     expect(sidebarNav().getByRole('link', {name: 'Overview'})).not.toHaveAttribute('aria-current');
   });
 
@@ -52,8 +70,8 @@ describe('admin routes', () => {
   });
 
   it("marks only the current page's link", () => {
-    renderAt('/reveal');
-    expect(sidebarNav().getByRole('link', {name: 'Reveal publisher'})).toHaveAttribute('aria-current', 'page');
+    renderAt('/studio');
+    expect(sidebarNav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('aria-current', 'page');
     expect(sidebarNav().getByRole('link', {name: 'Calibration & tuning'})).not.toHaveAttribute('aria-current');
   });
 
@@ -64,7 +82,7 @@ describe('admin routes', () => {
 
   it('names a rehearsal branch when one is set', () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
-    renderAt('/reveal');
+    renderAt('/studio');
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 
@@ -99,15 +117,18 @@ describe('admin routes', () => {
   );
 
   const WRITE_PAGES: Array<[path: string, title: string]> = [
-    ['/reveal', 'Reveal publisher'],
-    ['/image', 'Card images'],
+    // The token gate fills the whole body (R4).
+    ['/studio', 'Card studio'],
     // The gate fills the tuning aside; the analytics beside it need no token.
     ['/calibration', 'Calibration & tuning'],
   ];
 
+  // The gate renders under the page's own title, so its heading is an h2 (R1-7).
   it.each(WRITE_PAGES)('asks for a GitHub token on %s, under the page title', (path, title) => {
     renderAt(path);
-    expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+    expectWritePage(title);
+    expect(screen.getByRole('heading', {level: 2, name: 'GitHub token'})).toBeInTheDocument();
+    expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
     expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
   });
 
@@ -120,21 +141,23 @@ describe('admin routes', () => {
     act(() => saved.result.current.setToken('tok'));
     renderAt(path);
     expect(screen.queryByRole('button', {name: 'Save token'})).not.toBeInTheDocument();
+    // The page itself leaves Forget token to the sidebar.
+    expect(within(screen.getByRole('main')).queryByRole('button', {name: 'Forget token'})).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', {name: 'Forget token'}));
     expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
     expect(screen.getByRole('button', {name: 'Save token'})).toBeInTheDocument();
   });
 
-  // One main landmark per page, whether the gate or the tool fills the body. The
-  // pages used to bring their own <main>.
-  it.each(WRITE_PAGES)('keeps %s in one main landmark, before and after a token is saved', (path) => {
+  // One main landmark and one h1 per page, whether the gate or the tool fills the
+  // body. The pages used to bring their own <main>.
+  it.each(WRITE_PAGES)('keeps %s in one main landmark under one h1, before and after a token is saved', (path, title) => {
     const saved = renderHook(() => useGithubToken());
     renderAt(path);
-    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expectWritePage(title);
 
     act(() => saved.result.current.setToken('tok'));
-    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expectWritePage(title);
   });
 
   it('keeps the sidebar collapsed across reloads', async () => {
@@ -155,6 +178,13 @@ describe('admin routes', () => {
     expect(sidebarNav().getByRole('link', {name: /Vote activity/})).toHaveAttribute('aria-current', 'page');
   });
 
+  it('opens Card studio on any mode and card, current in the sidebar while Overview is not', () => {
+    renderAt('/studio?mode=edit&card=1001');
+    expect(screen.getByRole('heading', {level: 1, name: 'Card studio'})).toBeInTheDocument();
+    expect(sidebarNav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('aria-current', 'page');
+    expect(sidebarNav().getByRole('link', {name: 'Overview'})).not.toHaveAttribute('aria-current');
+  });
+
   it('opens Card analytics on a card at /cards/2983, current in the sidebar while Overview is not', () => {
     renderAt('/cards/2983');
     expect(screen.getByRole('heading', {level: 1, name: 'Card analytics'})).toBeInTheDocument();
@@ -172,6 +202,24 @@ describe('admin routes', () => {
     expect(link).toHaveAttribute('href', '/web');
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText('master')).not.toBeInTheDocument();
+  });
+});
+
+describe('Card studio routes', () => {
+  // Card studio replaced the two write tools at /reveal and /image (R4). Their
+  // old paths land in the mode that replaced each (R-10).
+  it.each([
+    {path: '/reveal', mode: 'New reveal', search: ''},
+    {path: '/image', mode: 'Edit card', search: '?mode=edit'},
+  ])('redirects the retired $path to Card studio in $mode', async ({path, search}) => {
+    const router = routerAt(path);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/studio'));
+    expect(router.state.location.search).toBe(search);
+    // Replaced, not pushed: Back doesn't land on the redirect again.
+    expect(router.state.historyAction).toBe('REPLACE');
+    expect(screen.getByRole('heading', {level: 1, name: 'Card studio'})).toBeInTheDocument();
+    // A redirect is no one's action, so focus stays where it was (R-48).
+    expect(document.body).toHaveFocus();
   });
 });
 
@@ -210,13 +258,6 @@ describe('calibration routes', () => {
     ],
     pairs: [],
   };
-
-  /** Render the routes at `path` and hand back the router, so a test can read where it ended up. */
-  function routerAt(path: string) {
-    const router = createMemoryRouter(routes, {initialEntries: [path]});
-    render(<RouterProvider router={router} />);
-    return router;
-  }
 
   beforeEach(() => {
     // src/test/setup.ts has already emptied the artifact cache, and the

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {render, screen, within} from '@testing-library/react';
 import {COLORS, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
@@ -10,6 +10,8 @@ const CLASSES = [
   'adm-nav-mark',
   'adm-seg',
   'adm-seg-btn',
+  // A filling segmented control's two buttons to a line (R4-8b).
+  'adm-seg-pair',
   'adm-row-btn',
   'adm-card-btn',
   'adm-input',
@@ -31,6 +33,16 @@ const CLASSES = [
   'adm-chart-tip',
   // The network diagram's node links (R3-4b).
   'adm-net-link',
+  // Card studio's controls (R4-5a).
+  'adm-acc-head',
+  'adm-ink-tile',
+  'adm-pick-btn',
+  'adm-switch',
+  'adm-file-btn',
+  'adm-file-cover',
+  'adm-range',
+  // A box that scrolls a table sideways, which the keyboard reaches (R4-8b).
+  'adm-scroll-region',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -41,8 +53,12 @@ const FOCUSABLE = [
   'adm-select',
   'adm-chart-hit',
   'adm-link',
+  'adm-acc-head',
+  'adm-pick-btn',
+  'adm-switch',
+  'adm-range',
 ];
-const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit'];
+const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit', 'adm-pick-btn'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
 
 function stylesheet(): string {
@@ -116,16 +132,18 @@ describe('AdminStyles', () => {
     for (const [, px] of css.matchAll(/border-radius:(\d+)/g)) expect(radii.has(Number(px)), `border-radius ${px}`).toBe(true);
   });
 
-  it('clips translucent fills to the padding box, a selected card included', () => {
+  it('clips translucent fills to the padding box, selected cards, tiles and picks included', () => {
     render(
       <>
         <AdminStyles />
         <div role="group" aria-label="Score band" className="adm-seg" />
         <button type="button" className="adm-card-btn" aria-pressed="true">Searches</button>
+        <button type="button" className="adm-pick-btn adm-ink-tile" aria-pressed="true" aria-label="Amber" />
+        <button type="button" className="adm-pick-btn" aria-pressed="true">Rare</button>
         <input aria-label="Search pairs" className="adm-input" />
       </>,
     );
-    const filled = [screen.getByRole('group'), screen.getByRole('button'), screen.getByRole('textbox')];
+    const filled = [screen.getByRole('group'), ...screen.getAllByRole('button'), screen.getByRole('textbox')];
     for (const el of filled) expect(getComputedStyle(el).backgroundClip, el.className).toBe('padding-box');
   });
 
@@ -205,5 +223,162 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
     const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
     expect(reduced).toMatch(/[.]adm-link(?![a-z-])[^{]*[{]transition:none;[}]/);
+  });
+
+  it("turns an accordion header's chevron on aria-expanded, and rings the header inside, as a row (R4)", () => {
+    const css = stylesheet();
+    expect(css).toContain('.adm-acc-head[aria-expanded="true"]::after{transform:rotate(45deg);}');
+    // Drawn from two borders with no content, so the chevron adds nothing to the button's name.
+    expect(css).toContain('.adm-acc-head::after{content:"";');
+    expect(css).toContain(`.adm-acc-head:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:-2px;}`);
+  });
+
+  it("gives a pick button, an ink tile's too, adm-card-btn's pressed fill and border, admin's one selected look (R-75)", () => {
+    const css = stylesheet();
+    const look = `background-color:${ADMIN_COLORS.accentTintSoft};border-color:${ADMIN_COLORS.accentStrong};`;
+    expect(css).toContain(`.adm-card-btn[aria-pressed="true"]{${look}}`);
+    expect(css).toContain(`.adm-pick-btn[aria-pressed="true"]{${look}color:${ADMIN_COLORS.text};}`);
+  });
+
+  it('sizes an ink tile as a square up to 48px, a second-ink tile at 40px, where a plain pick button fills its cell', () => {
+    render(
+      <>
+        <AdminStyles />
+        <button type="button" className="adm-pick-btn adm-ink-tile" aria-label="Amber" />
+        <button type="button" className="adm-pick-btn adm-ink-tile" data-size="sm" aria-label="Ruby" />
+        <button type="button" className="adm-pick-btn">Rare</button>
+      </>,
+    );
+    const [amber, ruby, rare] = screen.getAllByRole('button').map((button) => {
+      const {width, maxWidth, height} = getComputedStyle(button);
+      return {width, maxWidth, height};
+    });
+    expect(rare.width).toBe('100%');
+    // A square, no wider than its grid column (the primary ink row's), so a narrow section shrinks the six
+    // tiles rather than wrap them. A width of 100% would wrap them in a row that sizes to its content.
+    expect({amber, ruby}).toEqual({
+      amber: {width: '48px', maxWidth: '100%', height: 'auto'},
+      ruby: {width: '40px', maxWidth: '100%', height: '40px'},
+    });
+    expect(stylesheet()).toContain(
+      '.adm-pick-btn.adm-ink-tile{flex:none;justify-content:center;width:48px;max-width:100%;min-height:0;aspect-ratio:1 / 1;',
+    );
+  });
+
+  it("keeps an ink tile square in a column under a pick button's 34px, and its icon inside its border", () => {
+    // A 320px phone with the rail gives the six tiles about 28px each, where the 34px minimum height would
+    // stretch them and the 28px icon would cover their borders.
+    render(
+      <>
+        <AdminStyles />
+        <button type="button" className="adm-pick-btn adm-ink-tile">
+          <img src="" alt="Amber" width={28} height={28} />
+        </button>
+        <button type="button" className="adm-pick-btn">
+          Rare
+        </button>
+      </>,
+    );
+    const [tile, rare] = screen.getAllByRole('button').map((button) => getComputedStyle(button).minHeight);
+    expect({tile, rare}).toEqual({tile: '0px', rare: '34px'});
+    const {maxWidth, height} = getComputedStyle(screen.getByRole('img', {name: 'Amber'}));
+    expect({maxWidth, height}).toEqual({maxWidth: '100%', height: 'auto'});
+  });
+
+  it('golds a checked switch and slides its knob to the far end', () => {
+    const css = stylesheet();
+    expect(css).toContain(`.adm-switch:checked{background-color:${ADMIN_COLORS.accent};}`);
+    // The 34px track less the 20px of its height: the knob keeps its 2px inset at both ends.
+    expect(css).toContain('.adm-switch:checked::before{transform:translateX(14px);}');
+  });
+
+  it('rings a file label while its hidden input has focus, 2px out as a control is ringed', () => {
+    const css = stylesheet();
+    expect(css).toContain(
+      `.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+    );
+    // A <label> never matches :focus-visible itself, so FOCUSABLE leaves both out.
+    expect(css).not.toContain('.adm-file-btn:focus-visible');
+    expect(css).not.toContain('.adm-file-cover:focus-visible');
+  });
+
+  it("hides the cost slider's thumb while the cost is unset, in each engine's own rule", () => {
+    const css = stylesheet();
+    expect(css).toContain('.adm-range[data-unset="true"]::-webkit-slider-thumb{opacity:0;}');
+    expect(css).toContain('.adm-range[data-unset="true"]::-moz-range-thumb{opacity:0;}');
+    // An engine drops a whole selector list that names a pseudo-element it doesn't know.
+    const vendored = [...css.matchAll(/([^{}]*::-(?:webkit|moz)-[^{]*)\{/g)].map(([, selector]) => selector.trim());
+    expect(vendored).toHaveLength(8);
+    for (const selector of vendored) expect(selector).not.toContain(',');
+  });
+
+  it("draws the cost slider's track in barNeutral, so a blank cost's slider, which has no thumb, still shows (1.4.11)", () => {
+    const css = stylesheet();
+    for (const track of ['::-webkit-slider-runnable-track', '::-moz-range-track']) {
+      const rule = css.split(`.adm-range${track}{`)[1]?.split('}')[0];
+      expect(rule, track).toContain(`background:${ADMIN_COLORS.barNeutral};`);
+    }
+  });
+
+  it('lets a filling segmented control share its row and wrap a pair at a time, where a plain one keeps its width and padding', () => {
+    render(
+      <>
+        <AdminStyles />
+        <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
+          <span className="adm-seg-pair">
+            <button type="button" className="adm-seg-btn">
+              Location
+            </button>
+          </span>
+        </div>
+        <div role="group" aria-label="Studio mode" className="adm-seg">
+          <button type="button" className="adm-seg-btn">
+            Edit card
+          </button>
+        </div>
+      </>,
+    );
+    const look = (name: string) => {
+      const group = screen.getByRole('group', {name});
+      const button = getComputedStyle(within(group).getByRole('button'));
+      const {display, flexWrap} = getComputedStyle(group);
+      return {display, flexWrap, flex: button.flex, padding: button.padding, whiteSpace: button.whiteSpace};
+    };
+    // The handoff's Type tabs (dc.html:224): the buttons share the width, and a label never breaks.
+    expect(look('Type')).toEqual({
+      display: 'flex',
+      flexWrap: 'wrap',
+      flex: '1 1 0px',
+      padding: `0px ${SPACING.xs}px`,
+      whiteSpace: 'nowrap',
+    });
+    // Every other segmented control, the header's mode switch included, keeps its look.
+    expect(look('Studio mode')).toMatchObject({display: 'inline-flex', padding: `0px ${SPACING.md}px`, whiteSpace: 'nowrap'});
+    expect(look('Studio mode').flexWrap).not.toBe('wrap');
+    // A pair shares the row as a button does, and never wraps inside: under one line's width the whole
+    // second pair moves down, two and two (a 320px phone), never three and one.
+    const pair = getComputedStyle(screen.getByRole('group', {name: 'Type'}).firstElementChild!);
+    expect({display: pair.display, flex: pair.flex, flexWrap: pair.flexWrap, gap: pair.gap}).toEqual({
+      display: 'flex',
+      flex: '1 1 0px',
+      flexWrap: 'nowrap',
+      gap: `${SPACING.xxs}px`,
+    });
+  });
+
+  it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
+    expect(stylesheet()).toContain(
+      `.adm-scroll-region:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+    );
+  });
+
+  it("switches the studio controls' transitions off for reduced motion", () => {
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/.exec(stylesheet())?.[1] ?? '';
+    for (const name of ['adm-acc-head', 'adm-pick-btn', 'adm-switch', 'adm-file-btn', 'adm-file-cover']) {
+      expect(reduced, name).toMatch(new RegExp(`[.]${name}(?![a-z-])[^{]*[{]transition:none;[}]`));
+    }
+    // The chevron and the knob turn and slide by transitions of their own.
+    expect(reduced).toMatch(/[.]adm-acc-head::after[^{]*[{]transition:none;[}]/);
+    expect(reduced).toMatch(/[.]adm-switch::before[^{]*[{]transition:none;[}]/);
   });
 });

@@ -24,13 +24,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
   {id: 'cards', label: 'Card analytics', mark: 'Cd', path: '/cards', group: 'insights', writes: false},
-  {id: 'reveal', label: 'Reveal publisher', mark: 'Re', path: '/reveal', group: 'publish', writes: true},
-  {id: 'image', label: 'Card images', mark: 'Im', path: '/image', group: 'publish', writes: true},
+  // New reveal and Edit card on one page (R4), in place of the write tools at /reveal and /image,
+  // which now redirect here (R-10). Both modes commit to the app repo, so the page writes (R-4).
+  {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
 ];
 
 /**
  * The item whose page `pathname` is: its own path or a path under it. So
- * /reveal/ and /reveal/x belong to the reveal item, /revealed to none, and an
+ * /studio/ and /studio/x belong to Card studio, /studios to none, and an
  * item at / owns / alone.
  */
 export function navItemFor(pathname: string): NavItem | undefined {
@@ -57,4 +58,22 @@ export function calibrationHref(ruleId?: string): string {
  */
 export function cardsHref(cardId?: string): string {
   return cardId ? `/cards/${encodeURIComponent(cardId)}` : '/cards';
+}
+
+/** Card studio's two modes (R-57): New reveal, and Edit card. */
+export type StudioMode = 'new' | 'edit';
+
+/**
+ * Card studio in a mode, opened on a card when one is given (R-81): what the
+ * mode switch, the Edit search's rows, Card analytics' "Edit in Card studio"
+ * and the old /reveal and /image redirects navigate to. New reveal is the bare
+ * path, and the card rides along as ?card=, so a switch keeps it and Back
+ * returns to the other mode (R-57). An empty id names no card.
+ */
+export function studioHref(mode: StudioMode, cardId?: string | null): string {
+  const params = new URLSearchParams();
+  if (mode === 'edit') params.set('mode', 'edit');
+  if (cardId) params.set('card', cardId);
+  const search = params.toString();
+  return search ? `/studio?${search}` : '/studio';
 }

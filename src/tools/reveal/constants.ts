@@ -41,9 +41,16 @@ export const SCAN_LANGUAGES = [
   {code: 'ja', label: 'Japanese'},
   {code: 'de', label: 'German'},
   {code: 'it', label: 'Italian'},
+  {code: 'fr', label: 'French'},
 ] as const;
 
-export type ScanLanguage = (typeof SCAN_LANGUAGES)[number]['code'];
+/**
+ * A scan language code on the form: a listed one, or any other code a card
+ * already carries, which Card studio keeps as it is (R-60). 'en' leaves the
+ * card unmarked. The app takes any two-letter code but 'en' (its
+ * reveal-set-integrity test).
+ */
+export type ScanLanguage = string;
 
 /** Shown as a hint under the franchise field; matching one groups the card under that franchise on /reveals. */
 export const FEATURED_FRANCHISE_HINT = 'Coco (exact match groups it; blank = returning)';

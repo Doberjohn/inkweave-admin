@@ -10,7 +10,10 @@ import {breakdownShares} from './webModel';
 /** eventData props that carry an ink name: their rows get the ink's icon, and their bars the ink's colour. */
 const INK_PROPS = new Set(['ink', 'clickedCardInk', 'cardAInk', 'cardBInk']);
 
-/** The eventData prop that carries a card's rarity (reveal_card_click sends `card.rarity ?? null`). */
+/**
+ * The eventData prop that carries a rarity. reveal_card_click sends the card's, or for
+ * a special printing the printing's: `printing?.rarity ?? card.rarity ?? null`.
+ */
 const RARITY_PROP = 'rarity';
 
 /** Row icon size in px. */

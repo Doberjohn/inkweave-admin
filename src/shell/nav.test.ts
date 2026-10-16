@@ -1,27 +1,27 @@
-import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor} from './nav';
+import {NAV_ITEMS, calibrationHref, cardsHref, isWritePath, navItemFor, studioHref} from './nav';
 
 describe('navItemFor', () => {
   it.each([
-    ['/reveal', 'reveal'],
-    ['/reveal/', 'reveal'],
+    ['/studio', 'studio'],
+    ['/studio/', 'studio'],
     ['/calibration/anything', 'calibration'],
     ['/cards/2983', 'cards'],
   ])('gives %s to the %s item', (pathname, id) => {
     expect(navItemFor(pathname)?.id).toBe(id);
   });
 
-  it.each(['/imagery', '/no-such-page'])('gives %s to no item', (pathname) => {
+  it.each(['/studios', '/no-such-page'])('gives %s to no item', (pathname) => {
     expect(navItemFor(pathname)).toBeUndefined();
   });
 });
 
 describe('isWritePath', () => {
-  it.each(['/calibration', '/reveal', '/image/'])('%s writes to the app', (pathname) => {
+  it.each(['/calibration', '/studio', '/studio/'])('%s writes to the app', (pathname) => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
-  // /tuning is a redirect now, and a redirect writes nothing.
-  it.each(['/tuning', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
+  // /tuning, /reveal and /image are redirects now, and a redirect writes nothing.
+  it.each(['/tuning', '/reveal', '/image', '/cards/2983', '/no-such-page'])('%s writes nothing', (pathname) => {
     expect(isWritePath(pathname)).toBe(false);
   });
 });
@@ -50,6 +50,14 @@ describe('the Calibration & tuning item', () => {
   });
 });
 
+describe('the Card studio item', () => {
+  it('is the one Publish item, in place of the two old write tools (R4)', () => {
+    expect(NAV_ITEMS.filter((item) => item.group === 'publish')).toEqual([
+      {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
+    ]);
+  });
+});
+
 describe('calibrationHref', () => {
   it('links the bare page when no rule is given', () => expect(calibrationHref()).toBe('/calibration'));
 
@@ -71,5 +79,21 @@ describe('cardsHref', () => {
     ['a/b c', '/cards/a%2Fb%20c'],
   ])('links %s to %s', (cardId, href) => {
     expect(cardsHref(cardId)).toBe(href);
+  });
+});
+
+describe('studioHref', () => {
+  it.each([
+    ['new', undefined, '/studio'],
+    ['new', '14023', '/studio?card=14023'],
+    ['edit', undefined, '/studio?mode=edit'],
+    ['edit', '14023', '/studio?mode=edit&card=14023'],
+    // What a page holds when the URL names no card: useSearchParams' null, or an empty ?card=.
+    ['edit', null, '/studio?mode=edit'],
+    ['edit', '', '/studio?mode=edit'],
+    // Escaped, so an id always stays one parameter.
+    ['edit', 'a&b c', '/studio?mode=edit&card=a%26b+c'],
+  ] as const)('links %s mode, card %j, to %s', (mode, cardId, href) => {
+    expect(studioHref(mode, cardId)).toBe(href);
   });
 });

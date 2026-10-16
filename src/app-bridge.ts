@@ -16,10 +16,8 @@ export {
   ALL_INKS,
   COLORS,
   EASING,
-  EMPTY_BOX,
   FONTS,
   FONT_SIZES,
-  GOLD_GLOW,
   INK_COLORS,
   LETTER_SPACING,
   RADIUS,
@@ -44,6 +42,8 @@ export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/Cta
 // through it, so admin's dialogs render in it.
 export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';
 export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
+// Inkable or Uninkable, as the app draws them (Card studio's Inkable buttons).
+export {InkwellIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkwellIcon';
 export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): by name,
 // never by id, from two letters, newest set first, after a 150 ms debounce.
@@ -58,8 +58,12 @@ export {
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
 export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
 // searchCardsByName is useAutocomplete's own match, run without its debounce
-// (R3-5's "No cards match.").
-export {searchCardsByName, smallImageUrl} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// (R3-5's "No cards match."). transformRawCards is how the app's loader builds
+// the card list: the engine's transform plus imageUrl, the image hashes,
+// scanLanguage and the printings. Card studio builds with it the cards that
+// only the target branch's previewCards.json holds (R-66), so each points at
+// its art, which shows once inkweave.ink serves it.
+export {searchCardsByName, smallImageUrl, transformRawCards} from '../upstream/inkweave/apps/web/src/features/cards/loader';
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
 // path). Each id's result is kept for the session, and a non-OK or non-JSON
 // response is kept as an empty result. A failed fetch or malformed JSON rejects
@@ -77,6 +81,7 @@ export {
 // five rarities' keys, and returns undefined for anything else, printings too.
 export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
 export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
-// The pinned app's previewCards.json as text. The reveal tool's insert test
-// runs against it, so a pin bump that changes the file's layout fails here.
+// The pinned app's previewCards.json as text. The write chain's tests and Card
+// studio's Edit tests run against it, so a pin bump that changes the file's
+// layout, or what its entries hold, fails here.
 export {default as PINNED_PREVIEW_CARDS_JSON} from '../upstream/inkweave/apps/web/public/data/previewCards.json?raw';

@@ -14,6 +14,7 @@ import {ScorePill} from './ScorePill';
 import {SegmentedControl} from './SegmentedControl';
 import {Sparkline} from './Sparkline';
 import {SplitMeter, type SplitMeterPart} from './SplitMeter';
+import {Tag} from './Tag';
 
 const meta: Meta = {
   title: 'Admin/UI/Primitives',
@@ -220,7 +221,11 @@ export const SplitMeters: Story = {
 
 const TAG_ROW: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.sm};
 
-/** The two informative tags: "low n" beside a name with few score votes, "raw" beside a number from the vote log. */
+/**
+ * The informative tags, all one chip (Tag): "low n" beside a name with few
+ * score votes, "raw" beside a number from the vote log, and Card studio's
+ * tags beside a card's name (R4-5f).
+ */
 export const Tags: Story = {
   render: () => (
     <Stack>
@@ -231,6 +236,11 @@ export const Tags: Story = {
       <div style={TAG_ROW}>
         <span>Distinct voters</span>
         <RawTag />
+      </div>
+      <div style={TAG_ROW}>
+        <span>Mei</span>
+        <Tag title="Its data comes from previewCards.json">preview</Tag>
+        <Tag title="In previewCards.json, not on inkweave.ink yet">not deployed yet</Tag>
       </div>
     </Stack>
   ),

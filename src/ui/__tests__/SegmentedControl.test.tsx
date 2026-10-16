@@ -68,4 +68,41 @@ describe('SegmentedControl', () => {
     await userEvent.click(screen.getByRole('button', {name: '|Gap|'}));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('marks a control that fills its width for AdminStyles (data-fill), and leaves the default as wide as its options', () => {
+    render(
+      <>
+        <SegmentedControl ariaLabel="Type" options={OPTIONS} value="gap" onChange={() => {}} fill />
+        <SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={() => {}} />
+      </>,
+    );
+    expect(screen.getByRole('group', {name: 'Type'})).toHaveAttribute('data-fill', 'true');
+    expect(screen.getByRole('group', {name: 'Sort rules'})).not.toHaveAttribute('data-fill');
+  });
+
+  it('sets a filling control’s buttons two to a pair, in order, so a wrap goes two and two, and a plain one’s straight in the group', () => {
+    const types = ['Character', 'Action', 'Item', 'Location', 'Song'].map((label) => ({value: label, label}));
+    render(
+      <>
+        <SegmentedControl ariaLabel="Type" options={types} value="Character" onChange={() => {}} fill />
+        <SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={() => {}} />
+      </>,
+    );
+    const children = (name: string) =>
+      Array.from(screen.getByRole('group', {name}).children, (child) => ({
+        className: child.className,
+        labels: child.tagName === 'BUTTON' ? child.textContent : Array.from(child.children, (button) => button.textContent),
+      }));
+    expect(children('Type')).toEqual([
+      {className: 'adm-seg-pair', labels: ['Character', 'Action']},
+      {className: 'adm-seg-pair', labels: ['Item', 'Location']},
+      {className: 'adm-seg-pair', labels: ['Song']},
+    ]);
+    expect(children('Sort rules')).toEqual([
+      {className: 'adm-seg-btn', labels: '|Gap|'},
+      {className: 'adm-seg-btn', labels: 'Votes'},
+    ]);
+    // The pairs are layout alone: every option is still a button of the named group.
+    expect(screen.getAllByRole('button', {name: /^(Character|Action|Item|Location|Song)$/})).toHaveLength(5);
+  });
 });

@@ -82,12 +82,22 @@ function RuleRow({row}: {row: CardRuleRow}) {
 /**
  * The rules that scored the card's voted pairs, as rulesForCard orders them:
  * rules with enough score votes first, each group by |gap|, then score votes,
- * then name (R-35). Nothing for a card whose pairs name no rule.
+ * then name (R-35). Nothing for a card whose pairs name no rule. Under
+ * TABLE_MIN_WIDTH the table scrolls sideways, and only the Rule column holds
+ * links, so the scroller is a named region the keyboard reaches and scrolls
+ * (WCAG 2.1.1), ringed by adm-scroll-region. The region names the box, "Rules
+ * table", and the table its contents, so a screen reader entering both
+ * doesn't hear one name twice.
  */
 function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
   if (rows.length === 0) return null;
   return (
-    <div style={SCROLLER}>
+    <div
+      role="region"
+      aria-label="Rules table"
+      tabIndex={0}
+      className="adm-scroll-region"
+      style={SCROLLER}>
       <table aria-label="Rules on this card's pairs, low n last" style={TABLE}>
         <colgroup>
           <col />

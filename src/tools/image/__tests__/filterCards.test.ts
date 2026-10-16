@@ -29,4 +29,33 @@ describe('filterCards', () => {
     const many = Array.from({length: 100}, (_, i) => card({id: String(i), name: 'Zz', fullName: 'Zz Zz'}));
     expect(filterCards(many, 'zz', 40)).toHaveLength(40);
   });
+
+  it('puts fullName prefix matches first, and keeps list order within each rank', () => {
+    const cards = [
+      card({id: '1', fullName: 'Hanna - Skater'}),
+      card({id: '2', fullName: 'Anna - Heir to Arendelle'}),
+      card({id: '3', fullName: 'Joanna - Baker'}),
+      card({id: '4', fullName: 'Anna - Soothing Sister'}),
+    ];
+    expect(filterCards(cards, 'anna').map((c) => c.id)).toEqual(['2', '4', '1', '3']);
+  });
+
+  // Set 14's preview names print ’ (Peter Pan’s Shadow, Bellwether’s Henchmen), while
+  // released names and most keyboards use '. iOS types ’. The app's search folds both.
+  it.each([
+    ['a straight query finds a typographic name', "pan's", 'Peter Pan’s Shadow - Elusive Prankster'],
+    ['a typographic query finds a straight name', 'pan’s', "Peter Pan's Shadow - Elusive Prankster"],
+    ['an opening quote folds too', 'pan‘s', "Peter Pan's Shadow - Elusive Prankster"],
+  ])('%s', (_, query, fullName) => {
+    const cards = [card({id: '1', fullName}), card({id: '2', fullName: 'Peter Pan - Never Land Hero'})];
+    expect(filterCards(cards, query).map((c) => c.id)).toEqual(['1']);
+  });
+
+  it('ranks a prefix match by its folded name', () => {
+    const cards = [
+      card({id: '1', fullName: 'Lost Boys - Peter Pan’s Crew'}),
+      card({id: '2', fullName: 'Peter Pan’s Shadow - Elusive Prankster'}),
+    ];
+    expect(filterCards(cards, "peter pan's").map((c) => c.id)).toEqual(['2', '1']);
+  });
 });

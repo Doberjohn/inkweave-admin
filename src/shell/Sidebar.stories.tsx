@@ -29,7 +29,7 @@ export const Open: Story = {};
 /** A page that writes, with a token saved: the token box sits above the toggle. */
 export const WritePageWithToken: Story = {
   args: {tokenSaved: true},
-  parameters: {route: '/reveal'},
+  parameters: {route: '/studio'},
 };
 
 /** Collapsed: marks only. Each link keeps its full name as its accessible name and tooltip. */

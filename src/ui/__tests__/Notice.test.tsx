@@ -13,4 +13,9 @@ describe('Notice', () => {
     render(<Notice tone="error">Could not load Web Analytics (vercel-analytics.json: 404).</Notice>);
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load Web Analytics (vercel-analytics.json: 404).');
   });
+
+  it('breaks a long unbroken word, such as an API path, so a narrow column never scrolls sideways', () => {
+    render(<Notice tone="error">GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials</Notice>);
+    expect(screen.getByRole('alert')).toHaveStyle({overflowWrap: 'anywhere'});
+  });
 });

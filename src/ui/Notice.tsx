@@ -35,6 +35,9 @@ export function Notice({tone = 'info', children}: NoticeProps) {
         padding: `${SPACING.section}px ${SPACING.lg}px`,
         fontSize: ADMIN_TYPE.body,
         lineHeight: 1.5,
+        // A GitHub error names an API path with no break opportunity, which
+        // would push a narrow aside (Card studio, the tuning editor) sideways.
+        overflowWrap: 'anywhere',
       }}>
       {children}
     </div>

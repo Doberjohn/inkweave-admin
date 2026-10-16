@@ -4,6 +4,28 @@ interface SegmentedControlProps<T extends string> {
   onChange: (v: T) => void;
   /** Names the group for assistive tech: "Sort rules", "Score band". */
   ariaLabel: string;
+  /**
+   * Stretch the options across the width the control is given, as the
+   * handoff's Type tabs do, padded 4px at the least. They sit two by two
+   * (inPairs), so where one line can't hold them all a whole pair moves to
+   * the next (`.adm-seg[data-fill="true"]`, `.adm-seg-pair`). Card studio's
+   * Type sets it: its column can be narrower than the four labels.
+   * Default false: the control is as wide as its options.
+   */
+  fill?: boolean;
+}
+
+/** Fill's buttons, two to a pair: a row that wraps them goes two and two, never three and one. */
+function inPairs(buttons: React.ReactElement[]) {
+  const pairs: React.ReactElement[] = [];
+  for (let start = 0; start < buttons.length; start += 2) {
+    pairs.push(
+      <span key={start} className="adm-seg-pair">
+        {buttons.slice(start, start + 2)}
+      </span>,
+    );
+  }
+  return pairs;
 }
 
 /**
@@ -11,24 +33,26 @@ interface SegmentedControlProps<T extends string> {
  * mode. Native buttons in a named group, so each is a Tab stop that fires on
  * Enter or Space; aria-pressed carries the selection, and AdminStyles draws it
  * (`.adm-seg-btn[aria-pressed="true"]`). Pressing the selected option again
- * does nothing, so a parent that resets state on change (Card studio's mode)
- * can't lose work to a stray click.
+ * does nothing, so onChange fires only for a real change: Card studio's mode
+ * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
+ * current mode adds no history entry.
  */
-export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel}: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill}: SegmentedControlProps<T>) {
+  const buttons = options.map((option) => (
+    <button
+      key={option.value}
+      type="button"
+      className="adm-seg-btn"
+      aria-pressed={option.value === value}
+      onClick={() => {
+        if (option.value !== value) onChange(option.value);
+      }}>
+      {option.label}
+    </button>
+  ));
   return (
-    <div role="group" aria-label={ariaLabel} className="adm-seg">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className="adm-seg-btn"
-          aria-pressed={option.value === value}
-          onClick={() => {
-            if (option.value !== value) onChange(option.value);
-          }}>
-          {option.label}
-        </button>
-      ))}
+    <div role="group" aria-label={ariaLabel} className="adm-seg" data-fill={fill || undefined}>
+      {fill ? inPairs(buttons) : buttons}
     </div>
   );
 }

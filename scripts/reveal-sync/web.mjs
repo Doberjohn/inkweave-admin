@@ -1,6 +1,6 @@
 /**
  * Load admin's TypeScript from Node: the season through the app bridge (src/app-bridge.ts,
- * the one module that reaches the pinned app), and the write chain the reveal publisher uses
+ * the one module that reaches the pinned app), and the write chain Card studio's New reveal uses
  * (src/tools/reveal/). Vite's `runnerImport` transforms them the way the dev server does, so
  * nothing is duplicated, and a season rotation reaches the skill with a pin bump.
  *
@@ -58,7 +58,7 @@ export async function loadSeason() {
   };
 }
 
-/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as the reveal publisher uses them. */
+/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as Card studio's New reveal uses them. */
 export async function loadWriteChain() {
   const dir = 'src/tools/reveal';
   const [validate, build, insert] = await Promise.all([

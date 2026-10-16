@@ -1,71 +1,53 @@
 import {useState} from 'react';
-import {
-  synergyEngine,
-  transformCard,
-  type LorcanaCard,
-  type SynergyGroup,
-} from 'inkweave-synergy-engine';
+import type {LorcanaCard, SynergyGroup} from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
-import {useImageUpload} from '../../components/useImageUpload';
+import {useImageUpload, type ImageUpload} from '../../components/useImageUpload';
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
+import {EMPTY_FORM, sameForm} from './emptyForm';
 import {validateRevealCardForm, type ValidationResult} from './validateForm';
+import {releasedRevealNumbers} from './releasedNumbers';
 import {commitNewCard} from './githubClient';
 import {useGithubToken} from '../../github/useGithubToken';
+import {cardListPending, type CardListStatus} from '../studio/readiness';
+import {buildPreview, computeSynergies, imageErrorOf} from './livePreview';
 
-const EMPTY_FORM: RevealCardForm = {
-  collectorNumber: '',
-  name: '',
-  version: '',
-  rarity: '',
-  franchise: '',
-  cost: '',
-  ink: 'Amber',
-  ink2: '',
-  inkwell: true,
-  type: 'Character',
-  strength: '',
-  willpower: '',
-  lore: '',
-  moveCost: '',
-  subtypes: '',
-  keywords: '',
-  fullText: '',
-  scanLanguage: 'en',
-};
-
-/** Build the live preview card from form values; null until ink/type are valid. */
-function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {
-  const raw = buildPreviewCard(form);
-  const transformed = transformCard(raw);
-  if (!transformed) return null;
-  if (imageDataUrl) transformed.imageUrl = imageDataUrl;
-  // The engine's transform drops it; the app's loader copies it over the same way.
-  transformed.scanLanguage = raw.scanLanguage;
-  return transformed;
+/** What commitNewCard needs besides the card. */
+interface PublishInput {
+  token: string;
+  imageBase64: string;
+  imageExt: string;
 }
 
-/** Run the engine against the in-progress card; empty on no card or engine error. */
-function computeSynergies(card: LorcanaCard | null, allCards: LorcanaCard[]): SynergyGroup[] {
-  if (!card) return [];
-  try {
-    return synergyEngine.findSynergies(card, allCards);
-  } catch {
-    return [];
-  }
-}
-
-/** True only when the card is valid, has a token, and an image is fully read. */
-function readyToPublish(p: {
+/** What readyToPublish checks. */
+interface PublishState {
   valid: boolean;
   token: string | null;
-  imageFile: File | null;
-  imageDataUrl: string | null;
-}): boolean {
-  if (!p.valid) return false;
-  if (!p.token) return false;
-  if (!p.imageFile) return false;
-  if (!p.imageDataUrl) return false;
-  return true;
+  upload: ImageUpload;
+  /** The card list the number was checked against. */
+  list: CardListStatus;
+}
+
+/**
+ * The publish's inputs once the card is valid, checked against a loaded card
+ * list, a token is saved and the chosen image's bytes are read; null while
+ * anything is missing. The list fails closed: while it loads, or after it
+ * failed, it holds no card, so the validator can't see a released card's
+ * number (cardListPending). Publish is on exactly when this is set.
+ * Single-condition guards keep it simple and narrow the types.
+ */
+function readyToPublish(p: PublishState): PublishInput | null {
+  const {file, dataUrl} = p.upload;
+  if (!p.valid) return null;
+  if (cardListPending(p.list) !== null) return null;
+  if (!p.token) return null;
+  if (!file) return null;
+  if (!dataUrl) return null;
+  return {token: p.token, imageBase64: dataUrl, imageExt: (file.name.split('.').pop() ?? 'png').toLowerCase()};
+}
+
+/** The draft holds something: a field off its empty value, or a chosen file, read or not. */
+function hasDraft(form: RevealCardForm, upload: ImageUpload): boolean {
+  return !sameForm(form, EMPTY_FORM) || upload.file !== null;
 }
 
 export interface RevealAdminController {
@@ -73,62 +55,78 @@ export interface RevealAdminController {
   setToken: (t: string) => void;
   form: RevealCardForm;
   patchForm: (patch: Partial<RevealCardForm>) => void;
+  /** The form differs from an empty one, or a file is chosen. A publish that lands clears both. */
+  dirty: boolean;
   previewCard: LorcanaCard | null;
   synergyGroups: SynergyGroup[];
   validation: ValidationResult;
+  /** The chosen file's name, or null. */
+  imageName: string | null;
+  /** The chosen file's bytes as a data URL; null while they are read, and for a file that fails its check. */
+  imageDataUrl: string | null;
+  /** Why the chosen file can't be used (its byte check, or a failed read), or null. */
+  uploadError: string | null;
+  /** The file controls' error (R-72, imageErrorOf): null until a file is chosen, then uploadError, else the validator's. */
+  imageError: string | null;
+  /** The card list's state: Publish waits for it to load without error, and the checklist says why (cardListPending). */
+  cardList: CardListStatus;
+  /**
+   * Loads a failed card list again (useCardDataContext's retryLoad): New
+   * reveal's "Load the card list again", which keeps the draft a page reload
+   * would drop (R4-8f).
+   */
+  retryCardList: () => void;
   canPublish: boolean;
   publishing: boolean;
   result: {commitUrl: string} | null;
-  publishError: string | null;
+  /** The last publish's failure alone, or null; a publish clears it as it starts. */
+  commitError: string | null;
   onImageChange: (file: File | null) => void;
-  publish: () => void;
+  /** Commits the card; resolves once the commit has landed or failed, so a page can move focus to the outcome (R-59). */
+  publish: () => Promise<void>;
 }
 
 /**
- * Owns all reveal-admin page state and side effects. Keeping it here leaves the
- * page component as mostly-presentational JSX (and well under the complexity gate).
+ * Owns Card studio's New reveal state and side effects. Keeping it here leaves
+ * NewRevealPane as mostly-presentational JSX (and well under the complexity gate).
  */
 export function useRevealAdmin(): RevealAdminController {
   const {token, setToken} = useGithubToken();
-  const {cards} = useCardDataContext();
+  const {cards, isLoading, error, retryLoad} = useCardDataContext();
+  const cardList: CardListStatus = {isLoading, error};
   const [form, setForm] = useState<RevealCardForm>(EMPTY_FORM);
   // The chosen file and its bytes, kept in step (useImageUpload).
   const upload = useImageUpload();
-  const imageFile = upload.file;
-  const imageDataUrl = upload.dataUrl;
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{commitUrl: string} | null>(null);
-  const [publishError, setPublishError] = useState<string | null>(null);
+  const [commitError, setCommitError] = useState<string | null>(null);
 
-  const imageName = imageFile?.name ?? null;
+  const imageName = upload.file?.name ?? null;
   const existingIds = new Set(cards.map((c) => Number(c.id)));
-  const previewCard = buildPreview(form, imageDataUrl);
+  // A released reveal-set card holds its number under its official id, which existingIds can't match.
+  const released = releasedRevealNumbers(cards);
+  const previewCard = buildPreview(form, upload.dataUrl);
   const synergyGroups = computeSynergies(previewCard, cards);
-  const validation = validateRevealCardForm(form, existingIds, imageName);
-  const canPublish = readyToPublish({valid: validation.ok, token, imageFile, imageDataUrl});
+  const validation = validateRevealCardForm(form, existingIds, imageName, released);
+  const ready = readyToPublish({valid: validation.ok, token, upload, list: cardList});
 
   function patchForm(patch: Partial<RevealCardForm>) {
     setForm((f) => ({...f, ...patch}));
   }
 
   async function publish() {
-    if (!token) return;
-    if (!imageFile) return;
-    if (!imageDataUrl) return;
-    if (!validation.ok) return;
+    if (!ready) return;
     setPublishing(true);
-    setPublishError(null);
+    setCommitError(null);
     // The last publish's commit notice would otherwise stand beside this attempt's outcome.
     setResult(null);
     try {
-      const card = buildPreviewCard(form);
-      const ext = (imageFile.name.split('.').pop() ?? 'png').toLowerCase();
-      const res = await commitNewCard({token, card, imageBase64: imageDataUrl, imageExt: ext});
+      const res = await commitNewCard({...ready, card: buildPreviewCard(form)});
       setResult(res);
       setForm(EMPTY_FORM);
       void upload.choose(null);
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : 'Publish failed');
+      setCommitError(e instanceof Error ? e.message : 'Publish failed');
     } finally {
       setPublishing(false);
     }
@@ -139,14 +137,20 @@ export function useRevealAdmin(): RevealAdminController {
     setToken,
     form,
     patchForm,
+    dirty: hasDraft(form, upload),
     previewCard,
     synergyGroups,
     validation,
-    canPublish,
+    imageName,
+    imageDataUrl: upload.dataUrl,
+    uploadError: upload.error,
+    imageError: imageErrorOf({name: imageName, dataUrl: upload.dataUrl, error: upload.error}, validation),
+    cardList,
+    retryCardList: retryLoad,
+    canPublish: ready !== null,
     publishing,
     result,
-    // A file that can't be read is why Publish stays off; say so where errors show.
-    publishError: publishError ?? upload.error,
+    commitError,
     onImageChange: upload.choose,
     publish,
   };

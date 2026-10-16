@@ -1,9 +1,9 @@
-import {useRef} from 'react';
 import {Link} from 'react-router-dom';
 import {MIN_CORE_SET, type LorcanaCard} from 'inkweave-synergy-engine';
 import {SPACING} from '../../../app-bridge';
-import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
-import {cardsHref} from '../../../shell/nav';
+import type {FocusHandoff} from '../../../shell/focusHandoff';
+import {FocusNotice} from '../../../shell/FocusNotice';
+import {cardsHref, studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap} from '../../../ui/format';
@@ -11,6 +11,7 @@ import {Notice} from '../../../ui/Notice';
 import {Panel} from '../../../ui/Panel';
 import {gapColor} from '../gapColor';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';
+import {PanelLink} from '../overview/PanelLink';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
 import type {PairStat} from '../voteAnalyticsTypes';
@@ -21,7 +22,6 @@ import {CELL_LINK, NUMBER} from './cardStyles';
 import {RetryNotice} from './RetryNotice';
 import type {UseCardSynergiesReturn} from './useCardSynergies';
 
-const LINE: React.CSSProperties = {margin: 0};
 const LIST: React.CSSProperties = {listStyle: 'none', margin: 0, padding: 0};
 const EMPTY: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.muted};
 
@@ -46,25 +46,6 @@ const REVIEW_TRACK: React.CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px), 1fr))',
   gap: SPACING.xl,
 };
-
-/**
- * A Notice for a state with no control of its own. Its line takes a pending
- * handoff (R-48): after Retry, or a link to a card the list doesn't hold, the
- * control pressed is gone, so focus lands on what replaced it.
- */
-function FocusNotice({handoff, children}: {handoff: FocusHandoff; children: React.ReactNode}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useTakeHandoff(handoff, ref, 'p');
-  return (
-    <div ref={ref}>
-      <Notice>
-        <p tabIndex={-1} style={LINE}>
-          {children}
-        </p>
-      </Notice>
-    </div>
-  );
-}
 
 /** A Cards to review row: the card's name, which opens its page, its bias bar and its mean gap. */
 function ReviewRow({card}: {card: CardToReview}) {
@@ -136,7 +117,8 @@ export interface CardPageBodyProps {
  * The Card analytics body, one state at a time (cardPageState). The card's
  * view is keyed by its id (R-46): one route element serves every card, so
  * without the key a frame's Table view, the pair list's scroll and the
- * network's hover would carry over to the next card.
+ * network's hover would carry over to the next card. Its header links the card
+ * to Card studio's Edit card (R-82).
  */
 export function CardPageBody({state, onRetry, handoff, ...data}: CardPageBodyProps) {
   switch (state.kind) {
@@ -160,6 +142,14 @@ export function CardPageBody({state, onRetry, handoff, ...data}: CardPageBodyPro
         </FocusNotice>
       );
     case 'card':
-      return <CardAnalyticsView key={state.card.id} card={state.card} handoff={handoff} {...data} />;
+      return (
+        <CardAnalyticsView
+          key={state.card.id}
+          card={state.card}
+          handoff={handoff}
+          headerActions={<PanelLink to={studioHref('edit', state.card.id)}>Edit in Card studio</PanelLink>}
+          {...data}
+        />
+      );
   }
 }
