@@ -59,9 +59,7 @@ const CHARTS = importBan(
 );
 
 export default tseslint.config(
-  // docs/redesign/ is the design handoff. Its support.js is the prototype's
-  // browser runtime, not admin code.
-  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert', 'docs/redesign/']},
+  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

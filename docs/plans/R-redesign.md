@@ -12,7 +12,7 @@
 
 **Tech stack:** React 19, react-router 7, inline styles plus scoped `<style>` blocks with interpolated tokens, Vitest 5 + Testing Library (jsdom), Storybook 10, the app's tokens and kit through `src/app-bridge.ts`.
 
-**Spec:** `docs/redesign/handoff/README.md` plus the prototype `docs/redesign/handoff/Inkweave Admin.dc.html`. The handoff lives outside git, in the owner's working copy only (`.git/info/exclude`), and is deleted once R4 ships (owner, 2026-10-01). Open the prototype with `support.js` next to it, served over HTTP; it doesn't run from `file://`. The spec's own fixtures are sample data. Where this plan and the spec disagree, **this plan wins**: the "Corrections to the spec" section lists every case, and each comes from the 2026-10-01 review of the handoff against the code.
+**Spec:** the Claude Design handoff of 2026-10-01, a README plus the prototype `Inkweave Admin.dc.html`. It lived outside git, in the owner's working copy only, and was retired when R4 shipped (owner, 2026-10-01; R-88). So the `docs/redesign/handoff/…` paths and `dc.html` lines that the task files cite no longer resolve, and those files record what the handoff said. The spec's own fixtures were sample data. Where this plan and the spec disagreed, **this plan won**: "Corrections to the spec" lists every case, from the 2026-10-01 review of the handoff against the code and from R4's decisions (R-91).
 
 **Tracking:** Doberjohn/inkweave-admin#24. Branch: one per phase: `feature/24-admin-redesign` (R1), `feature/24-redesign-r2` (R2), `feature/24-redesign-r3` (R3), `feature/24-redesign-r4` (R4); one PR per phase.
 
