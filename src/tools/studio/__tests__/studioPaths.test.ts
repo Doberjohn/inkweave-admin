@@ -87,7 +87,12 @@ const UNSAVED = "Your Edit card changes aren't saved yet. Leaving Card studio dr
 const UNSAVED_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
 const SAVED_CARD = 'Your changes to this card are saved. Leaving the card drops nothing.';
 const PUBLISHING = "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
-const SAVING = "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
+// The form stays editable while a save runs, and a landed save makes only what it sent the baseline (useEditSave's
+// land), so Edit's in-flight line adds what leaving still drops: the edits made since, and a failed save's own,
+// which go with the draft.
+const SAVING =
+  "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed. " +
+  'Any edits made since the save started are dropped, and if the save fails, its changes are lost too.';
 // R4-8c: both drafts in one sentence, so "Leaving Card studio drops" isn't said twice.
 const UNSAVED_BOTH =
   "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
@@ -97,14 +102,16 @@ describe('studioUnsavedMessage', () => {
     {why: 'leaving names the New reveal draft', from: '/studio', to: '/', drafts: REVEAL, busy: CLEAN, says: UNPUBLISHED},
     {why: 'leaving names the Edit draft', from: '/studio?mode=edit&card=1', to: '/cards/1', drafts: EDIT, busy: CLEAN, says: UNSAVED},
     {why: 'leaving names both drafts in one sentence, New reveal first', from: '/studio?card=1', to: '/', drafts: BOTH, busy: CLEAN, says: UNSAVED_BOTH},
-    // StudioWorkspace passes Edit's busy only for a save made from the draft on screen (R4-8c): one left running on
-    // another card isn't this card's, so the card's own edits are what the change drops.
-    {why: 'a card change after leaving a save on another card names the edits', from: '/studio?mode=edit&card=2', to: '/studio?mode=edit&card=3', drafts: EDIT, busy: CLEAN, says: UNSAVED_CARD},
+    // The message sees Edit's busy alone, which StudioWorkspace takes from savingThisDraft (R4-8c): false while the
+    // save running was made on another card. A card change then reaches it as this row's does, with no save of this
+    // draft's, so no row here can tell the two apart. StudioEdit.test.tsx's card change mid-save and
+    // useCardEditor.save.test.ts's next-card case pin savingThisDraft itself.
+    {why: 'a card change with no save of this draft running names the edits', from: '/studio?mode=edit&card=2', to: '/studio?mode=edit&card=3', drafts: EDIT, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'another card names only the Edit draft', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: BOTH, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'the search names only the Edit draft', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit', drafts: BOTH, busy: CLEAN, says: UNSAVED_CARD},
     {why: 'a publish in flight takes the shared line', from: '/studio', to: '/', drafts: REVEAL, busy: REVEAL, says: PUBLISHING},
-    {why: 'a save in flight takes it beside an unpublished card', from: '/studio?mode=edit&card=1', to: '/', drafts: BOTH, busy: EDIT, says: `${UNPUBLISHED} ${SAVING}`},
-    {why: 'a save in flight takes it on a card change', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: EDIT, busy: EDIT, says: SAVING},
+    {why: 'a save in flight takes it, with what leaving still drops, beside an unpublished card', from: '/studio?mode=edit&card=1', to: '/', drafts: BOTH, busy: EDIT, says: `${UNPUBLISHED} ${SAVING}`},
+    {why: 'a save in flight takes it, with what leaving still drops, on a card change', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: EDIT, busy: EDIT, says: SAVING},
     // A card change keeps New reveal's draft, so its publish in flight goes unmentioned.
     {why: 'a card change leaves a publish in flight out', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: BOTH, busy: REVEAL, says: UNSAVED_CARD},
     // The guard ends a hold only once neither draft is dirty: a card change held past Edit's save stays open
@@ -126,7 +133,8 @@ describe('studioUnsavedQuestion (R4-8c)', () => {
     });
   });
 
-  // R4-8f: where the line says the change drops nothing, the leave answer doesn't say it drops changes.
+  // R4-8f: where the card's saved edits stay with its save, the leave answer doesn't say it drops changes. A save in
+  // flight still drops the edits made since it started, and its own changes if it fails, and its line says so.
   it.each([
     {why: 'its save landed while the dialog was open', drafts: REVEAL, busy: CLEAN, says: SAVED_CARD, leave: 'Leave the card'},
     {why: 'its own save is in flight', drafts: EDIT, busy: EDIT, says: SAVING, leave: 'Leave the card'},

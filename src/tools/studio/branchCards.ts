@@ -45,9 +45,10 @@ const NONE: ReadonlySet<number> = new Set();
  * collector number, or the +900..+999 band for a card revealed without one
  * (the app's revealSet.ts:15-22). allCards.json's ids are sequential and stay
  * clear of every Core set's band, so a card-list card with a preview id came
- * from previewCards.json, and any other from allCards.json. So an image-only
- * save of such a card checks the file still holds it (commitPreviewCardImage),
- * whatever its set (R4-8f).
+ * from previewCards.json, and any other from allCards.json. So, whatever its
+ * set, such a card reads gone once a read file lacks it (branchLookup), and an
+ * image-only save of one checks the file still holds it (commitPreviewCardImage,
+ * R4-8f).
  */
 export function hasPreviewId(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean {
   const offset = Number(card.id) - Number(card.setCode) * 1000;
@@ -55,13 +56,13 @@ export function hasPreviewId(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean
 }
 
 /**
- * Whether the card is a reveal-set card under a preview id: the one kind the
- * branch file decides. Edit opens it only once the file is read. Another
- * set's preview card, during a pin lag, comes from previewCards.json too, but
- * it opens image-only straight from the card list ('other-set' once the file
- * is read, R-65). Any other card, the reveal set's released ones included
- * (graduation gives them official ids), is allCards.json's, and never waits
- * on the file (R-71).
+ * Whether the card is a reveal-set card under a preview id: the one kind that
+ * waits for the branch file, since Edit opens it only once the file is read.
+ * Another set's preview card, during a pin lag, comes from previewCards.json
+ * too, but it opens image-only straight from the card list ('other-set' once
+ * the file is read, R-65, and gone once a read lacks it). Any other card, the
+ * reveal set's released ones included (graduation gives them official ids), is
+ * allCards.json's, and never waits on the file (R-71).
  */
 export function isRevealPreview(card: Pick<LorcanaCard, 'id' | 'setCode'>): boolean {
   return card.setCode === REVEAL_SET_CODE && hasPreviewId(card);
@@ -146,12 +147,15 @@ function unlistedLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsF
 }
 
 /**
- * Whether a ready card is a reveal-set card under a preview id that the file
- * no longer holds. editLookup opens such a card only once the file is read
- * (R-71), so its null entry means the read file lacks it.
+ * Whether a ready card is under a preview id that the read file no longer
+ * holds, whatever its set. Its entry is null while the file loads and after a
+ * failed read too: another set's preview card opens straight from the card
+ * list (cardLookup), so only a read file can say the card left it. A
+ * reveal-set card opens only once the file is read (R-71), so for it a null
+ * entry always meant that.
  */
-function leftFile({card, entry}: {card: LorcanaCard; entry: LorcanaJSONCard | null}): boolean {
-  return entry === null && isRevealPreview(card);
+function leftFile({card, entry, file}: {card: LorcanaCard; entry: LorcanaJSONCard | null; file: PreviewCardsFile}): boolean {
+  return entry === null && file.status === 'ready' && hasPreviewId(card);
 }
 
 /**
@@ -160,7 +164,9 @@ function leftFile({card, entry}: {card: LorcanaCard; entry: LorcanaJSONCard | nu
  * - an id neither source holds waits for the file before it reads missing, and
  *   a failed read is the file's error, with its Retry. A branch-only card the
  *   file loses reads missing too, since neither source holds it then;
- * - a reveal-set card under a preview id that the file no longer holds is gone.
+ * - a card under a preview id that the read file no longer holds is gone: the
+ *   reveal set's, and another set's during a pin lag (R-65), which opens
+ *   before the file is read and so reads gone only once a read lacks it.
  *   Graduation releases a card under a new id (R-29) and empties the file,
  *   while inkweave.ink lists the old id until it deploys. On a rehearsal
  *   branch, a preview card published to master after the branch was cut reads
@@ -170,7 +176,7 @@ function leftFile({card, entry}: {card: LorcanaCard; entry: LorcanaJSONCard | nu
  */
 export function branchLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsFile}): EditLookup {
   if (lookup.kind === 'missing') return unlistedLookup({lookup, file});
-  if (lookup.kind === 'ready' && leftFile(lookup)) return {kind: 'gone', card: lookup.card};
+  if (lookup.kind === 'ready' && leftFile({...lookup, file})) return {kind: 'gone', card: lookup.card};
   return lookup;
 }
 

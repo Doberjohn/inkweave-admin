@@ -80,7 +80,7 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('group', {name: 'Sort rules'})).not.toHaveAttribute('data-fill');
   });
 
-  it('sets a filling control’s buttons two to a pair, in order, so a wrap goes two and two, and a plain one’s straight in the group', () => {
+  it('sets a filling control’s buttons two to a pair, in order, a lone last one marked, and a plain one’s straight in the group', () => {
     const types = ['Character', 'Action', 'Item', 'Location', 'Song'].map((label) => ({value: label, label}));
     render(
       <>
@@ -92,15 +92,18 @@ describe('SegmentedControl', () => {
       Array.from(screen.getByRole('group', {name}).children, (child) => ({
         className: child.className,
         labels: child.tagName === 'BUTTON' ? child.textContent : Array.from(child.children, (button) => button.textContent),
+        lone: child.getAttribute('data-lone'),
       }));
+    // A wrap goes two and two. The odd count's last button sits alone, and its pair says so (data-lone), so on a
+    // line it shares AdminStyles gives it one button's width, not a pair's.
     expect(children('Type')).toEqual([
-      {className: 'adm-seg-pair', labels: ['Character', 'Action']},
-      {className: 'adm-seg-pair', labels: ['Item', 'Location']},
-      {className: 'adm-seg-pair', labels: ['Song']},
+      {className: 'adm-seg-pair', labels: ['Character', 'Action'], lone: null},
+      {className: 'adm-seg-pair', labels: ['Item', 'Location'], lone: null},
+      {className: 'adm-seg-pair', labels: ['Song'], lone: 'true'},
     ]);
     expect(children('Sort rules')).toEqual([
-      {className: 'adm-seg-btn', labels: '|Gap|'},
-      {className: 'adm-seg-btn', labels: 'Votes'},
+      {className: 'adm-seg-btn', labels: '|Gap|', lone: null},
+      {className: 'adm-seg-btn', labels: 'Votes', lone: null},
     ]);
     // The pairs are layout alone: every option is still a button of the named group.
     expect(screen.getAllByRole('button', {name: /^(Character|Action|Item|Location|Song)$/})).toHaveLength(5);

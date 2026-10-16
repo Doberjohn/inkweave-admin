@@ -263,13 +263,15 @@ words `resolve` takes.
   is right, rename the card in Card studio's Edit card. Edit card can't renumber, so the
   rest still go by hand. The detail names the holder's id, as in `#21 is already in Inkweave
   as "Miguel Rivera - Street Musician" (3286)`. A preview card's id is the set number times
-  1000 plus its collector number (set 14's #21 was 14021); any other id is a released card
-  (Doberjohn/inkweave-admin#51), and once the reveal set has graduated, every `number-taken`
-  and `name-taken` is of that kind. Neither fix applies to one: its data is the app's
-  canonical card data, LorcanaJSON's export, and Edit card replaces only its image. Check the site's number and name against the released card. Where the site
-  is behind, change nothing: the card stays in NEEDS YOUR CALL, retried on every run, until
-  lorcanaplayer matches. Where the released card's data is wrong, that is the app's to fix
-  (Doberjohn/inkweave's `docs/CARD_DATA_PIPELINE.md`, "Updating `allCards.json`").
+  1000 plus its collector number (set 14's #21 was 14021). In these two details any other id
+  is a released card (Doberjohn/inkweave-admin#51): a card in the reserved band raises
+  `in-reserved-band` instead. Once the reveal set has graduated, every `number-taken` and
+  `name-taken` is of that kind. Neither fix applies to one: its data is the app's canonical
+  card data, LorcanaJSON's export, and Edit card replaces only its image. Check the site's
+  number and name against the released card. Where the site is behind, change nothing: the
+  card stays in NEEDS YOUR CALL, retried on every run, until lorcanaplayer matches. Where the
+  released card's data is wrong, that is the app's to fix (Doberjohn/inkweave's
+  `docs/CARD_DATA_PIPELINE.md`, "Updating `allCards.json`").
 - A card the write chain refuses (`validation-failed`) carries the validator's message as its
   detail, for example `"Strength" is spelled out: use ¤ ("their ¤")` for a glyph word house
   style cannot place (Doberjohn/inkweave#635). `resolve` cannot rule on it, and it is retried

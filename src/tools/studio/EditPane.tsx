@@ -201,7 +201,9 @@ function FileError({file, onForgetToken}: {file: PreviewFileView; onForgetToken:
 /**
  * The aside: the changes as a diff, the synergies of a card whose fields
  * change (none for an image-only card, R-61), Save, and the outcome, its note
- * picked by whether an image went with the commit. Save asks for the handoff
+ * picked by whether an image went with the commit. The synergies run the
+ * engine as the aside renders (findSynergies), so only Edit card runs it for
+ * the card open there (Doberjohn/inkweave-admin#55). Save asks for the handoff
  * once the commit settles: it went off while it ran, which drops focus to
  * <body> in a browser, so the outcome line takes it. Discard is held while it
  * runs, as Save is (R4-4c). Load it again asks once its re-read lands, and
@@ -213,7 +215,7 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
   return (
     <aside aria-label="Changes" style={ASIDE}>
       <ChangeList rows={edit.changes} onDiscard={onDiscard} busy={edit.saving} imageOnly={edit.form === null} />
-      {edit.form !== null && <SynergyPanel groups={edit.synergyGroups} />}
+      {edit.form !== null && <SynergyPanel groups={edit.findSynergies()} />}
       <CtaButton type="button" onClick={save} disabled={!edit.canSave} style={SAVE}>
         {saveLabel(edit)}
       </CtaButton>

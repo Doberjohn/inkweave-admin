@@ -107,12 +107,14 @@ function listActions(ctrl: RevealAdminController): ChecklistActions {
 
 /**
  * The aside: what's left before the card can publish, its synergies, Publish,
- * and the outcome. Publish asks for the handoff once the commit lands, failed
- * or not: the button went off while it ran, which drops focus to <body> in a
- * browser, so the outcome line takes it (R-59). It asks only while New reveal
- * is still the mode (`showing`): after a switch to Edit card, focus is where
- * the operator put it, and Edit's views would take a request meant for this
- * outcome.
+ * and the outcome. The synergies run the engine as the aside renders
+ * (findSynergies), so only New reveal runs it for its preview
+ * (Doberjohn/inkweave-admin#55). Publish asks for the handoff once the commit
+ * lands, failed or not: the button went off while it ran, which drops focus to
+ * <body> in a browser, so the outcome line takes it (R-59). It asks only while
+ * New reveal is still the mode (`showing`): after a switch to Edit card, focus
+ * is where the operator put it, and Edit's views would take a request meant
+ * for this outcome.
  */
 function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealPaneProps, 'layout'> & {
   showing: RefObject<boolean>;
@@ -127,7 +129,7 @@ function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealP
         items={revealChecklist(ctrl.form, ctrl.validation, scanOf(ctrl), ctrl.cardList)}
         actions={listActions(ctrl)}
       />
-      <SynergyPanel groups={ctrl.synergyGroups} />
+      <SynergyPanel groups={ctrl.findSynergies()} />
       <CtaButton type="button" onClick={publish} disabled={!ctrl.canPublish || ctrl.publishing} style={PUBLISH}>
         {publishLabel({publishing: ctrl.publishing})}
       </CtaButton>

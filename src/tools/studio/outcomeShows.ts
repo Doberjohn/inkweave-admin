@@ -1,10 +1,14 @@
-/** What the outcome line under Publish or Save reads from (CommitOutcome). */
+/** What the outcome line under Publish or Save reads from: CommitOutcome's props extend it. */
 export interface ShownOutcome {
   /** The last commit that landed, or null. */
   result: {commitUrl: string} | null;
-  /** The last commit's failure, or null. */
+  /**
+   * The last commit's failure, or null. It shows as given: New reveal's race
+   * refusal says "Publish again.", and Edit's controller words its own as a
+   * save before it gets here (R4-4c).
+   */
   error: string | null;
-  /** How many edits the last "Load it again" dropped; null or absent before one lands (R-68). */
+  /** How many edits the last "Load it again" dropped (R-68); null or absent before one lands. */
   dropped?: number | null;
 }
 

@@ -245,7 +245,7 @@ export function revealController(overrides: Partial<RevealAdminController> = {})
     patchForm: () => {},
     dirty: false,
     previewCard: null,
-    synergyGroups: [],
+    findSynergies: () => [],
     validation,
     imageName: null,
     imageDataUrl: null,

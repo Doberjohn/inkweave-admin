@@ -6,21 +6,12 @@ import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {loadAgainNote} from '../loadAgainNote';
-import {outcomeShows} from '../outcomeShows';
+import {outcomeShows, type ShownOutcome} from '../outcomeShows';
 
-interface CommitOutcomeProps {
-  /** The last commit that landed, or null. */
-  result: {commitUrl: string} | null;
-  /**
-   * The last commit's failure, or null. It shows as given: New reveal's race
-   * refusal says "Publish again.", and Edit's controller words its own as a
-   * save before it gets here (R4-4c).
-   */
-  error: string | null;
+/** The outcome itself (ShownOutcome: the commit, the failure, what Load it again dropped), and how the line words it. */
+interface CommitOutcomeProps extends ShownOutcome {
   /** What happens after the commit, under "Committed.": the go-live note the page picks (goLiveNote). */
   note: string;
-  /** How many edits the last "Load it again" dropped (R-68); null or absent before one lands. */
-  dropped?: number | null;
   /**
    * Whether the card still opens with its fields once "Load it again" lands
    * (default true). Edit passes false while it shows no form: the entry read

@@ -31,7 +31,7 @@ export type EditLookup =
   | {kind: 'loading'}
   | {kind: 'missing'; cardId: string}
   | {kind: 'fileFailed'; error: string}
-  // R4-4d (R-66): a reveal-set card under a preview id that the read file no longer holds (branchLookup)
+  // R4-4d (R-66): a card under a preview id that the read file no longer holds, whatever its set (branchLookup)
   | {kind: 'gone'; card: LorcanaCard}
   | {kind: 'ready'; card: LorcanaCard; entry: LorcanaJSONCard | null; imageOnly: ImageOnlyReason | null};
 
@@ -296,9 +296,14 @@ export function revertDraftImage(draft: Draft): Draft {
   return {...draft, image: null, ...keptLess(draft, {staged: false})};
 }
 
-/** The draft with this image staged, if it is still the draft it was chosen in. */
+/**
+ * The draft with this image staged, if it is still the draft it was chosen
+ * in. A change event with no file stages none, so it takes back the last
+ * re-read's claim that an image stays, as Revert image does.
+ */
 export function stageImage(draft: Draft, choice: {seed: number; image: File | null}): Draft {
-  return draft.seed === choice.seed ? {...draft, image: choice.image} : draft;
+  if (draft.seed !== choice.seed) return draft;
+  return choice.image === null ? revertDraftImage(draft) : {...draft, image: choice.image};
 }
 
 const NOTHING_STAGED: ChosenImage = {name: null, dataUrl: null, error: null};

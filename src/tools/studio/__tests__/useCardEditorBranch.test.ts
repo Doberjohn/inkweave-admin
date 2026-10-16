@@ -243,6 +243,20 @@ describe('useCardEditor: an open card that leaves the branch file', () => {
     expect(result.current.form?.cost).not.toBe('5');
   });
 
+  it("reads another set's preview card gone once a read lacks it, though it opened before the read (a pin lag, R-65)", async () => {
+    const stitch = studioCard({id: '15001', name: 'Stitch', version: 'Rock Star', setCode: '15'});
+    setCardList([stitch]);
+    const first = nextRead();
+    const editor = renderEditor(stitch.id);
+    // It opens image-only straight from the card list, so the unread file can't make it gone (R-71).
+    expect(editor.result.current.lookup).toMatchObject({kind: 'ready', entry: null, imageOnly: 'released'});
+    await stageScan(editor);
+    expect(editor.result.current.canSave).toBe(true);
+
+    await first.land([PREVIEW_ENTRY]);
+    expect(editor.result.current).toMatchObject({lookup: {kind: 'gone', card: stitch}, imageOnly: null, imageName: null, dirty: false, canSave: false});
+  });
+
   it("drops an image-only card's reason and its staged scan once it reads gone (R-65)", async () => {
     const tyler = cardOf(UNNUMBERED_ENTRY);
     setCardList([tyler]);

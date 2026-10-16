@@ -271,9 +271,7 @@ describe('AdminStyles', () => {
     render(
       <>
         <AdminStyles />
-        <button type="button" className="adm-pick-btn adm-ink-tile">
-          <img src="" alt="Amber" width={28} height={28} />
-        </button>
+        <button type="button" className="adm-pick-btn adm-ink-tile" aria-label="Amber" />
         <button type="button" className="adm-pick-btn">
           Rare
         </button>
@@ -281,8 +279,8 @@ describe('AdminStyles', () => {
     );
     const [tile, rare] = screen.getAllByRole('button').map((button) => getComputedStyle(button).minHeight);
     expect({tile, rare}).toEqual({tile: '0px', rare: '34px'});
-    const {maxWidth, height} = getComputedStyle(screen.getByRole('img', {name: 'Amber'}));
-    expect({maxWidth, height}).toEqual({maxWidth: '100%', height: 'auto'});
+    // jsdom computes an img's height as auto whatever a rule says, so the icon's rule is pinned as written.
+    expect(stylesheet()).toContain('.adm-ink-tile>img{max-width:100%;height:auto;}');
   });
 
   it('golds a checked switch and slides its knob to the far end', () => {
@@ -325,7 +323,7 @@ describe('AdminStyles', () => {
       <>
         <AdminStyles />
         <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
-          <span className="adm-seg-pair">
+          <span className="adm-seg-pair" data-lone="true">
             <button type="button" className="adm-seg-btn">
               Location
             </button>
@@ -355,8 +353,8 @@ describe('AdminStyles', () => {
     // Every other segmented control, the header's mode switch included, keeps its look.
     expect(look('Studio mode')).toMatchObject({display: 'inline-flex', padding: `0px ${SPACING.md}px`, whiteSpace: 'nowrap'});
     expect(look('Studio mode').flexWrap).not.toBe('wrap');
-    // A pair shares the row as a button does, and never wraps inside: under one line's width the whole
-    // second pair moves down, two and two (a 320px phone), never three and one.
+    // A pair, here a lone one, grows by its button count and never wraps inside: under one line's width the
+    // whole second pair moves down, two and two (a 320px phone), never three and one.
     const pair = getComputedStyle(screen.getByRole('group', {name: 'Type'}).firstElementChild!);
     expect({display: pair.display, flex: pair.flex, flexWrap: pair.flexWrap, gap: pair.gap}).toEqual({
       display: 'flex',
@@ -364,6 +362,27 @@ describe('AdminStyles', () => {
       flexWrap: 'nowrap',
       gap: `${SPACING.xxs}px`,
     });
+  });
+
+  it("shares a filling line by button count, so an odd count's lone last button takes one button's width on a line it shares", () => {
+    const css = stylesheet();
+    // A pair grows by its two buttons from the gap inside it, a lone one by its one from nothing: on a line they
+    // share, every button takes the same width. A lone button alone on the last line fills that line.
+    expect(css).toContain(`.adm-seg-pair{display:flex;flex:2 1 ${SPACING.xxs}px;gap:${SPACING.xxs}px;}`);
+    expect(css).toContain('.adm-seg-pair[data-lone="true"]{flex:1 1 0;}');
+    render(
+      <>
+        <AdminStyles />
+        <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
+          <span data-testid="pair" className="adm-seg-pair" />
+          <span data-testid="lone" className="adm-seg-pair" data-lone="true" />
+        </div>
+      </>,
+    );
+    expect([getComputedStyle(screen.getByTestId('pair')).flex, getComputedStyle(screen.getByTestId('lone')).flex]).toEqual([
+      `2 1 ${SPACING.xxs}px`,
+      '1 1 0px',
+    ]);
   });
 
   it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
