@@ -46,10 +46,11 @@ import {
 } from './official.mjs';
 import {publishRun} from './publish.mjs';
 import {assignReaders, outstandingJobs, readResults} from './readers.mjs';
+import {assertReleasedRead, heldCards, releasedRecords} from './released.mjs';
 import {auditLines, formatReport, officialLines} from './report.mjs';
 import {selectCandidates, setSection, shrinkWarning} from './state.mjs';
 import {fullName} from './text.mjs';
-import {loadSeason, loadWriteChain} from './web.mjs';
+import {loadReleasedChain, loadSeason, loadWriteChain} from './web.mjs';
 import {writePhase} from './write.mjs';
 import {
   cardDir,
@@ -92,7 +93,8 @@ function readBundle(file) {
 
 /**
  * A run for every step after `start`. A run opened before the official gate (issue #574)
- * never had its cards checked against the official list, so it cannot go on.
+ * never had its cards checked against the official list, so it cannot go on, and nor can one
+ * opened before the released-card check (Doberjohn/inkweave-admin#51).
  */
 function openRun(runId) {
   const run = readRun(runId);
@@ -101,6 +103,7 @@ function openRun(runId) {
       `run ${runId} was opened before the official gate (issue #574), so its cards were never checked against the official list. Start a new run.`,
     );
   }
+  assertReleasedRead(run);
   return run;
 }
 
@@ -111,8 +114,9 @@ function cardsOfSet(previewText, setCode) {
     .map((c) => ({id: c.id, number: c.number ?? null, name: c.fullName}));
 }
 
-/** This set's cards already in the run's base. */
-const presentCards = (run) => cardsOfSet(readPreviewText(run.runId), run.season.setCode);
+/** This set's cards already in Inkweave: the run base's preview cards, then the released ones. */
+const presentCards = (run) =>
+  heldCards(cardsOfSet(readPreviewText(run.runId), run.season.setCode), run.released);
 
 /* ------------------------------------------------------------------ start */
 
@@ -131,6 +135,7 @@ async function start() {
   const base = readBase();
   const season = await loadSeason();
   const official = await loadOfficialList(season);
+  const released = releasedRecords(base.allCards.cards, await loadReleasedChain());
   const run = {
     runId: newRunId(),
     startedAt: new Date().toISOString(),
@@ -140,6 +145,7 @@ async function start() {
     stateBranch: base.stateBranch,
     baseBlob: base.preview.sha,
     stateBlob: base.state.sha,
+    released,
     official: officialSummary(official, season.setTotal),
     audit: leakAudit(cardsOfSet(base.preview.text, season.setCode), official),
     cards: {},

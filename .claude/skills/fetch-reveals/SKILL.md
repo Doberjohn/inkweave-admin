@@ -55,14 +55,7 @@ next run. Nothing here needs editing at a season rotation.
 3. After a pin bump or on a fresh clone, build the engine: `pnpm build:engine`. The house-style
    rules and the write chain load its build output (Doberjohn/inkweave#635), and a stale build
    fails at import with "does not provide an export named".
-4. If the reveal set has graduated (its cards are released on inkweave.ink, and the app's
-   `previewCards.json` holds none of them), stop until Doberjohn/inkweave-admin#51 lands, and
-   tell the owner: `write` doesn't yet refuse a collector number that a released card of the
-   set holds, so a run could add a duplicate of it. Card studio's New reveal already refuses
-   one. Set 14 graduated on 2026-10-14 (Doberjohn/inkweave#780), and the pin names it until the
-   app rotates the season. This item is temporary: delete it, and the runbook's matching stop
-   (`docs/REVEAL_RUNBOOK.md`, "New reveals in bulk"), when #51 lands.
-5. Open the run:
+4. Open the run:
 
    ```bash
    node scripts/reveal-sync/run.mjs start
@@ -72,7 +65,10 @@ next run. Nothing here needs editing at a season rotation.
    start while a reveal PR is still open in the app repo: merge or close that one first. It
    reads the app's `previewCards.json` from `master` and admin's `state.json` from `main`, and
    records both blobs so Step 6 can tell if a card was published or edited in Card studio,
-   or another run finished, in the meantime.
+   or another run finished, in the meantime. From the app's `allCards.json` on `master` it
+   keeps each collector number a released card of the reveal set holds, with that card's
+   official id (Doberjohn/inkweave-admin#51): once a set graduates, `previewCards.json` holds
+   none of its cards, so only its released cards show that a number is taken.
 
    It also reads the official list, keeps it for the whole run (`official.json`), and prints
    how many cards it shows plus a **leak audit**: this set's Inkweave cards that the list does
@@ -130,9 +126,12 @@ means the site's markup changed, and the card lands in ERRORS as `page-unreadabl
 
 Before any reader runs, each card is checked, in this order:
 
-1. **Against what Inkweave already holds**, by number **and** name: a number already used by
-   another card, or a card already present under a different number or in the reserved band,
-   is a conflict rather than a skip or a second copy.
+1. **Against what Inkweave already holds**, by number **and** name: this set's preview cards,
+   and its released ones under their official ids (set 14's #21 is 3286), so a card of a set
+   that has graduated is never written twice. A card the site shows under the number and name
+   of one of them is `known`. A number already used by another card, or a card already present
+   under a different number or in the reserved band, is a conflict rather than a skip or a
+   second copy.
 2. **Against the official list**, by collector number, or by name when the page shows no
    number (the official number is then adopted). A card the list does not show as revealed
    is deferred as `not-officially-revealed`: a leak, retried every run. A card that is only
@@ -262,12 +261,23 @@ words `resolve` takes.
   site shows its number. One `number-taken` is quicker: when Inkweave holds the card under
   another name (a name translated from a first non-English reveal, say) and the site's name
   is right, rename the card in Card studio's Edit card. Edit card can't renumber, so the
-  rest still go by hand.
+  rest still go by hand. The detail names the holder's id, as in `#21 is already in Inkweave
+  as "Miguel Rivera - Street Musician" (3286)`. A preview card's id is the set number times
+  1000 plus its collector number (set 14's #21 was 14021); any other id is a released card
+  (Doberjohn/inkweave-admin#51), and once the reveal set has graduated, every `number-taken`
+  and `name-taken` is of that kind. Neither fix applies to one: its data is the app's
+  canonical card data, LorcanaJSON's export, and Edit card replaces only its image. Check the site's number and name against the released card. Where the site
+  is behind, change nothing: the card stays in NEEDS YOUR CALL, retried on every run, until
+  lorcanaplayer matches. Where the released card's data is wrong, that is the app's to fix
+  (Doberjohn/inkweave's `docs/CARD_DATA_PIPELINE.md`, "Updating `allCards.json`").
 - A card the write chain refuses (`validation-failed`) carries the validator's message as its
   detail, for example `"Strength" is spelled out: use ¤ ("their ¤")` for a glyph word house
   style cannot place (Doberjohn/inkweave#635). `resolve` cannot rule on it, and it is retried
   on every run. Add it by hand in Card studio's New reveal
-  (https://inkweave-admin.vercel.app/studio), writing the text the way the detail says.
+  (https://inkweave-admin.vercel.app/studio), writing the text the way the detail says. A
+  detail such as `#21 is already Miguel Rivera - Street Musician (3286)` is the exception: a
+  released card of the set holds that number, so New reveal refuses it too. Check the card's
+  number and name against the released one by hand.
 
 Anything unresolved is simply not written, and is retried next run.
 
@@ -281,7 +291,8 @@ node scripts/reveal-sync/run.mjs write RUN
 `main` are still what `start` read, and aborts, writing nothing, if either changed. Then, in an
 order that never leaves the card data ahead of its art, it:
 - validates each verified card through the same chain Card studio's New reveal uses
-  (`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`);
+  (`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`), which refuses a
+  collector number a released card of the set holds, as New reveal does;
 - converts the accepted cards' scans to AVIFs with the app's own converter, never replacing art
   the app already has;
 - inserts only the cards whose art converted.

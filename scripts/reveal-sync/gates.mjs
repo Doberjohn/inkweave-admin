@@ -145,8 +145,11 @@ export function gateCard(site, ctx) {
  * A number alone would write a hand-added reserved-band card (it has no number) a second
  * time once the site shows its number, and would hide a real card behind a mistyped one.
  *
- * `present`: this set's preview cards as {id, number, name}, `name` being the full name.
- * Returns {status: 'known'}, a conflict naming the clash, or null when the card is new.
+ * `present`: this set's cards in Inkweave as {id, number, name}, `name` being the full name:
+ * its preview cards and its released ones (released.mjs's heldCards).
+ * Returns {status: 'known'}, a conflict naming the clash, or null when the card is new. A
+ * conflict names the holder's id, as the write chain's validator does, so the report tells a
+ * preview card (14000 + number) from a released one.
  */
 export function existingVerdict(site, present) {
   const name = comparableName(fullName(site.name, site.version));
@@ -157,7 +160,7 @@ export function existingVerdict(site, present) {
     return verdict(
       'conflict',
       'number-taken',
-      `#${byNumber.number} is already in Inkweave as "${byNumber.name}"`,
+      `#${byNumber.number} is already in Inkweave as "${byNumber.name}" (${byNumber.id})`,
     );
   }
   const byName = present.find(sameName);
@@ -169,5 +172,5 @@ export function existingVerdict(site, present) {
       `already in Inkweave as ${byName.id} with no number: renumber it by hand`,
     );
   }
-  return verdict('conflict', 'name-taken', `already in Inkweave as #${byName.number}`);
+  return verdict('conflict', 'name-taken', `already in Inkweave as #${byName.number} (${byName.id})`);
 }

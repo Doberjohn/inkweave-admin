@@ -13,13 +13,19 @@ import {readBase} from './base.mjs';
 import {parseCardLines} from './extract-card.mjs';
 import {APP_BASE, STATE_BRANCH} from './github.mjs';
 import {publishRun} from './publish.mjs';
+import {releasedRecords} from './released.mjs';
 import {cardDir, localDate, newRunId, writeBase, writeRun} from './runstore.mjs';
 import {fullName} from './text.mjs';
-import {loadSeason, loadWriteChain} from './web.mjs';
+import {loadReleasedChain, loadSeason, loadWriteChain} from './web.mjs';
 import {writePhase} from './write.mjs';
 import {TEST_INVENTOR, TEST_PUP, page, readerFor} from './__fixtures__/cards.mjs';
 
-/** Fixture cards with a scripted reader, tried in order until one's id is free on the base. */
+/**
+ * Fixture cards with a scripted reader, tried in order until one is free on the base: its
+ * number is in the set, no preview card has its id, and no released card of the set holds
+ * its number. Once every number of the set is held, by preview cards before graduation or
+ * released ones after it, no fixture can be, and a rehearsal waits for the next season.
+ */
 const CANDIDATES = [
   [TEST_PUP, readerFor.testPup],
   [TEST_INVENTOR, readerFor.testInventor],
@@ -32,13 +38,22 @@ if (APP_BASE === 'master' || STATE_BRANCH === 'main') {
 
 const season = await loadSeason();
 const base = readBase();
+const released = releasedRecords(base.allCards.cards, await loadReleasedChain());
 const taken = new Set(JSON.parse(base.preview.text).cards.map((card) => card.id));
+const held = new Set(released.map(({number}) => number));
+const inSet = (number) => Number.isInteger(number) && number >= 1 && number <= season.setTotal;
+const isFree = (number) => inSet(number) && !taken.has(season.idBase + number) && !held.has(number);
 const pick = CANDIDATES.map(([fixture, reader]) => {
   const site = parseCardLines(page(fixture), {slug: fixture.slug, imageFile: fixture.imageFile});
   return {fixture, site, card: adjudicate(site, [reader()]).card};
-}).find(({site}) => !taken.has(season.idBase + site.collector.number));
+}).find(({site}) => isFree(site.collector.number));
 if (!pick) {
-  console.error(`Every rehearsal fixture's id is taken on ${APP_BASE}; add a fixture with a scripted reader.`);
+  const anyFree = Array.from({length: season.setTotal}, (_, i) => i + 1).some(isFree);
+  console.error(
+    anyFree
+      ? `Every rehearsal fixture's number is taken on ${APP_BASE}, by a preview card or a released one; add a fixture with a scripted reader on a free number of set ${season.setCode}.`
+      : `Every number of set ${season.setCode} (1-${season.setTotal}) is taken on ${APP_BASE}, by a preview card or a released one, so no fixture can be written there. Rehearse once the pin names the next season.`,
+  );
   process.exit(1);
 }
 
@@ -54,6 +69,7 @@ const run = {
   stateBranch: base.stateBranch,
   baseBlob: base.preview.sha,
   stateBlob: base.state.sha,
+  released,
   // A rehearsal never reads the official list; this stand-in lets `run.mjs write` and
   // `report` open the run like any other.
   official: {revealed: 0, lastModified: 'not read (rehearsal)'},

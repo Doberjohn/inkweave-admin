@@ -5,7 +5,8 @@
  * Keyed by the site's slug, the only key discovery has before it fetches a page. Identity
  * checks never use the slug: the collector number rides inside each entry.
  *
- *   written   final: the card is in previewCards.json
+ *   written   final: Inkweave holds the card, in previewCards.json, or in allCards.json once
+ *             its set is released (Doberjohn/inkweave-admin#51)
  *   skipped   final: not part of this set's reveal data
  *   gone      the slug left the site, usually because a translated name was replaced;
  *             fetched again if it ever reappears, so a truncated index cannot lose a card
