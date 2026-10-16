@@ -33,6 +33,29 @@ interface StudioFormProps {
    * for it, as the checklist does (sectionStatuses, R4-8f). Edit passes none.
    */
   list?: CardListStatus;
+  /**
+   * Edit's count of Reverts that put the inks back (the Ink row's): each one
+   * makes the Dual-ink switch follow the form's ink2 again, as a form opened
+   * fresh does, while the open section stays (Doberjohn/inkweave-admin#52).
+   * New reveal passes none.
+   */
+  inksRestored?: number;
+}
+
+/**
+ * The Dual-ink switch's state: open from the start for a card that has a
+ * second ink (R-75), and again from the form whenever `inksRestored` moves
+ * on. A primary pick that takes the second ink clears it, and the switch stays
+ * on for the next.
+ */
+function useDualOpen({form, inksRestored}: Pick<StudioFormProps, 'form' | 'inksRestored'>) {
+  const [dualOpen, setDualOpen] = useState(() => form.ink2 !== '');
+  const [restored, setRestored] = useState(inksRestored);
+  if (restored !== inksRestored) {
+    setRestored(inksRestored);
+    setDualOpen(form.ink2 !== '');
+  }
+  return [dualOpen, setDualOpen] as const;
 }
 
 /**
@@ -44,13 +67,12 @@ interface StudioFormProps {
  *
  * It holds the view state the sections share: which section is open, and the
  * Dual-ink switch, lifted here so closing the Ink & rarity section can't drop
- * it. Edit keys the form by card (R-46), which resets both; New keeps them.
+ * it. Edit keys the form by card (R-46), which resets both, and an Ink row's
+ * Revert resets the switch alone (inksRestored); New keeps them.
  */
-export function StudioForm({form, errors, onChange, layout, locked = NO_LOCKS, list}: StudioFormProps) {
+export function StudioForm({form, errors, onChange, layout, locked = NO_LOCKS, list, inksRestored}: StudioFormProps) {
   const [openId, setOpenId] = useState<SectionId | null>('identity');
-  // Open from the start for a card that has a second ink (R-75): a primary pick
-  // that takes the second ink clears it, and the switch stays on for the next.
-  const [dualOpen, setDualOpen] = useState(() => form.ink2 !== '');
+  const [dualOpen, setDualOpen] = useDualOpen({form, inksRestored});
   const statuses = sectionStatuses(form, errors, list);
   const section: SectionProps = {
     form,

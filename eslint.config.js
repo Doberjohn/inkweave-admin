@@ -58,6 +58,22 @@ const CHARTS = importBan(
   'src/ui never imports the chart kit, which builds on src/ui (docs/plans/R-redesign.md, Global constraints).',
 );
 
+// The React Compiler skips a function it can't compile, and the build says
+// nothing (Doberjohn/inkweave-admin#59). react-hooks reports each bailout
+// under its category's rule. These are the ones its recommended set leaves off
+// or at warn, which the commit gate lets through: syntax the compiler can't
+// lower yet (todo: a try/finally, for one), its own invariants, a syntax
+// error, syntax it won't support, and a library it won't memoize. A broken
+// rule of hooks and a suppressed hooks rule are errors already (rules-of-hooks,
+// react-compiler/react-compiler). Every source file under src/ is held to
+// them, stories included; tests never ship. react-hooks runs its own copy of
+// the compiler, not the build's babel-plugin-react-compiler, so bumping either
+// can change what these catch.
+const COMPILER_BAILOUTS = Object.fromEntries(
+  ['todo', 'invariant', 'syntax', 'unsupported-syntax', 'incompatible-library'].map((rule) => [`react-hooks/${rule}`, 'error']),
+);
+const TEST_CODE = ['**/*.test.{ts,tsx}', '**/__tests__/**', 'src/test/**'];
+
 export default tseslint.config(
   {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
   {
@@ -97,6 +113,11 @@ export default tseslint.config(
       'inkweave/no-adhoc-buttons': 'error',
       'inkweave/no-unshelled-dialogs': 'error',
     },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: TEST_CODE,
+    rules: COMPILER_BAILOUTS,
   },
   // D3: app code enters admin only through src/app-bridge.ts, from any source
   // file. The one tooling exception is this config, which loads the app's

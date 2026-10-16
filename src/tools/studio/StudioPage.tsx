@@ -1,4 +1,5 @@
 import {useRef} from 'react';
+import {useFileDropGuard} from '../../components/useFileDrop';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
 import {useGithubToken} from '../../github/useGithubToken';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
@@ -36,11 +37,14 @@ function StudioGate({onSave, handoff}: StudioGateProps) {
  * (R-59), since Save token swaps the gate for the workspace and takes its own
  * button with it: the workspace's next view takes focus. The handoff also
  * asks when the URL's card changes, and when the card list's Retry lands
- * (useStudioHandoff).
+ * (useStudioHandoff). While the page is open, a file dropped beside the card
+ * panel's two file controls doesn't open in the tab, which would leave the
+ * studio and its drafts (useFileDropGuard, Doberjohn/inkweave-admin#54).
  */
 export function StudioPage() {
   const {token, setToken} = useGithubToken();
   const handoff = useStudioHandoff();
+  useFileDropGuard();
   if (!token) {
     const onSave = (next: string) => {
       setToken(next);

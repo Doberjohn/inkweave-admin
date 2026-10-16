@@ -111,6 +111,9 @@ export function useTuningAdmin(token: string): UseTuningAdminResult {
     return stale.size;
   }
 
+  // No finally, which the React Compiler can't lower yet: it would skip this
+  // whole hook (Doberjohn/inkweave-admin#59). Each path ends the publish
+  // itself, the failure's before it rethrows, as useEditSave's save() does.
   async function publish(): Promise<{commitUrl: string}> {
     if (publishDisabled) throw new Error('Nothing valid to publish');
     setPublishing(true);
@@ -131,13 +134,13 @@ export function useTuningAdmin(token: string): UseTuningAdminResult {
       setResult(res);
       // Only what was published: an edit staged while the request ran stays pending.
       setPending((prev) => prev.filter((edit) => !sent.includes(edit)));
+      setPublishing(false);
       return res;
     } catch (e) {
+      setPublishing(false);
       const message = e instanceof Error ? e.message : 'Publish failed';
       setError(message);
       throw e;
-    } finally {
-      setPublishing(false);
     }
   }
 

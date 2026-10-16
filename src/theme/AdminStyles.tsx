@@ -115,7 +115,9 @@ const ENABLED = ':where(:not(:disabled))';
  *   :checked golds the track and moves the knob, its ::before.
  * - A file control is a <label> round a visually hidden file input
  *   (useHiddenFileInput). The input takes the focus, so the label rings on
- *   data-focused="true", from the hook's `focused`. adm-file-btn is a bordered
+ *   data-focused="true", from the hook's `focused`. It takes a dropped file
+ *   too (useFileDrop): while a file is dragged over it, the same ring marks
+ *   the drop target, on data-dragging="true". adm-file-btn is a bordered
  *   button (Replace card image); adm-file-cover lies over the card preview.
  * - adm-range is the cost slider. data-unset="true" hides its thumb, so a
  *   blank cost never reads as 0. The track alone then shows the slider, so it
@@ -191,7 +193,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-file-btn:hover{border-color:${C.accentStrong};color:${C.accent};}
 .adm-file-cover{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;border-radius:${R.preview}px;cursor:pointer;transition:box-shadow ${FAST};}
 .adm-file-cover:hover{box-shadow:inset 0 0 0 1px ${C.accentStrong};}
-.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{${FOCUS_RING}outline-offset:2px;}
+.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"],.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]{${FOCUS_RING}outline-offset:2px;}
 
 .adm-range{appearance:none;display:block;flex:1 1 auto;min-width:${RANGE_MIN_WIDTH}px;height:${RANGE_HEIGHT}px;margin:0;background:transparent;cursor:pointer;}
 .adm-range::-webkit-slider-runnable-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}

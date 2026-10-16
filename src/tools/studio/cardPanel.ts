@@ -41,10 +41,14 @@ export function frameState({mode, staged}: ImageSlot): FrameState {
   return mode === 'edit' ? 'current' : 'empty';
 }
 
-/** The pill on the preview, in the handoff's words (R-89). It also names the preview's file control. */
+/**
+ * The pill on the preview, in the handoff's words (R-89), offering a drop as
+ * well as a click now that the controls take one (Doberjohn/inkweave-admin#54).
+ * It also names the preview's file control.
+ */
 export function pillCaption({mode, staged}: ImageSlot): string {
-  if (mode === 'edit') return 'Click to replace image';
-  return staged.name === null ? 'Click to upload scan' : 'Click to change scan';
+  if (mode === 'edit') return 'Click or drop to replace image';
+  return staged.name === null ? 'Click or drop to upload scan' : 'Click or drop to change scan';
 }
 
 /**

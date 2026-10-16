@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {act, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
+import {act, fireEvent, screen, waitFor, waitForElementToBeRemoved, within} from '@testing-library/react';
+import {pngFile} from '../../../test/images';
 import {commitNewCard} from '../../reveal/githubClient';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
 import {STUDIO_SUBTITLE} from '../studioCopy';
@@ -43,6 +44,16 @@ function modes() {
 const nameField = () => screen.getByRole('textbox', {name: 'Name'});
 const publishButton = () => screen.getByRole('button', {name: /^Publish/});
 const leaveDialog = () => screen.findByRole('dialog', {name: 'Leave this page?'});
+
+/** A drag of `files` from the desktop, as fireEvent hands it over: jsdom has no DataTransfer. */
+const fileDrag = (...files: File[]) => ({types: ['Files'], files, dropEffect: 'none'});
+
+/** Whether the page keeps a file dragged onto its body, beside every drop target, from opening in the tab. */
+function refusesStrayFile(): boolean {
+  const data = fileDrag(pngFile('mei.png'));
+  // fireEvent answers false once a listener cancels the event.
+  return !fireEvent.dragOver(document.body, {dataTransfer: data}) && !fireEvent.drop(document.body, {dataTransfer: data});
+}
 
 /** The measured root's regions in DOM order, told apart by what each holds. */
 function regionOrder() {
@@ -226,6 +237,24 @@ describe('StudioPage: New reveal', () => {
     // The draft cleared with the publish, so nothing holds the way out.
     act(() => void router.navigate('/'));
     expect(await screen.findByRole('heading', {level: 1, name: 'Overview'})).toBeInTheDocument();
+  });
+
+  // Doberjohn/inkweave-admin#54: a drop hands the file over as a pick does, so useImageUpload's checks run on it.
+  it('stages a scan dropped on the preview through the same checks as a pick', async () => {
+    renderStudio();
+    const cover = screen.getByLabelText('Click or drop to upload scan').closest('label') as HTMLElement;
+    fireEvent.drop(cover, {dataTransfer: fileDrag(new File(['GIF89a'], 'mei.gif', {type: 'image/gif'}))});
+    const preview = within(screen.getByRole('region', {name: 'Card preview'}));
+    expect(await preview.findByText('mei.gif is not a JPEG, PNG or WebP image.')).toBeInTheDocument();
+  });
+
+  it('keeps a file dropped beside the drop targets from opening in the tab, while the studio is open', async () => {
+    const {router} = renderStudio();
+    expect(refusesStrayFile()).toBe(true);
+    act(() => void router.navigate('/'));
+    expect(await screen.findByRole('heading', {level: 1, name: 'Overview'})).toBeInTheDocument();
+    // The listeners went with the page.
+    expect(refusesStrayFile()).toBe(false);
   });
 
   it("says leaving mid-publish won't stop it (R-58)", async () => {

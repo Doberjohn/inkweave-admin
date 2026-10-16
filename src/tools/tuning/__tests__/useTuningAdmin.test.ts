@@ -40,6 +40,26 @@ function stageTwo() {
 
 const labels = (pending: {label: string}[]) => pending.map((edit) => edit.label);
 
+const REFUSED = new Error('master changed while publishing, so nothing was published. Publish again.');
+
+/** The next commit, which lands or is refused only when the test says. */
+function heldCommit() {
+  let land: (result: {commitUrl: string}) => void = () => {};
+  let fail: (error: Error) => void = () => {};
+  commitTuning.mockReturnValueOnce(
+    new Promise((resolve, reject) => {
+      land = resolve;
+      fail = reject;
+    }),
+  );
+  return {
+    land: () => act(async () => land({commitUrl: 'https://github.com/x/y/commit/5'})),
+    fail: () => act(async () => fail(REFUSED)),
+  };
+}
+
+type HeldCommit = ReturnType<typeof heldCommit>;
+
 describe('useTuningAdmin', () => {
   it('keeps edits staged while a publish is in flight', async () => {
     let finish: (result: {commitUrl: string}) => void = () => {};
@@ -62,6 +82,27 @@ describe('useTuningAdmin', () => {
     });
 
     expect(result.current.pending.map((edit) => edit.label)).toEqual(['later']);
+  });
+
+  // Each path ends the publish itself, with no finally for the React Compiler to skip the hook over (Doberjohn/inkweave-admin#59).
+  it.each([
+    {outcome: 'lands', settle: (commit: HeldCommit) => commit.land(), rejected: undefined},
+    {outcome: 'is refused, rethrowing the refusal', settle: (commit: HeldCommit) => commit.fail(), rejected: REFUSED},
+  ])('is publishing while the commit runs, and no longer once it $outcome', async ({settle, rejected}) => {
+    const commit = heldCommit();
+    const result = stageScores('6');
+    let publishing: Promise<unknown> = Promise.resolve();
+    act(() => {
+      publishing = result.current.publish().then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    });
+    expect(result.current.publishing).toBe(true);
+
+    await settle(commit);
+    await expect(publishing).resolves.toBe(rejected);
+    expect(result.current.publishing).toBe(false);
   });
 
   it('publishes text without the spaces around it', async () => {

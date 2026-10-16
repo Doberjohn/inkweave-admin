@@ -3,6 +3,7 @@ import type {Ink} from 'inkweave-synergy-engine';
 import {useState} from 'react';
 import {MemoryRouter, NavLink} from 'react-router-dom';
 import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING} from '../app-bridge';
+import {useFileDrop} from '../components/useFileDrop';
 import {useHiddenFileInput} from '../components/useHiddenFileInput';
 import {PICK_MIN_WIDTH} from '../tools/studio/studioStyles';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS, ADMIN_TYPE} from './adminTheme';
@@ -408,19 +409,33 @@ function CostDemo() {
   );
 }
 
-/** The two file labels: the cover over the card preview, and Replace card image. */
+/**
+ * The two file labels: the cover over the card preview, and Replace card
+ * image. Each rings while its input has focus, and while a file is dragged
+ * over it (useFileDrop).
+ */
 function FileDemo() {
   const cover = useHiddenFileInput(() => {});
   const replace = useHiddenFileInput(() => {});
+  const coverDrop = useFileDrop(() => {});
+  const replaceDrop = useFileDrop(() => {});
   return (
     <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: SPACING.xl}}>
       <div style={{position: 'relative', width: 160, aspectRatio: '5 / 7', ...bordered(ADMIN_COLORS.card), borderRadius: ADMIN_RADIUS.preview}}>
-        <label className="adm-file-cover" data-focused={cover.focused ? 'true' : undefined}>
-          <span style={PILL}>Click to upload scan</span>
+        <label
+          className="adm-file-cover"
+          data-focused={cover.focused ? 'true' : undefined}
+          data-dragging={coverDrop.dragging ? 'true' : undefined}
+          {...coverDrop.dropProps}>
+          <span style={PILL}>Click or drop to upload scan</span>
           <input {...cover.inputProps} accept={ACCEPT} />
         </label>
       </div>
-      <label className="adm-file-btn" data-focused={replace.focused ? 'true' : undefined}>
+      <label
+        className="adm-file-btn"
+        data-focused={replace.focused ? 'true' : undefined}
+        data-dragging={replaceDrop.dragging ? 'true' : undefined}
+        {...replaceDrop.dropProps}>
         Replace card image
         <input {...replace.inputProps} accept={ACCEPT} />
       </label>
@@ -428,7 +443,7 @@ function FileDemo() {
   );
 }
 
-/** Card studio's adm-* classes in their states. Tab through it to see the rings. */
+/** Card studio's adm-* classes in their states. Tab through it, or drag a file over a file label, to see the rings. */
 export const StudioControls: Story = {
   render: () => (
     <>
