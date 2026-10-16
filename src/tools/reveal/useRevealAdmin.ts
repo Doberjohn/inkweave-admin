@@ -60,11 +60,11 @@ export interface RevealAdminController {
   previewCard: LorcanaCard | null;
   /**
    * Runs the engine on the live preview (computeSynergies). A call, not a
-   * value: StudioWorkspace runs this hook on every render in either mode, and
-   * the React Compiler leaves the hook uncompiled, so a value here ran the
-   * engine on every keystroke in Edit card too. New reveal's aside calls it as
-   * it shows the synergies, which it does only in New reveal
-   * (Doberjohn/inkweave-admin#55).
+   * value, so only the pane on screen runs it: StudioWorkspace runs this hook
+   * on every render in either mode, and while the React Compiler skipped the
+   * hook (Doberjohn/inkweave-admin#59), a value here ran the engine on every
+   * keystroke in Edit card too. New reveal's aside calls it as it shows the
+   * synergies, which it does only in New reveal (Doberjohn/inkweave-admin#55).
    */
   findSynergies: () => SynergyGroup[];
   validation: ValidationResult;
@@ -121,6 +121,9 @@ export function useRevealAdmin(): RevealAdminController {
     setForm((f) => ({...f, ...patch}));
   }
 
+  // No finally, which the React Compiler can't lower yet: it would skip this
+  // whole hook (Doberjohn/inkweave-admin#59). Each path ends the publish
+  // itself, the failure's first, as useEditSave's save() does.
   async function publish() {
     if (!ready) return;
     setPublishing(true);
@@ -132,10 +135,10 @@ export function useRevealAdmin(): RevealAdminController {
       setResult(res);
       setForm(EMPTY_FORM);
       void upload.choose(null);
-    } catch (e) {
-      setCommitError(e instanceof Error ? e.message : 'Publish failed');
-    } finally {
       setPublishing(false);
+    } catch (e) {
+      setPublishing(false);
+      setCommitError(e instanceof Error ? e.message : 'Publish failed');
     }
   }
 

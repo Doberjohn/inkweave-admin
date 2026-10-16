@@ -80,6 +80,21 @@ async function publish(hook: Hook) {
   await waitFor(() => expect(hook.current.result).toEqual(COMMIT));
 }
 
+/** The next commit, which lands or fails only when the test says. */
+function heldCommit() {
+  let land: (value: typeof COMMIT) => void = () => {};
+  let fail: (error: Error) => void = () => {};
+  commitNewCard.mockReturnValueOnce(
+    new Promise((resolve, reject) => {
+      land = resolve;
+      fail = reject;
+    }),
+  );
+  return {land: () => act(async () => land(COMMIT)), fail: (error: Error) => act(async () => fail(error))};
+}
+
+type HeldCommit = ReturnType<typeof heldCommit>;
+
 /** The ready checklist (R4-3a), read from the controller as the studio reads it. */
 function checklistOf(ctrl: RevealAdminController) {
   const imageState = {ready: ctrl.imageDataUrl !== null, error: ctrl.uploadError};
@@ -180,6 +195,21 @@ describe('useRevealAdmin', () => {
     await reach(result);
     expect(result.current.canPublish).toBe(publishable);
     expect(checklistDone(result.current)).toBe(publishable);
+  });
+
+  // Each path ends the publish itself, with no finally for the React Compiler to skip the hook over (Doberjohn/inkweave-admin#59).
+  it.each([
+    {outcome: 'lands', settle: (commit: HeldCommit) => commit.land()},
+    {outcome: 'fails', settle: (commit: HeldCommit) => commit.fail(new Error('master changed while publishing'))},
+  ])('is publishing while the commit runs, and no longer once it $outcome', async ({settle}) => {
+    const commit = heldCommit();
+    const {result} = renderHook(() => useRevealAdmin());
+    await ready(result);
+    act(() => void result.current.publish());
+    expect(result.current.publishing).toBe(true);
+
+    await settle(commit);
+    expect(result.current.publishing).toBe(false);
   });
 
   it("loads a failed card list again through the list's own retry, keeping the draft (R4-8f)", () => {

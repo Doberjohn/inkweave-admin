@@ -40,7 +40,7 @@ export const NewEmpty: Story = {args: {card: {...PANEL_CARD, name: '', fullName:
 /** Named, with no scan yet: the app's own render of the card, in a dashed frame. */
 export const NewNamed: Story = {};
 
-/** A scan staged: a gold frame, "Click to change scan", Revert image and New reveal's own note. */
+/** A scan staged: a gold frame, "Click or drop to change scan", Revert image and New reveal's own note. */
 export const NewStaged: Story = {args: {card: STAGED_CARD, staged: {name: 'mei.png', error: null}}};
 
 /** A file that failed its byte check: the error under the controls, which it describes, and no note. */
@@ -52,8 +52,35 @@ export const Translation: Story = {args: {card: {...STAGED_CARD, scanLanguage: '
 /** Two inks: both icons in the caption, each named. */
 export const DualInk: Story = {args: {card: {...PANEL_CARD, ink2: 'Sapphire'}}};
 
-/** Edit, nothing staged: the card's art, "Click to replace image" and Replace card image. */
+/** Edit, nothing staged: the card's art, "Click or drop to replace image" and Replace card image. */
 export const EditCurrent: Story = {args: {mode: 'edit', card: CURRENT, current: CURRENT}};
+
+/**
+ * Holds a scan from the desktop over the file control `selector` names, as a
+ * drag that hasn't dropped: it shows the drop target (data-dragging). The held
+ * drag never leaves, so the target stays lit until a drag ends: a file dropped
+ * anywhere, or a drag cancelled. A play function builds a real DataTransfer,
+ * which the browser's DragEvent needs.
+ */
+function holdScanOver(selector: string) {
+  return ({canvasElement}: {canvasElement: HTMLElement}) => {
+    const data = new DataTransfer();
+    data.items.add(new File([''], 'mei-en.png', {type: 'image/png'}));
+    canvasElement.querySelector(selector)?.dispatchEvent(new DragEvent('dragenter', {bubbles: true, dataTransfer: data}));
+  };
+}
+
+/** Edit, a scan dragged over the preview: the cover rings as the drop target, as it does with focus (Doberjohn/inkweave-admin#54). */
+export const EditDropOnPreview: Story = {
+  args: {mode: 'edit', card: CURRENT, current: CURRENT},
+  play: holdScanOver('.adm-file-cover'),
+};
+
+/** Edit, a scan dragged over Replace card image: it rings as the drop target, and the cover doesn't. */
+export const EditDropOnReplace: Story = {
+  args: {mode: 'edit', card: CURRENT, current: CURRENT},
+  play: holdScanOver('.adm-file-btn'),
+};
 
 /** Edit, an image staged: the current art beside the note, and Revert image. */
 export const EditStaged: Story = {

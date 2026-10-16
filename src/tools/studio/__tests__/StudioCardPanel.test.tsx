@@ -46,6 +46,17 @@ function rings() {
   return Array.from(document.querySelectorAll('label'), (label) => label.dataset.focused ?? null);
 }
 
+/** Which file controls show the drop target: each label's data-dragging, in DOM order. */
+function dropTargets() {
+  return Array.from(document.querySelectorAll('label'), (label) => label.dataset.dragging ?? null);
+}
+
+/** A drag of `files` from the desktop, as fireEvent hands it over: jsdom has no DataTransfer. */
+const fileDrag = (...files: File[]) => ({types: ['Files'], files, dropEffect: 'none'});
+
+/** The <label> a file control's name belongs to: drops land on it, round its hidden input. */
+const labelOf = (control: string) => screen.getByLabelText(control).closest('label') as HTMLLabelElement;
+
 /** Holds the staged image as the controllers do, so Revert image unmounts itself. Edit passes its own revert. */
 function Harness({mode}: {mode: StudioMode}) {
   const [staged, setStaged] = useState<StagedImage>(STAGED);
@@ -72,7 +83,7 @@ describe('StudioCardPanel', () => {
     expect(screen.queryByRole('button')).toBeNull();
 
     await user.tab();
-    expect(screen.getByLabelText('Click to upload scan')).toHaveFocus();
+    expect(screen.getByLabelText('Click or drop to upload scan')).toHaveFocus();
     await user.tab();
     expect(document.body).toHaveFocus();
   });
@@ -88,10 +99,10 @@ describe('StudioCardPanel', () => {
   });
 
   it.each<{label: string; mode: StudioMode; staged: StagedImage; caption: string}>([
-    {label: 'New, nothing chosen', mode: 'new', staged: NO_IMAGE, caption: 'Click to upload scan'},
-    {label: 'New, a scan staged', mode: 'new', staged: STAGED, caption: 'Click to change scan'},
-    {label: 'Edit', mode: 'edit', staged: NO_IMAGE, caption: 'Click to replace image'},
-    {label: 'Edit, an image staged', mode: 'edit', staged: STAGED, caption: 'Click to replace image'},
+    {label: 'New, nothing chosen', mode: 'new', staged: NO_IMAGE, caption: 'Click or drop to upload scan'},
+    {label: 'New, a scan staged', mode: 'new', staged: STAGED, caption: 'Click or drop to change scan'},
+    {label: 'Edit', mode: 'edit', staged: NO_IMAGE, caption: 'Click or drop to replace image'},
+    {label: 'Edit, an image staged', mode: 'edit', staged: STAGED, caption: 'Click or drop to replace image'},
   ])('$label: the pill "$caption" names the preview control, which takes JPEG, PNG and WebP', ({mode, staged, caption}) => {
     renderPanel({mode, staged});
     const input = screen.getByLabelText(caption);
@@ -101,8 +112,8 @@ describe('StudioCardPanel', () => {
   });
 
   it.each<{mode: StudioMode; control: string}>([
-    {mode: 'new', control: 'Click to upload scan'},
-    {mode: 'edit', control: 'Click to replace image'},
+    {mode: 'new', control: 'Click or drop to upload scan'},
+    {mode: 'edit', control: 'Click or drop to replace image'},
     {mode: 'edit', control: 'Replace card image'},
   ])('$mode: "$control" hands the chosen file over', async ({mode, control}) => {
     const user = userEvent.setup();
@@ -113,7 +124,42 @@ describe('StudioCardPanel', () => {
     expect(onImageChange).toHaveBeenCalledExactlyOnceWith(file);
   });
 
-  it.each([{control: 'Click to replace image'}, {control: 'Replace card image'}])(
+  // Doberjohn/inkweave-admin#54: the same handover as a pick, so useImageUpload's checks run on a dropped file too.
+  it.each<{mode: StudioMode; control: string}>([
+    {mode: 'new', control: 'Click or drop to upload scan'},
+    {mode: 'edit', control: 'Click or drop to replace image'},
+    {mode: 'edit', control: 'Replace card image'},
+  ])('$mode: "$control" takes a dropped file, the first of several', ({mode, control}) => {
+    const onImageChange = vi.fn();
+    renderPanel({mode, onImageChange});
+    const files = [pngFile('mei.png'), pngFile('ming.png')];
+    fireEvent.drop(labelOf(control), {dataTransfer: fileDrag(...files)});
+    expect(onImageChange).toHaveBeenCalledExactlyOnceWith(files[0]);
+  });
+
+  it('shows the file control a file is dragged over as the drop target, and only that one', () => {
+    renderPanel({mode: 'edit', card: CURRENT, current: CURRENT});
+    expect(dropTargets()).toEqual([null, null]);
+    fireEvent.dragEnter(labelOf('Click or drop to replace image'), {dataTransfer: fileDrag()});
+    expect(dropTargets()).toEqual(['true', null]);
+    fireEvent.dragLeave(labelOf('Click or drop to replace image'), {dataTransfer: fileDrag()});
+    fireEvent.dragEnter(labelOf('Replace card image'), {dataTransfer: fileDrag()});
+    expect(dropTargets()).toEqual([null, 'true']);
+    fireEvent.drop(labelOf('Replace card image'), {dataTransfer: fileDrag(pngFile('mei.png'))});
+    expect(dropTargets()).toEqual([null, null]);
+  });
+
+  it('leaves a drag that carries no file alone: no target, and nothing handed over', () => {
+    const onImageChange = vi.fn();
+    renderPanel({mode: 'edit', card: CURRENT, current: CURRENT, onImageChange});
+    const link = {types: ['text/uri-list', 'text/plain'], files: [], dropEffect: 'none'};
+    fireEvent.dragEnter(labelOf('Replace card image'), {dataTransfer: link});
+    fireEvent.drop(labelOf('Replace card image'), {dataTransfer: link});
+    expect(dropTargets()).toEqual([null, null]);
+    expect(onImageChange).not.toHaveBeenCalled();
+  });
+
+  it.each([{control: 'Click or drop to replace image'}, {control: 'Replace card image'}])(
     'ties a file error to "$control", ahead of the formats, and marks it invalid',
     ({control}) => {
       renderPanel({mode: 'edit', card: CURRENT, current: CURRENT, staged: FAILED});
@@ -186,7 +232,7 @@ describe('StudioCardPanel', () => {
   });
 
   it.each<{mode: StudioMode; next: string}>([
-    {mode: 'new', next: 'Click to upload scan'},
+    {mode: 'new', next: 'Click or drop to upload scan'},
     {mode: 'edit', next: 'Replace card image'},
   ])('$mode: Revert image hands focus to "$next" before it goes, then clears the file', async ({mode, next}) => {
     const user = userEvent.setup();
@@ -248,6 +294,6 @@ describe('StudioCardPanel', () => {
     {layout: 'narrow', maxWidth: '280px'},
   ] as const)('sizes the preview for the $layout layout: $maxWidth at most', ({layout, maxWidth}) => {
     renderPanel({layout});
-    expect(screen.getByLabelText('Click to upload scan').closest('label')?.parentElement).toHaveStyle({maxWidth});
+    expect(screen.getByLabelText('Click or drop to upload scan').closest('label')?.parentElement).toHaveStyle({maxWidth});
   });
 });

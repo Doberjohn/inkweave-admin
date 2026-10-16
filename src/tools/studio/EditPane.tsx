@@ -57,6 +57,7 @@ export interface EditPaneProps {
 type ReadyLookup = Extract<EditLookup, {kind: 'ready'}>;
 type EntryLookup = Exclude<EditLookup, {kind: 'ready' | 'loading'}>;
 type PartProps = Pick<EditPaneProps, 'edit' | 'handoff' | 'onForgetToken'>;
+type RevertRow = CardEditorController['revertRow'];
 
 /**
  * A control whose read replaces it: it asks for the handoff once the read
@@ -171,11 +172,22 @@ function ImageOnlyFacts({edit, card, reason, handoff}: Pick<PartProps, 'edit' | 
  * reason (imageOnlyOf), not the lookup's: an image draft whose entry now has
  * fields still has no form to show, so it keeps its facts.
  */
-function EditForm({edit, ready, layout, handoff}: Pick<PartProps, 'edit' | 'handoff'> & {ready: ReadyLookup; layout: StudioLayout}) {
+function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 'edit' | 'handoff'> & {
+  ready: ReadyLookup;
+  layout: StudioLayout;
+  inksRestored: number;
+}) {
   if (edit.imageOnly) return <ImageOnlyFacts edit={edit} card={ready.card} reason={edit.imageOnly} handoff={handoff} />;
   if (edit.form === null) return null;
   return (
-    <StudioForm form={edit.form} errors={edit.validation.errors} onChange={edit.patchForm} layout={layout} locked={EDIT_LOCKS} />
+    <StudioForm
+      form={edit.form}
+      errors={edit.validation.errors}
+      onChange={edit.patchForm}
+      layout={layout}
+      locked={EDIT_LOCKS}
+      inksRestored={inksRestored}
+    />
   );
 }
 
@@ -205,16 +217,23 @@ function FileError({file, onForgetToken}: {file: PreviewFileView; onForgetToken:
  * engine as the aside renders (findSynergies), so only Edit card runs it for
  * the card open there (Doberjohn/inkweave-admin#55). Save asks for the handoff
  * once the commit settles: it went off while it ran, which drops focus to
- * <body> in a browser, so the outcome line takes it. Discard is held while it
- * runs, as Save is (R4-4c). Load it again asks once its re-read lands, and
- * the line then says what it kept (R-68), or that the card can't be edited
- * now; a read that fails shows its error under the outcome.
+ * <body> in a browser, so the outcome line takes it. Discard and each row's
+ * Revert are held while it runs, as Save is (R4-4c). Load it again asks once
+ * its re-read lands, and the line then says what it kept (R-68), or that the
+ * card can't be edited now; a read that fails shows its error under the
+ * outcome.
  */
-function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDiscard: () => void}) {
+function EditAside({edit, handoff, onForgetToken, onDiscard, onRevert}: PartProps & {onDiscard: () => void; onRevert: RevertRow}) {
   const save = () => void edit.save().then(handoff.request);
   return (
     <aside aria-label="Changes" style={ASIDE}>
-      <ChangeList rows={edit.changes} onDiscard={onDiscard} busy={edit.saving} imageOnly={edit.form === null} />
+      <ChangeList
+        rows={edit.changes}
+        onDiscard={onDiscard}
+        onRevert={onRevert}
+        busy={edit.saving}
+        imageOnly={edit.form === null}
+      />
       {edit.form !== null && <SynergyPanel groups={edit.findSynergies()} />}
       <CtaButton type="button" onClick={save} disabled={!edit.canSave} style={SAVE}>
         {saveLabel(edit)}
@@ -238,23 +257,40 @@ function EditAside({edit, handoff, onForgetToken, onDiscard}: PartProps & {onDis
 }
 
 /**
+ * How the form's view follows the change list's take-backs. Discard keeps the
+ * draft's seed, so the form's key counts Discards too: the form opens fresh,
+ * its open section and its Dual-ink switch with it. An Ink row's Revert
+ * resets the switch alone (StudioForm's inksRestored), so the open section
+ * stays (Doberjohn/inkweave-admin#52).
+ */
+function useFormResets(edit: CardEditorController) {
+  const [discards, setDiscards] = useState(0);
+  const [inksRestored, setInksRestored] = useState(0);
+  const discard = () => {
+    edit.discard();
+    setDiscards(discards + 1);
+  };
+  const revertRow: RevertRow = (row) => {
+    if (row === 'color') setInksRestored(inksRestored + 1);
+    return edit.revertRow(row);
+  };
+  return {formKey: `${edit.seed}:${discards}`, inksRestored, discard, revertRow};
+}
+
+/**
  * One card open in Edit: the Editing banner over the card panel, the form (or
  * the facts) and the aside, in the layout's slot order (R-63). EditPane keys it
  * by the card's id (R-46), so nothing a view holds, such as the open accordion
  * section, carries over to the next card. The form is keyed further by the
  * draft's seed and by Discard, so a re-seed (Load it again) or a Discard opens
  * it fresh too: its open section and its Dual-ink switch follow the form it
- * shows. The banner's h2 takes the page's handoff while the outcome line has
- * nothing to say (outcomeShows, CommitOutcome's own rule); after that the line
- * does. A ready card always has its tag; 'Released' only narrows the type.
+ * shows. An Ink row's Revert resets the switch alone (useFormResets). The
+ * banner's h2 takes the page's handoff while the outcome line has nothing to
+ * say (outcomeShows, CommitOutcome's own rule); after that the line does. A
+ * ready card always has its tag; 'Released' only narrows the type.
  */
 function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {ready: ReadyLookup; layout: StudioLayout}) {
-  // Discard keeps the draft's seed, so it counts its own resets.
-  const [discards, setDiscards] = useState(0);
-  const discard = () => {
-    edit.discard();
-    setDiscards(discards + 1);
-  };
+  const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
   return (
     <>
@@ -280,8 +316,25 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
               onRevertImage={edit.revertImage}
             />
           ),
-          form: <EditForm key={`${edit.seed}:${discards}`} edit={edit} ready={ready} layout={layout} handoff={handoff} />,
-          aside: <EditAside edit={edit} handoff={handoff} onForgetToken={onForgetToken} onDiscard={discard} />,
+          form: (
+            <EditForm
+              key={resets.formKey}
+              edit={edit}
+              ready={ready}
+              layout={layout}
+              handoff={handoff}
+              inksRestored={resets.inksRestored}
+            />
+          ),
+          aside: (
+            <EditAside
+              edit={edit}
+              handoff={handoff}
+              onForgetToken={onForgetToken}
+              onDiscard={resets.discard}
+              onRevert={resets.revertRow}
+            />
+          ),
         }}
       />
     </>

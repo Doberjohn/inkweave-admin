@@ -6,7 +6,8 @@ import {buildPreview, computeSynergies, type ChosenImage} from '../reveal/livePr
 import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
 import {isRevealPreview} from './branchCards';
-import {cardChanges, editKindOf, formFromPreviewCard, validateCardEdit, type ImageOnlyReason} from './cardEdit';
+import {FIELD_KEYS, cardChanges, editKindOf, formFromPreviewCard, validateCardEdit, type ImageOnlyReason} from './cardEdit';
+import {changeRows, type ChangeRow} from './changeRows';
 import type {CardTag} from './editSearch';
 import type {PreviewCardsFile} from './previewCardsFile';
 
@@ -150,13 +151,17 @@ export interface Draft {
 /**
  * What a same-card re-seed kept, recorded as its read lands (R4-8c): Load it
  * again's line says what the read left, so an edit made after it never reads
- * as one that "still applies". Discard and Revert image take back what they
- * drop, so the line never names an edit or an image that has gone since
- * (R4-8f).
+ * as one that "still applies". The line never names an edit or an image that
+ * has gone since (R4-8f): the claim that an edit stays goes once no field the
+ * read kept differs from the form as loaded (Discard, a row's Revert, or the
+ * edit typed back by hand), and the image's goes with Discard or Revert image.
+ * Neither comes back until the next read.
  */
 export interface KeptEdits {
   /** A field edit (hasEdits on the draft's changes). */
   edits: boolean;
+  /** The form fields the read kept edited: the claim that an edit stays holds while one of them still differs. */
+  fields: readonly (keyof RevealCardForm)[];
   /** A staged image. */
   staged: boolean;
   /**
@@ -271,17 +276,35 @@ export function openTag(lookup: EditLookup): CardTag | null {
   return lookup.entry === null ? 'Released' : 'Preview';
 }
 
-/** The patch applied to the form. The collector number stays as loaded: Edit never renumbers (R-91). */
+/**
+ * The patch applied to the form. The collector number stays as loaded: Edit
+ * never renumbers (R-91). An edit typed back to the loaded value can take
+ * back the last re-read's claim that one stays (keptAfterEdit).
+ */
 export function patchDraft(draft: Draft, patch: Partial<RevealCardForm>): Draft {
   const fields = fieldsOf(draft);
   if (fields === null) return draft;
   const form = {...fields.form, ...patch, collectorNumber: fields.before.collectorNumber};
-  return {...draft, edit: {...fields, form}};
+  return keptAfterEdit({...draft, edit: {...fields, form}});
 }
 
 /** What the last re-read kept, less what an action has just dropped; nothing for a draft no re-read landed on. */
 function keptLess(draft: Draft, gone: Partial<KeptEdits>): Pick<Draft, 'kept'> {
   return draft.kept ? {kept: {...draft.kept, ...gone}} : {};
+}
+
+/**
+ * The draft once its form changed: the last re-read's claim that an edit
+ * stays holds while a field the read kept still differs from the form as
+ * loaded (R4-8c). Once none does, taken back or typed back by hand, the claim
+ * goes, as Discard takes it, and an edit made after the read never brings it
+ * back.
+ */
+function keptAfterEdit(draft: Draft): Draft {
+  const fields = fieldsOf(draft);
+  if (!draft.kept?.edits || fields === null) return draft;
+  const holds = draft.kept.fields.some((field) => fields.form[field] !== fields.before[field]);
+  return holds ? draft : {...draft, ...keptLess(draft, {edits: false})};
 }
 
 /** The form as loaded, and no image (Discard): the last re-read's line no longer says either stays. */
@@ -294,6 +317,57 @@ export function discardDraft(draft: Draft): Draft {
 /** No staged image (Revert image): the last re-read's line no longer says one stays. */
 export function revertDraftImage(draft: Draft): Draft {
   return {...draft, image: null, ...keptLess(draft, {staged: false})};
+}
+
+/** The form fields the edit has changed. */
+export function editedFields({before, form}: Pick<FieldsEdit, 'before' | 'form'>): (keyof RevealCardForm)[] {
+  return (Object.keys(form) as (keyof RevealCardForm)[]).filter((field) => form[field] !== before[field]);
+}
+
+/** `form` with `fields` taken from `values`. */
+export function withFields(form: RevealCardForm, values: RevealCardForm, fields: (keyof RevealCardForm)[]): RevealCardForm {
+  return fields.reduce<RevealCardForm>((next, field) => ({...next, [field]: values[field]}), form);
+}
+
+/** The draft with `restored` put back as the form loaded them. */
+function withRestored({draft, fields, restored}: {draft: Draft; fields: FieldsEdit; restored: (keyof RevealCardForm)[]}): Draft {
+  return {...draft, edit: {...fields, form: withFields(fields.form, fields.before, restored)}};
+}
+
+/**
+ * The draft with one row of the change list taken back
+ * (Doberjohn/inkweave-admin#52). The Image row drops the staged image, as
+ * Revert image does. A field's row first puts back its own edited fields as
+ * loaded: those whose first card key (FIELD_KEYS) is the row's, so both inks
+ * for the Ink row, the type for the Type row, and the stat itself for a stat.
+ * Only a stat can still differ then, where the type changed which stats the
+ * card prints: its other field, the type, goes back too, since the stat can't
+ * come back without it. That takes back the Type row, with every stat row only
+ * the type changed. The collector number feeds no key, so no revert touches
+ * it. A revert that leaves no field the last re-read kept edited takes back
+ * its claim that an edit stays (keptAfterEdit), as Discard does.
+ */
+export function revertDraftRow(draft: Draft, row: ChangeRow['id']): Draft {
+  if (row === 'image') return revertDraftImage(draft);
+  const fields = fieldsOf(draft);
+  if (fields === null) return draft;
+  const edited = editedFields(fields);
+  const own = edited.filter((field) => FIELD_KEYS[field][0] === row);
+  const feeding = edited.filter((field) => FIELD_KEYS[field].includes(row));
+  const first = withRestored({draft, fields, restored: own});
+  const settled = feeding.length === own.length || draftChanges(first)[row] === undefined;
+  return keptAfterEdit(settled ? first : withRestored({draft, fields, restored: feeding}));
+}
+
+/**
+ * The ids of the rows the change list keeps once `row` is taken back
+ * (revertDraftRow), in its order: the list moves focus to one of them before
+ * the row's button goes. The Image row stays while the draft keeps its file.
+ */
+export function rowsAfterRevert({draft, row, imageName}: {draft: Draft; row: ChangeRow['id']; imageName: string | null}): ChangeRow['id'][] {
+  const next = revertDraftRow(draft, row);
+  const staged = next.image === null ? null : imageName;
+  return changeRows({loaded: draftView(next).loaded, changes: draftChanges(next), imageName: staged}).map(({id}) => id);
 }
 
 /**

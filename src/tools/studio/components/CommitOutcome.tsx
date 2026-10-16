@@ -19,12 +19,14 @@ interface CommitOutcomeProps extends ShownOutcome {
    */
   editable?: boolean;
   /**
-   * What the draft held as that read landed (R4-8c), less what Discard or
-   * Revert image dropped since (R4-8f): a field edit, and a staged image. The
-   * line says "Every edit still applies." only with an edit left, and that the
-   * image stays only with one staged. `wasEditable`: the card opened with its
-   * fields before the read, so a read that left it read-only says it can't be
-   * edited now, not that it still can't.
+   * What the draft held as that read landed (R4-8c), less what has gone since
+   * (R4-8f): a field edit, until no field the read kept differs from the
+   * loaded card any more (Discard, a row's Revert, or the edit typed back),
+   * and a staged image, until Discard or Revert image drops it. The line says
+   * "Every edit still applies." only with a kept edit left, and that the image
+   * stays only with one staged. `wasEditable`: the card opened with its fields
+   * before the read, so a read that left it read-only says it can't be edited
+   * now, not that it still can't.
    */
   edits?: boolean;
   staged?: boolean;

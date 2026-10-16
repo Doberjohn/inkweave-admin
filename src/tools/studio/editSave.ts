@@ -9,7 +9,7 @@ import type {PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import type {ValidationResult} from '../reveal/validateForm';
 import {hasPreviewId} from './branchCards';
 import {hasEdits} from './cardEdit';
-import {draftChanges, fieldsOf, seedDraft, type Draft, type FieldsEdit, type SeedInput} from './editorState';
+import {draftChanges, editedFields, fieldsOf, seedDraft, withFields, type Draft, type SeedInput} from './editorState';
 
 /*
  * Edit card's save side as pure helpers (R4-4c): the commit a save makes, how
@@ -163,16 +163,6 @@ export function imageSent(draft: Draft, sent: File): Draft {
   return draft.image === sent ? {...draft, image: null} : draft;
 }
 
-/** The form fields the edit has changed. */
-function editedFields({before, form}: FieldsEdit): (keyof RevealCardForm)[] {
-  return (Object.keys(form) as (keyof RevealCardForm)[]).filter((field) => form[field] !== before[field]);
-}
-
-/** `form` with `fields` taken from `edits`. */
-function withFields(form: RevealCardForm, edits: RevealCardForm, fields: (keyof RevealCardForm)[]): RevealCardForm {
-  return fields.reduce<RevealCardForm>((next, field) => ({...next, [field]: edits[field]}), form);
-}
-
 /**
  * A same-card re-seed (its first read, "Load it again" (R-68), or a read that
  * left the card out of the file, R-66): `fresh` is the draft seeded from the
@@ -199,14 +189,17 @@ export function keepEdits(draft: Draft, fresh: Draft): Draft {
 
 /**
  * A re-seed that counted what it dropped (keepEdits) records what it kept, as
- * its read lands: a field edit, and a staged image (R4-8c), and whether the
- * draft it replaced had the card's fields (R4-8f). Any other seed has nothing
- * to report.
+ * its read lands: a field edit and the fields it holds, so an edit made since
+ * never reads as kept, and a staged image (R4-8c), and whether the draft it
+ * replaced had the card's fields (R4-8f). Any other seed has nothing to
+ * report.
  */
 function withKept({next, was}: {next: Draft; was: Draft}): Draft {
   if (next.dropped === undefined) return next;
   const edits = hasEdits({changes: draftChanges(next), imageName: null});
-  return {...next, kept: {edits, staged: next.image !== null, wasEditable: fieldsOf(was) !== null}};
+  const now = fieldsOf(next);
+  const fields = now === null ? [] : editedFields(now);
+  return {...next, kept: {edits, fields, staged: next.image !== null, wasEditable: fieldsOf(was) !== null}};
 }
 
 /**

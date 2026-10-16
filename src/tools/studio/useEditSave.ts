@@ -123,6 +123,9 @@ export function useEditSave(input: EditSaveInput): EditSave {
   const saving = running !== null;
   const plan = saving ? null : savePlanOf(input);
 
+  // No finally: the React Compiler can't lower one yet, and would skip this
+  // whole hook (Doberjohn/inkweave-admin#59). Each path ends the save itself,
+  // the failure's first, so a throw while the save lands ends it too.
   async function save(): Promise<void> {
     if (!plan) return;
     setRunning(plan.seed);
@@ -132,11 +135,11 @@ export function useEditSave(input: EditSaveInput): EditSave {
       const {commitUrl} = await commitOf(plan);
       setOutcome({...NO_OUTCOME, seed: plan.seed, result: {commitUrl, withImage: plan.sent !== null}});
       land(plan, input);
+      setRunning(null);
     } catch (e) {
+      setRunning(null);
       const {failure, message} = failureOf(e);
       setOutcome({...NO_OUTCOME, seed: plan.seed, saveError: message, failure});
-    } finally {
-      setRunning(null);
     }
   }
 

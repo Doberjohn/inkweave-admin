@@ -25,6 +25,8 @@ import {
   patchDraft,
   previewFileView,
   revertDraftImage,
+  revertDraftRow,
+  rowsAfterRevert,
   seedDraft,
   stageImage,
   stagedImage,
@@ -76,6 +78,14 @@ export interface CardEditorController extends EditSave {
   dirty: boolean;
   /** The form as loaded, and no image. */
   discard: () => void;
+  /**
+   * Takes back one row of the change list (revertDraftRow,
+   * Doberjohn/inkweave-admin#52): the Image row as revertImage does, and a
+   * field's row by its own fields, with the type too for a stat that can't
+   * come back without it. Answers the ids of the rows the list keeps
+   * (rowsAfterRevert), so it can move focus to one of them.
+   */
+  revertRow: (row: ChangeRow['id']) => ChangeRow['id'][];
   previewCard: LorcanaCard | null;
   /**
    * Runs the engine on the live preview: the edit's synergies, none for an
@@ -161,6 +171,11 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
       setDraft(revertDraftImage);
       void upload.choose(null);
     },
+    revertRow(row: ChangeRow['id']) {
+      setDraft((d) => revertDraftRow(d, row));
+      // The Image row's file leaves the upload too, as Revert image's does.
+      if (row === 'image') void upload.choose(null);
+    },
     discard() {
       setDraft(discardDraft);
       void upload.choose(null);
@@ -216,6 +231,10 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     changes: changeRows({loaded: view.loaded, changes, imageName: staged.name}),
     dirty: hasEdits({changes, imageName: staged.name}),
     discard: image.discard,
+    revertRow: (row) => {
+      image.revertRow(row);
+      return rowsAfterRevert({draft, row, imageName: staged.name});
+    },
     previewCard,
     findSynergies: () => editSynergies({preview: previewCard, draft, cards: list.cards}),
     imageName: staged.name,

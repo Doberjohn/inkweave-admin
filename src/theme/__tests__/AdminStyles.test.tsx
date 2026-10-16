@@ -290,10 +290,11 @@ describe('AdminStyles', () => {
     expect(css).toContain('.adm-switch:checked::before{transform:translateX(14px);}');
   });
 
-  it('rings a file label while its hidden input has focus, 2px out as a control is ringed', () => {
+  it('rings a file label while its hidden input has focus, or a file is dragged over it, 2px out as a control is ringed', () => {
     const css = stylesheet();
     expect(css).toContain(
-      `.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"]{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+      '.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"],' +
+        `.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
     );
     // A <label> never matches :focus-visible itself, so FOCUSABLE leaves both out.
     expect(css).not.toContain('.adm-file-btn:focus-visible');

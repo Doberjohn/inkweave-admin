@@ -166,3 +166,67 @@ describe('the design-token rules', () => {
     expect(await ruleIds('src/shell/Art.tsx', OFF_TOKEN)).toContain(rule);
   });
 });
+
+// The React Compiler skips a function it can't compile, and the build says
+// nothing (Doberjohn/inkweave-admin#59). FINALLY clears its state in a
+// finally, as useEditSave's save() did: the compiler can't lower one yet (a
+// Todo), so it skipped the whole hook. INCOMPATIBLE calls a library the
+// compiler refuses to memoize, which the recommended set only warns about.
+const FINALLY = [
+  "import {useState} from 'react';",
+  'export function useSave(commit: () => Promise<void>) {',
+  '  const [saving, setSaving] = useState(false);',
+  '  const [error, setError] = useState<unknown>(null);',
+  '  async function save() {',
+  '    setSaving(true);',
+  '    try {',
+  '      await commit();',
+  '    } catch (e) {',
+  '      setError(e);',
+  '    } finally {',
+  '      setSaving(false);',
+  '    }',
+  '  }',
+  '  return {saving, error, save};',
+  '}',
+  '',
+].join('\n');
+const INCOMPATIBLE = [
+  "import {useVirtualizer} from '@tanstack/react-virtual';",
+  'export function useRows(count: number) {',
+  '  const rows = useVirtualizer({count, getScrollElement: () => null, estimateSize: () => 10});',
+  '  return rows.getVirtualItems();',
+  '}',
+  '',
+].join('\n');
+
+describe('the React Compiler bailouts', () => {
+  it('rejects a hook the compiler skips for a try/finally it cannot lower yet, as an error', async () => {
+    expect(await lint('src/tools/studio/useSave.ts', FINALLY)).toContainEqual(
+      expect.objectContaining({ruleId: 'react-hooks/todo', severity: 2}),
+    );
+  });
+
+  // No snippet makes this compiler report an invariant, a syntax error or unsupported syntax
+  // (a class or a namespace inside a hook draws none of them), so these pin the setting itself.
+  it.each(['react-hooks/invariant', 'react-hooks/syntax', 'react-hooks/unsupported-syntax'])(
+    'holds every source file to %s, as an error',
+    async (rule) => {
+      const config = await eslint.calculateConfigForFile('src/tools/studio/useSave.ts');
+      expect(config.rules[rule]).toEqual([2]);
+    },
+  );
+
+  it('rejects an incompatible library as an error, where the recommended set only warns', async () => {
+    expect(await lint('src/tools/studio/useRows.ts', INCOMPATIBLE)).toContainEqual(
+      expect.objectContaining({ruleId: 'react-hooks/incompatible-library', severity: 2}),
+    );
+  });
+
+  it.each(['src/tools/studio/__tests__/useSave.test.ts', 'src/tools/studio/useSave.test.tsx', 'src/test/useSave.ts'])(
+    'allows a skipped hook in %s, test code that never ships',
+    async (filePath) => {
+      await expectAllowed(filePath, FINALLY, 'react-hooks/todo');
+    },
+  );
+});

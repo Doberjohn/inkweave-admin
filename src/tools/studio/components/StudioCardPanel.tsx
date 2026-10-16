@@ -10,6 +10,7 @@ import {
   SPACING,
   smallImageUrl,
 } from '../../../app-bridge';
+import {useFileDrop} from '../../../components/useFileDrop';
 import {useHiddenFileInput} from '../../../components/useHiddenFileInput';
 import type {StudioMode} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -104,24 +105,40 @@ function fileInputProps(wiring: FileWiring) {
   return {accept: IMAGE_ACCEPT, 'aria-describedby': wiring.describedBy, 'aria-invalid': wiring.invalid || undefined};
 }
 
+/**
+ * A file control's two parts: its <label>, which rings while its hidden input
+ * has focus or a file is dragged over it, and takes a dropped file
+ * (useFileDrop, Doberjohn/inkweave-admin#54), and the input, which the
+ * keyboard and the picker reach (useHiddenFileInput). A pick and a drop hand
+ * the file to the same onFile.
+ */
+function useFileControl(wiring: FileWiring) {
+  const {focused, inputProps} = useHiddenFileInput(wiring.onFile);
+  const {dragging, dropProps} = useFileDrop(wiring.onFile);
+  return {
+    labelProps: {'data-focused': focused || undefined, 'data-dragging': dragging || undefined, ...dropProps},
+    inputProps: {...inputProps, ...fileInputProps(wiring)},
+  };
+}
+
 /** The pill over the preview: a <label> round a visually hidden file input, which carries the focus. */
 function FileCover({caption, wiring}: {caption: string; wiring: FileWiring}) {
-  const {focused, inputProps} = useHiddenFileInput(wiring.onFile);
+  const {labelProps, inputProps} = useFileControl(wiring);
   return (
-    <label className="adm-file-cover" data-focused={focused || undefined}>
+    <label className="adm-file-cover" {...labelProps}>
       <span style={PILL}>{caption}</span>
-      <input {...inputProps} {...fileInputProps(wiring)} />
+      <input {...inputProps} />
     </label>
   );
 }
 
-/** Edit's "Replace card image": the same picker as the preview, as a button (handoff README §7, item 3). */
+/** Edit's "Replace card image": the same picker and drop as the preview's, as a button (handoff README §7, item 3). */
 function ReplaceImage({wiring}: {wiring: FileWiring}) {
-  const {focused, inputProps} = useHiddenFileInput(wiring.onFile);
+  const {labelProps, inputProps} = useFileControl(wiring);
   return (
-    <label className="adm-file-btn" data-focused={focused || undefined}>
+    <label className="adm-file-btn" {...labelProps}>
       Replace card image
-      <input {...inputProps} {...fileInputProps(wiring)} />
+      <input {...inputProps} />
     </label>
   );
 }
@@ -251,10 +268,11 @@ export interface StudioCardPanelProps {
 
 /**
  * Card studio's card panel (handoff README §7): the app's CardTile render
- * under a click-to-upload pill, the caption, the translation of a scan that
+ * under a click-or-drop pill, the caption, the translation of a scan that
  * isn't English, and the image's controls and notes. Both file controls are
- * useHiddenFileInput labels, so the keyboard reaches them, and both are
- * described by the formats and by the file's error.
+ * useHiddenFileInput labels, so the keyboard reaches them, that take a
+ * dropped file too (useFileDrop), and both are described by the formats and
+ * by the file's error.
  */
 export function StudioCardPanel({card, mode, layout, staged, current = null, onImageChange, onRevertImage}: StudioCardPanelProps) {
   const id = useId();

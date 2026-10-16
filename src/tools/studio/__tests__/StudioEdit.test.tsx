@@ -332,7 +332,7 @@ describe('StudioPage: saving in Edit card', () => {
     let land: (result: {commitUrl: string}) => void = () => {};
     vi.mocked(commitCardImage).mockReturnValue(new Promise((resolve) => (land = resolve)));
     const {user} = renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
-    await user.upload(await screen.findByLabelText('Click to replace image'), pngFile('lantern.png'));
+    await user.upload(await screen.findByLabelText('Click or drop to replace image'), pngFile('lantern.png'));
     await waitFor(() => expect(saveButton()).toBeEnabled());
     const save = saveButton();
     await user.click(save);
@@ -367,6 +367,29 @@ describe('StudioPage: saving in Edit card', () => {
     expect(discard()).toBeEnabled();
   });
 
+  it('takes back one of two changes, keeps the other, and saves that one alone (Doberjohn/inkweave-admin#52)', async () => {
+    vi.mocked(commitCardEdit).mockResolvedValue({commitUrl: COMMIT_URL});
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    await rename(user);
+    const version = screen.getByRole('textbox', {name: /^Version/});
+    await user.clear(version);
+    await user.type(version, 'Bold Panda');
+    expect(screen.getByRole('region', {name: '2 changes'})).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: 'Revert Name'}));
+    expect(await nameField()).toHaveValue('Mei');
+    expect(version).toHaveValue('Bold Panda');
+    expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('Red Panda → Bold Panda');
+    // The row's button went with it, so focus moved to the next row's (R-48).
+    expect(screen.getByRole('button', {name: 'Revert Version'})).toHaveFocus();
+
+    await user.click(saveButton());
+    await screen.findByRole('link', {name: 'View commit'});
+    expect(commitCardEdit).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({loaded: PREVIEW_ENTRY, changes: {version: 'Bold Panda', fullName: 'Mei - Bold Panda'}, image: null}),
+    );
+  });
+
   it('refuses a stale save, and Load it again keeps the edits that apply, with focus on what it did (R-67, R-68)', async () => {
     // Someone retitled the franchise on the branch: the rename doesn't touch it, so it still applies.
     const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
@@ -389,7 +412,7 @@ describe('StudioPage: saving in Edit card', () => {
     vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
     const {user} = renderStudio({path: studioHref('edit', MEI.id)});
     await rename(user);
-    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei.png'));
+    await user.upload(screen.getByLabelText('Click or drop to replace image'), pngFile('mei.png'));
     await waitFor(() => expect(saveButton()).toBeEnabled());
     await user.click(saveButton());
     expect(commitCardEdit).toHaveBeenCalledWith(expect.objectContaining({image: expect.objectContaining({ext: 'png'})}));
@@ -418,7 +441,8 @@ describe('StudioPage: saving in Edit card', () => {
     expect(screen.getByText(line)).toBeInTheDocument();
   });
 
-  // R4-8f: the line says what the read left. Discard and Revert image take back what they drop, and nothing else changes it.
+  // R4-8f: the line says what the read left. Discard and Revert image take back what they drop, a revert or a hand edit that
+  // undoes every edit the read kept takes back its claim, and nothing brings either back before the next read.
   it('takes "Every edit still applies." back once Discard drops the edits', async () => {
     const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
     stubReads(fileOf(FILE), fileOf([changed, VARIANTS_ENTRY]));
@@ -434,10 +458,30 @@ describe('StudioPage: saving in Edit card', () => {
     expect(screen.getByText('Loaded the card again from master.')).toHaveAttribute('role', 'status');
   });
 
+  it('takes "Every edit still applies." back once the edit the read kept is reverted, though an edit made since stays (R4-8c)', async () => {
+    const changed = {...PREVIEW_ENTRY, franchise: 'Turning Red (2022)'};
+    stubReads(fileOf(FILE), fileOf([changed, VARIANTS_ENTRY]));
+    vi.mocked(commitCardEdit).mockRejectedValue(new StaleCardError(STALE));
+    const {user} = renderStudio({path: studioHref('edit', MEI.id)});
+    await rename(user);
+    await user.click(saveButton());
+    await user.click(await screen.findByRole('button', {name: 'Load it again'}));
+    await screen.findByText('Loaded the card again from master. Every edit still applies.');
+
+    // An edit made after the read, which the read never kept, then the rename it kept taken back.
+    const version = screen.getByRole('textbox', {name: /^Version/});
+    await user.clear(version);
+    await user.type(version, 'Bold Panda');
+    await user.click(screen.getByRole('button', {name: 'Revert Name'}));
+    expect(await nameField()).toHaveValue('Mei');
+    expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('Red Panda → Bold Panda');
+    expect(screen.getByText('Loaded the card again from master.')).toHaveAttribute('role', 'status');
+  });
+
   it('takes "Your image is still staged." back once Revert image drops it, and a new image never brings it back', async () => {
     stubReads(fileOf([UNHELD_MEI, VARIANTS_ENTRY]), fileOf([FIXED_MEI, VARIANTS_ENTRY]));
     const {user} = renderStudio({path: studioHref('edit', MEI.id)});
-    await user.upload(await screen.findByLabelText('Click to replace image'), pngFile('mei.png'));
+    await user.upload(await screen.findByLabelText('Click or drop to replace image'), pngFile('mei.png'));
     await user.click(await screen.findByRole('button', {name: 'Read previewCards.json again'}));
     await screen.findByText('Loaded the card again from master. Your image is still staged.');
 
@@ -445,7 +489,7 @@ describe('StudioPage: saving in Edit card', () => {
     const line = screen.getByText('Loaded the card again from master.');
     expect(line).toHaveAttribute('role', 'status');
     // The line was recorded as the read landed: an image staged after it is no image the read kept.
-    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei-2.png'));
+    await user.upload(screen.getByLabelText('Click or drop to replace image'), pngFile('mei-2.png'));
     expect(screen.getByRole('region', {name: '1 change'})).toHaveTextContent('current art → mei-2.png');
     expect(line).toHaveTextContent(/^Loaded the card again from master\.$/);
   });
@@ -525,7 +569,7 @@ describe('StudioPage: saving in Edit card', () => {
     vi.mocked(commitPreviewCardImage).mockReturnValue(new Promise(() => {}));
     const {user} = renderStudio({path: studioHref('edit', MEI.id)});
     expect(await screen.findByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
-    await user.upload(screen.getByLabelText('Click to replace image'), pngFile('mei.png'));
+    await user.upload(screen.getByLabelText('Click or drop to replace image'), pngFile('mei.png'));
     await waitFor(() => expect(saveButton()).toBeEnabled());
     await user.click(saveButton());
 
@@ -694,6 +738,23 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     expect(screen.queryByRole('group', {name: 'Second ink'})).not.toBeInTheDocument();
   });
 
+  it("turns the Dual-ink switch off with the second ink the Ink row's Revert takes back, and keeps its section open (Doberjohn/inkweave-admin#52)", async () => {
+    // Narrow: one accordion section open at a time, which a form opened afresh would put back on Identity.
+    measured.width = 0;
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await openMei(user);
+    await user.click(screen.getByRole('button', {name: /^Ink & rarity/}));
+    await user.click(screen.getByRole('switch', {name: 'Dual-ink card'}));
+    await user.click(within(screen.getByRole('group', {name: 'Second ink'})).getByRole('button', {name: 'Sapphire'}));
+
+    await user.click(screen.getByRole('button', {name: 'Revert Ink'}));
+    // Mei is single-ink again, so the switch is off, as Discard leaves it, not on over "no second ink".
+    expect(screen.getByRole('switch', {name: 'Dual-ink card'})).not.toBeChecked();
+    expect(screen.queryByRole('group', {name: 'Second ink'})).not.toBeInTheDocument();
+    // Only the switch follows the form: the section the operator opened stays open.
+    expect(screen.getByRole('button', {name: /^Ink & rarity/})).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('gives a card loaded again a fresh form: the open accordion section goes back to Identity (R-68, R-46)', async () => {
     measured.width = 0;
     // The branch retitled the franchise, which the rename doesn't touch, so Load it again re-seeds and keeps it.
@@ -714,12 +775,13 @@ describe('StudioPage: the guard and the view in Edit card', () => {
 });
 
 /*
- * StudioWorkspace runs both controllers on every render, in either mode, and
- * the React Compiler, which vitest runs too (vite.config.ts), memoizes neither
- * one's synergies. So each controller hands them over as a call
- * (findSynergies) that only its own pane makes. The spy counts the engine's
- * runs for one mode's card while the other mode's form is typed in; afterEach
- * restores it (Doberjohn/inkweave-admin#55).
+ * StudioWorkspace runs both controllers on every render, in either mode. The
+ * React Compiler, which vitest runs too (vite.config.ts), leaves
+ * useCardEditor's chain unmemoized, and skipped useRevealAdmin until
+ * Doberjohn/inkweave-admin#59. So each controller hands its synergies over as
+ * a call (findSynergies) that only its own pane makes. The spy counts the
+ * engine's runs for one mode's card while the other mode's form is typed in;
+ * afterEach restores it (Doberjohn/inkweave-admin#55).
  */
 describe("StudioPage: a keystroke in one mode and the other mode's synergies", () => {
   it("never runs the engine again for the card open in Edit card while New reveal's form is typed in", async () => {

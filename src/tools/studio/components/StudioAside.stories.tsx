@@ -1,15 +1,19 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
+import {useState} from 'react';
 import {CtaButton, FONTS, SET_TOTAL, SPACING} from '../../../app-bridge';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
+import {pngFile} from '../../../test/images';
 import {revealForm} from '../../../test/revealForm';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import type {RevealCardForm} from '../../reveal/buildPreviewCard';
 import {EMPTY_FORM} from '../../reveal/emptyForm';
 import {validateRevealCardForm} from '../../reveal/validateForm';
-import {changeRows} from '../changeRows';
+import {formFromPreviewCard} from '../cardEdit';
+import {changeRows, type ChangeRow} from '../changeRows';
+import {discardDraft, draftChanges, patchDraft, revertDraftRow, rowsAfterRevert, stageImage, type Draft} from '../editorState';
 import {revealChecklist} from '../readiness';
-import {JA_SCAN_ENTRY, SYNERGY_GROUPS} from '../studioFixtures';
+import {JA_SCAN_ENTRY, PREVIEW_ENTRY, SYNERGY_GROUPS} from '../studioFixtures';
 import {ChangeList} from './ChangeList';
 import {CommitOutcome} from './CommitOutcome';
 import {ReadyChecklist} from './ReadyChecklist';
@@ -43,6 +47,8 @@ type Story = StoryObj;
 
 /** A story's buttons do nothing. */
 const noop = () => {};
+/** A story's Revert takes nothing back: the list keeps every row, so focus moves on to the next row's. */
+const keepsAll = (rows: readonly ChangeRow[]) => () => rows.map(({id}) => id);
 
 /** New reveal's checklist for `form`, with an image chosen and read when `image` names one. */
 function checklistFor({form, image}: {form: RevealCardForm; image: string | null}) {
@@ -65,6 +71,32 @@ const REFRESH = changeRows({
   imageName: 'miriam-en.png',
 });
 const IMAGE_ONLY = changeRows({loaded: null, changes: {}, imageName: 'lantern-keeper.webp'});
+
+const MEI_FORM = formFromPreviewCard(PREVIEW_ENTRY);
+/** Mei made an Action with a new cost, and a scan staged: the type took her three stats with it. */
+const ACTION_MEI: Draft = stageImage(
+  patchDraft(
+    {cardId: String(PREVIEW_ENTRY.id), seed: 1, read: 1, follow: false, edit: {kind: 'fields', loaded: PREVIEW_ENTRY, before: MEI_FORM, form: MEI_FORM}, image: null},
+    {type: 'Action', cost: '5'},
+  ),
+  {seed: 1, image: pngFile('mei.png')},
+);
+
+/**
+ * The change list over a draft it holds, as the Edit pane's controller keeps
+ * it: each Revert takes its row back by the controller's rule (revertDraftRow),
+ * and Discard drops everything.
+ */
+function LiveChangeList() {
+  const [draft, setDraft] = useState(ACTION_MEI);
+  const imageName = draft.image?.name ?? null;
+  const rows = changeRows({loaded: PREVIEW_ENTRY, changes: draftChanges(draft), imageName});
+  const revert = (row: ChangeRow['id']) => {
+    setDraft((current) => revertDraftRow(current, row));
+    return rowsAfterRevert({draft, row, imageName});
+  };
+  return <ChangeList rows={rows} onDiscard={() => setDraft(discardDraft)} onRevert={revert} />;
+}
 
 const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'};
 // The notes the page picks (the R4 header's "Labels and notes"; R4-6a's newRevealNote, R4-6b's editNote):
@@ -138,7 +170,7 @@ export const NewRevealRace: Story = {
 export const EditNoChanges: Story = {
   render: () => (
     <>
-      <ChangeList rows={[]} onDiscard={noop} />
+      <ChangeList rows={[]} onDiscard={noop} onRevert={keepsAll([])} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" disabled />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
@@ -146,11 +178,29 @@ export const EditNoChanges: Story = {
   ),
 };
 
-/** admin#14's refresh to English: the version, the scan language and the image, with Discard. */
+/** admin#14's refresh to English: the version, the scan language and the image, each with its Revert, and Discard. */
 export const EditRefresh: Story = {
   render: () => (
     <>
-      <ChangeList rows={REFRESH} onDiscard={noop} />
+      <ChangeList rows={REFRESH} onDiscard={noop} onRevert={keepsAll(REFRESH)} />
+      <SynergyPanel groups={SYNERGY_GROUPS} />
+      <Commit label="Save changes" />
+      <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
+    </>
+  ),
+};
+
+/**
+ * One change taken back at a time (Doberjohn/inkweave-admin#52), live: Mei
+ * made an Action, which took her three stats, with a new cost and a scan
+ * staged. Revert Strength takes back the type, so the Type row and the other
+ * two stats go with it, and focus moves on to Image's Revert. The cost and the
+ * scan stay.
+ */
+export const EditRevertOneChange: Story = {
+  render: () => (
+    <>
+      <LiveChangeList />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
@@ -162,7 +212,7 @@ export const EditRefresh: Story = {
 export const EditImageOnlyNoChanges: Story = {
   render: () => (
     <>
-      <ChangeList rows={[]} onDiscard={noop} imageOnly />
+      <ChangeList rows={[]} onDiscard={noop} onRevert={keepsAll([])} imageOnly />
       <Commit label="Save changes" disabled />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
     </>
@@ -173,7 +223,7 @@ export const EditImageOnlyNoChanges: Story = {
 export const EditImageOnly: Story = {
   render: () => (
     <>
-      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} />
+      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} onRevert={keepsAll(IMAGE_ONLY)} />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} />
     </>
@@ -184,7 +234,7 @@ export const EditImageOnly: Story = {
 export const EditSaved: Story = {
   render: () => (
     <>
-      <ChangeList rows={[]} onDiscard={noop} />
+      <ChangeList rows={[]} onDiscard={noop} onRevert={keepsAll([])} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" disabled />
       <CommitOutcome result={COMMIT} error={null} note={IMAGE_NOTE} />
@@ -196,7 +246,7 @@ export const EditSaved: Story = {
 export const EditStale: Story = {
   render: () => (
     <>
-      <ChangeList rows={REFRESH} onDiscard={noop} />
+      <ChangeList rows={REFRESH} onDiscard={noop} onRevert={keepsAll(REFRESH)} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome
@@ -214,7 +264,7 @@ export const EditStale: Story = {
 export const EditLoadedAgain: Story = {
   render: () => (
     <>
-      <ChangeList rows={REFRESH.slice(1)} onDiscard={noop} />
+      <ChangeList rows={REFRESH.slice(1)} onDiscard={noop} onRevert={keepsAll(REFRESH.slice(1))} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={1} />
@@ -229,7 +279,7 @@ export const EditLoadedAgain: Story = {
 export const EditLoadedAgainReadOnly: Story = {
   render: () => (
     <>
-      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} imageOnly />
+      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} onRevert={keepsAll(IMAGE_ONLY)} imageOnly />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={1} editable={false} />
     </>
@@ -240,7 +290,7 @@ export const EditLoadedAgainReadOnly: Story = {
 export const EditReadAgainStillReadOnly: Story = {
   render: () => (
     <>
-      <ChangeList rows={[]} onDiscard={noop} imageOnly />
+      <ChangeList rows={[]} onDiscard={noop} onRevert={keepsAll([])} imageOnly />
       <Commit label="Save changes" disabled />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={0} editable={false} />
     </>
@@ -251,7 +301,7 @@ export const EditReadAgainStillReadOnly: Story = {
 export const EditReadAgainOpened: Story = {
   render: () => (
     <>
-      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} />
+      <ChangeList rows={IMAGE_ONLY} onDiscard={noop} onRevert={keepsAll(IMAGE_ONLY)} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome result={null} error={null} note={IMAGE_NOTE} dropped={0} staged />
@@ -263,7 +313,7 @@ export const EditReadAgainOpened: Story = {
 export const RejectedToken: Story = {
   render: () => (
     <>
-      <ChangeList rows={REFRESH} onDiscard={noop} />
+      <ChangeList rows={REFRESH} onDiscard={noop} onRevert={keepsAll(REFRESH)} />
       <SynergyPanel groups={SYNERGY_GROUPS} />
       <Commit label="Save changes" />
       <CommitOutcome

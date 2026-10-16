@@ -205,11 +205,12 @@ describe('reseeded', () => {
     expect(reseeded({draft: typed, cardId: MEI.id, lookup, file})).toMatchObject({seed: 4, read: 2, image: FILE, dropped: 0, edit: {form: {name: 'Mei Lee'}}});
   });
 
-  // R4-8c: Load it again's line says what the read left, so the re-seed records it as it lands, not as edits come after.
+  // R4-8c: Load it again's line says what the read left, so the re-seed records it as it lands, not as edits come after,
+  // the fields of the edits it kept included, so the line can tell those from edits made since.
   it.each([
-    {what: 'an edit and an image', from: typed, kept: {edits: true, staged: true}},
-    {what: 'an image alone', from: draft({image: FILE}), kept: {edits: false, staged: true}},
-    {what: 'nothing', from: draft(), kept: {edits: false, staged: false}},
+    {what: 'an edit and an image', from: typed, kept: {edits: true, fields: ['name'], staged: true}},
+    {what: 'an image alone', from: draft({image: FILE}), kept: {edits: false, fields: [], staged: true}},
+    {what: 'nothing', from: draft(), kept: {edits: false, fields: [], staged: false}},
   ])('records that the read kept $what', ({from, kept}) => {
     expect(reseeded({draft: from, cardId: MEI.id, lookup, file})).toMatchObject({dropped: 0, kept});
   });
@@ -227,7 +228,7 @@ describe('reseeded', () => {
     expect(reseeded({draft: typed, cardId: MEI.id, lookup: gone, file})).toMatchObject({
       image: null,
       dropped: 1,
-      kept: {edits: false, staged: false},
+      kept: {edits: false, fields: [], staged: false},
     });
   });
 
