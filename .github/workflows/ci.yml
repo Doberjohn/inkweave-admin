@@ -48,7 +48,7 @@ jobs:
       - run: pnpm build
 
   # The app's audit step (Doberjohn/inkweave#490). pnpm 11 queries npm's bulk advisory
-  # endpoint; the pinned pnpm 9 still queries the legacy one, which npm is retiring.
+  # endpoint; the pinned pnpm 10 still queries the legacy one, which npm is retiring.
   # --pm-on-fail=ignore stops pnpm 11 from handing the command to the packageManager pin.
   # Audits dev and prod dependencies and fails on high or critical. It reads only
   # pnpm-lock.yaml, so it needs neither the submodule nor an install. To waive an accepted
