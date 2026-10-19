@@ -68,7 +68,7 @@ Dependabot opens these PRs weekly. CI on them is the bridge's contract test.
 
 - Windows 11, Windows PowerShell 5.1 (no pwsh 7; no `&&`), Git Bash available.
 - The origin remote uses the SSH alias `github-personal`. The submodule URL is relative (`../inkweave.git`), so it follows the alias locally and uses HTTPS in Actions.
-- Node 24, pnpm 9.
+- Node 24, pnpm 10 (10.34.7, pinned in `package.json`). pnpm runs no dependency install scripts: an install that meets a new one fails (`strictDepBuilds`) until `pnpm-workspace.yaml` lists it under `allowBuilds`, `true` to run it or `false` to skip it.
 
 ## Git workflow
 
