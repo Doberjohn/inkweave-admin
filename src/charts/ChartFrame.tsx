@@ -1,6 +1,6 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {LETTER_SPACING, SPACING} from '../app-bridge';
+import {LETTER_SPACING, SPACING, TABULAR} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {SegmentedControl} from '../ui/SegmentedControl';
 
@@ -29,10 +29,10 @@ const VIEWS: ReadonlyArray<{value: ChartView; label: string}> = [
 ];
 
 const CELL: React.CSSProperties = {
+  ...TABULAR,
   padding: `${SPACING.sm}px ${SPACING.md}px`,
   borderTop: `1px solid ${ADMIN_COLORS.divider}`,
   textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
 };
 
 const HEAD_CELL: React.CSSProperties = {

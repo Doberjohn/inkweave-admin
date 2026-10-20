@@ -1,4 +1,4 @@
-import {SPACING, TRUNCATE} from '../../app-bridge';
+import {SPACING, TABULAR, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {fmtInt} from '../../ui/format';
 import {Panel} from '../../ui/Panel';
@@ -43,7 +43,7 @@ const ROW: React.CSSProperties = {
  */
 const LIST: React.CSSProperties = {listStyle: 'none', margin: 0, padding: 0, maxHeight: 384, overflowY: 'auto'};
 
-const NUMBER: React.CSSProperties = {textAlign: 'right', fontVariantNumeric: 'tabular-nums'};
+const NUMBER: React.CSSProperties = {...TABULAR, textAlign: 'right'};
 
 const EMPTY: React.CSSProperties = {
   margin: 0,

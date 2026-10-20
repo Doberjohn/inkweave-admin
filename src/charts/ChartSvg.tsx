@@ -1,3 +1,4 @@
+import {TABULAR} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {LABEL_SIZE, TICK_GAP, px, type AxisTick} from './axis';
 import type {ChartCursor, PlotProps} from './useChartCursor';
@@ -53,7 +54,7 @@ export function AxisGrid({ticks, left, right}: {ticks: readonly AxisTick[]; left
               dominantBaseline="middle"
               fontSize={LABEL_SIZE}
               fill={ADMIN_COLORS.muted}
-              style={{fontVariantNumeric: 'tabular-nums'}}>
+              style={TABULAR}>
               {tick.label}
             </text>
           )}

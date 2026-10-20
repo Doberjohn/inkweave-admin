@@ -1,5 +1,5 @@
 import {useRef} from 'react';
-import {SPACING, useContainerWidth} from '../app-bridge';
+import {SPACING, TABULAR, useContainerWidth} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {fmtInt} from '../ui/format';
 import {LABEL_HALO, LABEL_SIZE, labelWidth, labelX, px, yAxis} from './axis';
@@ -75,7 +75,6 @@ type ScatterPlotProps = Omit<
 };
 
 const WRAP: React.CSSProperties = {minWidth: 0};
-const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
 /** The dot under the cursor and the selected one lift by the ring's width (r 6 on an r 8 disc). */
 const LIFT_RADIUS = DOT_RADIUS + RING;
 /** The keys that select the dot the slider announces. */
@@ -105,7 +104,7 @@ function XGrid({ticks, layout, format}: {ticks: readonly number[]; layout: Scatt
           textAnchor="middle"
           fontSize={LABEL_SIZE}
           fill={ADMIN_COLORS.muted}
-          style={NUMERALS}>
+          style={TABULAR}>
           {label}
         </text>
       </g>

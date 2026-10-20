@@ -1,4 +1,4 @@
-import {SPACING, hexRgba} from '../app-bridge';
+import {SPACING, TABULAR, hexRgba} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
 import {fmtScore} from './format';
 
@@ -9,6 +9,7 @@ import {fmtScore} from './format';
 const TINT = 0.08;
 
 const PILL: React.CSSProperties = {
+  ...TABULAR,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -19,7 +20,6 @@ const PILL: React.CSSProperties = {
   borderRadius: ADMIN_RADIUS.control,
   fontSize: ADMIN_TYPE.small,
   fontWeight: 700,
-  fontVariantNumeric: 'tabular-nums',
 };
 
 /** 7 and up reads high (the under-rates colour), 4 and below low (over-rates), 5 and 6 neutral. */

@@ -1,4 +1,4 @@
-import {LETTER_SPACING, SPACING} from '../../app-bridge';
+import {LETTER_SPACING, SPACING, TABULAR} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {Panel} from '../../ui/Panel';
 import {ScorePill} from '../../ui/ScorePill';
@@ -88,7 +88,7 @@ function VoteRows({title, votes}: {title: string; votes: VoteLogRow[]}) {
               </td>
               <td style={CELL}>{accuracyLabel(vote.accuracy)}</td>
               <td style={CELL}>{wouldPlayLabel(vote.wouldPlay)}</td>
-              <td style={{...CELL, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(0, 10)}</td>
+              <td style={{...CELL, ...TABULAR, whiteSpace: 'nowrap'}}>{vote.ts.slice(0, 10)}</td>
             </tr>
           ))}
         </tbody>

@@ -1,4 +1,4 @@
-import {RADIUS} from '../app-bridge';
+import {RADIUS, TABULAR} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {LABEL_SIZE, px} from './axis';
 import type {BarCap, BarDatum, BarLayout, BarSegment} from './barLayout';
@@ -10,8 +10,6 @@ import {hatchId, type SeriesDef} from './series';
 
 /** A bar's second line, under its x label (the Overview's weekly gap). */
 export type SubLabel = (d: BarDatum) => {text: string; color?: string} | null;
-
-const NUMERALS: React.CSSProperties = {fontVariantNumeric: 'tabular-nums'};
 
 /** The hatch patterns the hatched series paint with; nothing when no series is hatched. */
 function HatchDefs({series, chartId}: {series: readonly SeriesDef[]; chartId: string}) {
@@ -104,7 +102,7 @@ function CapLabels({caps, data, paint}: {caps: readonly BarCap[]; data: readonly
       textAnchor="middle"
       fontSize={LABEL_SIZE}
       fill={paint.cap(data[cap.index])}
-      style={NUMERALS}>
+      style={TABULAR}>
       {cap.text}
     </text>
   ));
@@ -114,7 +112,7 @@ function CapLabels({caps, data, paint}: {caps: readonly BarCap[]; data: readonly
 function SubLabelText({sub, x, y}: {sub: ReturnType<SubLabel> | undefined; x: number; y: number}) {
   if (!sub) return null;
   return (
-    <text data-sub-label x={px(x)} y={y} textAnchor="middle" fontSize={LABEL_SIZE} fill={sub.color ?? ADMIN_COLORS.muted} style={NUMERALS}>
+    <text data-sub-label x={px(x)} y={y} textAnchor="middle" fontSize={LABEL_SIZE} fill={sub.color ?? ADMIN_COLORS.muted} style={TABULAR}>
       {sub.text}
     </text>
   );

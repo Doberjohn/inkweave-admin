@@ -1,5 +1,5 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
-import {FONTS, SPACING} from '../../app-bridge';
+import {FONTS, SPACING, TABULAR} from '../../app-bridge';
 import {ADMIN_COLORS} from '../../theme/adminTheme';
 import {fmtGap} from '../../ui/format';
 import {GapScale} from './GapScale';
@@ -43,7 +43,7 @@ export const Range: Story = {
         <div
           key={String(gap)}
           style={{display: 'grid', gridTemplateColumns: '64px minmax(0, 1fr)', gap: SPACING.md, alignItems: 'center'}}>
-          <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtGap(gap)}</span>
+          <span style={{...TABULAR, textAlign: 'right'}}>{fmtGap(gap)}</span>
           <GapScale meanGap={gap} color={verdictFor(gap).numberColor} />
         </div>
       ))}

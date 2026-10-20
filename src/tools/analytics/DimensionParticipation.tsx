@@ -1,4 +1,4 @@
-import {SPACING} from '../../app-bridge';
+import {SPACING, TABULAR} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {MeterBar} from '../../ui/MeterBar';
 import {Panel} from '../../ui/Panel';
@@ -41,7 +41,7 @@ export function DimensionParticipation({fill, totalVotes, scope}: DimensionParti
               <li key={row.label} style={ROW}>
                 <span style={{color: ADMIN_COLORS.muted}}>{row.label}</span>
                 <MeterBar fraction={row.pct / 100} color={ADMIN_COLORS.accent} height={8} />
-                <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{row.pct}%</span>
+                <span style={{...TABULAR, textAlign: 'right'}}>{row.pct}%</span>
               </li>
             ))}
           </ul>

@@ -1,4 +1,4 @@
-import {SPACING} from '../../../app-bridge';
+import {SPACING, TABULAR} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
@@ -59,7 +59,7 @@ export function TopVotersPanel({votes, selectedVoter, onToggleVoter}: TopVotersP
                   }}>
                   <span style={{color: ADMIN_COLORS.muted, textAlign: 'left'}}>#{voter}</span>
                   <MeterBar fraction={count / most} color={ADMIN_COLORS.accent} />
-                  <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtInt(count)}</span>
+                  <span style={{...TABULAR, textAlign: 'right'}}>{fmtInt(count)}</span>
                 </span>
               </button>
             </li>
@@ -106,7 +106,7 @@ export function TopPairsPanel({votes}: {votes: VoteLogRow[]}) {
                   <td style={CELL} title={name}>
                     <PairLine pair={pair} />
                   </td>
-                  <td style={{...CELL, textAlign: 'right', color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>
+                  <td style={{...CELL, ...TABULAR, textAlign: 'right', color: ADMIN_COLORS.muted}}>
                     {fmtInt(pair.count)}
                   </td>
                   <td style={{...CELL, textAlign: 'right'}}>
