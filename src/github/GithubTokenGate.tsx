@@ -39,7 +39,7 @@ export function GithubTokenGate({onSave}: GithubTokenGateProps) {
         aria-label="GitHub token"
         style={{
           width: '100%',
-          padding: '10px',
+          padding: SPACING.md,
           background: COLORS.surfaceAlt,
           color: COLORS.text,
           border: `1px solid ${COLORS.surfaceHover}`,
