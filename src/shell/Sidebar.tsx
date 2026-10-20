@@ -1,6 +1,6 @@
 import {useId, useState} from 'react';
 import {NavLink, useLocation} from 'react-router-dom';
-import {COLORS, CtaButton, EASING, FONTS, LETTER_SPACING, LinkButton, SPACING} from '../app-bridge';
+import {COLORS, CtaButton, DURATION, EASING, FONTS, LETTER_SPACING, LinkButton, SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
 import {NAV_ITEMS, isWritePath, type NavGroup, type NavItem} from './nav';
 
@@ -257,7 +257,7 @@ export function Sidebar({tokenSaved, onForgetToken}: SidebarProps) {
         borderRight: `1px solid ${ADMIN_COLORS.inputBorder}`,
         overflowX: 'hidden',
         overflowY: 'auto',
-        transition: `width 0.2s ${EASING.smooth}`,
+        transition: `width ${DURATION.base}ms ${EASING.smooth}`,
       }}>
       <Brand open={open} />
       <NavGroups open={open} />

@@ -15,6 +15,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 export {
   ALL_INKS,
   COLORS,
+  DURATION,
   EASING,
   FONTS,
   FONT_SIZES,
@@ -26,7 +27,9 @@ export {
   REVEAL_SET_NUMBER,
   SET_NAMES,
   SET_TOTAL,
+  SHADOWS,
   SPACING,
+  TABULAR,
   TIER_COLORS,
   TRUNCATE,
   Z_INDEX,

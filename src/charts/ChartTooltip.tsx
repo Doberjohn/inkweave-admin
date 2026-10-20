@@ -1,5 +1,5 @@
 import {Fragment} from 'react';
-import {RADIUS, SPACING, blackRgba} from '../app-bridge';
+import {RADIUS, SHADOWS, SPACING, TABULAR} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
 
 /** One line of a tooltip. The value leads and the label follows it, so write labels that read after a number ("votes"). */
@@ -73,7 +73,7 @@ export function ChartTooltip({content, x, y, bounds}: ChartTooltipProps) {
         background: FILL,
         border: `1px solid ${ADMIN_COLORS.strongBorder}`,
         borderRadius: ADMIN_RADIUS.box,
-        boxShadow: `0 6px 18px ${blackRgba(0.4)}`,
+        boxShadow: SHADOWS.float,
         pointerEvents: 'none',
         fontSize: ADMIN_TYPE.small,
         lineHeight: 1.4,
@@ -102,7 +102,7 @@ export function ChartTooltip({content, x, y, bounds}: ChartTooltipProps) {
                   }}
                 />
               )}
-              <span style={{fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{row.value}</span>
+              <span style={{...TABULAR, fontWeight: 700, textAlign: 'right'}}>{row.value}</span>
               <span style={{color: ADMIN_COLORS.muted}}>{row.label}</span>
             </Fragment>
           ))}

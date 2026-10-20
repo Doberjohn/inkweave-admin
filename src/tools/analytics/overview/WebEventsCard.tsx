@@ -1,5 +1,5 @@
 import type {CSSProperties} from 'react';
-import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {Panel} from '../../../ui/Panel';
@@ -66,7 +66,7 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
               }}
             />
             <span style={{position: 'relative', minWidth: 0, ...TRUNCATE}}>{e.label}</span>
-            <span style={{position: 'relative', color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>
+            <span style={{...TABULAR, position: 'relative', color: ADMIN_COLORS.muted}}>
               {fmtInt(e.total)}
             </span>
           </li>

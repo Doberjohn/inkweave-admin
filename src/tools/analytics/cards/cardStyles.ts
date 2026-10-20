@@ -1,5 +1,5 @@
 import type {CSSProperties} from 'react';
-import {LETTER_SPACING, SPACING, TRUNCATE} from '../../../app-bridge';
+import {LETTER_SPACING, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 
 /*
@@ -30,7 +30,7 @@ export const CELL: CSSProperties = {
 };
 
 /** A number column: right-aligned, in figures that line up row to row. */
-export const NUMBER: CSSProperties = {textAlign: 'right', fontVariantNumeric: 'tabular-nums'};
+export const NUMBER: CSSProperties = {...TABULAR, textAlign: 'right'};
 
 /** A count beside the number a row is about: muted, never dim (R-6). */
 export const MUTED_NUMBER: CSSProperties = {...NUMBER, color: ADMIN_COLORS.muted};

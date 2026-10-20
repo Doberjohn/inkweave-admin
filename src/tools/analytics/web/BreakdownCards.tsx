@@ -1,4 +1,4 @@
-import {ALL_INKS, INK_COLORS, InkIcon, RaritySymbol, SPACING, TRUNCATE} from '../../../app-bridge';
+import {ALL_INKS, INK_COLORS, InkIcon, RaritySymbol, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
@@ -76,8 +76,8 @@ function BreakdownCard({breakdown}: {breakdown: Breakdown}) {
                   <span style={{...TRUNCATE, color: others ? ADMIN_COLORS.muted : ADMIN_COLORS.text}}>{label}</span>
                 </span>
                 <MeterBar fraction={fraction} color={barColor} height={6} />
-                <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtInt(row.count)}</span>
-                <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: ADMIN_COLORS.muted}}>
+                <span style={{...TABULAR, textAlign: 'right'}}>{fmtInt(row.count)}</span>
+                <span style={{...TABULAR, textAlign: 'right', color: ADMIN_COLORS.muted}}>
                   {pct}%
                 </span>
               </li>

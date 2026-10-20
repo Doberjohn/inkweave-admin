@@ -1,5 +1,5 @@
 import {useRef} from 'react';
-import {useContainerWidth} from '../app-bridge';
+import {TABULAR, useContainerWidth} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {fmtDay, fmtInt} from '../ui/format';
 import {LABEL_SIZE, TICK_GAP, px} from './axis';
@@ -187,7 +187,7 @@ function Baseline({layout, baseline}: {layout: LineLayout; baseline: NonNullable
         dominantBaseline="middle"
         fontSize={LABEL_SIZE}
         fill={ADMIN_COLORS.muted}
-        style={{fontVariantNumeric: 'tabular-nums'}}>
+        style={TABULAR}>
         {baseline.label}
       </text>
     </g>
@@ -248,7 +248,7 @@ function SeriesMarks({series, layout, area}: {series: readonly LineSeries[]; lay
           dominantBaseline="middle"
           fontSize={LABEL_SIZE}
           fill={ADMIN_COLORS.text}
-          style={{fontVariantNumeric: 'tabular-nums'}}>
+          style={TABULAR}>
           {e.text}
         </text>
       ))}

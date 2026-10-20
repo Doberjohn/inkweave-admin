@@ -1,5 +1,5 @@
 import {TUNING} from 'inkweave-synergy-engine';
-import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {calibrationHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
@@ -65,7 +65,7 @@ export function RulesToReviewCard({rules}: {rules: RuleStat[]}) {
               </span>
               {/* minWidth 0: the bar shrinks with its track. At its default 64px it would run under the gap. */}
               <BiasBar gap={r.meanGap} minWidth={0} />
-              <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: gapColor(r.meanGap)}}>
+              <span style={{...TABULAR, textAlign: 'right', color: gapColor(r.meanGap)}}>
                 {fmtGap(r.meanGap)}
               </span>
               <span style={{textAlign: 'right'}}>

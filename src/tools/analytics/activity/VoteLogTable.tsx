@@ -1,4 +1,4 @@
-import {CtaButton, LETTER_SPACING, LinkButton, SPACING, TRUNCATE} from '../../../app-bridge';
+import {CtaButton, LETTER_SPACING, LinkButton, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtWeekday} from '../../../ui/format';
 import {SR_ONLY} from '../../../ui/layout';
@@ -47,7 +47,7 @@ function VoteRow({vote, onPickVoter}: {vote: VoteLogRow; onPickVoter: (voter: nu
   const pair = `${vote.aName} × ${vote.bName}`;
   return (
     <tr className="adm-hover-row">
-      <td style={{...CELL, color: ADMIN_COLORS.muted, fontVariantNumeric: 'tabular-nums'}}>{vote.ts.slice(11, 16)}</td>
+      <td style={{...CELL, ...TABULAR, color: ADMIN_COLORS.muted}}>{vote.ts.slice(11, 16)}</td>
       <td style={CELL} title={pair}>
         <PairLine pair={vote} />
       </td>

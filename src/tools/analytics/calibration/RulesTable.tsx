@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {LETTER_SPACING, SPACING, TRUNCATE} from '../../../app-bridge';
+import {LETTER_SPACING, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap, fmtInt} from '../../../ui/format';
@@ -53,7 +53,7 @@ const CELL: React.CSSProperties = {
   borderTop: `1px solid ${ADMIN_COLORS.divider}`,
   verticalAlign: 'middle',
 };
-const NUMBER: React.CSSProperties = {textAlign: 'right', fontVariantNumeric: 'tabular-nums'};
+const NUMBER: React.CSSProperties = {...TABULAR, textAlign: 'right'};
 // Cells sit 16px apart (8px each side); the outer two keep 16px from the panel's edge.
 const START: React.CSSProperties = {paddingLeft: SPACING.lg};
 const END: React.CSSProperties = {paddingRight: SPACING.lg};

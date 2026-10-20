@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
-import {COLORS, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
+import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
 import {AdminStyles} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
@@ -176,8 +176,8 @@ describe('AdminStyles', () => {
 
   it('moves chart marks on the smooth curve, through transform and opacity only', () => {
     const css = stylesheet();
-    expect(css).toContain(`.adm-chart-cursor{transition:transform .2s ${EASING.smooth};}`);
-    expect(css).toContain(`.adm-chart-tip{transition:transform .2s ${EASING.smooth};`);
+    expect(css).toContain(`.adm-chart-cursor{transition:transform ${DURATION.base}ms ${EASING.smooth};}`);
+    expect(css).toContain(`.adm-chart-tip{transition:transform ${DURATION.base}ms ${EASING.smooth};`);
     expect(css).toContain('@keyframes adm-chart-rise{from{transform:scaleY(0);}to{transform:scaleY(1);}}');
     expect(css).toContain('@keyframes adm-chart-draw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}');
     // No keyframe touches layout, so SVG and HTML marks animate alike.

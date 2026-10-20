@@ -1,4 +1,4 @@
-import {EASING, SPACING} from '../app-bridge';
+import {DURATION, EASING, SPACING} from '../app-bridge';
 import {ADMIN_COLORS as C, ADMIN_RADIUS as R, ADMIN_TYPE as T} from './adminTheme';
 
 // Control heights from the handoff. Heights have no token in the app's scales,
@@ -25,11 +25,11 @@ const RANGE_MIN_WIDTH = 60;
 const RANGE_TRACK = 4;
 const RANGE_THUMB = 16;
 
-const FAST = `.2s ${EASING.snappy}`;
+const FAST = `${DURATION.base}ms ${EASING.snappy}`;
 // Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
 // SVG marks animate alike in every browser. GLIDE moves the cursor, tooltip and
 // mark states; ENTER brings bars, lines and labels in when they mount.
-const GLIDE = `.2s ${EASING.smooth}`;
+const GLIDE = `${DURATION.base}ms ${EASING.smooth}`;
 const ENTER = `.5s ${EASING.smooth}`;
 const FOCUS_RING = `outline:2px solid ${C.accent};`;
 // Hover rules skip disabled controls. :where() adds no specificity, so the

@@ -1,6 +1,6 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
-import {FONTS, LinkButton, SPACING, TIER_COLORS} from '../app-bridge';
+import {FONTS, LinkButton, SPACING, TABULAR, TIER_COLORS} from '../app-bridge';
 import {ADMIN_COLORS} from '../theme/adminTheme';
 import {BiasBar} from './BiasBar';
 import {fmtGap, fmtInt} from './format';
@@ -90,7 +90,7 @@ export const Panels: Story = {
             style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 56px', gap: SPACING.md, alignItems: 'center'}}>
             <span>{rule.name}</span>
             <BiasBar gap={rule.gap} />
-            <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtGap(rule.gap)}</span>
+            <span style={{...TABULAR, textAlign: 'right'}}>{fmtGap(rule.gap)}</span>
           </div>
         ))}
       </Panel>
@@ -162,7 +162,7 @@ export const Bars: Story = {
           <div
             key={String(gap)}
             style={{display: 'grid', gridTemplateColumns: '64px minmax(0, 1fr)', gap: SPACING.md, alignItems: 'center'}}>
-            <span style={{textAlign: 'right', fontVariantNumeric: 'tabular-nums'}}>{fmtGap(gap)}</span>
+            <span style={{...TABULAR, textAlign: 'right'}}>{fmtGap(gap)}</span>
             <BiasBar gap={gap} />
           </div>
         ))}
