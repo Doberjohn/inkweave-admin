@@ -1,4 +1,4 @@
-import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
+import type {LorcanaCard, LorcanaJSONCard, RawCardVariant} from 'inkweave-synergy-engine';
 import {
   transformPromos,
   transformRawCards,
@@ -264,3 +264,36 @@ export const MICKEY_PROMO_ENTRIES: RawCollectionPromo[] = [
 ];
 
 export const MICKEY_PROMOS: CollectionPromo[] = transformPromos(MICKEY_PROMO_ENTRIES);
+
+/*
+ * The same entries as the files that hold them store them: text, as the contents API answers a
+ * read (`readRepoFile`), in each file's own format (finishFiles.ts), so a read goes through the
+ * real parsers.
+ */
+
+/** A set's chunk or promos.json: `JSON.stringify(entries)` and a newline. */
+export function collectionText(entries: readonly unknown[]): string {
+  return `${JSON.stringify(entries)}\n`;
+}
+
+/** allCards.json holding `cards`: `JSON.stringify(x, null, 2)` and a newline. */
+export function allCardsText(cards: readonly LorcanaJSONCard[]): string {
+  return `${JSON.stringify({metadata: {}, sets: {}, cards}, null, 2)}\n`;
+}
+
+/** A group of the promo catalog that folds into a base card: that card's id, and its promos. */
+export interface CatalogGroup {
+  baseId: number;
+  variants: readonly RawCardVariant[];
+}
+
+/** The promo catalog holding these groups: `JSON.stringify(x, null, 2)`, no newline. */
+export function catalogText(fold: readonly CatalogGroup[] = []): string {
+  return JSON.stringify({about: '', fold, noBaseCard: []}, null, 2);
+}
+
+/** Set 4's chunk as text: Yen Sid's three entries, the alt foil naming `["foil"]`. */
+export const SET_4_TEXT = collectionText(SET_4_ENTRIES);
+
+/** A catalog that holds no promo. */
+export const EMPTY_CATALOG_TEXT = catalogText();
