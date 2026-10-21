@@ -1,6 +1,6 @@
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {filterCards} from '../image/filterCards';
-import {isDeployed, isRevealPreview} from './branchCards';
+import {isDeployed, isPrintingsOnly, isRevealPreview} from './branchCards';
 
 /**
  * The most rows Edit card's search lists. The search screen's status line says
@@ -62,6 +62,27 @@ export function cardTag(card: LorcanaCard, previewIds: ReadonlySet<number> | nul
   if (inFile(card, previewIds)) return 'Preview';
   if (previewIds === null && isRevealPreview(card)) return null;
   return 'Released';
+}
+
+/**
+ * Whether a search row names its card's set: a card of Sets 1 to 8 does, and no other (#68). 178
+ * names are in a Core set and in Sets 1 to 8, and for several the two cards share their name,
+ * version, inks, rarity and collector number (Ursula - Deceiver is #90 in Set 9 and in Set 3),
+ * while their rows open different things: an image control and Save, or printings only. The set
+ * is what tells the rows apart. A card whose data names no set has none to name.
+ */
+export function namesSet(card: Pick<LorcanaCard, 'setCode'>): card is Pick<LorcanaCard, 'setCode'> & {setCode: string} {
+  return Boolean(card.setCode) && isPrintingsOnly(card);
+}
+
+/**
+ * What a search row prints for a card's number: "#59", with the set before it where the row names
+ * one (namesSet): "Set 3 · #90". Nothing for a card with no number.
+ */
+export function numberLabel(card: Pick<LorcanaCard, 'setCode' | 'setNumber'>): string {
+  if (card.setNumber == null) return '';
+  const number = `#${card.setNumber}`;
+  return namesSet(card) ? `Set ${card.setCode} · ${number}` : number;
 }
 
 /**

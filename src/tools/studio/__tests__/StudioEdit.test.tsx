@@ -11,7 +11,7 @@ import {goneNote} from '../branchCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import {deferredResponse} from '../finishes/__tests__/branchHarness';
 import {chunksOf} from '../finishes/__tests__/collectionHarness';
-import {SET_4_ENTRIES, YEN_SID} from '../finishes/__tests__/finishFixtures';
+import {SET_4_ENTRIES, URSULA_SET_3, URSULA_SET_3_ENTRY, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {loadAgainNote} from '../loadAgainNote';
 import {PRINTINGS_ONLY_NOTE, newRevealNote} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
@@ -326,12 +326,40 @@ describe('StudioPage: Sets 1 to 8 in Edit card (#68)', () => {
     const {user} = renderStudio({path: '/studio?mode=edit'});
     await user.type(searchField(), 'Yen Sid');
     const row = await screen.findByRole('link', {name: /^Yen Sid /});
-    expect(row).toHaveAccessibleName('Yen Sid released Powerful Sorcerer Amethyst #59');
+    // A card of Sets 1 to 8 names its set before its number.
+    expect(row).toHaveAccessibleName('Yen Sid released Powerful Sorcerer Amethyst Set 4 · #59');
     expect(row).toHaveAttribute('href', studioHref('edit', YEN_SID.id));
     expect(within(row).getByText('released')).toBeInTheDocument();
     // Her Enchanted (900) and her alt foil (946) are printings of the card, and the search lists cards only.
     expect(screen.getAllByRole('link', {name: /^Yen Sid /})).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent('1 card matches');
+  });
+
+  // 178 names are in a Core set and in Sets 1 to 8. Ursula - Deceiver is #90 in Set 9 and in Set 3, with the same
+  // version, ink and rarity, and the rows open different things: only the set tells them apart.
+  it('names the set on a Sets 1 to 8 row, so it tells from its Set 9 reprint, and each row opens its own card', async () => {
+    setCardList({cards: [...CARDS, URSULA_SET_9]});
+    stubFetch(fileOf(FILE), chunksOf({'3': [URSULA_SET_3_ENTRY]}));
+    const {router, user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Ursula');
+    const core = await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald #90'});
+    const old = await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald Set 3 · #90'});
+    expect(within(core).getByText('#90')).toBeInTheDocument();
+    expect(within(old).getByText('Set 3 · #90')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', {name: /^Ursula /})).toHaveLength(2);
+
+    // The Set 3 row opens printings-only.
+    await user.click(old);
+    expect(router.state.location.search).toBe(`?mode=edit&card=${URSULA_SET_3.id}`);
+    expect(await screen.findByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Replace card image')).not.toBeInTheDocument();
+
+    // The Set 9 row opens with its image control.
+    await user.click(screen.getByRole('link', {name: 'Load a different card'}));
+    await user.click(await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald #90'}));
+    expect(router.state.location.search).toBe(`?mode=edit&card=${URSULA_SET_9.id}`);
+    expect(await screen.findByLabelText('Replace card image')).toBeInTheDocument();
+    expect(screen.queryByText(PRINTINGS_ONLY_NOTE)).not.toBeInTheDocument();
   });
 
   it('opens it printings-only: its data read-only, with no image control, no Save and no change list', async () => {

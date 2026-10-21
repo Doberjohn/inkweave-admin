@@ -9,7 +9,7 @@ import {studioHref} from '../../../shell/nav';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
-import type {SearchRow} from '../editSearch';
+import {namesSet, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
@@ -22,6 +22,8 @@ const THUMB_HEIGHT = 48;
 const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
 /** Room for "#204". */
 const NUMBER_WIDTH = 44;
+/** Room for "Set 8 · #204" (numberLabel), twelve characters of the 12px monospace at 0.6em each. */
+const NUMBER_WIDTH_WITH_SET = 88;
 
 // The page body's padding (PageLayout's BODY), round the handoff's centred column.
 const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px ${PAGE_GUTTER}`};
@@ -54,15 +56,20 @@ const LIST: React.CSSProperties = {
 };
 const RULED: React.CSSProperties = {borderTop: `1px solid ${ADMIN_COLORS.divider}`};
 // The link fills its row. adm-row-btn gives it the hover fill and the inset
-// ring, which the list's clipped corners keep whole.
-const ROW: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: `${THUMB_WIDTH}px minmax(0, 1fr) ${MARKS_WIDTH}px ${NUMBER_WIDTH}px`,
-  alignItems: 'center',
-  gap: SPACING.md,
-  padding: `${SPACING.sm}px ${SPACING.md}px`,
-  textDecoration: 'none',
-};
+// ring, which the list's clipped corners keep whole. A list has one number
+// column, so every row's marks line up: the wider one where a row names its set.
+function rowGrid(numberWidth: number): React.CSSProperties {
+  return {
+    display: 'grid',
+    gridTemplateColumns: `${THUMB_WIDTH}px minmax(0, 1fr) ${MARKS_WIDTH}px ${numberWidth}px`,
+    alignItems: 'center',
+    gap: SPACING.md,
+    padding: `${SPACING.sm}px ${SPACING.md}px`,
+    textDecoration: 'none',
+  };
+}
+const ROW = rowGrid(NUMBER_WIDTH);
+const ROW_WITH_SET = rowGrid(NUMBER_WIDTH_WITH_SET);
 // The empty box shows until the art loads, and stays for a card with none.
 const THUMB: React.CSSProperties = {
   display: 'block',
@@ -85,8 +92,8 @@ const NAME_LINE: React.CSSProperties = {
 const NAME: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.emphasis};
 const VERSION: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 const MARKS: React.CSSProperties = {display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: SPACING.xs};
-// Muted, never dim: the number tells two cards of one name apart (R-6).
-const NUMBER: React.CSSProperties = {textAlign: 'right', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+// Muted, never dim: the number, and the set before it, tell two cards of one name apart (R-6).
+const NUMBER: React.CSSProperties = {textAlign: 'right', whiteSpace: 'nowrap', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
 /** The card list (useCardDataContext): every row comes from it, so its failure takes the field's place. */
 export interface EditSearchList {
@@ -237,15 +244,17 @@ function Thumb({card}: {card: LorcanaCard}) {
 /**
  * One match: a link that opens the card in Edit card, drawn as the handoff
  * draws it (README §7): the thumbnail, name and version, inks, rarity and
- * collector number, plus the card's tags. The spaces are text nodes of their
- * own, so the link's name reads "Mei preview Red Panda Ruby #31": a grid or a
- * flex row draws none of them.
+ * collector number, plus the card's tags. A card of Sets 1 to 8 names its set
+ * before the number (numberLabel), so it tells from a Core reprint of itself
+ * (#68). The spaces are text nodes of their own, so the link's name reads
+ * "Mei preview Red Panda Ruby #31", or "Ursula released Deceiver Emerald
+ * Set 3 · #90": a grid or a flex row draws none of them.
  */
-function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
+function ResultRow({row, ruled, grid}: {row: SearchRow; ruled: boolean; grid: React.CSSProperties}) {
   const {card} = row;
   return (
     <li style={ruled ? RULED : undefined}>
-      <Link to={studioHref('edit', card.id)} className="adm-row-btn" style={ROW}>
+      <Link to={studioHref('edit', card.id)} className="adm-row-btn" style={grid}>
         <Thumb card={card} />{' '}
         <span style={NAMES}>
           <span style={NAME_LINE}>
@@ -257,19 +266,23 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
           <CardInks card={card} />
           <RarityMark rarity={card.rarity} />
         </span>{' '}
-        <code style={NUMBER}>{card.setNumber == null ? '' : `#${card.setNumber}`}</code>
+        <code style={NUMBER}>{numberLabel(card)}</code>
       </Link>
     </li>
   );
 }
 
-/** The matches, or nothing for none: the status line says so. */
+/**
+ * The matches, or nothing for none: the status line says so. Every row shares
+ * one number column, wide enough for a set's name where any row names one.
+ */
 function ResultList({rows}: {rows: readonly SearchRow[]}) {
   if (rows.length === 0) return null;
+  const grid = rows.some((row) => namesSet(row.card)) ? ROW_WITH_SET : ROW;
   return (
     <ul aria-label="Cards" style={LIST}>
       {rows.map((row) => (
-        <ResultRow key={row.card.id} row={row} ruled={row !== rows[0]} />
+        <ResultRow key={row.card.id} row={row} ruled={row !== rows[0]} grid={grid} />
       ))}
     </ul>
   );

@@ -1,12 +1,14 @@
 import {useState} from 'react';
 import {describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {cleanup, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
 import type {SearchRow} from '../editSearch';
+import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -97,6 +99,45 @@ describe('EditSearch', () => {
       await userEvent.type(screen.getByRole('searchbox', {name: 'Search cards'}), 'anna');
       expect(screen.queryByRole('link', {name: /^Elsa /})).not.toBeInTheDocument();
       expect(screen.getByRole('link', {name: /^Anna /})).toBeInTheDocument();
+    });
+  });
+
+  // 178 names are in a Core set and in Sets 1 to 8, and for several the two cards share name, version, ink, rarity and
+  // number (Ursula - Deceiver is #90 in Set 9 and in Set 3). The rows open different things, so the set tells them apart (#68).
+  describe('a card of Sets 1 to 8 beside its Set 9 reprint', () => {
+    const rowOf = (card: LorcanaCard): SearchRow => ({card, tag: 'Released', deployed: true});
+    const URSULA_ROWS = [rowOf(URSULA_SET_9), rowOf(URSULA_SET_3)];
+    /** The width of a row's last grid column, the number's. */
+    const numberColumn = (link: HTMLElement) => parseInt(link.style.gridTemplateColumns.split(' ').at(-1) ?? '', 10);
+
+    it('names the set on the Set 3 row alone, so the two rows differ by name as well as by what they open', () => {
+      renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
+      const [core, old] = screen.getAllByRole('link', {name: /^Ursula /});
+      expect(core).toHaveAccessibleName('Ursula released Deceiver Emerald #90');
+      expect(old).toHaveAccessibleName('Ursula released Deceiver Emerald Set 3 · #90');
+      expect(core).toHaveAttribute('href', `/studio?mode=edit&card=${URSULA_SET_9.id}`);
+      expect(old).toHaveAttribute('href', `/studio?mode=edit&card=${URSULA_SET_3.id}`);
+      expect(within(core).getByText('#90')).toBeInTheDocument();
+      expect(within(old).getByText('Set 3 · #90')).toBeInTheDocument();
+    });
+
+    it('leaves the Core rows as they were: no set anywhere in a list of Core cards', () => {
+      renderSearch();
+      expect(screen.getByRole('link', {name: `Mei preview Red Panda Ruby #${MEI.setNumber}`})).toBeInTheDocument();
+      expect(screen.queryByText(/^Set \d/)).not.toBeInTheDocument();
+    });
+
+    it('gives every row the wider number column once the list holds a card of Sets 1 to 8, so the marks still line up', () => {
+      renderSearch({rows: [...ROWS, ...URSULA_ROWS], total: ROWS.length + URSULA_ROWS.length});
+      const withSet = screen.getAllByRole('link').map(numberColumn);
+      cleanup();
+      renderSearch();
+      const coreOnly = screen.getAllByRole('link').map(numberColumn);
+
+      // One width down each list, and room for "Set 8 · #204" where a set is named.
+      expect(new Set(withSet).size).toBe(1);
+      expect(new Set(coreOnly).size).toBe(1);
+      expect(withSet[0]).toBeGreaterThan(coreOnly[0]);
     });
   });
 

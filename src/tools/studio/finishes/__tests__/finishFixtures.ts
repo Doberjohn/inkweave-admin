@@ -99,6 +99,40 @@ export const YEN_SID_ROWS: PrintingRow[] = printingRowsFor({
   valueOf: (ref) => (ref.id === '946' ? ['foil'] : null),
 });
 
+/**
+ * Ursula - Deceiver as allCards.json stores her: Set 9 #90. Set 3 holds her too (`URSULA_SET_3_ENTRY`), under the
+ * same name, version, ink, rarity and collector number. 178 names are in a Core set and in Sets 1 to 8, and
+ * for several of them nothing but the set tells the two cards' rows in Edit card's search apart.
+ */
+export const URSULA_SET_9_ENTRY: LorcanaJSONCard = {
+  id: 2026,
+  name: 'Ursula',
+  version: 'Deceiver',
+  fullName: 'Ursula - Deceiver',
+  cost: 2,
+  color: 'Emerald',
+  inkwell: true,
+  type: 'Character',
+  setCode: '9',
+  number: 90,
+  rarity: 'Uncommon',
+  images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/set9/90_604b7ec455cf896bbbe99163c01ccbff91c40a7e.jpg'},
+};
+
+/** Ursula - Deceiver as Set 3's chunk stores her: #90, as in Set 9. */
+export const URSULA_SET_3_ENTRY: LorcanaJSONCard = {
+  ...URSULA_SET_9_ENTRY,
+  id: 526,
+  setCode: '3',
+  images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/set3/90_fba1ba5c2a26d6273dd67f23f35e71bfa79ca8ad.jpg'},
+};
+
+/** Ursula - Deceiver of Set 9, a card of the app's card list. */
+export const URSULA_SET_9: LorcanaCard = cardWithId(cardsOf([URSULA_SET_9_ENTRY]), '2026');
+
+/** Ursula - Deceiver of Set 3, a card of Sets 1 to 8. */
+export const URSULA_SET_3: LorcanaCard = cardWithId(cardsOf([URSULA_SET_3_ENTRY]), '526');
+
 /** Mother Knows Best, as allCards.json stores it: Set 9 #99, with its two C3 promos under `variants`. */
 export const MOTHER_KNOWS_BEST_ENTRY: LorcanaJSONCard = {
   id: 2035,
