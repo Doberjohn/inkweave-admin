@@ -72,11 +72,22 @@ export interface RepoAnswers {
   update?: () => Response | Promise<Response>;
 }
 
+/**
+ * The contents API, answering only reads at the base: a publish reads what it writes over there, so
+ * a read anywhere else fails the test it happens in.
+ */
+function atBaseOnly(contents: ReturnType<typeof contentsAnswer>): Answer {
+  return ({request}) => {
+    const {path, ref} = askedOf(request);
+    if (ref !== BASE) throw new Error(`${path} was read at ${ref}, not at the commit the publish builds on`);
+    return contents(...request);
+  };
+}
+
 /** The routes of a publish, in the order commitFiles calls them. Each blob is named by its place among the blobs. */
 function routesOf({files, update}: Required<RepoAnswers>): Route[] {
-  const contents = contentsAnswer(files);
   return [
-    [isRead, ({request}) => contents(...request)],
+    [isRead, atBaseOnly(contentsAnswer(files))],
     [({method, route}) => method === 'GET' && route.startsWith('git/ref/heads/'), () => json({object: {sha: BASE}})],
     [({route}) => route === `git/commits/${BASE}`, () => json({tree: {sha: 'base-tree'}})],
     [isBlob, (_call, calls) => json({sha: `blob-${calls.filter(isBlob).length - 1}`}, 201)],
@@ -107,7 +118,10 @@ export interface RepoStub {
   commitMessage: () => string | undefined;
 }
 
-/** Stubs fetch as GitHub's API for a branch at `BASE` that holds `files`. Unstub in afterEach (`vi.unstubAllGlobals`). */
+/**
+ * Stubs fetch as GitHub's API for a branch at `BASE` that holds `files`, which it serves only at
+ * `BASE`. Unstub in afterEach (`vi.unstubAllGlobals`).
+ */
 export function stubRepo({files, update = moved}: RepoAnswers): RepoStub {
   const routes = routesOf({files, update});
   const calls: Call[] = [];
