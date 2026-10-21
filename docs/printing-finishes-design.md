@@ -11,7 +11,7 @@ Collection mode gives every pocket in the binder a Normal counter and a Foil cou
 That's wrong for printings that come in one version only:
 
 - **The 13 alt foils.** These printings keep their base card's rarity, so their pockets also show a Normal counter, though they come only in foil. Sets 3 to 8 hold nine, as their own entries numbered past each set: Piglet - Pooh Pirate Captain, Yen Sid - Powerful Sorcerer, Mulan - Elite Archer, Mickey Mouse - Playful Sorcerer, Half Hexwell Crown, Bolt - Superdog, Elsa - Ice Maker, Goofy - Groundbreaking Chef and Pinocchio - Strings Attached. Sets 11 to 13 hold four: Sven, Mr. Incredible, Christopher Robin and Violet Parr (inkweave#796). The owner confirmed these 13 are exactly the ones wrong today (2026-10-20).
-- **Promos printed in one version.** The promo catalog's notes (`scripts/data/promo-printings.json`, owner, 2026-10-18 and 19) settle which version a number of promos come in, yet every promo shows both counters. For example, Challenge Set 3 prints 1/C3 to 12/C3 in normal only, and 13/C3 to 24/C3 are the same cards in foil only.
+- **Promos printed in one version.** The promo catalog's notes (`scripts/data/promo-printings.json`, owner, 2026-10-18 and 19) settle which version a number of promos come in, yet every promo shows both counters. For example, Challenge Set 3's 1/C3 to 5/C3, 11/C3 and 12/C3 come in normal only, and 13/C3 to 17/C3, 23/C3 and 24/C3 are the same cards in foil only.
 
 The data to get this right already exists:
 - **LorcanaJSON records each printing's versions** in `foilTypes`, and its docs say "'None' means no foiling". The app's pipeline drops that field today (Rule 5 in `docs/CARD_DATA_PIPELINE.md`). The app's own code notes that LorcanaJSON lists the 13 alt foils with one foil finish (`collectionStats.ts`).
@@ -59,7 +59,7 @@ So the versions belong in the card data the app already reads, filled from those
 
 ## Where the versions live
 
-**The field.** It's called `finishes`, and it sits on a printing's entry: `["normal"]`, `["foil"]` or `["normal", "foil"]`, in that order, using the app's `Finish` values (`collectionParser.ts`). A printing without it follows the rarity rule, as today. Wherever it's written, it's the entry's last key, so every file keeps the byte-for-byte format it has today, and an edit changes only its own lines. The formats are:
+**The field.** It's called `finishes`, and it sits on a printing's entry: `["normal"]`, `["foil"]` or `["normal", "foil"]`, in that order, using the app's `Finish` values (`collectionParser.ts`). A printing without it follows the rarity rule, as today. Wherever it's written, it's the entry's last key, so every file keeps the format it has today and an edit changes only the entries it edits. Everything else stays byte for byte as it was. A collection file is a single line, so a diff shows that one line as changed. The formats are:
 - `allCards.json` is `JSON.stringify(x, null, 2)` plus a newline;
 - the collection files are `JSON.stringify(x)` plus a newline;
 - the catalog is `JSON.stringify(x, null, 2)` with no trailing newline.
@@ -151,8 +151,11 @@ It starts once the app's part has merged and admin's app pin has moved past it, 
    - The batch is kept in this browser, per target branch, until it's published or discarded, so a reload doesn't lose it. A pending batch is never dropped without the owner seeing it, Forget token included.
    - Edit card's own Save still commits the open card's fields or image alone, as today. It never takes the batch with it.
 5. **Publishing.**
-   - Publish makes one commit to `VITE_ADMIN_TARGET_BRANCH` through the existing GitHub commit layer. For every change in the batch, it writes the explicit value into every entry that holds the printing (the table above), with the files read at the commit's base. Only the edited lines change.
-   - Each change remembers the value its printing had when the change was made. If any printing's value on the branch no longer matches, the publish stops and offers Reload. Reload keeps every change whose printing still matches and says how many it dropped, as the tuning editor does (R-18).
+   - Publish makes one commit to `VITE_ADMIN_TARGET_BRANCH` through the existing GitHub commit layer. For every change in the batch, it writes the explicit value into every entry that holds the printing (the table above), with the files read at the commit's base. Only the edited entries change.
+   - Each change remembers the value its printing had when the change was made. If any printing's value on the branch no longer matches, the publish stops and offers Reload. Reload refreshes the values from the branch:
+     - a change whose printing still matches stays as it is;
+     - a change whose printing changed stays in the batch too, marked as a clash showing the branch's new value, until the owner keeps it (on top of the new value) or drops it.
+   - Publish stays off while a clash is open. Unlike the tuning editor's reload (R-18), nothing leaves the batch without the owner choosing it (owner, 2026-10-21).
    - `allCards.json` is about 2 MB, more than the GitHub contents API's 1 MB JSON limit, so reading and writing it goes through the raw or blob routes.
 6. **After a publish,** the outcome links the commit and says the changes show in the binder once the app's deploy finishes. Today that's on staging only.
 7. **Docs.** In `CLAUDE.md`, the Card studio paragraph covers the batch, the files a publish writes, and the collection data Edit card reads.
@@ -188,6 +191,7 @@ End-to-end checks happen on staging.inkweave.ink, signed in to an account with a
 - No new file: the versions live in the card data the app already reads, filled from LorcanaJSON and the catalog (2026-10-21).
 - The owner can correct any printing, not just promos (2026-10-21).
 - Version changes collect in a batch that publishes in one commit. The batch holds version changes only (2026-10-21).
+- A change whose printing someone else changed meanwhile stays in the batch as a clash until the owner keeps or drops it (2026-10-21, from cubic's review of #70).
 
 ## My calls, for the owner to check
 
