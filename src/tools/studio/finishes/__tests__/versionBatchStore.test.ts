@@ -1,16 +1,17 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
-import {changeFor} from '../versionBatch';
+import {afterPublish, changeFor} from '../versionBatch';
 import {VERSION_BATCH_KEY_PREFIX, resetVersionBatch, useVersionBatch} from '../versionBatchStore';
 import {YEN_SID_ROWS} from './finishFixtures';
 
 const MASTER_KEY = `${VERSION_BATCH_KEY_PREFIX}master`;
 const REHEARSAL_KEY = `${VERSION_BATCH_KEY_PREFIX}rehearse-68`;
 
-/** Yen Sid's #59 (no field, so Both) and his alt foil #223 (`["foil"]`). */
-const [CARD_59, , ALT_FOIL_223] = YEN_SID_ROWS;
+/** Yen Sid's #59 (no field, so Both), his Enchanted #209 (no field, so Foil) and his alt foil #223 (`["foil"]`). */
+const [CARD_59, ENCHANTED_209, ALT_FOIL_223] = YEN_SID_ROWS;
 const ALT_FOIL_TO_BOTH = changeFor({row: ALT_FOIL_223, choice: 'both'});
 const CARD_TO_FOIL = changeFor({row: CARD_59, choice: 'foil'});
+const ENCHANTED_TO_BOTH = changeFor({row: ENCHANTED_209, choice: 'both'});
 
 // jsdom's storage lasts as long as the test file, and src/test/setup.ts clears only the master
 // batch's key before each test, so a test that saves under another branch's key cleans up here.
@@ -36,6 +37,27 @@ function reloadWith(stored: unknown): void {
 /** A storage method that throws, as one does for blocked site data. */
 function refuse(): never {
   throw new DOMException('Storage refused', 'SecurityError');
+}
+
+/** Fires the event the browser fires here when another tab changes the key, or, with no key, clears storage. */
+function storageEvent(key: string | null): void {
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', {key}));
+  });
+}
+
+/**
+ * Plays another tab saving `changes` for master. The browser fires the event in the other tabs
+ * only, so the test writes storage and then fires it here.
+ */
+function otherTabSaves(changes: readonly unknown[]): void {
+  localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes}));
+  storageEvent(MASTER_KEY);
+}
+
+/** How many times a spy on addEventListener or removeEventListener was asked about the storage event. */
+function storageCalls(spy: {mock: {calls: readonly unknown[][]}}): number {
+  return spy.mock.calls.filter(([type]) => type === 'storage').length;
 }
 
 describe('useVersionBatch', () => {
@@ -251,5 +273,201 @@ describe('storage that fails', () => {
     vi.stubGlobal('localStorage', {getItem: refuse, setItem: refuse, removeItem: refuse});
     expect(() => act(() => resetVersionBatch())).not.toThrow();
     expect(result.current.changes).toEqual([]);
+  });
+});
+
+describe('another tab', () => {
+  it('keeps what another tab staged when this tab stages after it', () => {
+    // Both tabs hold #59's change. The other tab stages #223's, then this tab stages the Enchanted's.
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(CARD_TO_FOIL));
+    otherTabSaves([CARD_TO_FOIL, ALT_FOIL_TO_BOTH]);
+    expect(result.current.changes).toEqual([CARD_TO_FOIL, ALT_FOIL_TO_BOTH]);
+
+    act(() => result.current.stage(ENCHANTED_TO_BOTH));
+    expect(result.current.changes).toEqual([CARD_TO_FOIL, ALT_FOIL_TO_BOTH, ENCHANTED_TO_BOTH]);
+    expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL, ALT_FOIL_TO_BOTH, ENCHANTED_TO_BOTH]});
+  });
+
+  it('follows another tab that adds, replaces and drops changes', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    otherTabSaves([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+
+    const normal = changeFor({row: ALT_FOIL_223, choice: 'normal'});
+    otherTabSaves([normal, CARD_TO_FOIL]);
+    expect(result.current.changes).toEqual([normal, CARD_TO_FOIL]);
+
+    otherTabSaves([]);
+    expect(result.current.changes).toEqual([]);
+  });
+
+  it('reads storage again when another tab clears all of it, which arrives with no key', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    localStorage.clear();
+    storageEvent(null);
+    expect(result.current.changes).toEqual([]);
+
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [CARD_TO_FOIL]}));
+    storageEvent(null);
+    expect(result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('ignores a save of another branch, and of any other key', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    // Master's saved batch changes under it, so a read of it would show.
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [CARD_TO_FOIL]}));
+    storageEvent(REHEARSAL_KEY);
+    storageEvent('inkweave-admin.last-card');
+    storageEvent('inkweave.reveal-admin.gh-token');
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+
+    storageEvent(MASTER_KEY);
+    expect(result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('keeps the changes it holds as the same objects, so a publish in flight still finds them', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(CARD_TO_FOIL));
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    // What a publish starts with: it takes the changes out by identity once it lands.
+    const sent = result.current.changes;
+
+    otherTabSaves([CARD_TO_FOIL, ALT_FOIL_TO_BOTH, ENCHANTED_TO_BOTH]);
+    expect(result.current.changes).toHaveLength(3);
+    expect(result.current.changes[0]).toBe(sent[0]);
+    expect(result.current.changes[1]).toBe(sent[1]);
+    expect(afterPublish({changes: result.current.changes}, sent).changes).toEqual([ENCHANTED_TO_BOTH]);
+  });
+
+  it('takes another tab’s version of a change it holds, and keeps the others as they are', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(CARD_TO_FOIL));
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    const [kept] = result.current.changes;
+
+    const normal = changeFor({row: ALT_FOIL_223, choice: 'normal'});
+    otherTabSaves([CARD_TO_FOIL, normal]);
+    expect(result.current.changes[0]).toBe(kept);
+    expect(result.current.changes[1]).toEqual(normal);
+  });
+
+  it('leaves the batch, and every reader, as they were when nothing differs', () => {
+    let renders = 0;
+    const {result} = renderHook(() => {
+      renders += 1;
+      return useVersionBatch();
+    });
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    const before = result.current.changes;
+    const rendered = renders;
+
+    otherTabSaves([ALT_FOIL_TO_BOTH]);
+    expect(result.current.changes).toBe(before);
+    expect(renders).toBe(rendered);
+  });
+
+  it('does not save what it read back, which could write over a newer save', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [CARD_TO_FOIL]}));
+    const save = vi.spyOn(Storage.prototype, 'setItem');
+
+    storageEvent(MASTER_KEY);
+    expect(result.current.changes).toEqual([CARD_TO_FOIL]);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('listens once, from the first component that reads the batch to the last that stops', () => {
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    expect(storageCalls(add)).toBe(0);
+
+    const first = renderHook(() => useVersionBatch());
+    const second = renderHook(() => useVersionBatch());
+    expect(storageCalls(add)).toBe(1);
+
+    first.unmount();
+    expect(storageCalls(remove)).toBe(0);
+    second.unmount();
+    expect(storageCalls(remove)).toBe(1);
+    expect(storageCalls(add)).toBe(1);
+  });
+
+  it('reads nothing when another tab saves and no component is reading', () => {
+    renderHook(() => useVersionBatch()).unmount();
+    const read = vi.spyOn(Storage.prototype, 'getItem');
+    window.dispatchEvent(new StorageEvent('storage', {key: MASTER_KEY}));
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('reads what another tab saved while no component was reading', () => {
+    const first = renderHook(() => useVersionBatch());
+    act(() => first.result.current.stage(ALT_FOIL_TO_BOTH));
+    first.unmount();
+    // No component listened, so no event reached the store.
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [ALT_FOIL_TO_BOTH, CARD_TO_FOIL]}));
+
+    const again = renderHook(() => useVersionBatch());
+    expect(again.result.current.changes).toEqual([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+  });
+
+  it('keeps a change that storage refused to save when a component reads again', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const first = renderHook(() => useVersionBatch());
+    act(() => first.result.current.stage(ALT_FOIL_TO_BOTH));
+    first.unmount();
+
+    const again = renderHook(() => useVersionBatch());
+    expect(again.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+  });
+
+  it('still holds a change that storage refused to save after an action that changes nothing', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const first = renderHook(() => useVersionBatch());
+    act(() => first.result.current.stage(ALT_FOIL_TO_BOTH));
+    act(() => first.result.current.keep('no-such-printing'));
+    first.unmount();
+
+    const again = renderHook(() => useVersionBatch());
+    expect(again.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+  });
+
+  it('takes what another tab saves over a change that storage refused to save', () => {
+    const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    save.mockRestore();
+
+    otherTabSaves([CARD_TO_FOIL]);
+    expect(result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('reads what another tab saves while no component is reading, once its save has replaced a change storage refused', () => {
+    const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const first = renderHook(() => useVersionBatch());
+    act(() => first.result.current.stage(ALT_FOIL_TO_BOTH));
+    save.mockRestore();
+    otherTabSaves([CARD_TO_FOIL]);
+    first.unmount();
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [CARD_TO_FOIL, ENCHANTED_TO_BOTH]}));
+
+    const again = renderHook(() => useVersionBatch());
+    expect(again.result.current.changes).toEqual([CARD_TO_FOIL, ENCHANTED_TO_BOTH]);
+  });
+
+  it('keeps the batch when storage can’t be read as another tab saves, or when a component reads again', () => {
+    const first = renderHook(() => useVersionBatch());
+    act(() => first.result.current.stage(ALT_FOIL_TO_BOTH));
+    vi.stubGlobal('localStorage', {getItem: refuse, setItem: refuse, removeItem: refuse});
+    storageEvent(MASTER_KEY);
+    expect(first.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+
+    first.unmount();
+    const again = renderHook(() => useVersionBatch());
+    expect(again.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
   });
 });

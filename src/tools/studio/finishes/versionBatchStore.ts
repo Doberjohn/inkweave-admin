@@ -23,6 +23,14 @@ import {
  * full quota) leaves the batch in memory for the page's life, and the next save that works writes
  * all of it. Whether a publish is under way, and how the last one ended, belong to the page alone
  * and are never saved.
+ *
+ * Another tab on the same branch saves to the same key, and a save writes the whole batch, so a
+ * page that never read it back would write over what the other tab staged. A page follows it
+ * instead: a storage event makes the batch what is saved, and so does a read when the first
+ * component starts to listen, since the events of the time before went unheard (unless a save
+ * failed here, and memory is the only place the batch is). The changes it already holds, just as
+ * they are saved, stay the same objects: a publish in flight takes what it sent out by identity
+ * (`afterPublish`). Storage that can't be read says nothing, so the batch stays.
  */
 
 /** Where a branch's batch is saved: this prefix, then the branch's name. Admin's own keys start `inkweave-admin.`. */
@@ -63,6 +71,8 @@ export interface VersionBatchView {
 /** What the store holds for one target branch. */
 interface BranchState {
   batch: VersionBatch;
+  /** The last save of the batch failed: storage holds an older one, which a read of it must not put back. */
+  unsaved: boolean;
   publishing: boolean;
   result: PublishResult | null;
   error: string | null;
@@ -94,13 +104,11 @@ function isSavedChange(entry: unknown): entry is VersionChange {
 }
 
 /**
- * The changes saved for the target branch. Anything that isn't a saved batch of this version (no
- * key, text that isn't JSON, storage that throws) reads as an empty one, and an entry that isn't a
- * change is left out, with no word to the owner.
+ * The changes a saved text holds. Anything that isn't a saved batch of this version (no text, text
+ * that isn't JSON) holds none, and an entry that isn't a change is left out, with no word to the owner.
  */
-function readSaved(): VersionChange[] {
+function changesIn(text: string | null): VersionChange[] {
   try {
-    const text = localStorage.getItem(storageKey());
     const saved = text === null ? null : (JSON.parse(text) as SavedBatch | null);
     return saved?.v === SAVED_VERSION && Array.isArray(saved.changes) ? saved.changes.filter(isSavedChange) : [];
   } catch {
@@ -108,11 +116,25 @@ function readSaved(): VersionChange[] {
   }
 }
 
-function writeSaved(batch: VersionBatch): void {
+/**
+ * The changes saved for the target branch, or null where storage can't be read, which says nothing
+ * about the batch: the empty one that no key gives is a batch, and this is not.
+ */
+function readSaved(): VersionChange[] | null {
+  try {
+    return changesIn(localStorage.getItem(storageKey()));
+  } catch {
+    return null;
+  }
+}
+
+/** Saves the batch, and says whether it was saved. */
+function writeSaved(batch: VersionBatch): boolean {
   try {
     localStorage.setItem(storageKey(), JSON.stringify({v: SAVED_VERSION, changes: batch.changes}));
+    return true;
   } catch {
-    // Storage is blocked or full: the batch stays in memory, and the next save that works writes it all.
+    return false; // storage is blocked or full: the batch stays in memory, and the next save that works writes it all
   }
 }
 
@@ -132,11 +154,6 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
 /**
  * The store's snapshot: the target branch's state, the same object until something changes it, so
  * React re-renders only then.
@@ -145,18 +162,82 @@ function snapshot(): BranchState {
   const branch = targetBranch();
   const kept = states.get(branch);
   if (kept) return kept;
-  const loaded: BranchState = {batch: {changes: readSaved()}, publishing: false, result: null, error: null};
+  const loaded: BranchState = {
+    batch: {changes: readSaved() ?? []},
+    unsaved: false,
+    publishing: false,
+    result: null,
+    error: null,
+  };
   states.set(branch, loaded);
   return loaded;
 }
 
+/** What `put` takes: the state but `unsaved`, which it works out from whether the batch could be saved. */
+type StatePatch = Partial<Omit<BranchState, 'unsaved'>>;
+
 /** Makes `patch` part of the target branch's state, saves the batch if it changed, and tells every reader. */
-function put(patch: Partial<BranchState>): void {
+function put(patch: StatePatch): void {
   const before = snapshot();
   const after = {...before, ...patch};
-  states.set(targetBranch(), after);
-  if (after.batch !== before.batch) writeSaved(after.batch);
+  const saved = after.batch === before.batch ? !before.unsaved : writeSaved(after.batch);
+  states.set(targetBranch(), {...after, unsaved: !saved});
   notify();
+}
+
+/** Whether two changes are the same. They are plain data, so each is what its text says. */
+const sameChange = (a: VersionChange, b: VersionChange) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The batch of the saved changes, where each one the batch already holds, just as it is saved, stays
+ * the same object: a publish in flight takes the changes it sent out by identity, and a read that
+ * handed it copies would leave them in the batch after they landed. Where nothing differs it is the
+ * batch itself.
+ */
+function reconciled(batch: VersionBatch, saved: readonly VersionChange[]): VersionBatch {
+  const changes = saved.map((change) => batch.changes.find((held) => sameChange(held, change)) ?? change);
+  const same = changes.length === batch.changes.length && changes.every((change, i) => change === batch.changes[i]);
+  return same ? batch : {changes};
+}
+
+/**
+ * Makes the target branch's batch what is saved for it, which another tab may have changed since.
+ * What a publish has to say (`publishing`, `result`, `error`) is left as it is, and so is the batch
+ * when nothing differs, with no word to the readers. Storage that can't be read says nothing.
+ */
+function adoptSaved(): void {
+  const before = snapshot();
+  const saved = readSaved();
+  if (saved === null) return;
+  const batch = reconciled(before.batch, saved);
+  if (batch === before.batch) return;
+  states.set(targetBranch(), {...before, batch, unsaved: false});
+  notify();
+}
+
+/**
+ * Another tab changed storage: it saved a key, or cleared all of it, which arrives with no key.
+ * The browser never fires it in the tab that wrote.
+ */
+function onStorage(event: StorageEvent): void {
+  if (event.key === null || event.key === storageKey()) adoptSaved();
+}
+
+/**
+ * The store listens to other tabs while a component listens to it. The first one also reads what is
+ * saved, since the events of the time before went unheard, unless a save failed here and memory is
+ * the only place the batch is.
+ */
+function subscribe(listener: () => void): () => void {
+  if (listeners.size === 0) {
+    window.addEventListener('storage', onStorage);
+    if (!snapshot().unsaved) adoptSaved();
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener('storage', onStorage);
+  };
 }
 
 /**
