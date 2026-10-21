@@ -118,7 +118,10 @@ export interface EditSearchProps {
   onQuery: (query: string) => void;
   list: EditSearchList;
   file: EditSearchFile;
-  /** A line above the field: the page's message for an id the card list doesn't hold (R4-6b). */
+  /**
+   * Lines above the field: the page's message for an id the card list doesn't
+   * hold (R4-6b), and for Sets 1 to 8 failing to load (#68).
+   */
   notice?: React.ReactNode;
   /**
    * The page's (R-59): the field takes it once "Load a different card", or the
@@ -136,8 +139,9 @@ function SearchTitle({id}: {id: string}) {
         Find a card to edit
       </h2>
       <p style={HINT}>
-        Every Core card, by name, version or id, with the branch’s preview cards first. A preview card opens in
-        the form with its current data; any other card opens for a new image.
+        Every card, by name, version or id, with the branch’s preview cards first. A preview card opens in
+        the form with its current data; a card of Sets 1 to 8 opens for its printings’ versions only; any other
+        card opens for a new image.
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
-import {editNote, newRevealNote, publishLabel, saveLabel, studioDocumentTitle} from '../studioCopy';
+import {PRINTINGS_ONLY_NOTE, editNote, newRevealNote, publishLabel, saveLabel, studioDocumentTitle} from '../studioCopy';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -70,5 +70,12 @@ describe('editNote (R4-6b)', () => {
   it('says a rehearsal branch never deploys, image or not', () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
     expect(editNote({withImage: true})).toBe('It went to admin-verify; only master deploys to production.');
+  });
+});
+
+describe('PRINTINGS_ONLY_NOTE (#68)', () => {
+  // What Edit card prints under a Set 1 to 8 card's facts: the card rotated out of Core, so its data and art are not admin's to change.
+  it('says only the versions of such a card’s printings change in Edit card', () => {
+    expect(PRINTINGS_ONLY_NOTE).toBe('A Set 1 to 8 card: only its printings’ versions change here.');
   });
 });

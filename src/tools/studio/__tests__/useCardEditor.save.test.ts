@@ -6,6 +6,7 @@ import {isRejectedToken} from '../../../github/rejectedToken';
 import {DeferredReader} from '../../../test/DeferredReader';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
+import {loadCollection} from '../finishes/__tests__/collectionHarness';
 import {DUAL_INK_ENTRY, JA_SCAN_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, RELEASED_REVEAL_CARD, cardOf} from '../studioFixtures';
 import {useCardEditor, type CardEditorController} from '../useCardEditor';
 
@@ -47,7 +48,7 @@ function loadedList(cards: LorcanaCard[]): CardList {
   return {cards, isLoading: false, error: null, getCardById: (id) => byId.get(id), retryLoad: vi.fn()};
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   // A block, not an arrow's value: mockReset() returns the mock, which Vitest would call as a teardown.
   for (const mock of [commitCardEdit, commitCardImage, commitPreviewCardImage, readPreviewCards]) mock.mockReset();
   readPreviewCards.mockResolvedValue(ENTRIES);
@@ -55,6 +56,8 @@ beforeEach(() => {
   commitCardImage.mockResolvedValue(COMMIT);
   commitPreviewCardImage.mockResolvedValue(COMMIT);
   list.value = loadedList(CARDS);
+  // Sets 1 to 8 are in (and hold no card) before the editor mounts.
+  await loadCollection();
 });
 
 afterEach(() => {

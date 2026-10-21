@@ -154,7 +154,8 @@ describe('StudioPage: the mode switch (R-57)', () => {
 
   it("names the tab after Edit card's card, and New reveal after the page (R-51)", async () => {
     const {user} = renderStudio({path: '/studio?mode=edit&card=2983'});
-    expect(document.title).toBe('Elsa - Snow Queen · Card studio · Inkweave admin');
+    // The card opens once Sets 1 to 8 are in too (#68), a moment after the first render.
+    await waitFor(() => expect(document.title).toBe('Elsa - Snow Queen · Card studio · Inkweave admin'));
     await user.click(modes().newReveal);
     await waitFor(() => expect(document.title).toBe('Card studio · Inkweave admin'));
   });

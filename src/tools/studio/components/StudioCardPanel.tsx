@@ -162,11 +162,12 @@ function PreviewPicture({card, state}: {card: LorcanaCard | null; state: FrameSt
   );
 }
 
-function PreviewFrame({card, slot, layout, wiring}: {card: LorcanaCard | null; slot: ImageSlot; layout: StudioLayout; wiring: FileWiring}) {
+/** The art, under the file control that replaces it: `wiring` is null for a panel that offers none (imageControl). */
+function PreviewFrame({card, slot, layout, wiring}: {card: LorcanaCard | null; slot: ImageSlot; layout: StudioLayout; wiring: FileWiring | null}) {
   return (
     <div style={{...FRAME, maxWidth: PREVIEW_MAX[layout]}}>
       <PreviewPicture card={card} state={frameState(slot)} />
-      <FileCover caption={pillCaption(slot)} wiring={wiring} />
+      {wiring && <FileCover caption={pillCaption(slot)} wiring={wiring} />}
     </div>
   );
 }
@@ -261,6 +262,12 @@ export interface StudioCardPanelProps {
   staged: StagedImage;
   /** Edit: the card as it stands, whose art the thumbnail shows while an image is staged (R-89). New reveal has none. */
   current?: LorcanaCard | null;
+  /**
+   * Whether the panel offers to replace the image (default true). False draws the art and the caption
+   * alone: no pill over the preview, no Replace card image, no formats hint, and no drop target. A card
+   * of Sets 1 to 8 opens so, since its art is Ravensburger's (#68).
+   */
+  imageControl?: boolean;
   onImageChange: (file: File | null) => void;
   /** Edit's revertImage. Without it, Revert image clears the file through onImageChange(null), as New reveal does. */
   onRevertImage?: () => void;
@@ -272,9 +279,19 @@ export interface StudioCardPanelProps {
  * isn't English, and the image's controls and notes. Both file controls are
  * useHiddenFileInput labels, so the keyboard reaches them, that take a
  * dropped file too (useFileDrop), and both are described by the formats and
- * by the file's error.
+ * by the file's error. A panel without an image control (imageControl) has
+ * neither control, nor the notes about the file they take.
  */
-export function StudioCardPanel({card, mode, layout, staged, current = null, onImageChange, onRevertImage}: StudioCardPanelProps) {
+export function StudioCardPanel({
+  card,
+  mode,
+  layout,
+  staged,
+  current = null,
+  imageControl = true,
+  onImageChange,
+  onRevertImage,
+}: StudioCardPanelProps) {
   const id = useId();
   const ids: ImageNoteIds = {hint: `${id}-hint`, error: `${id}-error`};
   const root = useRef<HTMLElement>(null);
@@ -291,11 +308,15 @@ export function StudioCardPanel({card, mode, layout, staged, current = null, onI
   };
   return (
     <section ref={root} aria-label="Card preview" style={PANEL}>
-      <PreviewFrame card={card} slot={slot} layout={layout} wiring={wiring} />
+      <PreviewFrame card={card} slot={slot} layout={layout} wiring={imageControl ? wiring : null} />
       <CardCaption card={card} />
       <ScanTranslation card={card} />
-      <ImageActions slot={slot} wiring={wiring} onRevert={revert} />
-      <ImageNotes slot={slot} current={current} ids={ids} />
+      {imageControl && (
+        <>
+          <ImageActions slot={slot} wiring={wiring} onRevert={revert} />
+          <ImageNotes slot={slot} current={current} ids={ids} />
+        </>
+      )}
     </section>
   );
 }

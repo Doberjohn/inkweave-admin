@@ -68,3 +68,10 @@ export function saveLabel({saving}: {saving: boolean}): string {
 export function editNote(result: Pick<EditResult, 'withImage'> | null): string {
   return result?.withImage ? goLiveNote(deploying('the new image')) : newRevealNote();
 }
+
+/**
+ * What Edit card prints under the facts of a card of Sets 1 to 8 (#68). Those sets rotated out of
+ * Core, so the card's own data and its art (Ravensburger's) aren't admin's to change: only the
+ * versions of its printings are.
+ */
+export const PRINTINGS_ONLY_NOTE = 'A Set 1 to 8 card: only its printings’ versions change here.';

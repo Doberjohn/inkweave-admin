@@ -5,11 +5,12 @@ import {useImageUpload} from '../../components/useImageUpload';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {imageErrorOf} from '../reveal/livePreview';
 import type {ValidationResult} from '../reveal/validateForm';
-import {branchLookup, deployedOf, editSources} from './branchCards';
+import {branchLookup, deployedOf, editSources, isPrintingsOnly, withCollectionCards} from './branchCards';
 import {hasEdits, type ImageOnlyReason} from './cardEdit';
 import {changeRows, type ChangeRow} from './changeRows';
 import type {CardTag} from './editSearch';
 import {reseeded} from './editSave';
+import {useCollectionOnlyCards, type CollectionOnlyCards} from './finishes/collectionCards';
 import {
   discardDraft,
   draftChanges,
@@ -105,16 +106,31 @@ export interface CardEditorController extends EditSave {
   onImageChange: (file: File | null) => Promise<void>;
   revertImage: () => void;
   /**
-   * R4-4d (R-66): every card the search can open: the cards only the branch
-   * file holds, then the card list. While any card is branch-only, this array
-   * and each branch-only card (lookup.card, when one is open) are new on every
-   * render: key an effect on card ids, never on these.
+   * R4-4d (R-66), #68: every card the search can open: the cards only the
+   * branch file holds, then the card list, then the cards of Sets 1 to 8 once
+   * they are in (`collection`). While any card is branch-only, this array and
+   * each branch-only card (lookup.card, when one is open) are new on every
+   * render; once any of Sets 1 to 8 is in, the array is too, though their
+   * cards are not. Key an effect on card ids, never on these.
    */
   searchCards: LorcanaCard[];
   /** R4-4d (R-66): the ids only the branch file holds, for searchCards' rows. */
   branchOnlyIds: ReadonlySet<number>;
   /** R4-4d (R-66): false while the open card is one only the branch file holds; true with none open. */
   deployed: boolean;
+  /**
+   * #68: whether the open card is one of Sets 1 to 8, which rotated out of Core.
+   * Only its printings' versions change here: the page shows its data read-only,
+   * with no image control and no Save. False with no card open.
+   */
+  printingsOnly: boolean;
+  /**
+   * #68: Sets 1 to 8, read from the app's collection chunks. The search adds
+   * their cards once `status` reads ready; a lookup waits for them while they
+   * load; and when they fail the search goes on without them, and the page
+   * offers `retry`.
+   */
+  collection: CollectionOnlyCards;
   /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
   reloadFile: () => void;
   /**
@@ -187,7 +203,8 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
 /**
  * Edit card's controller (R4-4b: loading and editing; R4-4c adds saving).
  * The card comes from the shell's card list plus the cards only the branch
- * file holds (editSources, R-66), its entry and kind from previewCards.json on
+ * file holds (editSources, R-66) plus the cards of Sets 1 to 8
+ * (withCollectionCards, #68), its entry and kind from previewCards.json on
  * the target branch (R-71: only a reveal-set card under a preview id waits for it), and
  * the draft from both. branchLookup refines the lookup with what only the file
  * can say: an id neither source holds waits for the file before it reads
@@ -197,7 +214,10 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
   // R4-4d (R-66): the card list with the cards only the branch file holds, and the file less allCards' ids.
-  const {list, file} = editSources({list: useCardDataContext(), file: usePreviewCardsFile(token)});
+  const {list: coreList, file} = editSources({list: useCardDataContext(), file: usePreviewCardsFile(token)});
+  // #68: Sets 1 to 8 come last, for the search and the lookup. The engine scores a preview against Core cards alone: findSynergies keeps coreList.
+  const collection = useCollectionOnlyCards();
+  const list = withCollectionCards({list: coreList, collection});
   const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file});
   const [draft, setDraft] = useEditDraft({cardId, lookup, file});
   const image = useDraftImage(draft, setDraft);
@@ -236,7 +256,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
       return rowsAfterRevert({draft, row, imageName: staged.name});
     },
     previewCard,
-    findSynergies: () => editSynergies({preview: previewCard, draft, cards: list.cards}),
+    findSynergies: () => editSynergies({preview: previewCard, draft, cards: coreList.cards}),
     imageName: staged.name,
     imageDataUrl: staged.dataUrl,
     imageError: imageErrorOf(staged, validation),
@@ -245,6 +265,8 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     searchCards: list.cards,
     branchOnlyIds: list.branchOnlyIds,
     deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
+    printingsOnly: isPrintingsOnly(openCard(lookup)),
+    collection,
     reloadFile: () => void file.reload(),
     seed: draft.seed,
     ...save,
