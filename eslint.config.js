@@ -112,6 +112,7 @@ export default tseslint.config(
       'inkweave/no-backdrop-filter': 'error',
       'inkweave/no-adhoc-buttons': 'error',
       'inkweave/no-unshelled-dialogs': 'error',
+      'inkweave/no-dim-text': 'error',
     },
   },
   {
