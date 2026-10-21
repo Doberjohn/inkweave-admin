@@ -13,6 +13,7 @@ const INK_PROPS = new Set(['ink', 'clickedCardInk', 'cardAInk', 'cardBInk']);
 /**
  * The eventData prop that carries a rarity. reveal_card_click sends the card's, or for
  * a special printing the printing's: `printing?.rarity ?? card.rarity ?? null`.
+ * card_printing_view sends the printing's printed rarity (Doberjohn/inkweave#796).
  */
 const RARITY_PROP = 'rarity';
 
