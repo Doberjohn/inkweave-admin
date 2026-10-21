@@ -26,14 +26,23 @@ export function setChunkPath(setCode: string): string {
 /** Every entry id a file holds, with its `finishes`, or null where the entry has none. */
 export type FileValues = ReadonlyMap<string, PrintingFinishes | null>;
 
+/** What an entry says of its printing's versions: the ones it names, and the rarity that gives them where it names none. */
+export interface EntryFacts {
+  /** Its `finishes`, or null where it has none. */
+  finishes: PrintingFinishes | null;
+  /** The rarity printed on it, or undefined where the entry names none. */
+  rarity: string | undefined;
+}
+
 /** A path that is none of the four files, or an id the file doesn't hold. */
 export class FinishFileError extends Error {
   name = 'FinishFileError';
 }
 
-/** A printing's entry, whichever file holds it: the only two keys this module reads or writes. */
+/** A printing's entry, whichever file holds it: the only keys this module reads, `finishes` the only one it writes. */
 interface Entry {
   id: number | string;
+  rarity?: string;
   finishes?: PrintingFinishes;
 }
 
@@ -102,12 +111,17 @@ function openFile({path, text}: FileText): OpenFile {
   throw new FinishFileError(`${path} isn't one of the files that hold printings' versions`);
 }
 
-/** Every entry id the file holds, with the versions it names, or null where the entry names none. */
-export function readFinishes(file: FileText): FileValues {
+/** Every entry id the file holds, with what the entry says of its printing's versions. */
+export function readEntryFacts(file: FileText): ReadonlyMap<string, EntryFacts> {
   const {entries} = openFile(file);
   return new Map(
-    entries.map((entry): [string, PrintingFinishes | null] => [String(entry.id), entry.finishes ?? null]),
+    entries.map(({id, finishes, rarity}): [string, EntryFacts] => [String(id), {finishes: finishes ?? null, rarity}]),
   );
+}
+
+/** Every entry id the file holds, with the versions it names, or null where the entry names none. */
+export function readFinishes(file: FileText): FileValues {
+  return new Map([...readEntryFacts(file)].map(([id, {finishes}]): [string, PrintingFinishes | null] => [id, finishes]));
 }
 
 /**

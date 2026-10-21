@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, waitFor} from '@testing-library/react';
-import type {LorcanaCard, PrintingFinishes} from 'inkweave-synergy-engine';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {forgetBranchFiles} from '../branchFiles';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishFiles';
 import {useBranchPrintings, type BranchPrintings} from '../useBranchPrintings';
@@ -21,6 +21,7 @@ import {
   allCardsText,
   catalogText,
   collectionText,
+  withFinishes,
 } from './finishFixtures';
 
 afterEach(() => {
@@ -46,11 +47,6 @@ const MKB_FILES = {
   [ALL_CARDS_PATH]: allCardsText([MOTHER_KNOWS_BEST_ENTRY]),
 };
 const MKB_NAMES = ['#99', '1/C3', '13/C3'];
-
-/** `entries` with `finishes` set on the ones `values` names. */
-function withFinishes<T extends {id: number}>(entries: readonly T[], values: Readonly<Record<number, PrintingFinishes>>): T[] {
-  return entries.map((entry) => (values[entry.id] ? {...entry, finishes: values[entry.id]} : entry));
-}
 
 /**
  * Pegasus's files, each naming a printing's versions differently from the others that hold it

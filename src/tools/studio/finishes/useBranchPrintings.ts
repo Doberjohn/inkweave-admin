@@ -4,6 +4,8 @@ import {transformPromos, transformRawCards, type RawCollectionPromo} from '../..
 import {
   forgetBranchFiles,
   lastTextCached,
+  messageOf,
+  namingItsFile,
   readBranchFile,
   useBranchFilesGeneration,
   type BranchFile,
@@ -38,19 +40,6 @@ interface Settled {
   setCode: string;
   generation: number;
   outcome: Outcome;
-}
-
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-/** `parse`, but a file it can't make sense of is named: a parser says only what it met ("Unexpected token <"). */
-function namingItsFile<T>(parse: (file: BranchFile) => T): (file: BranchFile) => T {
-  return (file) => {
-    try {
-      return parse(file);
-    } catch (e) {
-      throw new Error(`${file.path} can't be read: ${messageOf(e)}`, {cause: e});
-    }
-  };
 }
 
 /** Each parse of a file's text is kept until that file's text changes, so a card of another set doesn't parse allCards.json again. */

@@ -1,4 +1,4 @@
-import type {LorcanaCard, LorcanaJSONCard, RawCardVariant} from 'inkweave-synergy-engine';
+import type {LorcanaCard, LorcanaJSONCard, PrintingFinishes, RawCardVariant} from 'inkweave-synergy-engine';
 import {
   transformPromos,
   transformRawCards,
@@ -145,6 +145,20 @@ export const C3_MKB_ENTRIES: RawCollectionPromo[] = [
 
 export const C3_MKB: CollectionPromo[] = transformPromos(C3_MKB_ENTRIES);
 
+/** The same two promos as allCards.json's `variants` and the promo catalog store them. */
+export const MKB_VARIANTS: RawCardVariant[] = MOTHER_KNOWS_BEST_ENTRY.variants ?? [];
+
+/**
+ * Mother Knows Best's rows, as a branch whose catalog names its promos' versions gives them: #99 (no
+ * field, so Both), 1/C3 (`["normal"]`, Normal only) and 13/C3 (`["foil"]`, Foil only).
+ */
+export const MKB_ROWS: PrintingRow[] = printingRowsFor({
+  card: MOTHER_KNOWS_BEST,
+  chunk: [],
+  promos: C3_MKB,
+  valueOf: (ref) => C3_MKB.find((promo) => promo.id === ref.id)?.finishes ?? null,
+});
+
 /** Pegasus - Gift for Hercules, as allCards.json stores it: Set 9 #84. */
 export const PEGASUS_ENTRY: LorcanaJSONCard = {
   id: 2020,
@@ -283,6 +297,14 @@ export const MICKEY_PROMOS: CollectionPromo[] = transformPromos(MICKEY_PROMO_ENT
  * read (`readRepoFile`), in each file's own format (finishFiles.ts), so a read goes through the
  * real parsers.
  */
+
+/**
+ * `entries` with `finishes` set on the ones `values` names. A fixture's `finishes` is its last key
+ * when it has one, so the value set is too, as a write puts it.
+ */
+export function withFinishes<T extends {id: number}>(entries: readonly T[], values: Readonly<Record<number, PrintingFinishes>>): T[] {
+  return entries.map((entry) => (values[entry.id] ? {...entry, finishes: values[entry.id]} : entry));
+}
 
 /** A set's chunk or promos.json: `JSON.stringify(entries)` and a newline. */
 export function collectionText(entries: readonly unknown[]): string {

@@ -12,11 +12,12 @@ import {resetVersionBatch} from '../tools/studio/finishes/versionBatchStore';
 // read or batch. The batch's reset deletes the master batch's saved copy too,
 // so a test that saves under another branch's key clears it itself.
 //
-// This file loads branchFiles and versionBatchStore, and githubCommit with
-// them, before a test file's vi.mock registers, so a vi.mock of githubCommit
-// never reaches either: a test of what reads the branch's files stubs fetch
-// instead (src/tools/studio/finishes/__tests__/branchHarness.ts), and a test of
-// the batch gives it another branch with vi.stubEnv.
+// This file loads branchFiles and versionBatchStore, and githubCommit and
+// publishVersions with them, before a test file's vi.mock registers, so a
+// vi.mock of either never reaches them: a test of what reads the branch's files
+// stubs fetch instead (src/tools/studio/finishes/__tests__/branchHarness.ts), a
+// test of a publish stubs the calls that commit too (repoHarness.ts beside it),
+// and a test of the batch gives it another branch with vi.stubEnv.
 beforeEach(() => {
   resetAdminDataCache();
   resetVotesFilter();

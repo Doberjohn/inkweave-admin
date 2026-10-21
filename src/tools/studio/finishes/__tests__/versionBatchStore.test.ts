@@ -1,8 +1,14 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
+import {isRejectedToken} from '../../../../github/rejectedToken';
+import {useBranchFilesGeneration} from '../branchFiles';
+import {setChunkPath} from '../finishFiles';
+import {clashMessage, versionCommitMessage} from '../publishVersions';
 import {afterPublish, changeFor} from '../versionBatch';
-import {VERSION_BATCH_KEY_PREFIX, resetVersionBatch, useVersionBatch} from '../versionBatchStore';
-import {YEN_SID_ROWS} from './finishFixtures';
+import {VERSION_BATCH_KEY_PREFIX, resetVersionBatch, useVersionBatch, type VersionBatchView} from '../versionBatchStore';
+import {deferredResponse} from './branchHarness';
+import {SET_4_ENTRIES, SET_4_TEXT, YEN_SID_ROWS, collectionText, withFinishes} from './finishFixtures';
+import {COMMIT_URL, moved, notAFastForward, stubRepo, type RepoAnswers} from './repoHarness';
 
 const MASTER_KEY = `${VERSION_BATCH_KEY_PREFIX}master`;
 const REHEARSAL_KEY = `${VERSION_BATCH_KEY_PREFIX}rehearse-68`;
@@ -469,5 +475,327 @@ describe('another tab', () => {
     first.unmount();
     const again = renderHook(() => useVersionBatch());
     expect(again.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+  });
+});
+
+/*
+ * Publishing. Yen Sid's three printings are all in Set 4's chunk, below Core, so that file is all a
+ * publish of their changes reads and writes.
+ */
+
+const CHUNK_4 = setChunkPath('4');
+
+/** Set 4's chunk at the commit a publish builds on, as its rows were read: nothing changed since. */
+const SET_4_FILES = {[CHUNK_4]: SET_4_TEXT};
+
+/** Set 4's chunk once someone made #223 Normal only, and the clash a publish of #223's change meets there. */
+const SET_4_ALT_FOIL_NORMAL = {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal']}))};
+const ALT_FOIL_CLASH = {id: '946', now: ['normal'], shownNow: ['normal']};
+
+/** commitFiles' refusal when the branch moved under the publish. */
+const RACE = 'master changed while publishing, so nothing was published. Publish again.';
+
+/** What a test reads the batch through: renderHook's result. */
+type View = {readonly current: VersionBatchView};
+
+/** Starts a publish, as the tray's button does, and hands back the promise it returns. */
+function startPublish(view: View): Promise<void> {
+  let publishing = Promise.resolve();
+  act(() => {
+    publishing = view.current.publish('t');
+  });
+  return publishing;
+}
+
+/** Publishes the batch, and waits for the publish to end. */
+async function publishNow(view: View): Promise<void> {
+  await act(() => view.current.publish('t'));
+}
+
+/** Lets `settle` answer what a publish waits for, and waits for the publish to end. */
+async function settled(publishing: Promise<void>, settle: () => void): Promise<void> {
+  await act(async () => {
+    settle();
+    await publishing;
+  });
+}
+
+/** A ref update that waits until the test lets it move the branch. */
+function heldUpdate() {
+  const late = deferredResponse();
+  return {update: () => late.response, moveBranch: () => late.respond(moved())};
+}
+
+/** A page holding #223's change, and a publish of it under way, against a repo that answers so. */
+function publishingAltFoil(answers: RepoAnswers) {
+  const repo = stubRepo(answers);
+  const page = renderHook(() => useVersionBatch());
+  act(() => page.result.current.stage(ALT_FOIL_TO_BOTH));
+  return {repo, page, view: page.result, publishing: startPublish(page.result)};
+}
+
+describe('publishing', () => {
+  it('clears the published changes and keeps one staged during the publish', async () => {
+    const held = heldUpdate();
+    const {repo, view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    const generation = renderHook(() => useBranchFilesGeneration());
+    expect(view.current.publishing).toBe(true);
+
+    act(() => view.current.stage(CARD_TO_FOIL));
+    await settled(publishing, held.moveBranch);
+    expect(view.current.changes).toEqual([CARD_TO_FOIL]);
+    expect(view.current.publishing).toBe(false);
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.error).toBeNull();
+    expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL]});
+    // It sent what was staged when it started, with the owner's token, and the panel reads the branch again.
+    expect(repo.commitMessage()).toBe(versionCommitMessage(1));
+    expect(repo.reads().map(({token}) => token)).toEqual(['t']);
+    expect(generation.result.current).toBe(1);
+  });
+
+  it('keeps a change staged again for a printing it sent, which is another change', async () => {
+    const held = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    const normal = changeFor({row: ALT_FOIL_223, choice: 'normal'});
+    act(() => view.current.stage(normal));
+
+    await settled(publishing, held.moveBranch);
+    expect(view.current.changes).toEqual([normal]);
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+
+  it('marks clashes and keeps the batch when a printing changed', async () => {
+    const repo = stubRepo({files: SET_4_ALT_FOIL_NORMAL});
+    const {result} = renderHook(() => useVersionBatch());
+    const generation = renderHook(() => useBranchFilesGeneration());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    act(() => result.current.stage(CARD_TO_FOIL));
+    await publishNow(result);
+
+    const marked = [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL];
+    expect(result.current.changes).toEqual(marked);
+    expect(result.current.error).toBe(clashMessage(1));
+    expect(result.current.result).toBeNull();
+    expect(result.current.publishing).toBe(false);
+    expect(saved()).toEqual({v: 1, changes: marked});
+    expect(repo.writes()).toEqual([]);
+    // The panel reads the branch again, so its rows show what the branch has now.
+    expect(generation.result.current).toBe(1);
+  });
+
+  it('counts every clash in what it says', async () => {
+    // Someone has made #223 Normal only and #59 Foil only since their changes were staged.
+    stubRepo({files: {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal'], 750: ['foil']}))}});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    act(() => result.current.stage(CARD_TO_FOIL));
+    act(() => result.current.stage(ENCHANTED_TO_BOTH));
+    await publishNow(result);
+
+    expect(result.current.error).toBe(clashMessage(2));
+    expect(result.current.changes.map(({clash}) => clash?.id)).toEqual(['946', '750', undefined]);
+  });
+
+  it('keeps the batch when the branch moved', async () => {
+    stubRepo({files: SET_4_FILES, update: notAFastForward});
+    const {result} = renderHook(() => useVersionBatch());
+    const generation = renderHook(() => useBranchFilesGeneration());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    const before = result.current.changes;
+    await publishNow(result);
+
+    expect(result.current.error).toBe(RACE);
+    expect(result.current.changes).toBe(before);
+    expect(result.current.publishing).toBe(false);
+    expect(result.current.result).toBeNull();
+    // Only a publish that landed, or that found a clash, has the panel read the branch again.
+    expect(generation.result.current).toBe(0);
+  });
+
+  it('says why GitHub refused a publish in its own words, which tell a rejected token', async () => {
+    const repo = stubRepo({files: SET_4_FILES});
+    repo.fetch.mockImplementationOnce(async () => new Response('Bad credentials', {status: 401}));
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    await publishNow(result);
+
+    expect(result.current.error).toBe('GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials');
+    expect(isRejectedToken(result.current.error ?? '')).toBe(true);
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+    expect(result.current.publishing).toBe(false);
+  });
+
+  it('words a failure that is no Error as a failed publish', async () => {
+    const repo = stubRepo({files: SET_4_FILES});
+    repo.fetch.mockImplementationOnce(() => Promise.reject('offline'));
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    await publishNow(result);
+    expect(result.current.error).toBe('Publish failed');
+  });
+
+  it('does nothing while a publish is under way', async () => {
+    const held = heldUpdate();
+    const {repo, view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    await publishNow(view);
+    expect(view.current.publishing).toBe(true);
+
+    await settled(publishing, held.moveBranch);
+    expect(repo.writes()).toEqual(['POST git/blobs', 'POST git/trees', 'POST git/commits', 'PATCH git/refs/heads/master']);
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+
+  it('does nothing with nothing staged, nor while a clash is open', async () => {
+    const repo = stubRepo({files: SET_4_FILES});
+    const {result} = renderHook(() => useVersionBatch());
+    await publishNow(result);
+    reloadWith({v: 1, changes: [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL]});
+    await publishNow(result);
+
+    expect(repo.fetch).not.toHaveBeenCalled();
+    expect(result.current.publishing).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('starts over: under way at once, with why the last publish failed gone', async () => {
+    stubRepo({files: SET_4_FILES, update: notAFastForward});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    await publishNow(result);
+    expect(result.current.error).toBe(RACE);
+
+    const held = heldUpdate();
+    stubRepo({files: SET_4_FILES, update: held.update});
+    const publishing = startPublish(result);
+    expect(result.current.publishing).toBe(true);
+    expect(result.current.error).toBeNull();
+
+    await settled(publishing, held.moveBranch);
+    expect(result.current.changes).toEqual([]);
+    expect(result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+
+  it('forgets the publish that landed once the next one starts', async () => {
+    const first = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: first.update});
+    act(() => view.current.stage(CARD_TO_FOIL));
+    await settled(publishing, first.moveBranch);
+    expect(view.current.result).not.toBeNull();
+
+    const second = heldUpdate();
+    stubRepo({files: SET_4_FILES, update: second.update});
+    const again = startPublish(view);
+    expect(view.current.result).toBeNull();
+
+    await settled(again, second.moveBranch);
+    expect(view.current.changes).toEqual([]);
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+});
+
+describe('what the last publish said', () => {
+  /** A page after a publish of #223 landed, with #59's change staged while it ran: `result` says so. */
+  async function afterLanding(): Promise<View> {
+    const held = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    act(() => view.current.stage(CARD_TO_FOIL));
+    await settled(publishing, held.moveBranch);
+    return view;
+  }
+
+  /** A page after a publish of #223 and #59 that the branch refused, as one that moved: `error` says why. */
+  async function afterRace(): Promise<View> {
+    stubRepo({files: SET_4_FILES, update: notAFastForward});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    act(() => result.current.stage(CARD_TO_FOIL));
+    await publishNow(result);
+    return result;
+  }
+
+  const EDITS: [string, (view: VersionBatchView) => void][] = [
+    ['stages a change', (view) => view.stage(ENCHANTED_TO_BOTH)],
+    ['reverts one', (view) => view.revert(CARD_TO_FOIL.id)],
+    ['discards them all', (view) => view.discard()],
+  ];
+
+  it.each(EDITS)('forgets the publish that landed once the owner %s', async (_what, edit) => {
+    const view = await afterLanding();
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    act(() => edit(view.current));
+    expect(view.current.result).toBeNull();
+  });
+
+  it.each(EDITS)('forgets why the last publish failed once the owner %s', async (_what, edit) => {
+    const view = await afterRace();
+    expect(view.current.error).toBe(RACE);
+    act(() => edit(view.current));
+    expect(view.current.error).toBeNull();
+  });
+
+  it('keeps the publish that landed when the owner keeps a change', async () => {
+    const view = await afterLanding();
+    act(() => view.current.keep(CARD_TO_FOIL.id));
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+
+  it('keeps the clash message when the owner keeps the clashed change', async () => {
+    stubRepo({files: SET_4_ALT_FOIL_NORMAL});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    await publishNow(result);
+
+    act(() => result.current.keep('946'));
+    expect(result.current.changes).toEqual([{...ALT_FOIL_TO_BOTH, from: ['normal'], shownFrom: ['normal']}]);
+    expect(result.current.error).toBe(clashMessage(1));
+  });
+});
+
+describe('a publish and other tabs', () => {
+  it('stays under way through another tab’s save, and takes out only what it sent once it lands', async () => {
+    const held = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    otherTabSaves([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+    expect(view.current.publishing).toBe(true);
+    expect(view.current.changes).toEqual([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+
+    act(() => view.current.stage(ENCHANTED_TO_BOTH));
+    await settled(publishing, held.moveBranch);
+    expect(view.current.changes).toEqual([CARD_TO_FOIL, ENCHANTED_TO_BOTH]);
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL, ENCHANTED_TO_BOTH]});
+  });
+
+  it('takes in what another tab saved while no component listened, before it saves what the publish left', async () => {
+    const held = heldUpdate();
+    const {page, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    page.unmount();
+    // Another tab stages #59's change. No component listens here, so no event reaches the store.
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [ALT_FOIL_TO_BOTH, CARD_TO_FOIL]}));
+
+    await settled(publishing, held.moveBranch);
+    expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL]});
+    expect(renderHook(() => useVersionBatch()).result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('takes in what another tab saved while no component listened, before it marks a clash', async () => {
+    const late = deferredResponse();
+    const {page, publishing} = publishingAltFoil({files: {[CHUNK_4]: () => late.response}});
+    page.unmount();
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [ALT_FOIL_TO_BOTH, CARD_TO_FOIL]}));
+
+    await settled(publishing, () => late.respond(new Response(SET_4_ALT_FOIL_NORMAL[CHUNK_4])));
+    expect(saved()).toEqual({v: 1, changes: [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL]});
+  });
+
+  it('keeps a change storage refused to save when the publish lands, rather than read storage back', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const held = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    act(() => view.current.stage(ENCHANTED_TO_BOTH));
+
+    await settled(publishing, held.moveBranch);
+    expect(view.current.changes).toEqual([ENCHANTED_TO_BOTH]);
   });
 });

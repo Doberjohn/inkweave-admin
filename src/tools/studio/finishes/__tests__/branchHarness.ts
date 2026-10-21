@@ -11,13 +11,13 @@ import {vi, type Mock} from 'vitest';
 const CONTENTS = '/repos/Doberjohn/inkweave/contents/';
 
 /** What a contents request asks for: the path and the ref in its address, and the token in its headers. */
-interface Asked {
+export interface Asked {
   path: string;
   ref: string;
   token: string;
 }
 
-function askedOf([url, init]: Parameters<typeof fetch>): Asked {
+export function askedOf([url, init]: Parameters<typeof fetch>): Asked {
   const {pathname, searchParams} = new URL(String(url));
   const {Authorization = ''} = (init?.headers ?? {}) as Record<string, string>;
   return {
@@ -29,6 +29,18 @@ function askedOf([url, init]: Parameters<typeof fetch>): Asked {
 
 /** What the branch answers a path with: the file's text, or the answer itself (a failure, or a read that waits). */
 export type Served = string | (() => Response | Promise<Response>);
+
+/**
+ * The contents API of a branch that holds `files`, which it looks up on every request, so a test
+ * can change one between reads. A path it doesn't hold is a 404.
+ */
+export function contentsAnswer(files: Readonly<Record<string, Served>>): (...call: Parameters<typeof fetch>) => Promise<Response> {
+  return async (...call) => {
+    const served = files[askedOf(call).path];
+    if (served === undefined) return new Response('Not Found', {status: 404});
+    return typeof served === 'string' ? new Response(served) : served();
+  };
+}
 
 /** The stubbed contents API. */
 export interface BranchStub {
@@ -42,17 +54,9 @@ export interface BranchStub {
   tokens: () => string[];
 }
 
-/**
- * Stubs fetch as the contents API of a branch that holds `files`, which it looks up on every
- * request, so a test can change one between reads. A path it doesn't hold is a 404. Unstub in
- * afterEach (`vi.unstubAllGlobals`).
- */
+/** Stubs fetch as the contents API of a branch that holds `files` (`contentsAnswer`). Unstub in afterEach (`vi.unstubAllGlobals`). */
 export function stubBranch(files: Readonly<Record<string, Served>>): BranchStub {
-  const answer = vi.fn<typeof fetch>(async (...call) => {
-    const served = files[askedOf(call).path];
-    if (served === undefined) return new Response('Not Found', {status: 404});
-    return typeof served === 'string' ? new Response(served) : served();
-  });
+  const answer = vi.fn<typeof fetch>(contentsAnswer(files));
   vi.stubGlobal('fetch', answer);
   const requests = () => answer.mock.calls.map(askedOf);
   return {

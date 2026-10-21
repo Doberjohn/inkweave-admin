@@ -1,11 +1,16 @@
 import {useSyncExternalStore} from 'react';
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {targetBranch} from '../../../github/githubCommit';
+import {forgetBranchFiles} from './branchFiles';
 import {CHOICE_OPTIONS, finishesOfChoice, sameFinishes} from './finishValues';
+import {clashMessage, publishVersions, VersionClashError} from './publishVersions';
 import {
   EMPTY_BATCH,
+  afterPublish,
+  hasClash,
   keptClash,
   withChange,
+  withClashes,
   withoutChange,
   type VersionBatch,
   type VersionChange,
@@ -31,6 +36,12 @@ import {
  * failed here, and memory is the only place the batch is). The changes it already holds, just as
  * they are saved, stay the same objects: a publish in flight takes what it sent out by identity
  * (`afterPublish`). Storage that can't be read says nothing, so the batch stays.
+ *
+ * A publish sends the changes staged when it starts (publishVersions.ts), and the owner may stage
+ * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch.
+ * When it finds clashes it marks them on their changes, and the batch stays, as it does for any
+ * other failure. A landing or a clash writes the batch, so it first takes in what is saved, as the
+ * first component to listen does: no component may have listened while the publish ran.
  */
 
 /** Where a branch's batch is saved: this prefix, then the branch's name. Admin's own keys start `inkweave-admin.`. */
@@ -52,9 +63,9 @@ export interface VersionBatchView {
   changes: readonly VersionChange[];
   /** A publish is under way. */
   publishing: boolean;
-  /** The publish that landed last, until the batch changes again. */
+  /** The publish that landed last, until the owner stages, reverts or discards a change, or publishes again. */
   result: PublishResult | null;
-  /** Why the last publish didn't land, until the batch changes again. */
+  /** Why the last publish didn't land, until the owner stages, reverts or discards a change, or publishes again. */
   error: string | null;
   /** Adds a change, in the place of its printing's earlier one. One that restores what the printing showed removes it. */
   stage: (change: VersionChange) => void;
@@ -64,7 +75,7 @@ export interface VersionBatchView {
   discard: () => void;
   /** Keeps a clashed change, on top of the value its printing has on the branch now. */
   keep: (id: string) => void;
-  /** Writes the batch in one commit. */
+  /** Writes the batch in one commit, unless a publish is under way, nothing is staged or a clash is open. */
   publish: (token: string) => Promise<void>;
 }
 
@@ -266,9 +277,56 @@ function keep(id: string): void {
   put({batch: keptClash(snapshot().batch, id)});
 }
 
-/** A publish does nothing yet: it arrives with the module that writes the batch. */
-function publish(): Promise<void> {
-  return Promise.resolve();
+/**
+ * Before a publish that ended writes the batch, makes it what is saved: while no component
+ * listened, the saves of other tabs went unheard, and the batch written next would go over them.
+ * After a failed save here it reads nothing, since memory is then the only place the batch is.
+ */
+function adoptUnheard(): void {
+  if (!snapshot().unsaved) adoptSaved();
+}
+
+/** The publish landed: the changes it sent leave the batch, and the Printings panel reads the branch again. */
+function landed({sent, commitUrl}: {sent: readonly VersionChange[]; commitUrl: string}): void {
+  adoptUnheard();
+  put({batch: afterPublish(snapshot().batch, sent), publishing: false, result: {commitUrl, count: sent.length}});
+  forgetBranchFiles();
+}
+
+/** The publish found clashes: each marks its change, and the panel reads the branch again to show what it has now. */
+function clashed({clashes}: VersionClashError): void {
+  adoptUnheard();
+  put({batch: withClashes(snapshot().batch, clashes), publishing: false, error: clashMessage(clashes.length)});
+  forgetBranchFiles();
+}
+
+/** The publish failed for another reason (the branch moved, the token was rejected): the batch stays as it is. */
+function failed(error: unknown): void {
+  put({publishing: false, error: error instanceof Error ? error.message : 'Publish failed'});
+}
+
+/** The publish didn't land: it found clashes, or failed for another reason. */
+function refused(error: unknown): void {
+  if (error instanceof VersionClashError) clashed(error);
+  else failed(error);
+}
+
+/** Whether a publish may start: none is under way, something is staged, and no clash is open. */
+function canPublish({batch, publishing}: BranchState): boolean {
+  return !publishing && batch.changes.length > 0 && !hasClash(batch);
+}
+
+/**
+ * Writes the batch in one commit, unless a publish is under way, nothing is staged or a clash is
+ * open. It sends the changes staged when it starts, and while it runs what the last publish said
+ * (`result`, `error`) is gone. Each way it ends sets `publishing` back itself, with no `finally`.
+ */
+function publish(token: string): Promise<void> {
+  const state = snapshot();
+  if (!canPublish(state)) return Promise.resolve();
+  const sent = state.batch.changes;
+  put({publishing: true, result: null, error: null});
+  return publishVersions({token, changes: sent}).then(({commitUrl}) => landed({sent, commitUrl}), refused);
 }
 
 /** The shared batch of the target branch, and what the panel and the tray do to it. */

@@ -7,6 +7,7 @@ import {
   CATALOG_PATH,
   FinishFileError,
   PROMOS_PATH,
+  readEntryFacts,
   readFinishes,
   setChunkPath,
   writeFinishes,
@@ -101,4 +102,38 @@ describe('finishFiles', () => {
     const keys = text.match(/"finishes":/g)?.length ?? 0;
     expect([...readFinishes({path, text}).values()].filter((finishes) => finishes !== null)).toHaveLength(keys);
   });
+});
+
+describe('readEntryFacts', () => {
+  it('reads each entry’s versions and rarity, null and undefined where it names none', () => {
+    expect(readEntryFacts({path: setChunkPath('4'), text: chunk})).toEqual(
+      new Map([
+        ['946', {finishes: null, rarity: 'Legendary'}],
+        ['750', {finishes: null, rarity: 'Legendary'}],
+      ]),
+    );
+    expect(readEntryFacts({path: ALL_CARDS_PATH, text: all})).toEqual(
+      new Map([
+        ['2035', {finishes: null, rarity: 'Uncommon'}],
+        ['80017', {finishes: ['normal'], rarity: 'Special'}],
+      ]),
+    );
+    expect(readEntryFacts({path: CATALOG_PATH, text: catalog}).get('3237')).toEqual({finishes: null, rarity: 'Special'});
+    expect(readEntryFacts({path: PROMOS_PATH, text: '[{"id":1}]\n'}).get('1')).toEqual({finishes: null, rarity: undefined});
+  });
+
+  it('refuses a path that is none of the four files, as readFinishes does', () => {
+    expect(() => readEntryFacts({path: 'apps/web/public/data/collection/index.json', text: '[]'})).toThrow(FinishFileError);
+  });
+
+  // A clash shows what a printing comes in now by the rarity its entry gives it, so every entry needs one.
+  it.each([ALL_CARDS_PATH, setChunkPath('4'), PROMOS_PATH, CATALOG_PATH])(
+    'reads the versions readFinishes reads, and a rarity for every entry, from the pinned %s',
+    (path) => {
+      const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
+      const facts = readEntryFacts({path, text});
+      expect(new Map([...facts].map(([id, {finishes}]) => [id, finishes]))).toEqual(readFinishes({path, text}));
+      expect([...facts.values()].filter(({rarity}) => typeof rarity !== 'string')).toEqual([]);
+    },
+  );
 });

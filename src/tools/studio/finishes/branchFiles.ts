@@ -6,7 +6,7 @@ import {readRepoFile, targetBranch} from '../../../github/githubCommit';
  * three or four of them for every card it opens, one of them (allCards.json) about 2 MB, so each is
  * read once per branch for the session, and a publish drops them all (`forgetBranchFiles`) for the
  * next read to see what it wrote. What a file parsed to is kept for as long as its text is the
- * same (`lastTextCached`).
+ * same (`lastTextCached`), and a file whose text a parser can't read is named (`namingItsFile`).
  */
 
 /** A file of the target branch: its path in the app's repo, and the text read there. */
@@ -73,6 +73,24 @@ export function forgetBranchFiles(): void {
  */
 export function useBranchFilesGeneration(): number {
   return useSyncExternalStore(subscribe, snapshot);
+}
+
+/** What a failure says: an Error's message, or what was thrown. */
+export const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * `parse`, but a file it can't make sense of is named: a parser says only what it met ("Unexpected
+ * token <"). Edit card's Printings panel and a publish read the branch's files through it, so they
+ * word such a file alike.
+ */
+export function namingItsFile<T>(parse: (file: BranchFile) => T): (file: BranchFile) => T {
+  return (file) => {
+    try {
+      return parse(file);
+    } catch (e) {
+      throw new Error(`${file.path} can't be read: ${messageOf(e)}`, {cause: e});
+    }
+  };
 }
 
 /**
