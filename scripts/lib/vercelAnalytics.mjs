@@ -64,6 +64,7 @@ export const EVENT_QUERIES = [
       {prop: 'clickedCardInk', label: 'By ink'},
       {prop: 'clickedCardName', label: 'Top cards', limit: 10},
       {prop: 'groupKey', label: 'By synergy group', limit: 10},
+      {prop: 'surface', label: 'By surface'},
     ],
   },
   {
@@ -105,6 +106,16 @@ export const EVENT_QUERIES = [
     breakdowns: [
       {prop: 'action', label: 'By action'},
       {prop: 'groupKey', label: 'By synergy group', limit: 10},
+      {prop: 'surface', label: 'By surface'},
+    ],
+  },
+  {
+    name: 'card_printing_view',
+    label: 'Printings viewed',
+    breakdowns: [
+      {prop: 'rarity', label: 'By rarity'},
+      {prop: 'surface', label: 'By surface'},
+      {prop: 'deviceType', label: 'By device', source: 'dimension'},
     ],
   },
 ];
