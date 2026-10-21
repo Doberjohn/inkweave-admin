@@ -4,6 +4,7 @@ import {themes} from 'storybook/theming';
 import {COLORS} from '../src/app-bridge';
 import {AdminStyles} from '../src/theme/AdminStyles';
 import {resetVotesFilter} from '../src/tools/analytics/votesFilter';
+import {resetVersionBatch} from '../src/tools/studio/finishes/versionBatchStore';
 
 // The same dark canvas as the app's Storybook.
 const preview: Preview = {
@@ -30,8 +31,12 @@ const preview: Preview = {
   // The votes filter is one setting for the session (#33), kept in module
   // state: every story opens at Any, as a reload does, and a story that wants
   // another step sets it in its own beforeEach, which runs after this one.
+  // The studio's batch of version changes (#68) is kept in module state and in
+  // localStorage: every story opens on an empty batch, and one that wants a
+  // batch stages it the same way.
   beforeEach: () => {
     resetVotesFilter();
+    resetVersionBatch();
   },
 };
 

@@ -5,6 +5,7 @@ import {
   type CollectionPromo,
   type RawCollectionPromo,
 } from '../../../../app-bridge';
+import {printingRowsFor, type PrintingRow} from '../printingRows';
 
 /*
  * Fixtures for the printing versions' tests and stories (#68): real entries of the pinned app's
@@ -85,6 +86,18 @@ export const SET_4: LorcanaCard[] = cardsOf(SET_4_ENTRIES);
 
 /** Yen Sid - Powerful Sorcerer, Set 4 #59: a Legendary of a pre-Core set. */
 export const YEN_SID: LorcanaCard = cardWithId(SET_4, '750');
+
+/**
+ * Yen Sid's rows in the Printings panel, as a branch whose files name the alt foil's versions and
+ * no other's gives them: #59 (no field, so Both), #209 Enchanted (no field, so Foil) and #223 Alt
+ * foil (`["foil"]`, Foil).
+ */
+export const YEN_SID_ROWS: PrintingRow[] = printingRowsFor({
+  card: YEN_SID,
+  chunk: SET_4,
+  promos: [],
+  valueOf: (ref) => (ref.id === '946' ? ['foil'] : null),
+});
 
 /** Mother Knows Best, as allCards.json stores it: Set 9 #99, with its two C3 promos under `variants`. */
 export const MOTHER_KNOWS_BEST_ENTRY: LorcanaJSONCard = {
