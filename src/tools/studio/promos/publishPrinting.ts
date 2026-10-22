@@ -30,7 +30,8 @@ import {mergeOver, outOfStep, type MergeInput} from './promoMerge';
  * (PrintingRefusal), and so is a branch that moves meanwhile (commitFiles' own error, which ends "Publish
  * again."). allCards.json and collection/promos.json are the merge's output, each sent only when its text
  * changes: nothing here edits their entries. Any other failure, an unreadable file or a catalog the merge
- * can't take, passes through as it is.
+ * can't take, passes through as it is. A code that a message or a result names is the printing's own, its
+ * art variant included: 24A/P2, not 24/P2.
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -39,12 +40,17 @@ export interface ScanFile {
   base64: string;
 }
 
-/** What an edit checks the branch's entry against: the fields its form edits, and whether its art is Ravensburger's. */
+/**
+ * What an edit checks the branch's entry against: the fields its form edits, whether its art is
+ * Ravensburger's, and its art variant where it has one (the A in 24A/P2), which a code needs to name it.
+ */
 export interface PrintingFacts {
   promoGrouping: string;
   number: number | null;
   scanLanguage: string | null;
   officialArt: boolean;
+  /** As the catalog holds it, so the key is left out where the printing has none. */
+  artVariant?: string;
 }
 
 /** A printing to add to its card, with the scan the printing needs. */
@@ -97,29 +103,37 @@ export interface PrintingPublished {
 /** Where a scan is committed, as Edit card's image tool commits one: the app converts it to the printing's art. */
 export const RAW_SCAN_DIR = 'apps/web/public/card-images-raw';
 
-/** The facts an edit checks the branch's entry against: the fields its form edits, and whether the entry has Ravensburger's art (`images`). */
+/** The facts an edit checks the branch's entry against: the fields its form edits, whether the entry has Ravensburger's art (`images`), and its art variant. */
 export function factsOf(printing: CatalogPrinting): PrintingFacts {
-  return {
+  const facts: PrintingFacts = {
     promoGrouping: printing.promoGrouping,
     number: printing.number ?? null,
     scanLanguage: printing.scanLanguage ?? null,
     officialArt: printing.images !== undefined,
   };
+  if (printing.artVariant !== undefined) facts.artVariant = printing.artVariant;
+  return facts;
 }
 
 /** Whether two sets of facts agree on every field. */
 function sameFacts(a: PrintingFacts, b: PrintingFacts): boolean {
-  return a.promoGrouping === b.promoGrouping && a.number === b.number && a.scanLanguage === b.scanLanguage && a.officialArt === b.officialArt;
+  return a.promoGrouping === b.promoGrouping
+    && a.number === b.number
+    && a.scanLanguage === b.scanLanguage
+    && a.officialArt === b.officialArt
+    && a.artVariant === b.artVariant;
 }
 
-/** The code the facts name, as the form showed it when it opened: "13/C3", or "?/C1" where nobody knows the number. */
-function oldCodeOf({promoGrouping, number}: PrintingFacts): string {
-  return printingCode({promoGrouping, number: number ?? undefined});
+/** The code the facts name, as the form showed it when it opened: "13/C3", "24A/P2", or "?/C1" where nobody knows the number. */
+function oldCodeOf({promoGrouping, number, artVariant}: PrintingFacts): string {
+  return printingCode({promoGrouping, number: number ?? undefined, artVariant});
 }
 
-/** The code the printing has once the change is made: "9/P4". */
-function codeAfter(change: PrintingChange): string {
-  return printingCode(change.kind === 'add' ? change.printing : change.edit);
+/** The parts of the printing's code once the change is made. An edit keeps the printing's art variant: the form doesn't change it. */
+function codePartsAfter(change: PrintingChange): CodeParts {
+  if (change.kind === 'add') return {promoGrouping: change.printing.promoGrouping, number: change.printing.number};
+  const {promoGrouping, number} = change.edit;
+  return {promoGrouping, number, artVariant: change.from.artVariant};
 }
 
 /**
@@ -179,31 +193,44 @@ function requireFreeCode({catalog, code, exceptId}: {catalog: PromoCatalog; code
   });
 }
 
+/** Whether the edit moves the printing to another promo set. */
+function movesSet({entry, edit}: {entry: CatalogPrinting; edit: PrintingEdit}): boolean {
+  return entry.promoGrouping !== edit.promoGrouping;
+}
+
 /** Whether the edit moves the printing to another promo set or number. Only then can its code clash with another printing's. */
 function movesCode({entry, edit}: {entry: CatalogPrinting; edit: PrintingEdit}): boolean {
-  return entry.promoGrouping !== edit.promoGrouping || entry.number !== edit.number;
+  return movesSet({entry, edit}) || entry.number !== edit.number;
+}
+
+/** An add is held to every rule: a promo set the app knows, and a code nobody has. */
+function checkAdd({catalog, change}: {catalog: PromoCatalog; change: AddChange}): void {
+  requireKnownSet(change.printing);
+  requireFreeCode({catalog, code: codePartsAfter(change)});
+}
+
+/**
+ * An edit is held to what it moves. One that moves the printing to another promo set needs a set the app
+ * knows, and one that moves it to another set or number needs a code nobody has. A note, a scan or a scan
+ * language changes neither, so it is never refused for a code the printing has already: twins share one
+ * (Moana and Vaiana's 26/P2, the two Hades of 28/C3), and so does a printing in a set the app learned of
+ * before admin's pin did. The printing's art variant counts in its code, so 24A/P2 and 24B/P2 stay two.
+ */
+function checkEdit({catalog, change}: {catalog: PromoCatalog; change: EditChange}): void {
+  const entry = entryToEdit({catalog, change});
+  const {edit} = change;
+  if (movesSet({entry, edit})) requireKnownSet(edit);
+  if (movesCode({entry, edit})) requireFreeCode({catalog, code: codePartsAfter(change), exceptId: change.id});
 }
 
 /**
  * Refuses a change the branch can't take as it is, in this order: files out of step, a printing that is
- * gone or changed since its form opened, a promo set the app doesn't know, and a code that is taken. An
- * edit meets the last only where it moves the printing: twins share a code (Moana and Vaiana's 26/P2,
- * the two Hades of 28/C3), and a note or a scan language on one of them must not be refused for that.
- * The printing's own art variant counts in its code, so 24A/P2 and 24B/P2 stay two.
+ * gone or changed since its form opened (an edit), a promo set the app doesn't know, and a code that is taken.
  */
 function checkAtBase({change, held}: {change: PrintingChange; held: MergeInput}): void {
-  const {catalog} = held;
   requireInStep(held);
-  if (change.kind === 'add') {
-    requireKnownSet(change.printing);
-    requireFreeCode({catalog, code: change.printing});
-    return;
-  }
-  const entry = entryToEdit({catalog, change});
-  requireKnownSet(change.edit);
-  if (!movesCode({entry, edit: change.edit})) return;
-  const {promoGrouping, number} = change.edit;
-  requireFreeCode({catalog, code: {promoGrouping, number, artVariant: entry.artVariant}, exceptId: change.id});
+  if (change.kind === 'add') checkAdd({catalog: held.catalog, change});
+  else checkEdit({catalog: held.catalog, change});
 }
 
 /** The catalog with the change made, and the id of the printing it adds or edits. */
@@ -259,7 +286,7 @@ async function planAt({token, base, change}: {token: string; base: string; chang
  * branch moves first (commitFiles' error, whose message ends "Publish again.").
  */
 export async function publishPrinting({token, change}: {token: string; change: PrintingChange}): Promise<PrintingPublished> {
-  const code = codeAfter(change);
+  const code = printingCode(codePartsAfter(change));
   // An add's id is the next one at the base, so it is known only inside the callback, which
   // commitFiles calls once and only returns after.
   const planned: Plan[] = [];

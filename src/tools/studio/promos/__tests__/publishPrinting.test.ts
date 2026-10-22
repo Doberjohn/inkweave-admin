@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {BASE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
-import type {PrintingEdit} from '../catalogEdits';
+import {withEditedPrinting, type PrintingEdit} from '../catalogEdits';
 import {findPrinting, nextProvisionalId, parseCatalog, type BaseCard, type PromoCatalog, type WaitingGroup} from '../promoCatalog';
 import {outOfStep} from '../promoMerge';
 import {
@@ -42,6 +42,9 @@ const SNOW_WHITE_TO_JA: PrintingChange = {kind: 'edit', card: {id: 240, fullName
 
 /** Hiro Hamada - Armor Designer, whose 24A/P2 and 24B/P2 are two arts under one number. */
 const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
+/** A note on 24A/P2 (1661), which has Ravensburger's art: its code in the form is "24A/P2", art variant included. */
+const NOTE_ON_1661: Extract<PrintingChange, {kind: 'edit'}> = {kind: 'edit', card: HIRO, id: 1661, from: factsOf(printing(1661)),
+  edit: {promoGrouping: 'P2', number: 24, scanLanguage: null}, note: 'The first of the two arts.', scan: null};
 /** FIXTURE_CATALOG with a third art of Hiro's beside the others: 25B/P2, the only printing with that number. */
 const WITH_25B: PromoCatalog = {
   ...FIXTURE_CATALOG,
@@ -52,6 +55,12 @@ const WITH_25B: PromoCatalog = {
 /** Moves a printing of WITH_25B to number 25 of its promo set, P2, as the form opened it. */
 const to25P2 = ({card, id}: {card: BaseCard; id: number}): PrintingChange => ({kind: 'edit', card, id, from: factsOf(findPrinting(WITH_25B, id)!.printing),
   edit: {promoGrouping: 'P2', number: 25, scanLanguage: null}, note: null, scan: null});
+
+/** FIXTURE_CATALOG with Mother Knows Best's 13/C3 filed under Q9, a promo set the pinned PROMO_SETS lacks: the app may know a set before admin's pin does. */
+const WITH_Q9: PromoCatalog = withEditedPrinting({catalog: FIXTURE_CATALOG, id: 80024, edit: {promoGrouping: 'Q9', number: 13, scanLanguage: null}, note: null});
+/** An edit of that printing, 13/Q9, as the form opened it: unless `edit` says otherwise it changes nothing but the note. */
+const inQ9 = (edit: Partial<PrintingEdit>, note: string | null = null): PrintingChange => ({kind: 'edit', card: MKB_BASE, id: 80024,
+  from: factsOf(findPrinting(WITH_Q9, 80024)!.printing), edit: {promoGrouping: 'Q9', number: 13, scanLanguage: null, ...edit}, note, scan: null});
 
 /** FIXTURE_FILES with Mother Knows Best's 13/C3 gone from allCards.json and promos.json an empty list: the merge would change both. */
 function staleFiles(): Record<string, string> {
@@ -74,6 +83,10 @@ describe('factsOf', () => {
   });
   it('reads a printing with no number as null', () => {
     expect(factsOf({id: 1, rarity: 'Special', promoGrouping: 'C1'})).toEqual({promoGrouping: 'C1', number: null, scanLanguage: null, officialArt: false});
+  });
+  it('copies the art variant of a printing that has one, and leaves the key out of one that has none', () => {
+    expect(factsOf(printing(1661))).toEqual({promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'});
+    expect(factsOf(printing(80049))).not.toHaveProperty('artVariant');
   });
 });
 
@@ -150,11 +163,9 @@ describe('over the pinned app files', () => {
     const sent = repo.filesSent();
     const all = JSON.parse(sent[ALL_CARDS_PATH]) as {cards: Array<{id: number; variants: Array<{id: number}>}>};
     expect(all.cards.find((card) => card.id === 2047)?.variants.pop()).toMatchObject({id});
-    expect(`${JSON.stringify(all, null, 2)}
-`).toBe(pinned[ALL_CARDS_PATH]);
+    expect(`${JSON.stringify(all, null, 2)}\n`).toBe(pinned[ALL_CARDS_PATH]);
     const promos = (JSON.parse(sent[PROMOS_PATH]) as Array<{id: number}>).filter((promo) => promo.id !== id);
-    expect(`${JSON.stringify(promos)}
-`).toBe(pinned[PROMOS_PATH]);
+    expect(`${JSON.stringify(promos)}\n`).toBe(pinned[PROMOS_PATH]);
     expect(outOfStep({catalog: parseCatalog(sent[CATALOG_PATH]), files: {allCards: sent[ALL_CARDS_PATH], promos: sent[PROMOS_PATH]}})).toEqual([]);
   });
 });
@@ -162,13 +173,67 @@ describe('over the pinned app files', () => {
 describe('an edit onto the number of another art', () => {
   it('is free for a printing of another art: 24A moves beside 25B', async () => {
     const repo = stubRepo({files: filesFor(WITH_25B)});
-    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25/P2'});
+    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25A/P2'});
     expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH, PROMOS_PATH]);
+    expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 25A/P2 Hiro Hamada - Armor Designer from Card studio');
   });
   it('is taken for a printing with no art variant: 13/C3 moves onto 25B', async () => {
     const repo = stubRepo({files: filesFor(WITH_25B)});
     await expect(publishPrinting({token: 't', change: to25P2({card: MKB_BASE, id: 80024})})).rejects.toMatchObject({kind: 'taken',
       message: '25/P2 is taken on master: Hiro Hamada - Armor Designer has it.'});
+    expect(repo.writes()).toEqual([]);
+  });
+});
+
+describe('a printing with an art variant', () => {
+  it('is named with it in an edit\'s commit and result: 24A/P2', async () => {
+    const repo = stubRepo({files: FIXTURE_FILES});
+    await expect(publishPrinting({token: 't', change: NOTE_ON_1661})).resolves.toEqual({commitUrl: COMMIT_URL, id: 1661, code: '24A/P2'});
+    expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 Hiro Hamada - Armor Designer from Card studio');
+    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
+  });
+  it('keeps it in the code the printing moves to: 24A/P2 to 30A/P2', async () => {
+    const repo = stubRepo({files: FIXTURE_FILES});
+    const moved: PrintingChange = {...NOTE_ON_1661, edit: {promoGrouping: 'P2', number: 30, scanLanguage: null}};
+    await expect(publishPrinting({token: 't', change: moved})).resolves.toMatchObject({code: '30A/P2'});
+    expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 30A/P2 Hiro Hamada - Armor Designer from Card studio');
+  });
+  it.each<[string, PrintingChange, RefusalKind, string]>([
+    ['a stale form', {...NOTE_ON_1661, from: {...factsOf(printing(1661)), scanLanguage: 'ja'}}, 'changed',
+      "Someone changed 24A/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
+    ['a form that opened it without the variant', {...NOTE_ON_1661, from: {promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true}}, 'changed',
+      "Someone changed 24/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
+    ['a printing that is gone', {...NOTE_ON_1661, id: 99999}, 'gone', '24A/P2 is no longer on master.'],
+    ['a move onto a code another printing has', {...NOTE_ON_1661, edit: {promoGrouping: 'P2', number: 42, scanLanguage: null}}, 'taken',
+      '42A/P2 is taken on master: Snow White - Unexpected Houseguest has it.'],
+  ])('names it when it refuses %s', async (_what, change, kind, message) => {
+    const repo = stubRepo({files: FIXTURE_FILES});
+    await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({name: 'PrintingRefusal', kind, message});
+    expect(repo.writes()).toEqual([]);
+  });
+});
+
+describe('a printing in a promo set the app doesn\'t know', () => {
+  it('takes a note: an edit is held to the app\'s sets only where it moves the printing into another', async () => {
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    await expect(publishPrinting({token: 't', change: inQ9({}, 'Added before admin\'s pin knew the set.')})).resolves.toMatchObject({id: 80024, code: '13/Q9'});
+    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
+    expect(repo.commitMessage()).toBe('chore(collection): edit 13/Q9 Mother Knows Best from Card studio');
+  });
+  it('takes a renumbering within its set, to a code that is free', async () => {
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    await expect(publishPrinting({token: 't', change: inQ9({number: 14})})).resolves.toMatchObject({code: '14/Q9'});
+    expect(Object.keys(repo.filesSent()).sort()).toEqual([ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH].sort());
+  });
+  it('moves out to a set the app knows', async () => {
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    await expect(publishPrinting({token: 't', change: inQ9({promoGrouping: 'C3'})})).resolves.toMatchObject({code: '13/C3'});
+    expect(repo.commitMessage()).toBe('chore(collection): edit 13/Q9 to 13/C3 Mother Knows Best from Card studio');
+  });
+  it('is refused a move into another set it doesn\'t know', async () => {
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    await expect(publishPrinting({token: 't', change: inQ9({promoGrouping: 'Z7'})})).rejects.toMatchObject({kind: 'unknownSet',
+      message: "Z7 isn't one of the app's promo sets. Add it to PROMO_SETS in the app first."});
     expect(repo.writes()).toEqual([]);
   });
 });
@@ -198,7 +263,7 @@ describe('a publish the branch can\'t take', () => {
       'taken', '24/P2 is taken on master: Hiro Hamada - Armor Designer has it.'],
     ['an edit onto another printing\'s code', EDIT_80024({number: 12}),
       'taken', '12/C3 is taken on master: Mickey Mouse - Brave Little Tailor has it.'],
-    ['an edit to a promo set the app doesn\'t know', EDIT_80024({promoGrouping: 'Q9'}),
+    ['an edit that moves a printing into a promo set the app doesn\'t know', EDIT_80024({promoGrouping: 'Q9'}),
       'unknownSet', "Q9 isn't one of the app's promo sets. Add it to PROMO_SETS in the app first."],
   ])('refuses %s', async (_what, change, kind, message) => {
     const repo = stubRepo({files: FIXTURE_FILES});
@@ -210,6 +275,7 @@ describe('a publish the branch can\'t take', () => {
     ['number', {number: 12}],
     ['scan language', {scanLanguage: 'ja'}],
     ['art', {officialArt: true}],
+    ['art variant', {artVariant: 'A'}],
   ])('refuses an edit whose printing\'s %s changed since the form opened', async (_what, differs) => {
     const repo = stubRepo({files: FIXTURE_FILES});
     const from = {...factsOf(printing(80024)), ...differs};
