@@ -3,7 +3,7 @@ import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {targetBranch} from '../../../github/githubCommit';
 import {forgetBranchFiles} from './branchFiles';
 import {CHOICE_OPTIONS, finishesOfChoice, sameFinishes} from './finishValues';
-import {clashMessage, publishVersions, VersionClashError} from './publishVersions';
+import {publishVersions, VersionClashError} from './publishVersions';
 import {
   EMPTY_BATCH,
   afterPublish,
@@ -40,8 +40,9 @@ import {
  * A publish sends the changes staged when it starts (publishVersions.ts), and the owner may stage
  * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch.
  * When it finds clashes it marks them on their changes, and the batch stays, as it does for any
- * other failure. A landing or a clash writes the batch, so it first takes in what is saved, as the
- * first component to listen does: no component may have listened while the publish ran.
+ * other failure; the marks are all it says of them, and `error` is for the other failures. A
+ * landing or a clash writes the batch, so it first takes in what is saved, as the first component
+ * to listen does: no component may have listened while the publish ran.
  */
 
 /** Where a branch's batch is saved: this prefix, then the branch's name. Admin's own keys start `inkweave-admin.`. */
@@ -65,7 +66,11 @@ export interface VersionBatchView {
   publishing: boolean;
   /** The publish that landed last, until the owner stages, reverts or discards a change, or publishes again. */
   result: PublishResult | null;
-  /** Why the last publish didn't land, until the owner stages, reverts or discards a change, or publishes again. */
+  /**
+   * Why the last publish didn't land, until the owner stages, reverts or discards a change, or
+   * publishes again. Never a clash: that is the marks on the changes (`hasClash`), which the tray
+   * words from the ones still marked, so no message of it outlives the last mark.
+   */
   error: string | null;
   /** Adds a change, in the place of its printing's earlier one. One that restores what the printing showed removes it. */
   stage: (change: VersionChange) => void;
@@ -293,10 +298,15 @@ function landed({sent, commitUrl}: {sent: readonly VersionChange[]; commitUrl: s
   forgetBranchFiles();
 }
 
-/** The publish found clashes: each marks its change, and the panel reads the branch again to show what it has now. */
+/**
+ * The publish found clashes: each marks its change, and the panel reads the branch again to show
+ * what it has now. The marks are all it says (see `error`): they are saved with the batch, so a
+ * reload or another tab that takes the batch in sees them too, and they fall one by one as the
+ * owner keeps or drops each.
+ */
 function clashed({clashes}: VersionClashError): void {
   adoptUnheard();
-  put({batch: withClashes(snapshot().batch, clashes), publishing: false, error: clashMessage(clashes.length)});
+  put({batch: withClashes(snapshot().batch, clashes), publishing: false});
   forgetBranchFiles();
 }
 

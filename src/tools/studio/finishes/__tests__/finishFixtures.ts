@@ -7,6 +7,7 @@ import {
 } from '../../../../app-bridge';
 import {printingRowsFor, type PrintingRow} from '../printingRows';
 import {changeFor, type VersionChange} from '../versionBatch';
+import type {VersionBatchView} from '../versionBatchStore';
 
 /*
  * Fixtures for the printing versions' tests and stories (#68): real entries of the pinned app's
@@ -106,11 +107,40 @@ export const NUMBER_59_TO_FOIL: VersionChange = changeFor({row: YEN_SID_ROWS[0],
 /** His alt foil #223 made Both: its `["foil"]` becomes `["normal", "foil"]`, so the change takes nothing away. */
 export const NUMBER_223_TO_BOTH: VersionChange = changeFor({row: YEN_SID_ROWS[2], choice: 'both'});
 
+/** His Enchanted #209 made Both: it shows Foil by its rarity, so the change adds Normal and takes nothing away. */
+export const NUMBER_209_TO_BOTH: VersionChange = changeFor({row: YEN_SID_ROWS[1], choice: 'both'});
+
 /** That change once a publish found #223 Normal only on the branch, where it was staged from Foil only. */
 export const NUMBER_223_TO_BOTH_CLASHED: VersionChange = {
   ...NUMBER_223_TO_BOTH,
   clash: {id: '946', now: ['normal'], shownNow: ['normal']},
 };
+
+/** #59's change once a publish found the printing gone from its primary home: there is nothing to keep, only to drop. */
+export const NUMBER_59_TO_FOIL_GONE: VersionChange = {
+  ...NUMBER_59_TO_FOIL,
+  clash: {id: '750', now: null, shownNow: [], gone: true},
+};
+
+/**
+ * The batch as the Version changes tray reads it: holding `changes`, with no publish under way and
+ * nothing said of the last one, unless `rest` says so. Its actions do nothing; a test that watches
+ * one hands in a spy.
+ */
+export function batchView(changes: readonly VersionChange[], rest: Partial<VersionBatchView> = {}): VersionBatchView {
+  return {
+    changes,
+    publishing: false,
+    result: null,
+    error: null,
+    stage: () => {},
+    revert: () => {},
+    discard: () => {},
+    keep: () => {},
+    publish: () => Promise.resolve(),
+    ...rest,
+  };
+}
 
 /**
  * Ursula - Deceiver as allCards.json stores her: Set 9 #90. Set 3 holds her too (`URSULA_SET_3_ENTRY`), under the

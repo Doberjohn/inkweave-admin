@@ -5,6 +5,7 @@ import {
   EMPTY_BATCH,
   afterPublish,
   changeFor,
+  clashCount,
   hasClash,
   keptClash,
   removalNote,
@@ -146,6 +147,23 @@ describe('clashes', () => {
   it('has no clash until one is marked', () => {
     expect(hasClash(EMPTY_BATCH)).toBe(false);
     expect(hasClash(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})))).toBe(false);
+  });
+
+  it('counts the changes that are marked, and only those', () => {
+    const batch = batchOf(
+      changeFor({row: CARD_59, choice: 'foil'}),
+      changeFor({row: ALT_FOIL_223, choice: 'both'}),
+      changeFor({row: ENCHANTED_209, choice: 'both'}),
+    );
+    expect(clashCount(EMPTY_BATCH)).toBe(0);
+    expect(clashCount(batch)).toBe(0);
+    const one = withClashes(batch, [ALT_FOIL_NOW_NORMAL]);
+    expect(clashCount(one)).toBe(1);
+    const two = withClashes(one, [ALT_FOIL_NOW_NORMAL, {id: '750', now: null, shownNow: [], gone: true}]);
+    expect(clashCount(two)).toBe(2);
+    // Keeping one leaves the other marked: the count is of the marks that remain, not of those a publish found.
+    expect(clashCount(keptClash(two, '946'))).toBe(1);
+    expect(clashCount(withoutChange(two, '750'))).toBe(1);
   });
 
   it('marks only the changes a clash names, with the clash itself', () => {

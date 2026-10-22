@@ -3,8 +3,8 @@ import {act, renderHook} from '@testing-library/react';
 import {isRejectedToken} from '../../../../github/rejectedToken';
 import {useBranchFilesGeneration} from '../branchFiles';
 import {setChunkPath} from '../finishFiles';
-import {clashMessage, versionCommitMessage} from '../publishVersions';
-import {afterPublish, changeFor} from '../versionBatch';
+import {versionCommitMessage} from '../publishVersions';
+import {afterPublish, changeFor, clashCount, hasClash} from '../versionBatch';
 import {VERSION_BATCH_KEY_PREFIX, resetVersionBatch, useVersionBatch, type VersionBatchView} from '../versionBatchStore';
 import {deferredResponse} from './branchHarness';
 import {SET_4_ENTRIES, SET_4_TEXT, YEN_SID_ROWS, collectionText, withFinishes} from './finishFixtures';
@@ -575,7 +575,8 @@ describe('publishing', () => {
 
     const marked = [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL];
     expect(result.current.changes).toEqual(marked);
-    expect(result.current.error).toBe(clashMessage(1));
+    // A clash is the marks on the batch, not an error: the tray words it from them, as many as are still marked.
+    expect(result.current.error).toBeNull();
     expect(result.current.result).toBeNull();
     expect(result.current.publishing).toBe(false);
     expect(saved()).toEqual({v: 1, changes: marked});
@@ -584,7 +585,7 @@ describe('publishing', () => {
     expect(generation.result.current).toBe(1);
   });
 
-  it('counts every clash in what it says', async () => {
+  it('marks every clash at once', async () => {
     // Someone has made #223 Normal only and #59 Foil only since their changes were staged.
     stubRepo({files: {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal'], 750: ['foil']}))}});
     const {result} = renderHook(() => useVersionBatch());
@@ -593,8 +594,9 @@ describe('publishing', () => {
     act(() => result.current.stage(ENCHANTED_TO_BOTH));
     await publishNow(result);
 
-    expect(result.current.error).toBe(clashMessage(2));
     expect(result.current.changes.map(({clash}) => clash?.id)).toEqual(['946', '750', undefined]);
+    expect(clashCount(result.current)).toBe(2);
+    expect(result.current.error).toBeNull();
   });
 
   it('keeps the batch when the branch moved', async () => {
@@ -740,15 +742,30 @@ describe('what the last publish said', () => {
     expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
   });
 
-  it('keeps the clash message when the owner keeps the clashed change', async () => {
+  it('clears the mark and says nothing else when the owner keeps the clashed change', async () => {
     stubRepo({files: SET_4_ALT_FOIL_NORMAL});
     const {result} = renderHook(() => useVersionBatch());
     act(() => result.current.stage(ALT_FOIL_TO_BOTH));
     await publishNow(result);
+    expect(hasClash(result.current)).toBe(true);
 
     act(() => result.current.keep('946'));
     expect(result.current.changes).toEqual([{...ALT_FOIL_TO_BOTH, from: ['normal'], shownFrom: ['normal']}]);
-    expect(result.current.error).toBe(clashMessage(1));
+    expect(hasClash(result.current)).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('leaves why the last publish failed alone when the owner keeps a clashed change', async () => {
+    // This tab's publish lost a race. Another tab found a clash and saved the marked batch, which this tab takes in.
+    stubRepo({files: SET_4_FILES, update: notAFastForward});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    await publishNow(result);
+    expect(result.current.error).toBe(RACE);
+    otherTabSaves([{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}]);
+
+    act(() => result.current.keep('946'));
+    expect(result.current.error).toBe(RACE);
   });
 });
 

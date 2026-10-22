@@ -112,6 +112,15 @@ export function hasClash(batch: VersionBatch): boolean {
 }
 
 /**
+ * How many changes are clashed now: the marks a publish left that the owner has not yet kept or
+ * dropped. It is the batch's own count, and not the number of clashes the publish found, which
+ * only falls as the owner settles them.
+ */
+export function clashCount(batch: VersionBatch): number {
+  return batch.changes.filter((change) => change.clash !== undefined).length;
+}
+
+/**
  * The batch once a publish landed: without the changes it sent, which it finds by identity. A
  * change staged again for a printing meanwhile is another object, so it stays.
  */

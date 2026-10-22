@@ -8,8 +8,10 @@ import {PageLayout} from '../../shell/PageLayout';
 import {UnsavedChangesGuard} from '../../shell/UnsavedChangesGuard';
 import {SegmentedControl} from '../../ui/SegmentedControl';
 import {useRevealAdmin} from '../reveal/useRevealAdmin';
+import {VersionsTray} from './components/VersionsTray';
 import {EditPane} from './EditPane';
 import {openCard} from './editorState';
+import {useVersionBatch} from './finishes/versionBatchStore';
 import {NewRevealPane} from './NewRevealPane';
 import {STUDIO_SUBTITLE, STUDIO_TITLE, studioDocumentTitle} from './studioCopy';
 import {studioLayout} from './studioLayout';
@@ -63,6 +65,11 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * only the element it finds on mount. Its width picks the layout, wide or
  * narrow (R-64), and the active pane fills its slots in that layout's order
  * (R-63). A New reveal publish that lands reads Edit's file again (R-66).
+ *
+ * The Version changes tray (#68) is a row of its own under the active pane, in either mode: its
+ * batch is the studio's, kept in the browser, so it is no draft. The guard does not count it,
+ * leaving the page loses none of it, and forgetting the token (the tray offers it too) never
+ * touches it.
  */
 export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const location = useLocation();
@@ -73,6 +80,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
+  const versions = useVersionBatch();
   const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
   // Edit's save only while it was made from the draft on screen: one left running on another card isn't this card's.
   const busy = {reveal: ctrl.publishing, edit: edit.savingThisDraft};
@@ -107,6 +115,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         ) : (
           <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} token={token} />
         )}
+        <VersionsTray view={versions} token={token} onForgetToken={forgetToken} />
       </div>
     </PageLayout>
   );
