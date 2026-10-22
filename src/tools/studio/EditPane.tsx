@@ -94,8 +94,8 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
     case 'missing':
       return (
         <FocusNotice handoff={handoff}>
-          No card has the id <code>{lookup.cardId}</code> in the card list or in previewCards.json. Cards from sets
-          before 9 rotated out of Core, and a preview id changes when its card is released: find it by name below.
+          No card has the id <code>{lookup.cardId}</code> in the card list or in previewCards.json. A preview id
+          changes when its card is released: find it by name below.
         </FocusNotice>
       );
     case 'fileFailed':

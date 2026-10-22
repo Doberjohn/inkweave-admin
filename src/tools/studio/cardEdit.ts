@@ -16,7 +16,7 @@ export type CardKind = {kind: 'fields'} | {kind: 'image'; reason: ImageOnlyReaso
 
 /** The line the studio shows for each reason (R-61, R-65). */
 export const IMAGE_ONLY_NOTES: Readonly<Record<ImageOnlyReason, string>> = {
-  released: 'Card data comes from LorcanaJSON; only the image can be replaced here.',
+  released: "Card data comes from LorcanaJSON: only the image and the printings' versions can be changed here.",
   unnumbered: 'No collector number yet: numbering it changes its id, which goes by PR.',
   'other-set': `Admin's pin names set ${REVEAL_SET_CODE}; bump the pin to edit this card's fields.`,
   unrepresentable: "This entry holds data the form can't.",

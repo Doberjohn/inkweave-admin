@@ -3,8 +3,10 @@ import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from './finishF
 /*
  * Where a printing lives in the app's data files (#68). Every entry that holds a printing carries
  * its `finishes`, so a publish writes the value into each file that holds one (its homes). The
- * first home is the primary one: the file its value is first set in, which is also the one a
- * staged change is checked against for a clash.
+ * first home is the primary one, which a staged change is checked against for a clash. For a card
+ * or a printing it is the file the binder's pocket reads, which for a Core printing is its chunk,
+ * not allCards.json (the app's binderCards.ts:129-140). For a promo it is the catalog, the owner's
+ * source that the app's scripts build promos.json from, and the binder reads that copy.
  */
 
 /** A card, one of its other printings (Enchanted, Epic, Iconic, an alt foil), or one of its promos. */

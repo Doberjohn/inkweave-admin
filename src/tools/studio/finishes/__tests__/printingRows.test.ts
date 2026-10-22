@@ -146,7 +146,8 @@ describe('printingRowsFor', () => {
     });
 
     it('orders promos by promo set, then number, whatever order the file holds them in', () => {
-      // promos.json goes by id, so Mickey's come out C1, C3, C3, D23, P1: neither release order nor alphabetical.
+      // promos.json runs by promo set in natural order (C1, C2, C3, CC1, …), then by number, so Mickey's come out
+      // C1, C3, C3, D23, P1: not release order, in which P1 comes first.
       expect(MICKEY_PROMOS.map((promo) => promo.promoGrouping)).toEqual(['C1', 'C3', 'C3', 'D23', 'P1']);
       const promos = [...MICKEY_PROMOS];
       expect(namesOf(rowsOf({card: MICKEY, promos}))).toEqual(['#115', '1/P1', '5/C1', '1/D23', '12/C3', '24/C3']);
@@ -228,7 +229,7 @@ describe('printingRowsFor', () => {
       expect(rows.map((r) => r.shown)).toEqual([['foil'], ['normal', 'foil'], ['normal'], ['normal', 'foil']]);
     });
 
-    it("takes the versions from valueOf alone: what an entry names itself is the deployed data's", () => {
+    it('takes the versions from valueOf alone, never from what an entry of the chunk or promos.json names itself', () => {
       expect(C3_MKB.map((promo) => promo.finishes)).toEqual([['normal'], ['foil']]);
       const rows = rowsOf({card: MOTHER_KNOWS_BEST, promos: C3_MKB});
       expect(rows.map((r) => r.value)).toEqual([null, null, null]);

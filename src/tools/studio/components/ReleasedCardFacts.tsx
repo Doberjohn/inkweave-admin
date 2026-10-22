@@ -24,7 +24,10 @@ const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color:
 
 interface ReleasedCardFactsProps {
   card: LorcanaCard;
-  /** Why the card opens image-only: IMAGE_ONLY_NOTES' line for its reason (R-61, R-65). */
+  /**
+   * Why its fields can't change here: IMAGE_ONLY_NOTES' line for its reason (R-61, R-65), or
+   * PRINTINGS_ONLY_NOTE for a card of Sets 1 to 8 (#68).
+   */
   note: string;
 }
 
@@ -76,11 +79,12 @@ function RarityName({rarity}: {rarity: string | undefined}) {
 }
 
 /**
- * What Edit card shows in place of the form for a card it can only give a new
- * image (R-61): a short read-only list of the card's facts, worded as Card
- * analytics words them (cardFacts), then why its fields can't change here. A
- * read-only list, not a disabled form: disabled controls would fail R-6's
- * contrast, and would suggest the card can be edited.
+ * What Edit card shows in place of the form for a card whose fields it can't
+ * change: one it can give a new image (R-61), and a card of Sets 1 to 8, whose
+ * printings' versions alone change (#68). A short read-only list of the card's
+ * facts, worded as Card analytics words them (cardFacts), then why its fields
+ * can't change here. A read-only list, not a disabled form: disabled controls
+ * would fail R-6's contrast, and would suggest the card can be edited.
  */
 export function ReleasedCardFacts({card, note}: ReleasedCardFactsProps) {
   return (

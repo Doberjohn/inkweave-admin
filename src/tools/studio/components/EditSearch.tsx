@@ -25,8 +25,9 @@ const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
  * card of Sets 1 to 8 names its set before its number (numberLabel) and the cell wraps there, "Set 8 ·"
  * over "#204", so the column holds the first line: seven characters of the 12px monospace at 0.6em
  * each, and a pixel to spare, 52px. "#204" alone had 44px, so this takes 8px of the names column. On
- * a phone that column is the viewport less the 64px rail, 32px of gutters, 26px of border and padding,
- * 138px of thumbnail, marks and gaps, and this column: 63px at 375px, with room for the "released"
+ * a phone that column is the viewport less the 64px rail, 64px of gutters (the studio root's 16px
+ * padding, then the search's own PAGE_GUTTER, 16px there, each a side), 26px of border and padding,
+ * 138px of thumbnail, marks and gaps, and this column: 31px at 375px, narrower than the "released"
  * chip (about 50px).
  */
 const NUMBER_WIDTH = Math.ceil(7 * 0.6 * ADMIN_TYPE.small) + 1;
@@ -94,8 +95,9 @@ const NAME: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.emphasis};
 const VERSION: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 const MARKS: React.CSSProperties = {display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: SPACING.xs};
 // Muted, never dim: the number, and the set before it, tell two cards of one name apart (R-6).
-// It wraps, so a card of Sets 1 to 8 reads "Set 3 ·" over "#90" in the column a bare number had.
-// The row is 64px tall at least, for its thumbnail, so the second line costs no height.
+// It wraps, so a card of Sets 1 to 8 reads "Set 3 ·" over "#90" in NUMBER_WIDTH's 52px, 8px more
+// than a bare number's 44. The row is 64px tall at least, for its thumbnail, so the second line
+// costs no height.
 const NUMBER: React.CSSProperties = {textAlign: 'right', whiteSpace: 'normal', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
 /** The card list (useCardDataContext): every row comes from it, so its failure takes the field's place. */
@@ -151,7 +153,7 @@ function SearchTitle({id}: {id: string}) {
       <p style={HINT}>
         Every card, by name, version or id, with the branch’s preview cards first. A preview card opens in
         the form with its current data; a card of Sets 1 to 8 opens for its printings’ versions only; any other
-        card opens for a new image.
+        card opens for a new image and its printings’ versions.
       </p>
     </div>
   );

@@ -119,7 +119,8 @@ export function namingItsFile<T>(parse: (file: BranchFile) => T): (file: BranchF
  * one it last parsed, it hands back that result and parses nothing. A file read again unchanged (a
  * card of another set, a branch read again after a publish that didn't touch it) is never parsed
  * twice, and allCards.json, about 2 MB, is most of what a read parses. A text it couldn't parse
- * leaves nothing behind.
+ * leaves nothing behind. Call it once, at module level: each call adds a cache of its own, which
+ * only `resetBranchFiles` empties, so a call per render would keep every one.
  */
 export function lastTextCached<T>(parse: (file: BranchFile) => T): (file: BranchFile) => T {
   const last = new Map<string, {text: string; parsed: T}>();

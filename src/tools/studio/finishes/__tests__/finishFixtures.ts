@@ -319,7 +319,10 @@ export const MICKEY_ENTRY: LorcanaJSONCard = {
 
 export const MICKEY: LorcanaCard = cardWithId(cardsOf([MICKEY_ENTRY]), '115');
 
-/** His five promos in promos.json's order, which goes by id, not by promo set: C1, C3, C3, D23, P1. */
+/**
+ * His five promos in promos.json's order, which runs by promo set in natural order (C1, C2, C3, CC1,
+ * …), then by number: C1, C3, C3, D23, P1. That isn't release order, in which P1 comes first.
+ */
 export const MICKEY_PROMO_ENTRIES: RawCollectionPromo[] = [
   {
     id: 80003,

@@ -18,7 +18,9 @@ const THUMB_HEIGHT = 40;
  * What a row's two parts ask for. The choices keep 280px: the three buttons share it, and "Normal
  * only" needs about 80px of it. The name and its marker ask for 140px. Where a row is narrower
  * than the two with the gap between, the choices wrap under the name instead of squeezing it, and
- * on a phone they shrink to the line, their buttons wrapping two and one (SegmentedControl's fill).
+ * on a phone they shrink to the line. The 224px phone slot still fits the three on one line (176px
+ * inside the panel, 172px needed): only in a slot under 220px do their buttons wrap two and one
+ * (SegmentedControl's fill).
  */
 const IDENTITY_BASIS = 140;
 const CONTROL_BASIS = 280;

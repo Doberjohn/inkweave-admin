@@ -88,7 +88,10 @@ export const NarrowSlot: Story = {
   ],
 };
 
-/** On a phone the slot is the whole line, and the choices wrap two and one. */
+/**
+ * On a phone the slot is the whole line, 224px here: the three choices still fit one line (176px
+ * inside the panel, 172px needed). Only a slot under 220px wraps them two and one.
+ */
 export const PhoneSlot: Story = {
   args: {changes: [NUMBER_223_TO_BOTH]},
   decorators: [

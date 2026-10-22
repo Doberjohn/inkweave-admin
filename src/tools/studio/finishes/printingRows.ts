@@ -13,7 +13,9 @@ import type {PrintingKind, PrintingRef} from './printingHomes';
  * The rows of Edit card's Printings panel (#68): one for each pocket the binder holds for a card,
  * which is the card itself, each of its other printings and each of its promos, named as the
  * binder names them. The versions a row shows come from the target branch's files, through
- * `valueOf`, and never from the entries listed here, which are the deployed data's.
+ * `valueOf`, which reads each printing's primary home, and never from the entries listed here:
+ * those are the branch's chunk's and promos.json's, while a promo's primary home is the catalog,
+ * and a Core card's allCards.json.
  */
 
 /** One pocket of the binder, and the versions it comes in. */

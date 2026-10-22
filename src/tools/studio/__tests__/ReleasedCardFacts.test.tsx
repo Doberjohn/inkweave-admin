@@ -13,7 +13,7 @@ function facts() {
 }
 
 describe('ReleasedCardFacts', () => {
-  it("lists a released card's facts, worded as Card analytics words them, then why only its image can change (R-61)", () => {
+  it("lists a released card's facts, worded as Card analytics words them, then why only its image and its printings' versions can change (R-61)", () => {
     render(<ReleasedCardFacts card={RELEASED_CARD} note={IMAGE_ONLY_NOTES.released} />);
     expect(facts()).toEqual({
       Name: 'Lantern Keeper',
@@ -24,7 +24,7 @@ describe('ReleasedCardFacts', () => {
       Type: 'Character · cost 3 · inkable',
       Rarity: 'Common',
     });
-    expect(screen.getByText('Card data comes from LorcanaJSON; only the image can be replaced here.')).toBeInTheDocument();
+    expect(screen.getByText("Card data comes from LorcanaJSON: only the image and the printings' versions can be changed here.")).toBeInTheDocument();
   });
 
   it('names both inks of a dual-ink card, and draws the base rarity with its glyph', () => {

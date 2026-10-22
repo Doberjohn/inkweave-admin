@@ -10,7 +10,11 @@ export const SEARCH_LIMIT = 40;
 
 const NO_IDS: ReadonlySet<number> = new Set();
 
-/** Whether a card's data is still the branch file's (Preview) or LorcanaJSON's (Released, image only). */
+/**
+ * Whether a card's data is still the branch file's (Preview) or LorcanaJSON's (Released). A released
+ * card opens for a new image and its printings' versions, and a card of Sets 1 to 8 for its
+ * printings' versions alone (#68).
+ */
 export type CardTag = 'Preview' | 'Released';
 
 /** One row of Edit card's search: the card, and its tag (null for a reveal-set preview card while the branch file is unread). */
@@ -22,7 +26,10 @@ export interface SearchRow {
 }
 
 export interface EditSearchInput {
-  /** Every card the search can open: the card list (Core sets 9 and up), after the cards only the branch file holds (R-66). */
+  /**
+   * Every card the search can open: the cards only the branch file holds (R-66), then the card
+   * list's (Core: Sets 9 and up), then the cards of Sets 1 to 8 (#68).
+   */
   cards: readonly LorcanaCard[];
   /** The text in the search field. */
   query: string;
@@ -98,11 +105,12 @@ function previewFirst(cards: readonly LorcanaCard[], previewIds: ReadonlySet<num
 }
 
 /**
- * Edit card's search over every card in the card list (Core sets 9 and up),
- * through the kept filterCards (R-30): fullName or id, either apostrophe style,
- * prefix matches first. The branch file's cards lead each rank, so a blank query
- * lists them first (R-76). One filterCards pass gives the rows and the total.
- * Each row says whether inkweave.ink serves it yet (R-66).
+ * Edit card's search over every card it can open (`cards`: the branch file's,
+ * the card list's and those of Sets 1 to 8), through the kept filterCards
+ * (R-30): fullName or id, either apostrophe style, prefix matches first. The
+ * branch file's cards lead each rank, so a blank query lists them first (R-76).
+ * One filterCards pass gives the rows and the total. Each row says whether
+ * inkweave.ink serves it yet (R-66).
  */
 export function searchCards({cards, query, previewIds, branchOnlyIds = NO_IDS}: EditSearchInput): EditSearchResult {
   const matches = filterCards(previewFirst(cards, previewIds), query, Infinity);

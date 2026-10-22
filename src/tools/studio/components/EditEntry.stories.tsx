@@ -27,8 +27,11 @@ const MEI = cardOf(PREVIEW_ENTRY);
 /** Only the branch file holds Priya (R-66). */
 const PRIYA = cardOf(DUAL_INK_ENTRY);
 /**
- * Ursula - Deceiver of Set 9, then of Set 3: the same name, version, ink, rarity and number, so the Set 3
- * row names its set, "Set 3 ·" over "#90" (#68). Type "ursula" to see the two rows together.
+ * The cards the search lists: the preview cards Mei, Priya (a dual-ink card only the branch file
+ * holds), Ming (with an Epic printing) and Miriam (a Japanese scan), Peter Pan’s Shadow (a name
+ * printed with ’, which "pan's" finds), the released Lantern Keeper, and Ursula - Deceiver of Set 9,
+ * then of Set 3: the same name, version, ink, rarity and number, so the Set 3 row names its set,
+ * "Set 3 ·" over "#90" (#68). Type "ursula" to see the two rows together.
  */
 const CARDS: LorcanaCard[] = [
   MEI,

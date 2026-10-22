@@ -64,6 +64,16 @@ function Harness() {
 }
 
 describe('EditSearch', () => {
+  it('says under its title what each kind of card opens for', () => {
+    renderSearch();
+    const search = screen.getByRole('region', {name: 'Find a card to edit'});
+    expect(search).toHaveTextContent(
+      'Every card, by name, version or id, with the branch’s preview cards first. A preview card opens in the form ' +
+        'with its current data; a card of Sets 1 to 8 opens for its printings’ versions only; any other card opens ' +
+        'for a new image and its printings’ versions.',
+    );
+  });
+
   describe('the rows', () => {
     it('links each row to its card in Edit card, tagged with where its data comes from', () => {
       renderSearch();
@@ -129,8 +139,9 @@ describe('EditSearch', () => {
     });
 
     // jsdom has no layout, so these pin the rule the geometry rests on. On a phone the names column is the viewport less the
-    // 64px rail, the 32px of gutters, 26px of border and padding and 138px of thumbnail, marks and gaps, less this column:
-    // 71px at 375px with the 44px column "#204" had. The set wraps over the number rather than widening the column.
+    // 64px rail, 64px of gutters (the studio root's 16px padding and the search's own, each a side), 26px of border and
+    // padding and 138px of thumbnail, marks and gaps, less this column: 39px at 375px with the 44px column "#204" had, and
+    // 31px with this one. The set wraps over the number rather than widening the column.
     it('lets the number cell wrap, so "Set 3 ·" sits over "#90" instead of widening the column', () => {
       renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
       expect(screen.getByText('Set 3 · #90')).toHaveStyle({whiteSpace: 'normal'});

@@ -217,7 +217,12 @@ describe('StudioPage: finding a card in Edit card', () => {
     const {router} = renderStudio({path: '/studio?mode=edit'});
     act(() => void router.navigate(studioHref('edit', '999999')));
     const line = await screen.findByText(/^No card has the id/);
-    expect(line).toHaveTextContent('No card has the id 999999 in the card list or in previewCards.json.');
+    expect(line).toHaveTextContent(
+      'No card has the id 999999 in the card list or in previewCards.json. ' +
+        'A preview id changes when its card is released: find it by name below.',
+    );
+    // Cards of Sets 1 to 8 open now (#68), so the line no longer says those sets can't.
+    expect(line).not.toHaveTextContent(/rotated out/);
     await waitFor(() => expect(line).toHaveFocus());
     expect(searchField()).toBeInTheDocument();
   });
@@ -248,7 +253,7 @@ describe('StudioPage: finding a card in Edit card', () => {
     renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
     expect(await banner(RELEASED_CARD)).toBeInTheDocument();
     expect(screen.getByText('released')).toBeInTheDocument();
-    expect(screen.getByText('Card data comes from LorcanaJSON; only the image can be replaced here.')).toBeInTheDocument();
+    expect(screen.getByText("Card data comes from LorcanaJSON: only the image and the printings' versions can be changed here.")).toBeInTheDocument();
     expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: 'Synergies'})).not.toBeInTheDocument();
     // No field can change, so the change list asks only for an image.

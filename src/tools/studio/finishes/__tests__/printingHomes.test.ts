@@ -21,6 +21,6 @@ describe('printingHomes', () => {
     expect(primaryHome(ref('card', '4'))).toBe(setChunkPath('4'));
     expect(primaryHome(ref('printing', '11'))).toBe(setChunkPath('11'));
     expect(primaryHome(ref('printing', '4'))).toBe(setChunkPath('4'));
-    expect(primaryHome(ref('promo', '1'))).toBe(CATALOG_PATH);
+    expect(primaryHome(ref('promo', '9'))).toBe(CATALOG_PATH);
   });
 });
