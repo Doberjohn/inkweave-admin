@@ -1,15 +1,16 @@
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import type {Finish} from '../../../app-bridge';
 import {CHOICE_OPTIONS, finishesOfChoice, sameFinishes} from './finishValues';
-import type {PrintingKind} from './printingHomes';
-import type {VersionChange} from './versionBatch';
+import type {PrintingKind, PrintingRef} from './printingHomes';
+import type {VersionChange, VersionClash} from './versionBatch';
 
 /*
  * Reading a saved batch back (#68). What localStorage hands over is text that anyone, or an
  * earlier build, may have written, and the studio reads it at once: the tray prints every field of
  * a change it lists, and a publish reads the rest. So an entry is kept only when each of those
  * fields is what a change holds, the versions it would write included (they go into the app's
- * data files). An entry that fails any check is left out with no word to the owner, since
+ * data files), and names one printing: its ref, and its clash if it has one, are of the printing
+ * its id names. An entry that fails any check is left out with no word to the owner, since
  * unreadable storage isn't pending work worth a notice (Ruling 4). The batch holds one change for
  * each printing, so the first entry for an id is kept and the later ones are strays.
  *
@@ -57,7 +58,7 @@ function isFinishesValue(value: unknown): value is PrintingFinishes {
 }
 
 /** What finds a printing among the files, which a publish reads whole. */
-function isSavedRef(ref: unknown): boolean {
+function isSavedRef(ref: unknown): ref is PrintingRef {
   const named = isFields(ref) && isString(ref.id) && isString(ref.setCode);
   return named && KINDS.includes(ref.kind) && typeof ref.core === 'boolean';
 }
@@ -73,13 +74,16 @@ function isGoneFlag(gone: unknown): boolean {
 }
 
 /** Whether a value is what a publish leaves on a change it found changed on the branch. */
-function isSavedClash(clash: unknown): boolean {
+function isSavedClash(clash: unknown): clash is VersionClash {
   return isFields(clash) && isString(clash.id) && isHeld(clash.now) && showsNow(clash) && isGoneFlag(clash.gone);
 }
 
-/** Who the change is about: its id (not empty), the label its row prints, and what finds the printing. */
+/**
+ * Who the change is about: its id (not empty), the label its row prints, and what finds that
+ * printing, the one its id names. A publish checks the id and writes into the homes its ref gives.
+ */
 function hasIdentity({id, label, ref}: Fields): boolean {
-  return isString(id) && id !== '' && isString(label) && isSavedRef(ref);
+  return isString(id) && id !== '' && isString(label) && isSavedRef(ref) && ref.id === id;
 }
 
 /** The versions it came from, the ones it showed and the ones it would write. */
@@ -87,9 +91,12 @@ function hasVersions({from, shownFrom, to}: Fields): boolean {
   return isHeld(from) && isShown(shownFrom) && isFinishesValue(to);
 }
 
-/** A change has no clash, or a clash that is whole: a null one is not none, as the batch's `hasClash` reads it. */
-function hasWholeClash({clash}: Fields): boolean {
-  return clash === undefined || isSavedClash(clash);
+/**
+ * A change has no clash, or a clash that is whole and of its own printing: a null one is not none,
+ * as the batch's `hasClash` reads it.
+ */
+function hasWholeClash({id, clash}: Fields): boolean {
+  return clash === undefined || (isSavedClash(clash) && clash.id === id);
 }
 
 /** Whether a saved entry is a change the tray can print and a publish can write. */

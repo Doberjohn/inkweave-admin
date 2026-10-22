@@ -97,31 +97,50 @@ describe('withChange', () => {
     expect(back.changes.map((change) => change.id)).toEqual(['946']);
   });
 
-  it('keeps the base of a change chosen again, whatever its row shows now, and writes only the new choice', () => {
+  /*
+   * Chosen again after the branch moved: someone changed the printing since its change was staged,
+   * and the panel read the branch again (a reload, say), so the row shows the new value. The change
+   * keeps its base, which a publish checks, and the owner's choice is weighed against what the
+   * branch shows now.
+   */
+
+  it('takes a change out when the owner chooses what the branch shows now: there is nothing left to write', () => {
     const staged = changeFor({row: ALT_FOIL_223, choice: 'both'});
-    // The branch moved since: someone made #223 Normal only. The panel read it again (a reload, say), so the row says so.
-    const again = withChange(batchOf(staged), changeFor({row: altFoilNow(['normal']), choice: 'normal'}));
-    // The publish still checks the printing against what it held when the change was first staged.
-    expect(again.changes).toEqual([{...staged, to: ['normal']}]);
+    // Someone made #223 Normal only since, and the owner now chooses Normal only too.
+    expect(withChange(batchOf(staged), changeFor({row: altFoilNow(['normal']), choice: 'normal'})).changes).toEqual([]);
   });
 
-  it('takes a change back when the owner chooses what the printing showed when it was first staged, whatever its row shows now', () => {
-    const staged = withChange(EMPTY_BATCH, changeFor({row: ALT_FOIL_223, choice: 'both'}));
-    expect(withChange(staged, changeFor({row: altFoilNow(['normal']), choice: 'foil'})).changes).toEqual([]);
-  });
-
-  it('keeps the clash of a change chosen again, with its base: only Keep mine or Drop settles it', () => {
-    const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
-    // The panel read the branch again after the refused publish, so the row now says Normal only.
-    const again = withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'normal'}));
-    expect(again.changes).toEqual([{...clashed.changes[0], to: ['normal']}]);
-    expect(again.changes[0]).toMatchObject({from: ['foil'], shownFrom: ['foil'], clash: ALT_FOIL_NOW_NORMAL});
+  it('keeps a change chosen again for what the printing showed when it was first staged, marked with the clash its row shows', () => {
+    const staged = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    // #223 was Foil only when the change was staged, and is Normal only now: writing Foil only would undo that edit unseen.
+    const again = withChange(batchOf(staged), changeFor({row: altFoilNow(['normal']), choice: 'foil'}));
+    expect(again.changes).toEqual([{...staged, to: ['foil'], clash: ALT_FOIL_NOW_NORMAL}]);
     expect(hasClash(again)).toBe(true);
   });
 
-  it('drops a clashed change when the owner chooses what the printing showed when the change was first staged', () => {
+  it('keeps the base of a change chosen again for a third value, in its place, marked with the clash its row shows', () => {
+    const first = changeFor({row: CARD_59, choice: 'foil'});
+    const staged = changeFor({row: ALT_FOIL_223, choice: 'normal'});
+    // Someone made #223 Normal only too. Both is neither what it showed then (Foil only) nor what it shows now.
+    const again = withChange(batchOf(first, staged), changeFor({row: altFoilNow(['normal']), choice: 'both'}));
+    expect(again.changes).toEqual([first, {...staged, to: ['normal', 'foil'], clash: ALT_FOIL_NOW_NORMAL}]);
+  });
+
+  it('takes a clashed change out when the owner chooses what the branch shows now', () => {
     const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
-    expect(withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'foil'})).changes).toEqual([]);
+    // The panel read the branch again after the refused publish, so the row now says Normal only.
+    expect(withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'normal'})).changes).toEqual([]);
+  });
+
+  it('keeps the clash a change already has when it is chosen again: only Keep mine or Drop settles it', () => {
+    const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
+    // Foil only, what #223 showed when the change was staged, no longer takes the change out.
+    const again = withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'foil'}));
+    expect(again.changes).toEqual([{...clashed.changes[0], to: ['foil']}]);
+    expect(again.changes[0]).toMatchObject({from: ['foil'], shownFrom: ['foil'], clash: ALT_FOIL_NOW_NORMAL});
+    // The branch moved again after the publish found the clash: the mark stays the one the publish left.
+    const later = withChange(clashed, changeFor({row: altFoilNow(['normal', 'foil']), choice: 'foil'}));
+    expect(later.changes).toEqual([{...clashed.changes[0], to: ['foil']}]);
   });
 
   it('keeps the label the change was staged with', () => {
@@ -136,6 +155,7 @@ describe('withChange', () => {
     withChange(batch, changeFor({row: ALT_FOIL_223, choice: 'normal'}));
     withChange(batch, changeFor({row: ALT_FOIL_223, choice: 'foil'}));
     withChange(batch, changeFor({row: CARD_59, choice: 'foil'}));
+    withChange(batch, changeFor({row: altFoilNow(['normal']), choice: 'foil'}));
     expect(batch).toEqual(before);
   });
 });

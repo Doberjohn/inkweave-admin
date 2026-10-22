@@ -20,6 +20,9 @@ const ALT_FOIL_TO_BOTH = changeFor({row: ALT_FOIL_223, choice: 'both'});
 const CARD_TO_FOIL = changeFor({row: CARD_59, choice: 'foil'});
 const ENCHANTED_TO_BOTH = changeFor({row: ENCHANTED_209, choice: 'both'});
 
+/** #223's change under another id, its ref's included, so a stored entry made from it fails only the check a test spoils. */
+const underId = (id: string) => ({...ALT_FOIL_TO_BOTH, id, ref: {...ALT_FOIL_TO_BOTH.ref, id}});
+
 // jsdom's storage lasts as long as the test file, and src/test/setup.ts clears only the master
 // batch's key before each test, so a test that saves under another branch's key cleans up here.
 afterEach(() => {
@@ -187,8 +190,8 @@ describe('the saved batch', () => {
     reloadWith({
       v: 1,
       changes: [
-        ...badVersions.map((to, i) => ({...ALT_FOIL_TO_BOTH, id: `bad-${i}`, to})),
-        {...ALT_FOIL_TO_BOTH, id: 'no-versions', to: undefined},
+        ...badVersions.map((to, i) => ({...underId(`bad-${i}`), to})),
+        {...underId('no-versions'), to: undefined},
         null,
         'foil',
         7,
@@ -207,7 +210,7 @@ describe('the saved batch', () => {
     // JSON leaves out a key that is undefined, so these are entries saved without a shownFrom and without a ref.
     const noShownFrom = {...CARD_TO_FOIL, shownFrom: undefined};
     const noRef = {...ENCHANTED_TO_BOTH, ref: undefined};
-    const clashWithoutShownNow = {...ALT_FOIL_TO_BOTH, id: 'half-a-clash', clash: {id: 'half-a-clash', now: null}};
+    const clashWithoutShownNow = {...underId('half-a-clash'), clash: {id: 'half-a-clash', now: null}};
     reloadWith({v: 1, changes: [noShownFrom, noRef, clashWithoutShownNow, ALT_FOIL_TO_BOTH]});
     const {result} = renderHook(() => useVersionBatch());
     expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
@@ -496,6 +499,20 @@ describe('another tab', () => {
     expect(result.current.changes).toEqual([CARD_TO_FOIL]);
   });
 
+  it('stops warning once another tab saves just the batch a failed save left in memory, and keeps that batch as it is', () => {
+    const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    expect(result.current.unsaved).toBe(true);
+    const before = result.current.changes;
+    save.mockRestore();
+
+    // Storage now holds what memory does, so a reload would lose nothing.
+    otherTabSaves([ALT_FOIL_TO_BOTH]);
+    expect(result.current.unsaved).toBe(false);
+    expect(result.current.changes).toBe(before);
+  });
+
   it('reads what another tab saves while no component is reading, once its save has replaced a change storage refused', () => {
     const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
     const first = renderHook(() => useVersionBatch());
@@ -611,17 +628,25 @@ describe('publishing', () => {
     expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
   });
 
-  it('finds the clash of a change chosen again after the branch moved: its base is the first staging’s', async () => {
+  it('marks the clash of a change chosen again after the branch moved, on the first staging’s base, and holds the publish', async () => {
     // #59 had no field, so it showed Both, when its change was staged. Someone has since written Both for it.
-    stubRepo({files: {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {750: BOTH}))}});
+    const repo = stubRepo({files: {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {750: BOTH}))}});
     const {result} = renderHook(() => useVersionBatch());
     act(() => result.current.stage(CARD_TO_FOIL));
     // The panel read the branch again (a reload, say), so #59's row names Both; the owner chooses Normal only.
     act(() => result.current.stage(changeFor({row: {...CARD_59, value: BOTH, shown: BOTH}, choice: 'normal'})));
-    await publishNow(result);
 
     // Built from the row, the change would have started from Both and written over the other edit unseen.
-    expect(result.current.changes).toEqual([{...CARD_TO_FOIL, to: ['normal'], clash: {id: '750', now: BOTH, shownNow: BOTH}}]);
+    const marked = [{...CARD_TO_FOIL, to: ['normal'], clash: {id: '750', now: BOTH, shownNow: BOTH}}];
+    expect(result.current.changes).toEqual(marked);
+    expect(hasClash(result.current)).toBe(true);
+    expect(saved()).toEqual({v: 1, changes: marked});
+
+    // Publish stays off until the owner keeps or drops the change: it reads nothing and writes nothing.
+    await publishNow(result);
+    expect(repo.fetch).not.toHaveBeenCalled();
+    expect(result.current.changes).toEqual(marked);
+    expect(result.current.publishing).toBe(false);
   });
 
   it('marks clashes and keeps the batch when a printing changed', async () => {

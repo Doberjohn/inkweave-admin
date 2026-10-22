@@ -89,7 +89,8 @@ export interface VersionBatchView {
   error: string | null;
   /**
    * The last save of the batch to this browser's storage failed (blocked site data, a full quota),
-   * so a reload would lose what only the page holds, until a save works.
+   * so a reload would lose what only the page holds, until a save works or the page takes in what
+   * another tab saved.
    */
   unsaved: boolean;
   /** Adds a change, in the place of its printing's earlier one. One that restores what the printing showed removes it. */
@@ -230,14 +231,16 @@ function reconciled(batch: VersionBatch, saved: readonly VersionChange[]): Versi
 /**
  * Makes the target branch's batch what is saved for it, which another tab may have changed since.
  * What a publish has to say (`publishing`, `result`, `error`) is left as it is, and so is the batch
- * when nothing differs, with no word to the readers. Storage that can't be read says nothing.
+ * when nothing differs. Either way storage now holds the batch, so `unsaved` clears: a failed save
+ * here no longer leaves it in memory alone. The readers are told when the batch or `unsaved`
+ * changes, and only then. Storage that can't be read says nothing.
  */
 function adoptSaved(): void {
   const before = snapshot();
   const saved = readSaved();
   if (saved === null) return;
   const batch = reconciled(before.batch, saved);
-  if (batch === before.batch) return;
+  if (batch === before.batch && !before.unsaved) return;
   states.set(targetBranch(), {...before, batch, unsaved: false});
   notify();
 }

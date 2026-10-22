@@ -126,9 +126,10 @@ interface ItemProps {
 /**
  * One printing: its art, its name, its marker, and the choice of versions. A staged change shows
  * the versions it writes in place of the ones the row shows, and the marker "Pending", or "Clash"
- * where a publish found the printing changed on the branch. Choosing again changes only what the
- * change writes: it keeps its base, and a clash its mark, which Keep mine or Drop in the tray
- * settles (`withChange`).
+ * where the printing changed on the branch since: a publish found it, or a choice made again from
+ * a row read since did. Choosing again changes only what the change writes: it keeps its base, and
+ * a clash its mark, which Keep mine or Drop in the tray settles. Once the branch has moved, a
+ * choice of what it shows now takes the change out, and any other marks it clashed (`withChange`).
  */
 function PrintingItem({row, pending, ruled, held, onChoose}: ItemProps) {
   const marker = markerOf({row, pending});

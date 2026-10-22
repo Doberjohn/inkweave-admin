@@ -152,7 +152,7 @@ It starts once the app's part has merged and admin's app pin has moved past it, 
    - Edit card's own Save still commits the open card's fields or image alone, as today. It never takes the batch with it.
 5. **Publishing.**
    - Publish makes one commit to `VITE_ADMIN_TARGET_BRANCH` through the existing GitHub commit layer. For every change in the batch, it writes the explicit value into every entry that holds the printing (the table above), with the files read at the commit's base. Only the edited entries change.
-   - Each change remembers the value its printing had when the change was made. If any printing's value on the branch no longer matches, the publish stops and offers Reload. Reload refreshes the values from the branch:
+   - Each change remembers the value its printing had when the change was made. If any printing's value on the branch no longer matches, the publish stops, and the studio reads the values from the branch again at once:
      - a change whose printing still matches stays as it is;
      - a change whose printing changed stays in the batch too, marked as a clash showing the branch's new value, until the owner keeps it (on top of the new value) or drops it.
    - Publish stays off while a clash is open. Unlike the tuning editor's reload (R-18), nothing leaves the batch without the owner choosing it (owner, 2026-10-21).

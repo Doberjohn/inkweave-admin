@@ -69,6 +69,9 @@ const BAD_ENTRIES: Bad[] = [
   ['a number for the setCode in its ref', PRINTING, inPart('ref', 'setCode', 4)],
   ['no core in its ref', PRINTING, inPart('ref', 'core', undefined)],
   ['text for the core in its ref', PRINTING, inPart('ref', 'core', 'false')],
+  // The entry names one printing: its ref finds the printing its id names.
+  ['a ref to another printing', PRINTING, inPart('ref', 'id', '900')],
+  ['an id that is not its ref’s', PRINTING, set('id', '947')],
   // from: null, or a list of versions.
   ['no from', PRINTING, without('from')],
   ['text for from', PRINTING, set('from', 'foil')],
@@ -93,6 +96,7 @@ const BAD_ENTRIES: Bad[] = [
   ['an empty clash', CLASHED, set('clash', {})],
   ['no id in its clash', CLASHED, inPart('clash', 'id', undefined)],
   ['a number for the id in its clash', CLASHED, inPart('clash', 'id', 946)],
+  ['a clash on another printing', CLASHED, inPart('clash', 'id', '900')],
   ['no now in its clash', CLASHED, inPart('clash', 'now', undefined)],
   ['text for the now of its clash', CLASHED, inPart('clash', 'now', 'normal')],
   ['a version that is neither normal nor foil in now', CLASHED, inPart('clash', 'now', ['standard'])],
@@ -132,7 +136,12 @@ describe('savedChangesOf', () => {
 
   it('keeps a clash on a printing that is gone, whether or not it lists the versions it showed', () => {
     const gone = (id: string, shownNow: unknown) =>
-      saved({...NUMBER_59_TO_FOIL_GONE, id, clash: {id, now: null, shownNow, gone: true}});
+      saved({
+        ...NUMBER_59_TO_FOIL_GONE,
+        id,
+        ref: {...NUMBER_59_TO_FOIL_GONE.ref, id},
+        clash: {id, now: null, shownNow, gone: true},
+      });
     const entries = [gone('1', []), gone('2', ['normal'])];
     expect(savedChangesOf(entries)).toEqual(entries);
   });

@@ -136,16 +136,18 @@ export function editSources<L extends CardListView, F extends PreviewCardsFile>(
  * query lists the Core cards before the rotated-out ones. It reads loading until they are in too, so
  * a deep link to one of their cards waits for them instead of reading missing; a failed read isn't
  * loading, and the lookup goes on without them. The error stays the card list's own: Sets 1 to 8
- * failing is not the card list failing. Where the card list and they hold one id, the card list wins.
- * Everything else the list carries, such as retryLoad and branchOnlyIds, passes through.
+ * failing is not the card list failing. Where the card list and they hold one id, the card list wins:
+ * the search lists its card alone, and the lookup finds it. Everything else the list carries, such
+ * as retryLoad and branchOnlyIds, passes through.
  */
 export function withCollectionCards<L extends CardListView>({list, collection}: {list: L; collection: CollectionOnlyCards}): L {
   const isLoading = list.isLoading || collection.status === 'loading';
-  if (collection.cards.length === 0) return {...list, isLoading};
-  const byId = new Map(collection.cards.map((card) => [card.id, card]));
+  const unlisted = collection.cards.filter((card) => list.getCardById(card.id) === undefined);
+  if (unlisted.length === 0) return {...list, isLoading};
+  const byId = new Map(unlisted.map((card) => [card.id, card]));
   return {
     ...list,
-    cards: [...list.cards, ...collection.cards],
+    cards: [...list.cards, ...unlisted],
     getCardById: (id: string) => list.getCardById(id) ?? byId.get(id),
     isLoading,
   };

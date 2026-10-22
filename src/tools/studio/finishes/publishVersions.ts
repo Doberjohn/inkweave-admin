@@ -31,11 +31,14 @@ export function versionCommitMessage(count: number): string {
   return `chore(collection): set the versions of ${count} printing${count === 1 ? '' : 's'} from Card studio`;
 }
 
-/** What the owner is told of a publish refused for its clashes. */
+/**
+ * What the owner is told of the changes clashed: by a publish refused for them, or by a choice made
+ * again from a row read since. Either way the owner settles them before a publish.
+ */
 export function clashMessage(count: number): string {
   const clash = count === 1 ? ' clashes' : 's clash';
   const printings = count === 1 ? 'this printing' : 'these printings';
-  return `${count} change${clash}: someone changed ${printings} on ${targetBranch()} since. Keep or drop each one, then publish again.`;
+  return `${count} change${clash}: someone changed ${printings} on ${targetBranch()} since. Keep or drop each one, then publish.`;
 }
 
 /** A publish refused because printings changed on the branch since their changes were staged. It names every one. */

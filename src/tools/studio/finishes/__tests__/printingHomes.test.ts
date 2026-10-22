@@ -1,9 +1,10 @@
 import {describe, expect, it} from 'vitest';
+import {isCoreSet} from 'inkweave-synergy-engine';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishFiles';
 import {homesOf, primaryHome, type PrintingKind} from '../printingHomes';
 
-/** A printing of a card in this set, which is Core from Set 9 up. */
-const ref = (kind: PrintingKind, setCode: string) => ({id: '1', kind, setCode, core: Number(setCode) >= 9});
+/** A printing of a card in this set, Core as the engine says (`isCoreSet`): from Set 9 up. */
+const ref = (kind: PrintingKind, setCode: string) => ({id: '1', kind, setCode, core: isCoreSet(setCode)});
 
 describe('printingHomes', () => {
   it('lists each kind of printing in its homes, primary first', () => {

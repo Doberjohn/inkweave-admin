@@ -10,15 +10,16 @@ import type {PrintingRow} from './printingRows';
  * the batch (versionBatchStore.ts) and the publish that writes it share them.
  *
  * A change leaves the batch by the owner's word alone: Revert or Drop, Discard all, a choice that
- * puts the printing back to what it showed, Keep mine on a clash the branch's new value settles, a
- * publish that sent it, or one that wrote what it asks for. Nothing here removes one for any other
- * reason.
+ * puts the printing back to what it showed (or, once the branch has moved, to what it shows now),
+ * Keep mine on a clash the branch's new value settles, a publish that sent it, or one that wrote
+ * what it asks for. Nothing here removes one for any other reason.
  */
 
 /**
  * What a publish found where a change's printing no longer has the value the change was staged
- * from. The change stays in the batch, marked with this, until the owner keeps it (on top of the
- * value the branch has now) or drops it.
+ * from, as a choice made again from a row read since can find too (`withChange`). The change stays
+ * in the batch, marked with this, until the owner keeps it (on top of the value the branch has
+ * now) or drops it.
  */
 export interface VersionClash {
   /** The printing's id: the change it marks. */
@@ -49,7 +50,10 @@ export interface VersionChange {
   shownFrom: readonly Finish[];
   /** What a publish writes: the owner's choice as an explicit value, Both included. */
   to: PrintingFinishes;
-  /** Set once a publish found the printing changed on the branch. */
+  /**
+   * Set once a publish found the printing changed on the branch, or a choice made again from a row
+   * read since did.
+   */
   clash?: VersionClash;
 }
 
@@ -70,12 +74,46 @@ export function changeFor({row, choice}: {row: PrintingRow; choice: FinishChoice
  * The batch with `change` in it. A printing the batch already holds a change for keeps that
  * change's base (`from`, `shownFrom`, and a clash mark if it has one), and only what it writes
  * becomes the new choice: a publish checks the printing against what it held when the change was
- * first staged, so a row read again since (after a reload, say) never moves that. A choice that
- * sets the printing back to the versions it showed then takes the change out instead (`placed`).
+ * first staged, so a row read again since (after a reload, say) never moves that.
+ *
+ * - Where the row still holds that value, a choice that sets the printing back to the versions it
+ *   showed then takes the change out instead (`placed`).
+ * - Where the branch moved since (the row's value is no longer the change's `from`), a choice of
+ *   what the branch shows now takes the change out, as there is nothing left to write. Any other
+ *   choice, the versions the printing showed when the change was first staged included, keeps the
+ *   change, marked clashed: with the mark it has, or else with the row's value. Publish then stays
+ *   off until the owner keeps or drops it.
  */
 export function withChange(batch: VersionBatch, change: VersionChange): VersionBatch {
   const held = batch.changes.find((pending) => pending.id === change.id);
-  return placed(batch, held ? {...held, to: change.to} : change);
+  if (!held) return placed(batch, change);
+  if (!movedSince({held, change})) return placed(batch, {...held, to: change.to});
+  if (sameFinishes(change.to, change.shownFrom)) return withoutChange(batch, change.id);
+  return replaced(batch, clashedChoice({held, change}));
+}
+
+/** A change the batch holds for a printing, and the one a new choice for it makes from its row. */
+interface Rechoice {
+  held: VersionChange;
+  change: VersionChange;
+}
+
+/**
+ * Whether the row shows the branch moved since the held change was staged: its value is no longer
+ * the change's `from`. They are compared raw, as a publish's clash check compares them
+ * (publishVersions.ts), so a missing field matches only a missing field.
+ */
+function movedSince({held, change}: Rechoice): boolean {
+  return !sameFinishes(held.from, change.from);
+}
+
+/**
+ * The held change with the new choice, marked clashed: with the mark it has, or else with what the
+ * row says the branch holds and shows now.
+ */
+function clashedChoice({held, change}: Rechoice): VersionChange {
+  const clash = held.clash ?? {id: change.id, now: change.from, shownNow: change.shownFrom};
+  return {...held, to: change.to, clash};
 }
 
 /**
@@ -88,10 +126,12 @@ export function withChange(batch: VersionBatch, change: VersionChange): VersionB
 function placed(batch: VersionBatch, change: VersionChange): VersionBatch {
   const held = batch.changes.some((pending) => pending.id === change.id);
   if (sameFinishes(change.to, change.shownFrom)) return held ? withoutChange(batch, change.id) : batch;
-  const changes = held
-    ? batch.changes.map((pending) => (pending.id === change.id ? change : pending))
-    : [...batch.changes, change];
-  return {changes};
+  return held ? replaced(batch, change) : {changes: [...batch.changes, change]};
+}
+
+/** The batch with `change` in the place of its printing's change. */
+function replaced(batch: VersionBatch, change: VersionChange): VersionBatch {
+  return {changes: batch.changes.map((pending) => (pending.id === change.id ? change : pending))};
 }
 
 /**

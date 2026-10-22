@@ -217,11 +217,11 @@ describe('the words of a publish', () => {
 
   it('counts the clashes, and names the branch they are on', () => {
     expect(clashMessage(1)).toBe(
-      '1 change clashes: someone changed this printing on master since. Keep or drop each one, then publish again.',
+      '1 change clashes: someone changed this printing on master since. Keep or drop each one, then publish.',
     );
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'rehearse-68');
     expect(clashMessage(3)).toBe(
-      '3 changes clash: someone changed these printings on rehearse-68 since. Keep or drop each one, then publish again.',
+      '3 changes clash: someone changed these printings on rehearse-68 since. Keep or drop each one, then publish.',
     );
   });
 

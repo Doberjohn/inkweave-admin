@@ -14,7 +14,7 @@ import {
 } from '../branchCards';
 import type {EditLookup} from '../editorState';
 import type {CollectionOnlyCards} from '../finishes/collectionCards';
-import {YEN_SID} from '../finishes/__tests__/finishFixtures';
+import {URSULA_SET_3, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import type {PreviewCardsFile} from '../previewCardsFile';
 import {
   BRANCH_ONLY_ENTRY,
@@ -142,6 +142,16 @@ describe('withCollectionCards', () => {
     const impostor = {...YEN_SID, name: 'Not Yen Sid'};
     const list = withCollectionCards({list: listOf({cards: [impostor]}), collection: collectionOf({cards: [YEN_SID]})});
     expect(list.getCardById(YEN_SID.id)).toBe(impostor);
+  });
+
+  it('lists a card both hold once, as the card list’s, and the other cards of Sets 1 to 8 after it', () => {
+    const impostor = {...YEN_SID, name: 'Not Yen Sid'};
+    const list = withCollectionCards({
+      list: listOf({cards: [impostor, RELEASED_CARD]}),
+      collection: collectionOf({cards: [YEN_SID, URSULA_SET_3]}),
+    });
+    expect(ids(list.cards)).toEqual([YEN_SID.id, RELEASED_CARD.id, URSULA_SET_3.id]);
+    expect(list.cards[0]).toBe(impostor);
   });
 
   it.each<{name: string; listed: Partial<CardListView>; status: CollectionOnlyCards['status']; isLoading: boolean}>([

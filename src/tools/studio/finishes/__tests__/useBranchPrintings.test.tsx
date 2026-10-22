@@ -230,7 +230,7 @@ describe('useBranchPrintings', () => {
     });
 
     it('starts with the rows of another card of the same set', async () => {
-      stubBranch(YEN_SID_FILES);
+      const branch = stubBranch(YEN_SID_FILES);
       const first = renderPrintings(YEN_SID);
       await whenReady(first);
       first.unmount();
@@ -238,6 +238,7 @@ describe('useBranchPrintings', () => {
       const next = renderPrintings(SET_4[1]);
       expect(namesOf(next.result.current)).toEqual(['#209']);
       await act(async () => {}); // the read the hook starts anyway
+      expect(branch.paths()).toHaveLength(3);
     });
 
     it('starts loading when any file of its set was not read yet', async () => {
