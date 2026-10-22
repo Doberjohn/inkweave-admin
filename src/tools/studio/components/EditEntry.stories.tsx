@@ -8,6 +8,7 @@ import {PageLayout} from '../../../shell/PageLayout';
 import {filterCards} from '../../image/filterCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import type {SearchRow} from '../editSearch';
+import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {
   CURLY_APOSTROPHE_CARD,
   DUAL_INK_ENTRY,
@@ -25,6 +26,10 @@ import {ReleasedCardFacts} from './ReleasedCardFacts';
 const MEI = cardOf(PREVIEW_ENTRY);
 /** Only the branch file holds Priya (R-66). */
 const PRIYA = cardOf(DUAL_INK_ENTRY);
+/**
+ * Ursula - Deceiver of Set 9, then of Set 3: the same name, version, ink, rarity and number, so the Set 3
+ * row names its set, "Set 3 ·" over "#90" (#68). Type "ursula" to see the two rows together.
+ */
 const CARDS: LorcanaCard[] = [
   MEI,
   PRIYA,
@@ -32,6 +37,8 @@ const CARDS: LorcanaCard[] = [
   cardOf(JA_SCAN_ENTRY),
   CURLY_APOSTROPHE_CARD,
   RELEASED_CARD,
+  URSULA_SET_9,
+  URSULA_SET_3,
 ];
 
 const READY: EditSearchList = {loading: false, error: null, onRetry: () => {}};
@@ -83,7 +90,10 @@ const meta: Meta = {title: 'Admin/Publish/Card studio/Edit entry'};
 export default meta;
 type Story = StoryObj;
 
-/** The search screen: the branch file's cards first (R-76), each tagged, and Priya only in the branch file (R-66). */
+/**
+ * The search screen: the branch file's cards first (R-76), each tagged, and Priya only in the branch file (R-66).
+ * A list of Core and Sets 1 to 8 cards in one column: Ursula's Set 3 row wraps its set over its number (#68).
+ */
 export const Search: Story = {
   render: () => (
     <StudioFrame>

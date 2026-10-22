@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
+import {ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
 import type {SearchRow} from '../editSearch';
@@ -127,17 +128,28 @@ describe('EditSearch', () => {
       expect(screen.queryByText(/^Set \d/)).not.toBeInTheDocument();
     });
 
-    it('gives every row the wider number column once the list holds a card of Sets 1 to 8, so the marks still line up', () => {
+    // jsdom has no layout, so these pin the rule the geometry rests on. On a phone the names column is the viewport less the
+    // 64px rail, the 32px of gutters, 26px of border and padding and 138px of thumbnail, marks and gaps, less this column:
+    // 71px at 375px with the 44px column "#204" had. The set wraps over the number rather than widening the column.
+    it('lets the number cell wrap, so "Set 3 ·" sits over "#90" instead of widening the column', () => {
+      renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
+      expect(screen.getByText('Set 3 · #90')).toHaveStyle({whiteSpace: 'normal'});
+      expect(screen.getByText('#90')).toHaveStyle({whiteSpace: 'normal'});
+    });
+
+    it('gives every list one number column, mixed or Core-only, so the marks never jump while a query is typed', () => {
       renderSearch({rows: [...ROWS, ...URSULA_ROWS], total: ROWS.length + URSULA_ROWS.length});
-      const withSet = screen.getAllByRole('link').map(numberColumn);
+      const mixed = screen.getAllByRole('link').map(numberColumn);
       cleanup();
       renderSearch();
       const coreOnly = screen.getAllByRole('link').map(numberColumn);
 
-      // One width down each list, and room for "Set 8 · #204" where a set is named.
-      expect(new Set(withSet).size).toBe(1);
-      expect(new Set(coreOnly).size).toBe(1);
-      expect(withSet[0]).toBeGreaterThan(coreOnly[0]);
+      expect(new Set([...mixed, ...coreOnly]).size).toBe(1);
+      // Room for the set's line, "Set 8 ·": seven characters of the 12px monospace at 0.6em each...
+      const [width] = mixed;
+      expect(width).toBeGreaterThanOrEqual(Math.ceil(7 * 0.6 * ADMIN_TYPE.small));
+      // ...and at most 8px more of the names column than the 44px the number alone had.
+      expect(width).toBeLessThanOrEqual(44 + 8);
     });
   });
 
