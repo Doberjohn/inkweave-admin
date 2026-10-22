@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {isCoreSet, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {transformPromos, transformRawCards, type RawCollectionPromo} from '../../../app-bridge';
 import {
+  cachedBranchFile,
   forgetBranchFiles,
   lastTextCached,
   messageOf,
@@ -58,13 +59,10 @@ function pathsOf(setCode: string): string[] {
 }
 
 /**
- * Reads and parses the files of a set. A printing's versions are what its primary home names for
- * it: nothing, where that file has no entry for it.
+ * Parses the files of a set, in the order of `pathsOf`. A printing's versions are what its primary
+ * home names for it: nothing, where that file has no entry for it.
  */
-async function readFiles({token, setCode}: {token: string; setCode: string}): Promise<Files> {
-  const paths = pathsOf(setCode);
-  const texts = await Promise.all(paths.map((path) => readBranchFile({token, path})));
-  const files = paths.map((path, i): BranchFile => ({path, text: texts[i]}));
+function parsedFiles(files: readonly BranchFile[]): Files {
   const [chunk, promos] = files;
   const values = new Map(files.map((file): [string, FileValues] => [file.path, finishesIn(file)]));
   return {
@@ -74,17 +72,52 @@ async function readFiles({token, setCode}: {token: string; setCode: string}): Pr
   };
 }
 
+/** Reads and parses the files of a set. */
+async function readFiles({token, setCode}: {token: string; setCode: string}): Promise<Files> {
+  const paths = pathsOf(setCode);
+  const texts = await Promise.all(paths.map((path) => readBranchFile({token, path})));
+  return parsedFiles(paths.map((path, i): BranchFile => ({path, text: texts[i]})));
+}
+
+/**
+ * The files of a set, parsed, when a read of every one of them has landed already; else null. A
+ * text its parser can't read is no files either: the read the hook starts reports that file.
+ */
+function cachedFiles(setCode: string): Files | null {
+  const files: BranchFile[] = [];
+  for (const path of pathsOf(setCode)) {
+    const text = cachedBranchFile(path);
+    if (text === undefined) return null;
+    files.push({path, text});
+  }
+  try {
+    return parsedFiles(files);
+  } catch {
+    return null;
+  }
+}
+
+/** What a hook that mounts after the files were read starts with, in place of loading: their outcome, or none. */
+function settledFromCache({setCode, generation}: {setCode: string; generation: number}): Settled | null {
+  const files = cachedFiles(setCode);
+  return files && {setCode, generation, outcome: {files}};
+}
+
 /**
  * Reads a card's printings from the target branch's files. The files depend on the card's set
  * alone, so another card of the same set reads and loads nothing, while a card of another set
  * discards the last one's pending read. The view reads as loading until a read lands that answers
  * the card's set and the latest drop of the files (`forgetBranchFiles`, which a publish makes). A
  * read landing late is dropped: it never shows another card's rows, nor replaces a newer read.
+ *
+ * Card studio mounts the panel anew for each card it opens, so a hook that mounts when the files
+ * were read already starts with their rows, and never shows loading for the frame it takes the
+ * read to answer from its cache. The read is made all the same, and settles on the same rows.
  */
 export function useBranchPrintings({token, card}: {token: string; card: LorcanaCard}): BranchPrintings {
   const {setCode = ''} = card;
   const generation = useBranchFilesGeneration();
-  const [settled, setSettled] = useState<Settled | null>(null);
+  const [settled, setSettled] = useState<Settled | null>(() => settledFromCache({setCode, generation}));
 
   useEffect(() => {
     let cancelled = false;

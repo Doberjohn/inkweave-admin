@@ -1,6 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
 import {
+  cachedBranchFile,
   forgetBranchFiles,
   lastTextCached,
   readBranchFile,
@@ -95,6 +96,63 @@ describe('readBranchFile', () => {
     await expect(stale).rejects.toThrow(BAD_GATEWAY);
     await read();
     expect(branch.paths()).toHaveLength(2);
+  });
+});
+
+describe('cachedBranchFile', () => {
+  it('has nothing for a file until its read lands, then the text it read', async () => {
+    const late = deferredResponse();
+    stubBranch({[PROMOS_PATH]: () => late.response});
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+    const reading = read();
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+
+    late.respond(new Response('[]\n'));
+    await reading;
+    expect(cachedBranchFile(PROMOS_PATH)).toBe('[]\n');
+    expect(cachedBranchFile(CATALOG_PATH)).toBeUndefined();
+  });
+
+  it('holds the text of each target branch apart', async () => {
+    stubBranch({[PROMOS_PATH]: '[]\n'});
+    await read();
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'rehearse-68');
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+    vi.unstubAllEnvs();
+    expect(cachedBranchFile(PROMOS_PATH)).toBe('[]\n');
+  });
+
+  it('keeps nothing of a read that failed', async () => {
+    const branch = stubBranch({[PROMOS_PATH]: '[]\n'});
+    branch.fetch.mockImplementationOnce(async () => badGateway());
+    await expect(read()).rejects.toThrow(BAD_GATEWAY);
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+  });
+
+  it('forgets the text with the reads, and a read that lands after the drop leaves none behind', async () => {
+    const early = deferredResponse();
+    const branch = stubBranch({[PROMOS_PATH]: '[]\n'});
+    branch.fetch.mockImplementationOnce(() => early.response);
+    const stale = read();
+    forgetBranchFiles();
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+
+    // The read that began before the drop lands: its text is the old branch's, and nobody asks for it.
+    early.respond(new Response('["old"]\n'));
+    await stale;
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+
+    await read();
+    expect(cachedBranchFile(PROMOS_PATH)).toBe('[]\n');
+    forgetBranchFiles();
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
+  });
+
+  it('is empty after resetBranchFiles', async () => {
+    stubBranch({[PROMOS_PATH]: '[]\n'});
+    await read();
+    resetBranchFiles();
+    expect(cachedBranchFile(PROMOS_PATH)).toBeUndefined();
   });
 });
 

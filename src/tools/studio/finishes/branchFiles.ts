@@ -7,6 +7,8 @@ import {readRepoFile, targetBranch} from '../../../github/githubCommit';
  * read once per branch for the session, and a publish drops them all (`forgetBranchFiles`) for the
  * next read to see what it wrote. What a file parsed to is kept for as long as its text is the
  * same (`lastTextCached`), and a file whose text a parser can't read is named (`namingItsFile`).
+ * The text of each read that has landed is kept as well (`cachedBranchFile`), so a panel that
+ * opens after the files were read starts with its rows instead of waiting a frame for the promises.
  */
 
 /** A file of the target branch: its path in the app's repo, and the text read there. */
@@ -17,6 +19,9 @@ export interface BranchFile {
 
 /** Each read, by branch and path (a git ref has no ":"): the promise itself, so a second ask shares a read that is under way. */
 const reads = new Map<string, Promise<string>>();
+
+/** The text of each read that has landed, under the key of its read, for `cachedBranchFile`. */
+const landed = new Map<string, string>();
 
 /** How many times the reads were dropped. What reads the files follows it, so it starts again when it changes. */
 let generation = 0;
@@ -50,11 +55,26 @@ export function readBranchFile({token, path}: {token: string; path: string}): Pr
 
   const read = readRepoFile(token, path, branch);
   reads.set(key, read);
-  read.catch(() => {
-    // Evict only this attempt: after forgetBranchFiles() a newer read may hold the slot.
-    if (reads.get(key) === read) reads.delete(key);
-  });
+  // Only this attempt's outcome counts: after forgetBranchFiles() a newer read may hold the slot,
+  // and the text of an older one is the old branch's.
+  read.then(
+    (text) => {
+      if (reads.get(key) === read) landed.set(key, text);
+    },
+    () => {
+      if (reads.get(key) === read) reads.delete(key);
+    },
+  );
   return read;
+}
+
+/**
+ * The text of a file of the target branch, if a read of it has landed and not been dropped since,
+ * else undefined. It never reads: a hook that mounts after the files were read starts with them
+ * (`useBranchPrintings`), where waiting for the read would show a loading line for a frame.
+ */
+export function cachedBranchFile(path: string): string | undefined {
+  return landed.get(`${targetBranch()}:${path}`);
 }
 
 /**
@@ -63,6 +83,7 @@ export function readBranchFile({token, path}: {token: string; path: string}): Pr
  */
 export function forgetBranchFiles(): void {
   reads.clear();
+  landed.clear();
   generation += 1;
   notify();
 }
@@ -115,6 +136,7 @@ export function lastTextCached<T>(parse: (file: BranchFile) => T): (file: Branch
 /** Empties every read and what was parsed, and counts from 0 again. Tests only: src/test/setup.ts calls it before every test. */
 export function resetBranchFiles(): void {
   reads.clear();
+  landed.clear();
   for (const cache of parseCaches) cache.clear();
   generation = 0;
   notify();

@@ -208,6 +208,79 @@ describe('useBranchPrintings', () => {
     });
   });
 
+  /*
+   * Card studio mounts the panel anew for each card it opens, so its first render must already have
+   * the rows when the files were read for an earlier card: a loading line would show for a frame.
+   * `renderHook` returns before the read the hook's effect starts can land, so `result.current` is
+   * what the first render gave.
+   */
+  describe('a card opened once its files were read', () => {
+    it('starts with its rows, and reads nothing again', async () => {
+      const branch = stubBranch(YEN_SID_FILES);
+      const first = renderPrintings(YEN_SID);
+      await whenReady(first);
+      first.unmount();
+
+      const next = renderPrintings(YEN_SID);
+      expect(namesOf(next.result.current)).toEqual(['#59', '#209 · Enchanted', '#223 · Alt foil']);
+      expect(valuesOf(next.result.current)).toEqual([null, null, ['foil']]);
+      await act(async () => {}); // the read the hook starts anyway finds the files kept
+      expect(branch.paths()).toHaveLength(3);
+      expect(namesOf(next.result.current)).toEqual(['#59', '#209 · Enchanted', '#223 · Alt foil']);
+    });
+
+    it('starts with the rows of another card of the same set', async () => {
+      stubBranch(YEN_SID_FILES);
+      const first = renderPrintings(YEN_SID);
+      await whenReady(first);
+      first.unmount();
+
+      const next = renderPrintings(SET_4[1]);
+      expect(namesOf(next.result.current)).toEqual(['#209']);
+      await act(async () => {}); // the read the hook starts anyway
+    });
+
+    it('starts loading when any file of its set was not read yet', async () => {
+      stubBranch({...YEN_SID_FILES, ...MKB_FILES});
+      const first = renderPrintings(YEN_SID);
+      await whenReady(first);
+      first.unmount();
+
+      // The promos and the catalog were read for Yen Sid: Set 9's chunk and allCards.json were not.
+      const next = renderPrintings(MOTHER_KNOWS_BEST);
+      expect(next.result.current).toEqual({status: 'loading'});
+      await whenReady(next);
+      expect(namesOf(next.result.current)).toEqual(MKB_NAMES);
+    });
+
+    it('starts loading once the files were forgotten, and shows the branch as it is then', async () => {
+      const files: Record<string, string> = {...YEN_SID_FILES};
+      stubBranch(files);
+      const first = renderPrintings(YEN_SID);
+      await whenReady(first);
+      first.unmount();
+
+      files[CHUNK_4] = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
+      act(() => forgetBranchFiles());
+      const next = renderPrintings(YEN_SID);
+      expect(next.result.current).toEqual({status: 'loading'});
+      await whenReady(next);
+      expect(valuesOf(next.result.current)).toEqual([null, null, ['normal', 'foil']]);
+    });
+
+    it('starts loading when a file kept is one its parser cannot read, and names the file once it has read it', async () => {
+      stubBranch({...YEN_SID_FILES, [CHUNK_4]: '<<<<<<< HEAD\n'});
+      const first = renderPrintings(YEN_SID);
+      await whenFailed(first);
+      first.unmount();
+
+      const next = renderPrintings(YEN_SID);
+      expect(next.result.current).toEqual({status: 'loading'});
+      await whenFailed(next);
+      expect(failed(next.result.current).error).toContain(`${CHUNK_4} can't be read: `);
+    });
+  });
+
   describe('when the branch changes', () => {
     it('reads the files again once they are forgotten, and shows the branch as it is then', async () => {
       const files: Record<string, string> = {...YEN_SID_FILES};
