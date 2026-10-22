@@ -1,7 +1,8 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {commitFiles, stripDataUrl, type CommitFile, type CommitResult} from '../../github/githubCommit';
 
-const RAW_DIR = 'apps/web/public/card-images-raw';
+/** Where a raw scan waits for convert-reveal-images, which turns it into AVIFs and removes it. */
+export const RAW_DIR = 'apps/web/public/card-images-raw';
 
 /** The card identity fields the commit needs (a subset of LorcanaCard). */
 export type ImageAdminCard = Pick<LorcanaCard, 'id' | 'fullName'>;
