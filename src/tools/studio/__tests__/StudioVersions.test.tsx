@@ -1,10 +1,9 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, screen, waitFor, within} from '@testing-library/react';
 import type {UserEvent} from '@testing-library/user-event';
-import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {studioHref} from '../../../shell/nav';
-import {askedOf, contentsAnswer, deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
-import {chunksOf} from '../finishes/__tests__/collectionHarness';
+import {deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {
   EMPTY_CATALOG_TEXT,
   NUMBER_223_TO_BOTH,
@@ -16,13 +15,14 @@ import {
   collectionText,
   withFinishes,
 } from '../finishes/__tests__/finishFixtures';
-import {BASE, COMMIT_URL, moved, stubRepo, type RepoAnswers, type RepoStub} from '../finishes/__tests__/repoHarness';
+import {COMMIT_URL, moved} from '../finishes/__tests__/repoHarness';
 import {CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {clashMessage, versionCommitMessage} from '../finishes/publishVersions';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
-import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
+import {PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
-import {TOKEN_KEY, renderStudio, setCardList, stubFetch, watchAdditions, type Answer} from './studioHarness';
+import {TOKEN_KEY, renderStudio, setCardList, watchAdditions} from './studioHarness';
+import {stubStudioRepo} from './studioRepo';
 import {measured} from './studioStores';
 
 // The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
@@ -33,12 +33,10 @@ vi.mock('../../../app-bridge', async (importOriginal) => ({
 
 /*
  * The Version changes tray as the page runs it (#68): over the real batch, with the page's own
- * fetch (stubFetch) and the app's repo besides (stubRepo), which the Printings panel reads and a
- * publish commits to. The tray on its own, with its view as a prop, is VersionsTray.test.tsx.
+ * fetch and the app's repo besides (stubStudioRepo), which the Printings panel reads and a publish
+ * commits to. The tray on its own, with its view as a prop, is VersionsTray.test.tsx.
  */
 
-const REPO_API = 'https://api.github.com/repos/Doberjohn/inkweave';
-const CONTENTS = `${REPO_API}/contents/`;
 const CHUNK_4 = setChunkPath('4');
 
 /** The files a card of Sets 1 to 8 reads: Set 4's chunk, which holds Yen Sid's three entries, and an empty promos.json and catalog. */
@@ -51,7 +49,6 @@ const YEN_SID_FILES: Record<string, Served> = {
 const MEI = cardOf(PREVIEW_ENTRY);
 const MING = cardOf(VARIANTS_ENTRY);
 const CARDS: LorcanaCard[] = [RELEASED_CARD, MEI, MING];
-const FILE: LorcanaJSONCard[] = [PREVIEW_ENTRY, VARIANTS_ENTRY, BRANCH_ONLY_ENTRY];
 
 const NUMBER_59 = 'Versions of Yen Sid - Powerful Sorcerer #59 · Set 4';
 const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223 · Set 4';
@@ -59,44 +56,6 @@ const LINE_59 = 'Yen Sid - Powerful Sorcerer #59 · Set 4: Both → Foil only';
 const LINE_223 = 'Yen Sid - Powerful Sorcerer #223 · Set 4: Foil only → Both';
 /** The tray's warning while this browser's storage refuses the batch. */
 const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
-
-/** previewCards.json, as GitHub's raw contents answer it. */
-const previewFile: Answer = () => new Response(previewFileText(FILE));
-
-/** Where a request goes: to the page's own fetch, to the branch's data files as the panel reads them, or to the repo's git data. */
-function routeOf(call: Parameters<typeof fetch>): 'page' | 'branch' | 'git' {
-  const [url] = call;
-  if (typeof url !== 'string' || !url.startsWith(`${REPO_API}/`)) return 'page';
-  if (!url.startsWith(CONTENTS)) return 'git';
-  const {path, ref} = askedOf(call);
-  if (path.endsWith('previewCards.json')) return 'page';
-  // A publish reads the files at the commit it builds on; the panel reads them on the branch.
-  return ref === BASE ? 'git' : 'branch';
-}
-
-/** What the page's repo holds: the data files on the branch, those at the commit a publish builds on, and its ref update. */
-interface StudioRepo {
-  branch: Record<string, Served>;
-  base?: Record<string, Served>;
-  update?: RepoAnswers['update'];
-}
-
-/**
- * The page's fetch, and the app's repo besides. The panel reads the data files as `branch` holds
- * them; a publish reads them as `base` holds them, at the commit it builds on, which is how a test
- * has the branch move after the panel read it. The repo answers the publish's git calls, and its
- * ref update as `update` does: by default it moves the branch.
- */
-function stubStudioRepo({branch, base = branch, update}: StudioRepo): RepoStub {
-  stubFetch(previewFile, chunksOf({'4': SET_4_ENTRIES}));
-  const page = globalThis.fetch;
-  const repo = stubRepo({files: base, update});
-  const git = globalThis.fetch;
-  const onBranch = contentsAnswer(branch);
-  const routes = {page, branch: onBranch, git};
-  vi.stubGlobal('fetch', vi.fn((...call: Parameters<typeof fetch>) => routes[routeOf(call)](...call)));
-  return repo;
-}
 
 const versionsTray = () => screen.queryByRole('region', {name: 'Version changes'});
 

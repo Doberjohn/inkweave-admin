@@ -34,9 +34,16 @@ export interface EntryFacts {
   rarity: string | undefined;
 }
 
-/** A path that is none of the four files, or an id the file doesn't hold. */
+/** A path that is none of the four files, or an id the file doesn't hold, which `id` names. */
 export class FinishFileError extends Error {
   name = 'FinishFileError';
+  /** The id of the printing a file lacks, where that is what's wrong: a publish names its change by it. */
+  readonly id: string | undefined;
+
+  constructor(message: string, {id, ...options}: ErrorOptions & {id?: string} = {}) {
+    super(message, options);
+    this.id = id;
+  }
 }
 
 /** A printing's entry, whichever file holds it: the only keys this module reads, `finishes` the only one it writes. */
@@ -93,12 +100,13 @@ function openCollectionFile(parsed: unknown): OpenFile {
 
 /**
  * The promo catalog: `JSON.stringify(x, null, 2)`, no newline. Its entries are the variants of its
- * groups, those that fold into a base card (`fold`) and those that have none (`noBaseCard`).
+ * groups, those that fold into a base card (`fold`) and those that have none (`noBaseCard`, which
+ * the app's scripts read as optional: a catalog without it has none, and is written back without it).
  */
 function openCatalog(parsed: unknown): OpenFile {
-  const file = parsed as {fold: Group[]; noBaseCard: Group[]};
+  const file = parsed as {fold: Group[]; noBaseCard?: Group[]};
   return {
-    entries: [...file.fold, ...file.noBaseCard].flatMap((group) => group.variants),
+    entries: [...file.fold, ...(file.noBaseCard ?? [])].flatMap((group) => group.variants),
     serialize: () => JSON.stringify(file, null, 2),
   };
 }
@@ -133,7 +141,7 @@ export function writeFinishes({path, text, values}: FileText & {values: Readonly
   const file = openFile({path, text});
   const held = new Set(file.entries.map((entry) => String(entry.id)));
   const missing = [...values.keys()].find((id) => !held.has(id));
-  if (missing !== undefined) throw new FinishFileError(`${missing} isn't in ${path}`);
+  if (missing !== undefined) throw new FinishFileError(`${missing} isn't in ${path}`, {id: missing});
   for (const entry of file.entries) {
     const finishes = values.get(String(entry.id));
     if (finishes === undefined) continue;

@@ -9,7 +9,7 @@ import {
   type CommitResult,
 } from '../../../github/githubCommit';
 import {namingItsFile, type BranchFile} from './branchFiles';
-import {readEntryFacts, writeFinishes, type EntryFacts} from './finishFiles';
+import {FinishFileError, readEntryFacts, writeFinishes, type EntryFacts} from './finishFiles';
 import {sameFinishes} from './finishValues';
 import {homesOf, primaryHome} from './printingHomes';
 import type {VersionChange, VersionClash} from './versionBatch';
@@ -91,19 +91,38 @@ function valuesFor({path, changes}: {path: string; changes: readonly VersionChan
   return new Map(homed.map(({id, to}): [string, PrintingFinishes] => [id, to]));
 }
 
-/** The commit's files: each file written with its changes' versions, where that changes its text. */
+/**
+ * A file's refusal of an id it lacks (FinishFileError), named by the change that would have written
+ * it there, with the way out: every publish fails the same way until that change leaves the batch.
+ * Any other failure is as it was.
+ */
+function namingTheChange({error, changes}: {error: unknown; changes: readonly VersionChange[]}): unknown {
+  if (!(error instanceof FinishFileError)) return error;
+  const change = changes.find(({id}) => id === error.id);
+  if (!change) return error;
+  return new FinishFileError(`${change.label}: ${error.message}. Revert it to publish the rest.`, {id: change.id, cause: error});
+}
+
+/**
+ * The commit's files: each file written with its changes' versions, where that changes its text. A
+ * file that lacks a change's printing refuses the whole commit, naming that change (`namingTheChange`).
+ */
 function writtenFiles({changes, files}: {changes: readonly VersionChange[]; files: readonly BaseFile[]}): CommitFile[] {
-  return files.flatMap(({path, text}) => {
-    const written = writeFinishes({path, text, values: valuesFor({path, changes})});
-    return written === text ? [] : [{path, contentBase64: utf8ToBase64(written)}];
-  });
+  try {
+    return files.flatMap(({path, text}) => {
+      const written = writeFinishes({path, text, values: valuesFor({path, changes})});
+      return written === text ? [] : [{path, contentBase64: utf8ToBase64(written)}];
+    });
+  } catch (error) {
+    throw namingTheChange({error, changes});
+  }
 }
 
 /**
  * Writes the changes' versions in one commit on the target branch. Nothing is written when a change
  * clashes (VersionClashError, naming every clash), when a file that should hold a printing lacks it
- * (FinishFileError), when a file can't be read, or when the branch moves first (commitFiles' race,
- * whose message ends "Publish again.").
+ * (FinishFileError, naming its change), when a file can't be read, or when the branch moves first
+ * (commitFiles' race, whose message ends "Publish again.").
  */
 export async function publishVersions({token, changes}: {token: string; changes: readonly VersionChange[]}): Promise<CommitResult> {
   return commitFiles({

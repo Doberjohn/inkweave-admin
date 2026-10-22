@@ -67,18 +67,17 @@ export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/compone
 // the card list: the engine's transform plus imageUrl, the image hashes,
 // scanLanguage and the printings. Card studio builds with it the cards that
 // only the target branch's previewCards.json holds (R-66), so each points at
-// its art, which shows once inkweave.ink serves it. PROMO_RARITY is the rarity
-// every promo printing has, and isChaseRarity tells Epic, Enchanted and Iconic
-// from the rest (Edit card's Printings panel names its rows by them).
+// its art, which shows once inkweave.ink serves it. isChaseRarity tells Epic,
+// Enchanted and Iconic from the rest (Edit card's Printings panel names a
+// printing's row by it).
 export {
-  PROMO_RARITY,
   isChaseRarity,
   searchCardsByName,
   smallImageUrl,
   transformRawCards,
 } from '../upstream/inkweave/apps/web/src/features/cards/loader';
 // A printing's versions: its data's `finishes`, else its rarity's (Doberjohn/inkweave#880).
-export {finishesOf, type FinishFacts} from '../upstream/inkweave/apps/web/src/features/collection/printingFinishes';
+export {finishesOf} from '../upstream/inkweave/apps/web/src/features/collection/printingFinishes';
 // One version a printing comes in: normal or foil.
 export type {Finish} from '../upstream/inkweave/apps/web/src/features/collection/collectionParser';
 // The promos of collection/promos.json, as the file stores them and as collection mode holds them.

@@ -175,6 +175,21 @@ describe('publishVersions', () => {
     expect(repo.writes()).toEqual([]);
   });
 
+  it('names the change whose printing a file lacks, and the way out: publish the rest without it', async () => {
+    stubRepo({files: {...BASE_FILES, [PROMOS_PATH]: collectionText(C3_MKB_ENTRIES.slice(1))}});
+    const refusal = await publish(YEN_SID_223_TO_BOTH, MKB_1C3_TO_BOTH).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(refusal).toBeInstanceOf(FinishFileError);
+    expect(refusal).toHaveProperty(
+      'message',
+      `Mother Knows Best 1/C3: 80017 isn't in ${PROMOS_PATH}. Revert it to publish the rest.`,
+    );
+    // Every press fails the same way until the owner reverts that change, so the message names it.
+    expect((refusal as FinishFileError).id).toBe('80017');
+  });
+
   it.each([
     [CHUNK_4, 'text that is not JSON', '<<<<<<< HEAD\n'],
     [PROMOS_PATH, 'JSON of another shape', '{"promos": []}\n'],

@@ -35,7 +35,7 @@ describe('finishValues', () => {
   it('hands each caller its own array, so one edit cannot change the next choice', () => {
     expect(finishesOfChoice('both')).not.toBe(finishesOfChoice('both'));
   });
-  it('offers each choice once, with the value the choice writes', () => {
+  it('keys the three choices both, foil and normal, each once, in the panel’s order', () => {
     expect(CHOICE_OPTIONS.map((o) => o.value)).toEqual(['both', 'foil', 'normal']);
   });
   it('labels every choice and names each version', () => {
@@ -48,5 +48,9 @@ describe('finishValues', () => {
     expect(sameFinishes(['normal'], ['normal', 'foil'])).toBe(false);
     expect(sameFinishes(['normal', 'foil'], ['normal'])).toBe(false);
     expect(sameFinishes(null, ['foil'])).toBe(false);
+  });
+  it('tells finishes apart by order too: the data writes normal before foil, so the other order is another value', () => {
+    expect(sameFinishes(['foil', 'normal'], ['normal', 'foil'])).toBe(false);
+    expect(sameFinishes(['normal', 'foil'], ['foil', 'normal'])).toBe(false);
   });
 });

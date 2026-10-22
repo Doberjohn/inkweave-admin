@@ -39,14 +39,22 @@ describe('finishFiles', () => {
   it('refuses an id the file does not hold', () => {
     expect(() => writeFinishes({path: PROMOS_PATH, text: '[]\n', values: new Map([['80017', ['foil']]])})).toThrow("80017 isn't in apps/web/public/data/collection/promos.json");
   });
-  it('round-trips the pinned app files byte for byte', () => {
-    for (const rel of ['allCards.json', 'collection/4.json', 'collection/promos.json']) {
-      const path = `apps/web/public/data/${rel}`;
+  it('round-trips the pinned app files byte for byte, every set’s chunk included', () => {
+    const chunks = Array.from({length: 14}, (_, i) => setChunkPath(String(i + 1)));
+    for (const path of [ALL_CARDS_PATH, ...chunks, PROMOS_PATH, CATALOG_PATH]) {
       const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
-      expect(writeFinishes({path, text, values: new Map()})).toBe(text);
+      expect(writeFinishes({path, text, values: new Map()}), path).toBe(text);
     }
-    const text = readFileSync(resolve('upstream/inkweave', CATALOG_PATH), 'utf8');
-    expect(writeFinishes({path: CATALOG_PATH, text, values: new Map()})).toBe(text);
+  });
+
+  it('reads and writes a catalog with no noBaseCard key, and adds none', () => {
+    const fold = [{baseId: 2035, variants: [{id: 80017, rarity: 'Special', finishes: ['normal']}]}];
+    const bare = JSON.stringify({about: '', fold}, null, 2);
+    expect(readFinishes({path: CATALOG_PATH, text: bare})).toEqual(new Map([['80017', ['normal']]]));
+    expect(writeFinishes({path: CATALOG_PATH, text: bare, values: new Map()})).toBe(bare);
+    expect(writeFinishes({path: CATALOG_PATH, text: bare, values: new Map([['80017', ['foil']]])})).toBe(
+      JSON.stringify({about: '', fold: [{baseId: 2035, variants: [{id: 80017, rarity: 'Special', finishes: ['foil']}]}]}, null, 2),
+    );
   });
 
   it('reads a card and its variants from allCards.json, and the catalog groups with or without a base card', () => {
@@ -87,6 +95,12 @@ describe('finishFiles', () => {
   it('is a FinishFileError by name', () => {
     expect(new FinishFileError('x')).toBeInstanceOf(Error);
     expect(new FinishFileError('x').name).toBe('FinishFileError');
+  });
+  it('names the id a file lacks on its refusal, for the publish to name the change', () => {
+    const write = () => writeFinishes({path: setChunkPath('4'), text: chunk, values: new Map([['99999', ['foil']]])});
+    expect(write).toThrow(expect.objectContaining({name: 'FinishFileError', id: '99999'}));
+    // A path that is none of the four files is wrong whatever the ids: it names none.
+    expect(() => readFinishes({path: 'README.md', text: ''})).toThrow(expect.objectContaining({id: undefined}));
   });
   it.each([
     'apps/web/public/data/previewCards.json',

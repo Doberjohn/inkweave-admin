@@ -13,12 +13,14 @@ import {
   allCardsText,
   collectionText,
 } from '../finishes/__tests__/finishFixtures';
+import {COMMIT_URL} from '../finishes/__tests__/repoHarness';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
-import {useVersionBatch} from '../finishes/versionBatchStore';
+import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {never, renderStudio, setCardList, stubFetch, watchAdditions, type Answer} from './studioHarness';
+import {stubStudioRepo} from './studioRepo';
 import {measured} from './studioStores';
 
 // The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
@@ -238,6 +240,32 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     // The facts are the form's: Discard keyed them afresh. The panel beside them was not.
     expect(screen.getByRole('region', {name: 'Card data'})).not.toBe(facts);
     expect(screen.getByRole('group', {name: LANTERN_12})).toBe(group);
+  });
+
+  // The spec's item 4: Edit card's Save commits the open card's fields or image alone, and never takes the batch with it.
+  it('saves the card’s image alone with a version change staged: the commit holds the image, and the batch stays', async () => {
+    const repo = stubStudioRepo({branch: LANTERN_FILES});
+    const {user} = renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
+    const batch = renderHook(() => useVersionBatch());
+    await user.click(within(await screen.findByRole('group', {name: LANTERN_12})).getByRole('button', {name: 'Foil only'}));
+    const staged = batch.result.current.changes;
+    expect(staged).toEqual([expect.objectContaining({id: RELEASED_CARD.id, to: ['foil']})]);
+
+    await user.upload(await screen.findByLabelText('Click or drop to replace image'), pngFile('lantern.png'));
+    const save = screen.getByRole('button', {name: 'Save changes to master'});
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+    expect(await screen.findByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+
+    // One commit, of the image's path alone, under the image's message.
+    expect(repo.writes()).toEqual(['POST git/blobs', 'POST git/trees', 'POST git/commits', 'PATCH git/refs/heads/master']);
+    expect(Object.keys(repo.filesSent())).toEqual([`apps/web/public/card-images-raw/${RELEASED_CARD.id}.png`]);
+    expect(repo.commitMessage()).toBe(`fix(card-images): update image for ${RELEASED_CARD.fullName} [${RELEASED_CARD.id}]`);
+    // The batch is as it was, saved, and the tray still lists the change.
+    expect(batch.result.current.changes).toBe(staged);
+    expect(JSON.parse(localStorage.getItem(`${VERSION_BATCH_KEY_PREFIX}master`) ?? 'null')).toEqual({v: 1, changes: staged});
+    const tray = screen.getByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
   });
 
   it('reads the files again from the error, and hands focus to the heading once they land (R-48)', async () => {
