@@ -426,9 +426,9 @@ describe('VersionsTray: what it says of clashes', () => {
 describe('VersionsTray: publishing', () => {
   it('publishes with the token it was given', async () => {
     const publish = vi.fn(() => Promise.resolve());
-    renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {publish}), {token: 'github_pat_abc'});
+    renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {publish}), {token: 'token-abc'});
     await userEvent.click(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
-    expect(publish).toHaveBeenCalledExactlyOnceWith('github_pat_abc');
+    expect(publish).toHaveBeenCalledExactlyOnceWith('token-abc');
   });
 
   it('reads Publishing… and holds Publish while a publish is under way', async () => {

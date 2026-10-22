@@ -10,12 +10,12 @@ describe('tokenMark', () => {
   });
 
   it('gives a token the same mark each time, and two tokens two marks', () => {
-    expect(tokenMark('github_pat_11AAAA')).toBe(tokenMark('github_pat_11AAAA'));
-    expect(tokenMark('github_pat_11AAAA')).not.toBe(tokenMark('github_pat_11AAAB'));
+    expect(tokenMark('token-a')).toBe(tokenMark('token-a'));
+    expect(tokenMark('token-a')).not.toBe(tokenMark('token-b'));
   });
 
   it('is a number, so nothing of the token itself is kept', () => {
-    const mark = tokenMark('github_pat_11AAAA');
+    const mark = tokenMark('token-a');
     expect(Number.isInteger(mark)).toBe(true);
     expect(mark).toBeGreaterThanOrEqual(0);
     expect(mark).toBeLessThan(2 ** 32);
