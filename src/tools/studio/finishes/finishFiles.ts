@@ -9,7 +9,8 @@ import type {PrintingFinishes} from 'inkweave-synergy-engine';
  * beside this, is what holds each format to the app's: a pin bump that changes one fails it.
  */
 
-const COLLECTION_DIR = 'apps/web/public/data/collection';
+/** The collection data: a chunk per set, promos.json and an index. */
+export const COLLECTION_DIR = 'apps/web/public/data/collection';
 
 /** The Core pool: its cards, some with their other printings under `variants`. */
 export const ALL_CARDS_PATH = 'apps/web/public/data/allCards.json';

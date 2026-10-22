@@ -12,7 +12,8 @@ import {
   type CommitResult,
 } from '../../github/githubCommit';
 
-const PREVIEW_PATH = 'apps/web/public/data/previewCards.json';
+/** The preview cards of the reveal season: what New reveal adds to and Edit card saves. */
+export const PREVIEW_PATH = 'apps/web/public/data/previewCards.json';
 const RAW_DIR = 'apps/web/public/card-images-raw';
 
 /**

@@ -6,7 +6,7 @@ import {
   type CommitResult,
 } from '../../github/githubCommit';
 
-const TUNING_PATH = 'packages/synergy-engine/src/data/tuning.json';
+export const TUNING_PATH = 'packages/synergy-engine/src/data/tuning.json';
 
 export interface TuningEdit {
   path: (string | number)[];
