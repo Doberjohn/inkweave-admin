@@ -26,7 +26,11 @@ export type BranchPrintings =
   | {status: 'loading'}
   /** `retry` reads the files again, all of them: text the parsers couldn't read was kept like any other. */
   | {status: 'error'; error: string; retry: () => void}
-  | {status: 'ready'; rows: readonly PrintingRow[]};
+  /**
+   * `refreshing`: the files are being read again since a publish dropped them, and these rows are
+   * the last read's, for the panel to hold until the read lands.
+   */
+  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true};
 
 const LOADING: BranchPrintings = {status: 'loading'};
 
@@ -104,11 +108,27 @@ function settledFromCache({setCode, generation}: {setCode: string; generation: n
 }
 
 /**
+ * What the hook shows of the read it settled on. One of another set is loading. One made before
+ * the latest drop of the files is a read under way again: its rows stay, marked refreshing, while
+ * one that failed has none to keep, so that is loading too.
+ */
+function viewOf({settled, generation, card}: {settled: Settled | null; generation: number; card: LorcanaCard}): BranchPrintings {
+  if (settled?.setCode !== (card.setCode ?? '')) return LOADING;
+  const {outcome} = settled;
+  const current = settled.generation === generation;
+  if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
+  const rows = printingRowsFor({card, ...outcome.files});
+  return current ? {status: 'ready', rows} : {status: 'ready', rows, refreshing: true};
+}
+
+/**
  * Reads a card's printings from the target branch's files. The files depend on the card's set
  * alone, so another card of the same set reads and loads nothing, while a card of another set
  * discards the last one's pending read. The view reads as loading until a read lands that answers
- * the card's set and the latest drop of the files (`forgetBranchFiles`, which a publish makes). A
- * read landing late is dropped: it never shows another card's rows, nor replaces a newer read.
+ * the card's set. Once the files are dropped (`forgetBranchFiles`, which a publish makes) they are
+ * read again, and until that read lands the rows of the last one stay, marked refreshing, so the
+ * panel holds them rather than drop its list and the focus in it. A read landing late is dropped:
+ * it never shows another card's rows, nor replaces a newer read.
  *
  * Card studio mounts the panel anew for each card it opens, so a hook that mounts when the files
  * were read already starts with their rows, and never shows loading for the frame it takes the
@@ -133,7 +153,5 @@ export function useBranchPrintings({token, card}: {token: string; card: LorcanaC
     };
   }, [token, setCode, generation]);
 
-  if (settled?.setCode !== setCode || settled.generation !== generation) return LOADING;
-  if ('error' in settled.outcome) return {status: 'error', error: settled.outcome.error, retry: forgetBranchFiles};
-  return {status: 'ready', rows: printingRowsFor({card, ...settled.outcome.files})};
+  return viewOf({settled, generation, card});
 }

@@ -15,6 +15,13 @@ interface SegmentedControlProps<T extends string> {
    * Default false: the control is as wide as its options.
    */
   fill?: boolean;
+  /**
+   * Every option is held: aria-disabled, so a focused one keeps the focus a
+   * native disabled would drop to the page, and a press of one, which still
+   * arrives, does nothing (as CtaButton's aria-disabled does). Card studio's
+   * Printings panel holds its choices while a publish runs. Default false.
+   */
+  held?: boolean;
 }
 
 /**
@@ -43,18 +50,21 @@ function inPairs(buttons: React.ReactElement[]) {
  * (`.adm-seg-btn[aria-pressed="true"]`). Pressing the selected option again
  * does nothing, so onChange fires only for a real change: Card studio's mode
  * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
- * current mode adds no history entry.
+ * current mode adds no history entry. While the control is held, no press
+ * fires it.
  */
-export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill}: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill, held}: SegmentedControlProps<T>) {
+  const choose = (next: T) => {
+    if (!held && next !== value) onChange(next);
+  };
   const buttons = options.map((option) => (
     <button
       key={option.value}
       type="button"
       className="adm-seg-btn"
       aria-pressed={option.value === value}
-      onClick={() => {
-        if (option.value !== value) onChange(option.value);
-      }}>
+      aria-disabled={held || undefined}
+      onClick={() => choose(option.value)}>
       {option.label}
     </button>
   ));

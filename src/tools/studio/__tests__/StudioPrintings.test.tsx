@@ -18,7 +18,7 @@ import {useVersionBatch} from '../finishes/versionBatchStore';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
-import {never, renderStudio, setCardList, stubFetch, type Answer} from './studioHarness';
+import {never, renderStudio, setCardList, stubFetch, watchAdditions, type Answer} from './studioHarness';
 import {measured} from './studioStores';
 
 // The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
@@ -89,30 +89,6 @@ function dataRequests(fetched: ReturnType<typeof stubStudio>): Asked[] {
 
 /** The line the panel draws while it reads the files. */
 const LOADING = 'Loading the printings…';
-
-/**
- * Watches the page for the nodes it adds, every frame React commits, whether or not they stay: a
- * line drawn for one frame and gone by the next never shows to a query that runs afterwards.
- */
-function watchAdditions() {
-  const added: string[] = [];
-  const record = (records: MutationRecord[]) =>
-    records.forEach(({addedNodes}) => addedNodes.forEach((node) => added.push(node.textContent ?? '')));
-  const watch = new MutationObserver(record);
-  watch.observe(document.body, {childList: true, subtree: true});
-  return {
-    /** The text of each node added so far, in order. */
-    texts: () => {
-      record(watch.takeRecords());
-      return [...added];
-    },
-    clear: () => {
-      record(watch.takeRecords());
-      added.length = 0;
-    },
-    stop: () => watch.disconnect(),
-  };
-}
 
 const printings = () => screen.findByRole('region', {name: 'Printings'});
 const searchField = () => screen.getByRole('searchbox', {name: 'Search cards'});

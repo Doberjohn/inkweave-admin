@@ -183,6 +183,94 @@ describe('PrintingsPanel', () => {
 });
 
 /*
+ * A publish has the changes it sent, so while it runs every choice is held: a click stages nothing,
+ * and the choice keeps the focus it has. Once it lands or clashes, the branch's files are read
+ * again; meanwhile the rows the panel had stay, held, and the list says it is busy, so the panel
+ * neither jumps nor drops the focus (R-48).
+ */
+describe('PrintingsPanel: during a publish, and while the files are read again after one', () => {
+  const REFRESHING: BranchPrintings = {status: 'ready', rows: YEN_SID_ROWS, refreshing: true};
+  const FAILED_AGAIN: BranchPrintings = {status: 'error', error: FAILED, retry: () => {}};
+  /** Yen Sid's rows once a publish made #223 Both. */
+  const PUBLISHED: BranchPrintings = {
+    status: 'ready',
+    rows: YEN_SID_ROWS.map((row) => (row === ALT_FOIL_223 ? {...row, value: ['normal', 'foil'], shown: ['normal', 'foil']} : row)),
+  };
+  const bothOf = (row: PrintingRow) => within(versionsOf(row)).getByRole('button', {name: 'Both'});
+
+  it('holds every choice while a publish runs: a click stages nothing, and the choice keeps the focus', async () => {
+    const {user, onChoose} = renderPanel({publishing: true});
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(9);
+    for (const button of buttons) expect(button).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(bothOf(ALT_FOIL_223));
+    expect(onChoose).not.toHaveBeenCalled();
+    expect(bothOf(ALT_FOIL_223)).toHaveFocus();
+    // Its rows are what the branch holds: the list isn't busy.
+    expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('keeps its rows, held and busy, while the files are read again, and is live once they land', async () => {
+    const {user, onChoose, update} = renderPanel({view: REFRESHING});
+    const list = screen.getByRole('list');
+    expect(list).toHaveAttribute('aria-busy', 'true');
+    for (const button of screen.getAllByRole('button')) expect(button).toHaveAttribute('aria-disabled', 'true');
+    await user.click(bothOf(ALT_FOIL_223));
+    expect(onChoose).not.toHaveBeenCalled();
+
+    update({view: PUBLISHED});
+    expect(screen.getByRole('list')).toBe(list);
+    expect(list).not.toHaveAttribute('aria-busy');
+    for (const button of screen.getAllByRole('button')) expect(button).not.toHaveAttribute('aria-disabled');
+    expect(pressedIn(ALT_FOIL_223)).toEqual(['Both']);
+    await user.click(within(versionsOf(ALT_FOIL_223)).getByRole('button', {name: 'Foil only'}));
+    expect(onChoose).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the same rows, and the focus on a choice, from the publish through the read after it', () => {
+    const {update} = renderPanel({publishing: true});
+    const list = screen.getByRole('list');
+    const both = bothOf(NUMBER_59);
+    both.focus();
+
+    update({publishing: false, view: REFRESHING});
+    update({view: PUBLISHED});
+    expect(screen.queryByText('Loading the printings…')).not.toBeInTheDocument();
+    expect(screen.getByRole('list')).toBe(list);
+    expect(bothOf(NUMBER_59)).toBe(both);
+    expect(both).toHaveFocus();
+  });
+
+  it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', () => {
+    const {update} = renderPanel({view: REFRESHING});
+    bothOf(ALT_FOIL_223).focus();
+
+    update({view: FAILED_AGAIN});
+    expect(screen.getByRole('alert')).toHaveTextContent(FAILED);
+    expect(screen.getByRole('button', {name: 'Read the files again'})).toHaveFocus();
+  });
+
+  it('moves no focus when that read fails with the focus outside its rows', () => {
+    const {update} = renderPanel({view: REFRESHING});
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+
+    update({view: FAILED_AGAIN});
+    expect(elsewhere).toHaveFocus();
+    elsewhere.remove();
+  });
+
+  it('moves no focus when that read fails and nothing had the focus', () => {
+    const {update} = renderPanel({view: REFRESHING});
+    expect(document.body).toHaveFocus();
+
+    update({view: FAILED_AGAIN});
+    expect(document.body).toHaveFocus();
+  });
+});
+
+/*
  * Reading the files again takes the error and its button away the moment it starts, so focus would
  * drop to <body> (R-48). The panel outlives that swap, so it holds the handoff: the heading takes
  * it once the files are in, and a read that fails again hands it to the new button.

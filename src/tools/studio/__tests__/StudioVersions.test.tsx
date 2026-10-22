@@ -1,8 +1,9 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {act, renderHook, screen, within} from '@testing-library/react';
+import {act, renderHook, screen, waitFor, within} from '@testing-library/react';
+import type {UserEvent} from '@testing-library/user-event';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {studioHref} from '../../../shell/nav';
-import {askedOf, contentsAnswer, type Served} from '../finishes/__tests__/branchHarness';
+import {askedOf, contentsAnswer, deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {chunksOf} from '../finishes/__tests__/collectionHarness';
 import {
   EMPTY_CATALOG_TEXT,
@@ -15,13 +16,13 @@ import {
   collectionText,
   withFinishes,
 } from '../finishes/__tests__/finishFixtures';
-import {BASE, COMMIT_URL, stubRepo, type RepoStub} from '../finishes/__tests__/repoHarness';
+import {BASE, COMMIT_URL, moved, stubRepo, type RepoAnswers, type RepoStub} from '../finishes/__tests__/repoHarness';
 import {CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {clashMessage, versionCommitMessage} from '../finishes/publishVersions';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
-import {TOKEN_KEY, renderStudio, setCardList, stubFetch, type Answer} from './studioHarness';
+import {TOKEN_KEY, renderStudio, setCardList, stubFetch, watchAdditions, type Answer} from './studioHarness';
 import {measured} from './studioStores';
 
 // The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
@@ -56,6 +57,8 @@ const NUMBER_59 = 'Versions of Yen Sid - Powerful Sorcerer #59';
 const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223';
 const LINE_59 = 'Yen Sid - Powerful Sorcerer #59: Both → Foil only';
 const LINE_223 = 'Yen Sid - Powerful Sorcerer #223: Foil only → Both';
+/** The tray's warning while this browser's storage refuses the batch. */
+const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
 
 /** previewCards.json, as GitHub's raw contents answer it. */
 const previewFile: Answer = () => new Response(previewFileText(FILE));
@@ -71,15 +74,23 @@ function routeOf(call: Parameters<typeof fetch>): 'page' | 'branch' | 'git' {
   return ref === BASE ? 'git' : 'branch';
 }
 
+/** What the page's repo holds: the data files on the branch, those at the commit a publish builds on, and its ref update. */
+interface StudioRepo {
+  branch: Record<string, Served>;
+  base?: Record<string, Served>;
+  update?: RepoAnswers['update'];
+}
+
 /**
  * The page's fetch, and the app's repo besides. The panel reads the data files as `branch` holds
  * them; a publish reads them as `base` holds them, at the commit it builds on, which is how a test
- * has the branch move after the panel read it. The repo answers the publish's git calls.
+ * has the branch move after the panel read it. The repo answers the publish's git calls, and its
+ * ref update as `update` does: by default it moves the branch.
  */
-function stubStudioRepo({branch, base = branch}: {branch: Record<string, Served>; base?: Record<string, Served>}): RepoStub {
+function stubStudioRepo({branch, base = branch, update}: StudioRepo): RepoStub {
   stubFetch(previewFile, chunksOf({'4': SET_4_ENTRIES}));
   const page = globalThis.fetch;
-  const repo = stubRepo({files: base});
+  const repo = stubRepo({files: base, update});
   const git = globalThis.fetch;
   const onBranch = contentsAnswer(branch);
   const routes = {page, branch: onBranch, git};
@@ -305,6 +316,26 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(again).getByRole('button', {name: 'Publish 1 change to master'})).not.toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('warns that this browser could not save the batch, and stops once a save works', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    const save = vi.spyOn(Storage.prototype, 'setItem');
+    const refuse = () => {
+      throw new DOMException('Storage refused', 'QuotaExceededError');
+    };
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const group = await screen.findByRole('group', {name: NUMBER_223});
+    // Only the batch's own key fails: the token is saved already.
+    save.mockImplementation(refuse);
+
+    await user.click(within(group).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByRole('alert')).toHaveTextContent(UNSAVED);
+
+    save.mockRestore();
+    await user.click(within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'}));
+    expect(within(tray).queryByText(UNSAVED)).not.toBeInTheDocument();
+  });
+
   it('opens over a saved batch that holds a malformed entry, with the good one in the tray', async () => {
     stubStudioRepo({branch: YEN_SID_FILES});
     // #59's entry lacks `shownFrom`, which the tray's line reads: JSON leaves out a key that is undefined.
@@ -316,5 +347,116 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
     expect(within(tray).getByText(LINE_223)).toBeInTheDocument();
     expect(within(tray).queryByText(/#59/)).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * The Printings panel while a publish runs, and after it (#68): over the real batch, so the panel
+ * holds its choices from the store's own `publishing`, and keeps its rows from the hook's own read
+ * of the branch after the store drops the files.
+ */
+describe('StudioPage: the Printings panel during a publish and after it (#68)', () => {
+  /** Yen Sid's #223 once the publish made it Both. */
+  const PUBLISHED_CHUNK = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
+
+  /**
+   * Yen Sid's files, where the branch answers Set 4's chunk at once the first time and, from the
+   * second (the read after a publish), when the test says so. The publish reads them at its base,
+   * which the test gives as YEN_SID_FILES, so that read counts for nothing here.
+   */
+  function rereadHeld() {
+    const reread = deferredResponse();
+    let asked = 0;
+    const files: Record<string, Served> = {
+      ...YEN_SID_FILES,
+      [CHUNK_4]: () => (asked++ === 0 ? new Response(SET_4_TEXT) : reread.response),
+    };
+    return {files, respond: reread.respond};
+  }
+
+  /** A ref update that waits until the test moves the branch. */
+  function heldUpdate() {
+    const late = deferredResponse();
+    return {update: () => late.response, moveBranch: () => late.respond(moved())};
+  }
+
+  const panel = () => screen.getByRole('region', {name: 'Printings'});
+  const choicesIn = (region: HTMLElement) => within(within(region).getByRole('list')).getAllByRole('button');
+
+  /** Stages #223's change from the panel and starts its publish from the tray. */
+  async function publish223(user: UserEvent) {
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    return tray;
+  }
+
+  it('holds every choice while a publish runs: a click stages nothing, and the choice keeps the focus', async () => {
+    const held = heldUpdate();
+    stubStudioRepo({branch: YEN_SID_FILES, update: held.update});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const batch = renderHook(() => useVersionBatch());
+    const tray = await publish223(user);
+    expect(within(tray).getByRole('button', {name: 'Publishing…'})).toBeInTheDocument();
+
+    for (const choice of choicesIn(panel())) expect(choice).toHaveAttribute('aria-disabled', 'true');
+    const foil59 = within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'});
+    await user.click(foil59);
+    expect(batch.result.current.changes).toEqual([NUMBER_223_TO_BOTH]);
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
+    expect(foil59).toHaveAttribute('aria-pressed', 'false');
+    expect(foil59).toHaveFocus();
+
+    await act(async () => held.moveBranch());
+    await within(tray).findByText('Published 1 change.');
+    // Once the files are read again, the choices are live.
+    await waitFor(() => expect(foil59).not.toHaveAttribute('aria-disabled'));
+  });
+
+  it('keeps its rows, and the focus on a choice, through the landing and the read after it: no loading frame', async () => {
+    const held = heldUpdate();
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES, update: held.update});
+    const added = watchAdditions();
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    const list = within(panel()).getByRole('list');
+    const both59 = within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Both'});
+    act(() => both59.focus());
+    added.clear();
+
+    await act(async () => held.moveBranch());
+    await within(tray).findByText('Published 1 change.');
+    // Landed: the files are read again, and the rows the panel had stay, held, the list busy.
+    expect(within(panel()).getByRole('list')).toBe(list);
+    expect(list).toHaveAttribute('aria-busy', 'true');
+    for (const choice of choicesIn(panel())) expect(choice).toHaveAttribute('aria-disabled', 'true');
+    expect(both59).toHaveFocus();
+
+    await act(async () => reread.respond(new Response(PUBLISHED_CHUNK)));
+    // Read: the rows show what the branch holds now, live, in the same list, with the same focus.
+    await waitFor(() => expect(list).not.toHaveAttribute('aria-busy'));
+    expect(within(panel()).getByRole('list')).toBe(list);
+    for (const choice of choicesIn(panel())) expect(choice).not.toHaveAttribute('aria-disabled');
+    const both223 = within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
+    expect(both223).toHaveAttribute('aria-pressed', 'true');
+    expect(both59).toHaveFocus();
+    expect(added.texts()).not.toContainEqual(expect.stringContaining('Loading the printings…'));
+    added.stop();
+  });
+
+  it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', async () => {
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    await within(tray).findByText('Published 1 change.');
+    expect(within(panel()).getByRole('list')).toHaveAttribute('aria-busy', 'true');
+    act(() => within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Both'}).focus());
+
+    await act(async () => reread.respond(new Response('Bad Gateway', {status: 502})));
+    const failure = `Could not read the printings: GitHub 502 on ${CHUNK_4}: Bad Gateway.`;
+    expect(within(panel()).getByRole('alert')).toHaveTextContent(failure);
+    await waitFor(() => expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toHaveFocus());
   });
 });

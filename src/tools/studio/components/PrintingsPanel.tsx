@@ -1,4 +1,4 @@
-import {useRef} from 'react';
+import {useLayoutEffect, useRef, type RefObject} from 'react';
 import {CtaButton, SPACING} from '../../../app-bridge';
 import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -101,6 +101,11 @@ export interface PrintingsPanelProps {
   view: BranchPrintings;
   /** The studio's batch of version changes, for every card: the panel reads the ones for its own printings. */
   changes: readonly VersionChange[];
+  /**
+   * A publish of the batch is under way. It has the changes it sent, so every choice is held until
+   * it ends: one made meanwhile could take back a change it is writing. Default false.
+   */
+  publishing?: boolean;
   /** The owner chose versions for a printing. The panel stages nothing itself: it shows what `changes` holds. */
   onChoose: (opts: {row: PrintingRow; choice: FinishChoice}) => void;
 }
@@ -111,6 +116,8 @@ interface ItemProps {
   pending: VersionChange | undefined;
   /** Whether a row comes before it, which a rule then separates. */
   ruled: boolean;
+  /** Its choices are held: a publish runs, or the files are read again after one. */
+  held: boolean;
   onChoose: PrintingsPanelProps['onChoose'];
 }
 
@@ -121,7 +128,7 @@ interface ItemProps {
  * change writes: it keeps its base, and a clash its mark, which Keep mine or Drop in the tray
  * settles (`withChange`).
  */
-function PrintingItem({row, pending, ruled, onChoose}: ItemProps) {
+function PrintingItem({row, pending, ruled, held, onChoose}: ItemProps) {
   const marker = markerOf({row, pending});
   return (
     <li style={ruled ? {...ITEM, ...RULED} : ITEM}>
@@ -140,21 +147,54 @@ function PrintingItem({row, pending, ruled, onChoose}: ItemProps) {
           onChange={(choice) => onChoose({row, choice})}
           ariaLabel={`Versions of ${row.label}`}
           fill
+          held={held}
         />
       </div>
     </li>
   );
 }
 
-function PrintingRows({rows, changes, onChoose}: Pick<PrintingsPanelProps, 'changes' | 'onChoose'> & {rows: readonly PrintingRow[]}) {
+/**
+ * Asks for the panel's handoff when the list leaves the document with the focus in it: a read of
+ * the files that fails after a publish takes the rows away, and the focus on a choice would fall to
+ * <body> (R-48). A layout effect's cleanup runs before React takes the nodes out, so the focus is
+ * still where it was when it checks.
+ */
+function useHandoffWhenGone(list: RefObject<HTMLElement | null>, handoff: FocusHandoff) {
+  const request = useRef(handoff.request);
+  useLayoutEffect(() => {
+    request.current = handoff.request;
+  });
+  useLayoutEffect(() => {
+    const element = list.current;
+    return () => {
+      if (element?.contains(document.activeElement)) request.current();
+    };
+  }, [list]);
+}
+
+interface RowsProps extends Pick<PrintingsPanelProps, 'changes' | 'onChoose'> {
+  rows: readonly PrintingRow[];
+  /** A publish runs: the rows are held. */
+  publishing: boolean;
+  /** The rows are the last read's, while the files are read again after a publish: held, and the list busy. */
+  refreshing: boolean;
+  handoff: FocusHandoff;
+}
+
+function PrintingRows({rows, changes, onChoose, publishing, refreshing, handoff}: RowsProps) {
+  const listRef = useRef<HTMLUListElement>(null);
+  useHandoffWhenGone(listRef, handoff);
+  const held = publishing || refreshing;
   return (
-    <ul style={LIST}>
+    <ul ref={listRef} style={LIST} aria-busy={refreshing || undefined}>
       {rows.map((row, index) => (
         <PrintingItem
           key={row.ref.id}
           row={row}
           pending={changes.find((change) => change.id === row.ref.id)}
           ruled={index > 0}
+          held={held}
           onChoose={onChoose}
         />
       ))}
@@ -178,7 +218,7 @@ function ReadError({error, onRetry}: {error: string; onRetry: () => void}) {
 }
 
 /** The panel's body for each state of the read. */
-function PrintingsBody({view, changes, onChoose, handoff}: PrintingsPanelProps & {handoff: FocusHandoff}) {
+function PrintingsBody({view, changes, publishing = false, onChoose, handoff}: PrintingsPanelProps & {handoff: FocusHandoff}) {
   switch (view.status) {
     case 'loading':
       return <Notice>Loading the printings…</Notice>;
@@ -190,7 +230,16 @@ function PrintingsBody({view, changes, onChoose, handoff}: PrintingsPanelProps &
       return <ReadError error={view.error} onRetry={onRetry} />;
     }
     case 'ready':
-      return <PrintingRows rows={view.rows} changes={changes} onChoose={onChoose} />;
+      return (
+        <PrintingRows
+          rows={view.rows}
+          changes={changes}
+          onChoose={onChoose}
+          publishing={publishing}
+          refreshing={view.refreshing === true}
+          handoff={handoff}
+        />
+      );
   }
 }
 
@@ -200,18 +249,25 @@ function PrintingsBody({view, changes, onChoose, handoff}: PrintingsPanelProps &
  * staged, never committed: the studio's batch holds it, the Version changes tray lists it, and one
  * publish writes it. The panel is props only, so it knows neither the files nor the batch.
  *
+ * While a publish runs every choice is held, and once it lands or clashes the rows stay, held, with
+ * the list busy, until the branch's files are read again; then they show what was read, and are
+ * live again. Held choices are aria-disabled, so one with the focus keeps it, and the list never
+ * collapses to the loading line between the two.
+ *
  * It outlives the swap between its views, so it holds the focus handoff for "Read the files
  * again", whose button goes the moment the read starts: the new button takes it if the files
- * fail again, and the heading once they are in (R-48). It asks for it on that press alone.
+ * fail again, and the heading once they are in (R-48). It asks for it on that press, and when the
+ * rows go with the focus in them, as they do when the read after a publish fails: the button then
+ * takes it.
  */
-export function PrintingsPanel({view, changes, onChoose}: PrintingsPanelProps) {
+export function PrintingsPanel({view, changes, publishing, onChoose}: PrintingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
   const handoff = useFocusHandoff();
   useTakeHandoff(handoff, ref, view.status === 'error' ? 'button' : 'h2', view.status !== 'loading');
   return (
     <div ref={ref}>
       <Panel title="Printings" titleFocusable>
-        <PrintingsBody view={view} changes={changes} onChoose={onChoose} handoff={handoff} />
+        <PrintingsBody view={view} changes={changes} publishing={publishing} onChoose={onChoose} handoff={handoff} />
       </Panel>
     </div>
   );

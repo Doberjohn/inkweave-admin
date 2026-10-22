@@ -35,6 +35,9 @@ const FOCUS_RING = `outline:2px solid ${C.accent};`;
 // Hover rules skip disabled controls. :where() adds no specificity, so the
 // [aria-pressed] rules after them still win.
 const ENABLED = ':where(:not(:disabled))';
+// A segmented control's buttons skip held ones too: aria-disabled, which keeps
+// a focused one's focus where a native disabled would drop it (its `held`).
+const LIVE = ':where(:not(:disabled):not([aria-disabled="true"]))';
 
 /**
  * Admin's one scoped stylesheet: every adm-* class the shell, the primitives
@@ -83,7 +86,8 @@ const ENABLED = ':where(:not(:disabled))';
  * button count, from the gap inside it, so on a line they share every button
  * takes the same width, an odd count's last one, alone in its pair
  * (data-lone="true"), too. A lone button alone on the last line fills that
- * line.
+ * line. A held control's buttons (aria-disabled) look off as disabled ones
+ * do, and take no hover.
  *
  * adm-scroll-region is a box that scrolls a table sideways. While the table
  * overflows it, it takes tabIndex 0 and role="region" with a name, so the
@@ -135,7 +139,7 @@ const CSS = `
 
 .adm-seg{display:inline-flex;align-items:stretch;gap:${SPACING.xxs}px;padding:${SPACING.xxs}px;background-color:${C.card};background-clip:padding-box;border:1px solid ${C.border};border-radius:${R.control}px;}
 .adm-seg-btn{display:inline-flex;align-items:center;justify-content:center;min-height:${SEG_BUTTON_HEIGHT}px;margin:0;padding:0 ${SPACING.md}px;border:none;border-radius:${R.control}px;background:transparent;color:${C.muted};font-family:inherit;font-size:${T.small}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},color ${FAST};}
-.adm-seg-btn:hover${ENABLED}{background:${C.navHover};color:${C.text};}
+.adm-seg-btn:hover${LIVE}{background:${C.navHover};color:${C.text};}
 .adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
 .adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
 .adm-seg-pair{display:flex;flex:2 1 ${SPACING.xxs}px;gap:${SPACING.xxs}px;}
@@ -208,7 +212,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-pick-btn:focus-visible,.adm-switch:focus-visible,.adm-range:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible,.adm-acc-head:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
-.adm-seg-btn:disabled,.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
+.adm-seg-btn:disabled,.adm-seg-btn[aria-disabled="true"],.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
 .adm-acc-head:disabled,.adm-pick-btn:disabled,.adm-switch:disabled,.adm-range:disabled{opacity:.4;cursor:not-allowed;}
 
 .adm-chart-plot{border-radius:${R.control}px;outline:none;touch-action:pan-y;}

@@ -161,6 +161,28 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-net-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
   });
 
+  it('dims a held segmented button (aria-disabled) as a disabled one, and gives it no hover', () => {
+    render(
+      <>
+        <AdminStyles />
+        <div role="group" aria-label="Versions" className="adm-seg">
+          <button type="button" className="adm-seg-btn" aria-pressed="true" aria-disabled="true">
+            Both
+          </button>
+          <button type="button" className="adm-seg-btn" aria-pressed="false">
+            Foil only
+          </button>
+        </div>
+      </>,
+    );
+    const held = getComputedStyle(screen.getByRole('button', {name: 'Both'}));
+    expect(held.opacity).toBe('0.4');
+    expect(held.cursor).toBe('not-allowed');
+    expect(getComputedStyle(screen.getByRole('button', {name: 'Foil only'})).opacity).toBe('1');
+    // :where() adds no specificity, so the pressed rule after the hover rule still wins on a live button.
+    expect(stylesheet()).toContain('.adm-seg-btn:hover:where(:not(:disabled):not([aria-disabled="true"])){');
+  });
+
   it('never dims a bar column, so a focused one keeps its full ring while another is picked', () => {
     render(
       <>

@@ -137,6 +137,31 @@ export async function fillNewCard({user, name}: NewCard) {
 }
 
 /**
+ * Watches the page for the nodes it adds, every frame React commits, whether
+ * or not they stay: a line drawn for one frame and gone by the next never
+ * shows to a query that runs afterwards. Stop it at the end of the test.
+ */
+export function watchAdditions() {
+  const added: string[] = [];
+  const record = (records: MutationRecord[]) =>
+    records.forEach(({addedNodes}) => addedNodes.forEach((node) => added.push(node.textContent ?? '')));
+  const watch = new MutationObserver(record);
+  watch.observe(document.body, {childList: true, subtree: true});
+  return {
+    /** The text of each node added so far, in order. */
+    texts: () => {
+      record(watch.takeRecords());
+      return [...added];
+    },
+    clear: () => {
+      record(watch.takeRecords());
+      added.length = 0;
+    },
+    stop: () => watch.disconnect(),
+  };
+}
+
+/**
  * Where a browser leaves focus once the focused Publish or Save button goes
  * off: on <body> (HTML's focus fixup rule). jsdom keeps it on the disabled
  * button, which can't blur, so focus another control and let that go: the

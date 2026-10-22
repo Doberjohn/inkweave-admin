@@ -239,12 +239,20 @@ function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 
  * A released card's printings (#68): their versions as the target branch's files give them, and
  * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
  * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
- * a change staged for one card shows on it again whenever it is opened.
+ * a change staged for one card shows on it again whenever it is opened. While a publish runs, the
+ * panel holds its choices.
  */
 function PrintingsSection({card, token}: {card: LorcanaCard; token: string}) {
   const view = useBranchPrintings({token, card});
   const batch = useVersionBatch();
-  return <PrintingsPanel view={view} changes={batch.changes} onChoose={(chosen) => batch.stage(changeFor(chosen))} />;
+  return (
+    <PrintingsPanel
+      view={view}
+      changes={batch.changes}
+      publishing={batch.publishing}
+      onChoose={(chosen) => batch.stage(changeFor(chosen))}
+    />
+  );
 }
 
 /**

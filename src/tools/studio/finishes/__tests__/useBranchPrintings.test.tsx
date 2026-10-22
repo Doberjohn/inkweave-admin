@@ -292,10 +292,58 @@ describe('useBranchPrintings', () => {
       // The owner publishes Both for #223: the next read shows it.
       files[CHUNK_4] = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
       act(() => forgetBranchFiles());
+      await waitFor(() => expect(valuesOf(rendered.result.current)).toEqual([null, null, ['normal', 'foil']]));
+      expect(rendered.result.current).not.toHaveProperty('refreshing');
+      expect(branch.paths()).toHaveLength(6);
+    });
+
+    /*
+     * A publish forgets the files. The panel's rows stay, held, while the branch is read again, so
+     * their choices keep any focus and the panel never collapses to its loading line.
+     */
+    it('keeps the last rows, marked refreshing, until the files read again land', async () => {
+      const late = deferredResponse();
+      let asked = 0;
+      stubBranch({...YEN_SID_FILES, [CHUNK_4]: () => (asked++ === 0 ? new Response(SET_4_TEXT) : late.response)});
+      const rendered = renderPrintings(YEN_SID);
+      await whenReady(rendered);
+      const before = ready(rendered.result.current).rows;
+
+      act(() => forgetBranchFiles());
+      expect(rendered.result.current).toEqual({status: 'ready', rows: before, refreshing: true});
+
+      const published = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
+      await act(async () => late.respond(new Response(published)));
+      expect(rendered.result.current).toEqual({status: 'ready', rows: expect.any(Array)});
+      expect(valuesOf(rendered.result.current)).toEqual([null, null, ['normal', 'foil']]);
+    });
+
+    it('shows the read error when the files read again fail, and a retry of it starts from loading', async () => {
+      const late = deferredResponse();
+      let asked = 0;
+      stubBranch({...YEN_SID_FILES, [CHUNK_4]: () => (asked++ === 0 ? new Response(SET_4_TEXT) : late.response)});
+      const rendered = renderPrintings(YEN_SID);
+      await whenReady(rendered);
+
+      act(() => forgetBranchFiles());
+      await act(async () => late.respond(new Response('Bad Gateway', {status: 502})));
+      expect(failed(rendered.result.current).error).toBe(`GitHub 502 on ${CHUNK_4}: Bad Gateway`);
+
+      // No rows are left to keep: the retry reads from loading, as a first read does.
+      act(() => failed(rendered.result.current).retry());
+      expect(rendered.result.current).toEqual({status: 'loading'});
+    });
+
+    it('starts another set’s card from loading, not from the last set’s rows, though the files were forgotten meanwhile', async () => {
+      stubBranch({...YEN_SID_FILES, ...MKB_FILES});
+      const rendered = renderPrintings(YEN_SID);
+      await whenReady(rendered);
+
+      act(() => forgetBranchFiles());
+      rendered.rerender({open: MOTHER_KNOWS_BEST});
       expect(rendered.result.current).toEqual({status: 'loading'});
       await whenReady(rendered);
-      expect(valuesOf(rendered.result.current)).toEqual([null, null, ['normal', 'foil']]);
-      expect(branch.paths()).toHaveLength(6);
+      expect(namesOf(rendered.result.current)).toEqual(MKB_NAMES);
     });
 
     it('drops a read that lands after the files were forgotten and read again', async () => {
