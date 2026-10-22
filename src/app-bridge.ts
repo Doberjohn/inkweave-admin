@@ -11,6 +11,13 @@ import '../upstream/inkweave/apps/web/src/index.css';
 // CardTile's loading placeholder is a react-loading-skeleton; the app loads
 // this stylesheet once, in its main.tsx.
 import 'react-loading-skeleton/dist/skeleton.css';
+// The app's promo merge is plain JavaScript (scripts/lib/*.mjs): the typed exports below wrap these.
+import {
+  collectionPromos as appCollectionPromos,
+  mergePromoPrintings as appMergePromoPrintings,
+} from '../upstream/inkweave/scripts/lib/promo-printings.mjs';
+import {byPrintingOrder as appByPrintingOrder} from '../upstream/inkweave/scripts/lib/fold-variants.mjs';
+import {finishesById as appFinishesById} from '../upstream/inkweave/scripts/lib/finishes.mjs';
 
 export {
   ALL_INKS,
@@ -21,6 +28,8 @@ export {
   FONT_SIZES,
   INK_COLORS,
   LETTER_SPACING,
+  // The promo sets, oldest first, each by the code printed on its cards ("P1" in 25/P1) and its name.
+  PROMO_SETS,
   RADIUS,
   REVEAL_ID_BASE,
   REVEAL_SET_CODE,
@@ -39,6 +48,8 @@ export {
   // A promo set's place in release order, by its code ("P1", "C3"); -1 for a code none has.
   promoSetRank,
   whiteRgba,
+  // One of PROMO_SETS: its code and name, and any editions it gathers.
+  type PromoSet,
 } from '../upstream/inkweave/apps/web/src/shared/constants';
 export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
 export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
@@ -86,6 +97,40 @@ export {
   type CollectionPromo,
   type RawCollectionPromo,
 } from '../upstream/inkweave/apps/web/src/features/collection/collectionPromos';
+/** A card of allCards.json as the promo merge reads it. */
+export interface MergeCard {
+  id: number;
+  fullName: string;
+  variants?: object[];
+  finishes?: readonly string[];
+}
+/** The catalog as the merge reads it: the groups of both sections. */
+export interface MergeCatalog {
+  fold: ReadonlyArray<{baseId: number; fullName: string; variants: readonly object[]}>;
+  noBaseCard?: ReadonlyArray<{lorcanaJsonBaseId: number | null; fullName: string; variants: readonly object[]}>;
+}
+/** What a merge changed, card by card. */
+export interface MergeReport {
+  changes: ReadonlyArray<{
+    card: MergeCard;
+    added: readonly object[];
+    updated: readonly object[];
+    removed: readonly object[];
+  }>;
+  skipped: {printings: number; cards: number};
+}
+// Makes each card's promo entries the catalog's, in place; throws, changing nothing, if the catalog can't merge.
+export const mergePromoPrintings: (cards: MergeCard[], catalog: MergeCatalog) => MergeReport = appMergePromoPrintings;
+// Every catalog promo as collection/promos.json lists it; `kept` holds the versions a file has already, by id.
+// The cast: the .mjs only reads `kept`, but its `= new Map()` default types it as a mutable Map, which refuses a ReadonlyMap.
+export const collectionPromos = appCollectionPromos as (
+  catalog: MergeCatalog,
+  kept?: ReadonlyMap<string, readonly string[]>,
+) => object[];
+// The `finishes` already in entries and their variants, by id: what collectionPromos carries over.
+export const finishesById: (entries: readonly object[]) => Map<string, readonly string[]> = appFinishesById;
+// A card's printings in the switcher's order: the others by number, then the promos by set and number.
+export const byPrintingOrder: (a: object, b: object) => number = appByPrintingOrder;
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
 // path). Each id's result is kept for the session, and a non-OK or non-JSON
 // response is kept as an empty result. A failed fetch or malformed JSON rejects
