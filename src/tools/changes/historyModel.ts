@@ -139,16 +139,16 @@ export function changeTitle(headline: string): string {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** The viewer's own calendar day an ISO time falls on, as 'YYYY-MM-DD' (format.ts reads it as a day). */
-export function localDay(iso: string): string {
-  const date = new Date(iso);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+/** The viewer's own calendar day a change was made on, as 'YYYY-MM-DD' (format.ts reads it as a day). */
+export function localDay({date}: Pick<Change, 'date'>): string {
+  const at = new Date(date);
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 }
 
-/** The viewer's own clock time an ISO time falls at: "13:39". */
-export function localTime(iso: string): string {
-  const date = new Date(iso);
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+/** The viewer's own clock time a change was made at: "13:39". */
+export function localTime({date}: Pick<Change, 'date'>): string {
+  const at = new Date(date);
+  return `${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
 /** One day of the list: the day, and its changes, newest first. */
@@ -161,7 +161,7 @@ export interface ChangeDay {
 export function byDay(changes: readonly Change[]): ChangeDay[] {
   const days: ChangeDay[] = [];
   for (const change of changes) {
-    const day = localDay(change.date);
+    const day = localDay(change);
     const last = days.at(-1);
     if (last?.day === day) last.changes.push(change);
     else days.push({day, changes: [change]});

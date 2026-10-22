@@ -40,11 +40,11 @@ const countOf = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
  */
 function reach({shown, changes, hasOlder}: {shown: number; changes: readonly Change[]; hasOlder: boolean}): string {
   const oldest = changes.at(-1);
-  return hasOlder && oldest ? `${countOf(shown)} since ${fmtWeekday(localDay(oldest.date))}` : countOf(shown);
+  return hasOlder && oldest ? `${countOf(shown)} since ${fmtWeekday(localDay(oldest))}` : countOf(shown);
 }
 
 /** What the filter row says when nothing in the list passes it. */
-function emptyMessage(filter: AreaFilter, hasOlder: boolean): string {
+function emptyMessage({filter, hasOlder}: {filter: AreaFilter; hasOlder: boolean}): string {
   const what = filter === 'all' ? 'No changes yet.' : `No changes to ${AREA_LABELS[filter].toLowerCase()} in this stretch.`;
   return hasOlder ? `${what} Show older changes to look further back.` : what;
 }
@@ -138,7 +138,7 @@ function HistoryList({streams, older, onLoadOlder, source}: HistoryListProps) {
         </span>
       </div>
       {shown.length === 0 ? (
-        <Notice>{emptyMessage(filter, hasOlder)}</Notice>
+        <Notice>{emptyMessage({filter, hasOlder})}</Notice>
       ) : (
         byDay(shown).map((day) => <DayPanel key={day.day} day={day} source={source} />)
       )}

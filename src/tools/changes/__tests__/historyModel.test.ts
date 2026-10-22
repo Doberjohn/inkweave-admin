@@ -133,8 +133,8 @@ describe('changeTitle', () => {
 
 describe('the viewer’s days', () => {
   it('reads a time in the viewer’s zone', () => {
-    expect(localDay('2026-10-21T22:30:00Z')).toBe('2026-10-22');
-    expect(localTime('2026-10-21T22:30:00Z')).toBe('01:30');
+    expect(localDay({date: '2026-10-21T22:30:00Z'})).toBe('2026-10-22');
+    expect(localTime({date: '2026-10-21T22:30:00Z'})).toBe('01:30');
   });
 
   it('cuts the list into the viewer’s days, newest first', () => {

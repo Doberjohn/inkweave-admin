@@ -26,7 +26,7 @@ export function githubSource(token: string): ChangeSource {
 export type DetailsState = {status: 'loading'} | {status: 'ready'; details: CommitDetails} | {status: 'error'; error: string};
 
 /** Reads an open change's details, again on each retry (a failed read leaves commitDetails' cache). */
-export function useDetails(source: ChangeSource, sha: string): {state: DetailsState; retry: () => void} {
+export function useDetails({source, sha}: {source: ChangeSource; sha: string}): {state: DetailsState; retry: () => void} {
   const [state, setState] = useState<DetailsState>({status: 'loading'});
   const [attempt, setAttempt] = useState(0);
 

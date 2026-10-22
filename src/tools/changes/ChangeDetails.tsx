@@ -168,7 +168,7 @@ function DetailsBody({source, details}: {source: ChangeSource; details: CommitDe
 function CommitLine({change}: {change: Change}) {
   return (
     <p style={META}>
-      {change.author} · <time dateTime={change.date}>{`${localDay(change.date)} ${localTime(change.date)}`}</time> ·{' '}
+      {change.author} · <time dateTime={change.date}>{`${localDay(change)} ${localTime(change)}`}</time> ·{' '}
       <a href={`${REPO_URL}/commit/${change.sha}`} target="_blank" rel="noreferrer" className="adm-link">
         <code>{change.sha.slice(0, 7)}</code> on GitHub
       </a>
@@ -188,7 +188,7 @@ interface ChangeDetailsProps {
  * from its commit (commitDetails), with who made it and a link to the commit.
  */
 export function ChangeDetails({change, source, onRetried}: ChangeDetailsProps) {
-  const {state, retry} = useDetails(source, change.sha);
+  const {state, retry} = useDetails({source, sha: change.sha});
   const onRetry = () => {
     retry();
     onRetried();

@@ -40,7 +40,7 @@ export function ChangeItem({change, source, divided}: ChangeItemProps) {
           aria-controls={open ? detailsId : undefined}
           onClick={() => setOpen(!open)}>
           <time dateTime={change.date} style={TIME}>
-            {localTime(change.date)}
+            {localTime(change)}
           </time>
           <span style={TITLE}>{changeTitle(change.headline)}</span>
           <span style={TAGS}>
