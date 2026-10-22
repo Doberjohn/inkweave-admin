@@ -1,9 +1,8 @@
 import {useSyncExternalStore} from 'react';
-import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {targetBranch} from '../../../github/githubCommit';
 import {forgetBranchFiles} from './branchFiles';
-import {CHOICE_OPTIONS, finishesOfChoice, sameFinishes} from './finishValues';
 import {publishVersions, VersionClashError} from './publishVersions';
+import {savedChangesOf} from './savedChanges';
 import {
   EMPTY_BATCH,
   afterPublish,
@@ -27,7 +26,9 @@ import {
  * is its memory, which a save writes through to storage, so a save that fails (blocked site data, a
  * full quota) leaves the batch in memory for the page's life, and the next save that works writes
  * all of it. Whether a publish is under way, and how the last one ended, belong to the page alone
- * and are never saved.
+ * and are never saved. How the last one ended also belongs to the token that made it: a reader that
+ * holds another token (a new one, saved after Forget token) is not told "GitHub rejected the saved
+ * token" about the one it replaced.
  *
  * Another tab on the same branch saves to the same key, and a save writes the whole batch, so a
  * page that never read it back would write over what the other tab staged. A page follows it
@@ -64,12 +65,16 @@ export interface VersionBatchView {
   changes: readonly VersionChange[];
   /** A publish is under way. */
   publishing: boolean;
-  /** The publish that landed last, until the owner stages, reverts or discards a change, or publishes again. */
+  /**
+   * The publish that landed last, until the owner stages, reverts or discards a change, or
+   * publishes again. Only to a reader of the token that made it (`useVersionBatch(token)`).
+   */
   result: PublishResult | null;
   /**
    * Why the last publish didn't land, until the owner stages, reverts or discards a change, or
-   * publishes again. Never a clash: that is the marks on the changes (`hasClash`), which the tray
-   * words from the ones still marked, so no message of it outlives the last mark.
+   * publishes again. Only to a reader of the token that made it. Never a clash: that is the marks on
+   * the changes (`hasClash`), which the tray words from the ones still marked, so no message of it
+   * outlives the last mark.
    */
   error: string | null;
   /** Adds a change, in the place of its printing's earlier one. One that restores what the printing showed removes it. */
@@ -92,6 +97,8 @@ interface BranchState {
   publishing: boolean;
   result: PublishResult | null;
   error: string | null;
+  /** The token the last publish was made with, whose `result` and `error` these are: they show to its readers only. */
+  outcomeToken: string | null;
 }
 
 /** The shape saved text is read as, before any of it is trusted. */
@@ -103,30 +110,15 @@ interface SavedBatch {
 /** The key of the target branch's saved batch. */
 const storageKey = () => `${VERSION_BATCH_KEY_PREFIX}${targetBranch()}`;
 
-/** The values a change may write: what each choice the panel offers writes, and nothing else. */
-const FINISHES_VALUES = CHOICE_OPTIONS.map(({value}) => finishesOfChoice(value));
-
-/** Whether a value is one of the three `finishes` a change may write. */
-function isFinishesValue(value: unknown): value is PrintingFinishes {
-  return Array.isArray(value) && FINISHES_VALUES.some((valid) => sameFinishes(valid, value));
-}
-
-/**
- * Whether a saved entry is worth keeping. Only the versions it would write are checked: they go
- * into the app's data files, so a value that is not one of the three never reaches a publish.
- */
-function isSavedChange(entry: unknown): entry is VersionChange {
-  return typeof entry === 'object' && entry !== null && isFinishesValue((entry as {to?: unknown}).to);
-}
-
 /**
  * The changes a saved text holds. Anything that isn't a saved batch of this version (no text, text
- * that isn't JSON) holds none, and an entry that isn't a change is left out, with no word to the owner.
+ * that isn't JSON) holds none, and an entry that isn't a change (savedChanges.ts) is left out, with
+ * no word to the owner.
  */
 function changesIn(text: string | null): VersionChange[] {
   try {
     const saved = text === null ? null : (JSON.parse(text) as SavedBatch | null);
-    return saved?.v === SAVED_VERSION && Array.isArray(saved.changes) ? saved.changes.filter(isSavedChange) : [];
+    return saved?.v === SAVED_VERSION && Array.isArray(saved.changes) ? savedChangesOf(saved.changes) : [];
   } catch {
     return [];
   }
@@ -184,6 +176,7 @@ function snapshot(): BranchState {
     publishing: false,
     result: null,
     error: null,
+    outcomeToken: null,
   };
   states.set(branch, loaded);
   return loaded;
@@ -329,20 +322,37 @@ function canPublish({batch, publishing}: BranchState): boolean {
 /**
  * Writes the batch in one commit, unless a publish is under way, nothing is staged or a clash is
  * open. It sends the changes staged when it starts, and while it runs what the last publish said
- * (`result`, `error`) is gone. Each way it ends sets `publishing` back itself, with no `finally`.
+ * (`result`, `error`) is gone; how it ends is said to `token` alone. Each way it ends sets
+ * `publishing` back itself, with no `finally`.
  */
 function publish(token: string): Promise<void> {
   const state = snapshot();
   if (!canPublish(state)) return Promise.resolve();
   const sent = state.batch.changes;
-  put({publishing: true, result: null, error: null});
+  put({publishing: true, result: null, error: null, outcomeToken: token});
   return publishVersions({token, changes: sent}).then(({commitUrl}) => landed({sent, commitUrl}), refused);
 }
 
-/** The shared batch of the target branch, and what the panel and the tray do to it. */
-export function useVersionBatch(): VersionBatchView {
-  const {batch, publishing, result, error} = useSyncExternalStore(subscribe, snapshot);
-  return {changes: batch.changes, publishing, result, error, stage, revert, discard, keep, publish};
+/**
+ * The shared batch of the target branch, and what the panel and the tray do to it. Given a token,
+ * it tells how the last publish ended only if that publish was made with the same one: a token the
+ * owner saved since has nothing to be told. With none (the Printings panel, which has no use for the
+ * outcome) it tells the outcome as it is.
+ */
+export function useVersionBatch(token?: string): VersionBatchView {
+  const {batch, publishing, result, error, outcomeToken} = useSyncExternalStore(subscribe, snapshot);
+  const theirs = token === undefined || token === outcomeToken;
+  return {
+    changes: batch.changes,
+    publishing,
+    result: theirs ? result : null,
+    error: theirs ? error : null,
+    stage,
+    revert,
+    discard,
+    keep,
+    publish,
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import {useId, useRef, type CSSProperties} from 'react';
+import {useId, useRef, useState, type CSSProperties} from 'react';
 import {COLORS, CtaButton, LinkButton, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
@@ -69,7 +69,8 @@ const TEXT: CSSProperties = {
   minWidth: 0,
 };
 const CHANGE: CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.text, overflowWrap: 'anywhere'};
-const NOTE: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+// A line of small muted text: a change's removal note, and what stands where the rows go when there are none.
+const MUTED_LINE: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 const CLASH: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.error};
 const ACTIONS: CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.md, flex: 'none'};
 const ACTION: CSSProperties = {fontSize: ADMIN_TYPE.small};
@@ -90,6 +91,9 @@ const LIVE_NOTE = 'They show in the binder once the app has deployed: on staging
 /** What a clash says of a printing the branch no longer holds in its primary home. */
 const GONE = 'No longer in the data.';
 
+/** What stands where the rows go when the tray shows with no change. */
+const NO_CHANGES = 'No version changes';
+
 export interface VersionsTrayProps {
   /** The studio's batch and how the last publish ended, as `useVersionBatch` hands them over. */
   view: VersionBatchView;
@@ -104,9 +108,9 @@ function numberOfChanges(count: number): string {
   return `${count} change${count === 1 ? '' : 's'}`;
 }
 
-/** The Publish button's words: how many changes it writes, and where. */
+/** The Publish button's words: how many changes it writes, where there are some, and where. */
 function publishLabel(count: number): string {
-  return `Publish ${numberOfChanges(count)} to ${targetBranch()}`;
+  return count === 0 ? `Publish to ${targetBranch()}` : `Publish ${numberOfChanges(count)} to ${targetBranch()}`;
 }
 
 /** What a clash says: what the printing shows on the branch now, or that the branch no longer has it. */
@@ -124,7 +128,7 @@ function holdsPublish(view: VersionBatchView): boolean {
   return view.publishing || view.changes.length === 0 || hasClash(view);
 }
 
-/** The tray's heading, which takes focus when no row is left to take it. */
+/** The tray's heading, which takes focus when no row is left to take it (a press keeps it in the document). */
 function focusHeading(tray: HTMLElement | null) {
   tray?.querySelector<HTMLElement>('h2')?.focus();
 }
@@ -154,8 +158,8 @@ interface ItemProps {
 /**
  * A change's way out. A clash replaces Revert with Keep mine, which keeps the change on top of what
  * the branch has now and is not offered for a printing that is gone, and Drop, which is a revert.
- * Each is named by its change, so a list of buttons tells apart; Revert and Drop start with the
- * word they show (2.5.3).
+ * Each is named by its change, so a list of buttons tells apart, and each name starts with the
+ * words the button shows (2.5.3).
  */
 function RowActions({change, held, onRevert, onKeep}: ItemProps) {
   const {label, clash} = change;
@@ -177,7 +181,7 @@ function RowActions({change, held, onRevert, onKeep}: ItemProps) {
       {!clash.gone && (
         <LinkButton
           type="button"
-          aria-label={`Keep my change to ${label}`}
+          aria-label={`Keep mine for ${label}`}
           disabled={held}
           onClick={onKeep}
           style={ACTION}>
@@ -208,7 +212,7 @@ function ChangeItem(props: ItemProps) {
     <li style={ROW}>
       <div style={TEXT}>
         <span style={CHANGE}>{`${change.label}: ${choiceLabel(change.shownFrom)} → ${choiceLabel(change.to)}`}</span>
-        {note !== null && <p style={NOTE}>{note}</p>}
+        {note !== null && <p style={MUTED_LINE}>{note}</p>}
         {change.clash && <p style={CLASH}>{clashLine(change.clash)}</p>}
       </div>
       <div style={ACTIONS}>
@@ -224,9 +228,9 @@ interface RowsProps {
   onSettle: (index: number, act: () => void) => void;
 }
 
-/** The changes in the order they were staged, one item each, or nothing where none is staged. */
+/** The changes in the order they were staged, one item each, or the line that says there are none. */
 function ChangeRows({view, onSettle}: RowsProps) {
-  if (view.changes.length === 0) return null;
+  if (view.changes.length === 0) return <p style={MUTED_LINE}>{NO_CHANGES}</p>;
   return (
     <ul style={LIST}>
       {view.changes.map((change, index) => (
@@ -350,19 +354,29 @@ function PublishBar({view, token, describedBy}: PublishProps) {
  * first and never falls to <body> (R-48): to the next row's first button, else the previous
  * row's, else the heading. The heading takes it from Discard all. Publish stays where it is.
  *
+ * With the last change gone the heading would go too, were the tray to follow its rule: the store's
+ * revert clears the outcome as well. So once the owner has pressed one of those buttons the tray
+ * stays for the rest of its mount, empty or not, as PendingTray's empty state. A batch that
+ * another tab empties, with no press here, takes the tray away, as an empty batch keeps it from
+ * appearing when the studio opens.
+ *
  * A clash is told from the changes still marked, never from the store's `error`, which holds the
  * other failures only.
  */
 export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
   const trayRef = useRef<HTMLElement>(null);
   const clashId = useId();
-  if (!showsTray(view)) return null;
+  // Set by the handlers of the buttons above, never by render.
+  const [pressed, setPressed] = useState(false);
+  if (!pressed && !showsTray(view)) return null;
   const clashes = clashCount(view);
   const settle = (index: number, act: () => void) => {
+    setPressed(true);
     focusAfterSettled({tray: trayRef.current, index});
     act();
   };
   const discard = () => {
+    setPressed(true);
     focusHeading(trayRef.current);
     view.discard();
   };

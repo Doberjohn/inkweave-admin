@@ -45,8 +45,7 @@ function renderTray(view: VersionBatchView, props: Partial<VersionsTrayProps> = 
 
 /**
  * The tray over a batch of its own, as the store keeps one: a revert, a keep or a discard changes
- * what the tray reads next. `rest` is what else the view says; one with a `result` keeps the
- * tray on screen once its last change is gone, as a publish that landed does.
+ * what the tray reads next, and nothing else is said of a publish. `rest` is what else the view says.
  */
 function LiveTray({initial, rest = {}}: {initial: readonly VersionChange[]; rest?: Partial<VersionBatchView>}) {
   const [changes, setChanges] = useState(initial);
@@ -63,6 +62,22 @@ function LiveTray({initial, rest = {}}: {initial: readonly VersionChange[]; rest
 /** The list item that holds a change, found by the line it prints. */
 const itemOf = (line: string) => screen.getByText(line).closest('li') as HTMLElement;
 
+/** A change's Revert button. */
+const revertOf = (change: VersionChange) => screen.getByRole('button', {name: `Revert ${change.label}`});
+
+/**
+ * The tray once the owner's hand took its last change away: it stays, as PendingTray's empty state,
+ * with focus on the heading that is still in the document. Nothing to list or discard, and
+ * Publish held.
+ */
+function expectEmptyTrayWithFocus() {
+  expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
+  expect(screen.getByText('No version changes')).toBeInTheDocument();
+  expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', {name: 'Discard all'})).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Publish to master'})).toHaveAttribute('aria-disabled', 'true');
+}
+
 describe('VersionsTray: when it shows', () => {
   it('is absent with nothing to show', () => {
     expect(renderTray(batchView([])).container).toBeEmptyDOMElement();
@@ -76,9 +91,19 @@ describe('VersionsTray: when it shows', () => {
     renderTray(batchView([], rest));
     const tray = screen.getByRole('region', {name: 'Version changes'});
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toBeInTheDocument();
-    // Nothing to list, nothing to discard.
+    // PendingTray's empty state: a line where the rows go, and nothing to discard.
+    const empty = within(tray).getByText('No version changes');
+    expect(empty.tagName).toBe('P');
     expect(within(tray).queryByRole('list')).not.toBeInTheDocument();
     expect(within(tray).queryByRole('button', {name: 'Discard all'})).not.toBeInTheDocument();
+  });
+
+  it('goes when another tab empties the batch and none of its own buttons was pressed here', () => {
+    const {container, rerender} = renderTray(batchView([NUMBER_223_TO_BOTH]));
+    expect(screen.getByRole('region', {name: 'Version changes'})).toBeInTheDocument();
+
+    rerender(trayElement(batchView([])));
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('is a row of its own across the studio’s root: every column of the wide grid, a whole line when narrow', () => {
@@ -131,6 +156,21 @@ describe('VersionsTray: the changes', () => {
     expect(revert).toHaveBeenCalledExactlyOnceWith('946');
   });
 
+  it('names every row button by its change, and the name starts with the word the button shows (2.5.3)', () => {
+    renderTray(batchView([NUMBER_209_TO_BOTH, NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL_GONE]));
+    const buttons = within(screen.getByRole('list')).getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual(['Revert', 'Keep mine', 'Drop', 'Drop']);
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Revert Yen Sid - Powerful Sorcerer #209',
+      'Keep mine for Yen Sid - Powerful Sorcerer #223',
+      'Drop Yen Sid - Powerful Sorcerer #223',
+      'Drop Yen Sid - Powerful Sorcerer #59',
+    ]);
+    for (const button of buttons) {
+      expect(button.getAttribute('aria-label')?.startsWith(button.textContent ?? '')).toBe(true);
+    }
+  });
+
   it('discards every change at once', async () => {
     const discard = vi.fn();
     renderTray(batchView(THREE, {discard}));
@@ -140,11 +180,9 @@ describe('VersionsTray: the changes', () => {
 });
 
 describe('VersionsTray: focus (R-48)', () => {
-  const revertOf = (change: VersionChange) => screen.getByRole('button', {name: `Revert ${change.label}`});
-
   it('moves focus to the next change’s button after a revert, else the previous one’s, else the heading', async () => {
     const user = userEvent.setup();
-    render(<LiveTray initial={THREE} rest={{result: LANDED}} />);
+    render(<LiveTray initial={THREE} />);
     await user.click(revertOf(NUMBER_209_TO_BOTH));
     expect(revertOf(NUMBER_223_TO_BOTH)).toHaveFocus();
 
@@ -153,13 +191,7 @@ describe('VersionsTray: focus (R-48)', () => {
     expect(revertOf(NUMBER_59_TO_FOIL)).toHaveFocus();
 
     await user.keyboard('{Enter}');
-    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
-  });
-
-  it('moves focus to the heading after Discard all', async () => {
-    render(<LiveTray initial={THREE} rest={{result: LANDED}} />);
-    await userEvent.click(screen.getByRole('button', {name: 'Discard all'}));
-    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
+    expectEmptyTrayWithFocus();
   });
 
   it('moves focus on after Drop as after a Revert, to the first button of the next change', async () => {
@@ -172,21 +204,15 @@ describe('VersionsTray: focus (R-48)', () => {
   it('moves focus to the next change’s Keep mine when that change is a clash that can be kept', async () => {
     render(<LiveTray initial={[NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH_CLASHED]} />);
     await userEvent.click(revertOf(NUMBER_59_TO_FOIL));
-    expect(screen.getByRole('button', {name: `Keep my change to ${NUMBER_223_TO_BOTH.label}`})).toHaveFocus();
+    expect(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`})).toHaveFocus();
   });
 
   it('moves focus on after Keep mine too, since the button goes with the clash', async () => {
     render(<LiveTray initial={[NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL]} />);
-    await userEvent.click(screen.getByRole('button', {name: `Keep my change to ${NUMBER_223_TO_BOTH.label}`}));
+    await userEvent.click(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`}));
     // The change stays, built on what the branch has now, and its row has Revert in the place of the two.
     expect(revertOf(NUMBER_223_TO_BOTH)).toBeInTheDocument();
     expect(revertOf(NUMBER_59_TO_FOIL)).toHaveFocus();
-  });
-
-  it('moves focus to the heading when the only change is dropped', async () => {
-    render(<LiveTray initial={[NUMBER_59_TO_FOIL_GONE]} rest={{result: LANDED}} />);
-    await userEvent.click(screen.getByRole('button', {name: `Drop ${NUMBER_59_TO_FOIL_GONE.label}`}));
-    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
   });
 
   it('leaves focus on Publish when it is pressed: the button stays', async () => {
@@ -194,6 +220,65 @@ describe('VersionsTray: focus (R-48)', () => {
     const publish = screen.getByRole('button', {name: 'Publish 3 changes to master'});
     await userEvent.click(publish);
     expect(publish).toHaveFocus();
+  });
+});
+
+/*
+ * A button of the tray's own takes itself out of the document, and the heading takes the focus it
+ * hands on (R-48). With the last change gone the tray would go too, and the heading with it: in the
+ * real store the revert clears the outcome as well. So once one of its buttons is pressed, the tray
+ * stays for the rest of its mount, empty or not.
+ */
+describe('VersionsTray: once one of its own buttons was pressed', () => {
+  it('stays as an empty tray when the last change is reverted, with focus on its heading', async () => {
+    render(<LiveTray initial={[NUMBER_223_TO_BOTH]} />);
+    await userEvent.click(revertOf(NUMBER_223_TO_BOTH));
+    expectEmptyTrayWithFocus();
+  });
+
+  it('stays as an empty tray when the last change is dropped, with focus on its heading', async () => {
+    render(<LiveTray initial={[NUMBER_59_TO_FOIL_GONE]} />);
+    await userEvent.click(screen.getByRole('button', {name: `Drop ${NUMBER_59_TO_FOIL_GONE.label}`}));
+    expectEmptyTrayWithFocus();
+  });
+
+  it('stays as an empty tray after Discard all, with focus on its heading', async () => {
+    render(<LiveTray initial={THREE} />);
+    await userEvent.click(screen.getByRole('button', {name: 'Discard all'}));
+    expectEmptyTrayWithFocus();
+  });
+
+  it('stays as an empty tray when Keep mine leaves nothing to publish: the branch has what the change asked for', async () => {
+    const {to} = NUMBER_223_TO_BOTH;
+    const asked = {...NUMBER_223_TO_BOTH, clash: {id: '946', now: to, shownNow: to}};
+    render(<LiveTray initial={[asked]} />);
+    await userEvent.click(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`}));
+    expectEmptyTrayWithFocus();
+  });
+
+  it('stays for the rest of its mount, whatever the view says next, and lists the changes again when there are some', async () => {
+    const {container, rerender} = renderTray(batchView([NUMBER_223_TO_BOTH]));
+    await userEvent.click(revertOf(NUMBER_223_TO_BOTH));
+
+    // The view the press leaves is empty, or another tab's: the tray is there either way.
+    rerender(trayElement(batchView([])));
+    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toBeInTheDocument();
+    expect(screen.getByText('No version changes')).toBeInTheDocument();
+
+    rerender(trayElement(batchView([NUMBER_59_TO_FOIL])));
+    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
+    expect(screen.getByText(LINE_59)).toBeInTheDocument();
+    expect(screen.queryByText('No version changes')).not.toBeInTheDocument();
+    expect(container).not.toBeEmptyDOMElement();
+  });
+
+  it('is not made to stay by a button that is not its own: Publish, or Forget token', async () => {
+    const {container, rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {error: REJECTED}));
+    await userEvent.click(screen.getByRole('button', {name: 'Publish 1 change to master'}));
+    await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
+
+    rerender(trayElement(batchView([])));
+    expect(container).toBeEmptyDOMElement();
   });
 });
 
@@ -207,7 +292,7 @@ describe('VersionsTray: a clash', () => {
     expect(within(row).queryByRole('button', {name: /^Revert /})).not.toBeInTheDocument();
     expect(within(row).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep mine', 'Drop']);
 
-    await userEvent.click(within(row).getByRole('button', {name: 'Keep my change to Yen Sid - Powerful Sorcerer #223'}));
+    await userEvent.click(within(row).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223'}));
     expect(keep).toHaveBeenCalledExactlyOnceWith('946');
     // Drop is a revert: the change leaves the batch.
     await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223'}));
@@ -232,7 +317,7 @@ describe('VersionsTray: a clash', () => {
     const row = itemOf(LINE_59);
     expect(within(row).getByText('No longer in the data.')).toBeInTheDocument();
     expect(within(row).queryByText(/^Changed on /)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', {name: /^Keep my change/})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /^Keep mine/})).not.toBeInTheDocument();
 
     await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #59'}));
     expect(revert).toHaveBeenCalledExactlyOnceWith('750');
@@ -294,7 +379,7 @@ describe('VersionsTray: what it says of clashes', () => {
     render(<LiveTray initial={[NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL]} rest={{publish}} />);
     expect(screen.getByRole('alert')).toHaveTextContent(clashMessage(1));
 
-    await userEvent.click(screen.getByRole('button', {name: `Keep my change to ${NUMBER_223_TO_BOTH.label}`}));
+    await userEvent.click(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`}));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('region', {name: 'Version changes'})).not.toHaveTextContent(/clash/i);
     const button = screen.getByRole('button', {name: 'Publish 2 changes to master'});
@@ -337,13 +422,32 @@ describe('VersionsTray: publishing', () => {
     held.forEach((button) => expect(button).toBeDisabled());
   });
 
-  it('holds Publish with nothing staged', async () => {
+  it('reads Publish to the branch and holds it with nothing staged: no count to give', async () => {
     const publish = vi.fn(() => Promise.resolve());
     renderTray(batchView([], {result: LANDED, publish}));
-    const button = screen.getByRole('button', {name: 'Publish 0 changes to master'});
+    const button = screen.getByRole('button', {name: 'Publish to master'});
     expect(button).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(button);
     expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('names a rehearsal branch on the Publish it holds with nothing staged', () => {
+    vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'rehearse-68');
+    renderTray(batchView([], {result: LANDED}));
+    expect(screen.getByRole('button', {name: 'Publish to rehearse-68'})).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps the same Publish button, and the focus on it, when the changes it sent are gone', async () => {
+    const {rerender} = renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]));
+    const button = screen.getByRole('button', {name: 'Publish 2 changes to master'});
+    await userEvent.click(button);
+    rerender(trayElement(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {publishing: true})));
+    rerender(trayElement(batchView([], {result: LANDED})));
+
+    // The landing empties the batch: the label loses its count, and the button, with its focus, stays.
+    expect(screen.getByRole('button', {name: 'Publish to master'})).toBe(button);
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveFocus();
   });
 });
 

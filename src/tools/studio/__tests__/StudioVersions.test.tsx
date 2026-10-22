@@ -103,7 +103,7 @@ afterEach(() => {
 });
 
 describe('StudioPage: the Version changes tray (#68)', () => {
-  it('appears once a version is staged, under the panes, and goes with its last change', async () => {
+  it('appears once a version is staged, under the panes, and stays as an empty tray with focus on its heading when the last change is reverted', async () => {
     stubStudioRepo({branch: YEN_SID_FILES});
     const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
     const group = await screen.findByRole('group', {name: NUMBER_59});
@@ -120,9 +120,44 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(tray.parentElement).toContainElement(printings);
 
     await user.click(within(tray).getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59'}));
-    expect(versionsTray()).not.toBeInTheDocument();
+    // The store's revert clears the outcome too, so nothing but the press keeps the tray up: it is the same
+    // element, and the heading that took the focus is still in the document.
+    expect(screen.getByRole('region', {name: 'Version changes'})).toBe(tray);
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
+    expect(within(tray).getByText('No version changes')).toBeInTheDocument();
     expect(within(group).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+  });
+
+  it('stays as an empty tray with focus on its heading after Discard all', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'}));
+    await user.click(within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 2'})).toBeInTheDocument();
+
+    await user.click(within(tray).getByRole('button', {name: 'Discard all'}));
+    expect(screen.getByRole('region', {name: 'Version changes'})).toBe(tray);
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
+    expect(within(tray).getByText('No version changes')).toBeInTheDocument();
+    expect(within(tray).queryByRole('button', {name: 'Discard all'})).not.toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: 'Publish to master'})).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('goes when another tab empties the batch, as no button of its own was pressed here', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'}));
+    await screen.findByRole('region', {name: 'Version changes'});
+
+    // The other tab discards the batch and saves it empty; the browser tells this tab with a storage event.
+    const key = `${VERSION_BATCH_KEY_PREFIX}master`;
+    localStorage.setItem(key, JSON.stringify({v: 1, changes: []}));
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', {key}));
+    });
+    expect(versionsTray()).not.toBeInTheDocument();
   });
 
   it('stays when the owner switches to New reveal, under that pane too: the batch is the studio’s, not the card’s', async () => {
@@ -158,7 +193,8 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
     const tray = await screen.findByRole('region', {name: 'Version changes'});
 
-    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    const publish = within(tray).getByRole('button', {name: 'Publish 1 change to master'});
+    await user.click(publish);
     const status = within(tray).getByRole('status');
     await within(tray).findByText('Published 1 change.');
     expect(within(status).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
@@ -169,9 +205,12 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(repo.reads().map(({token}) => token)).toEqual(['tok']);
     expect(repo.fetch.mock.calls.every(([, init]) => (init?.headers as Record<string, string>).Authorization === 'Bearer tok')).toBe(true);
 
-    // The batch is empty, and nothing is left to publish.
+    // The batch is empty, and nothing is left to publish. The button stays mounted, so the focus on it survives the landing.
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toBeInTheDocument();
-    expect(within(tray).getByRole('button', {name: 'Publish 0 changes to master'})).toHaveAttribute('aria-disabled', 'true');
+    expect(within(tray).getByText('No version changes')).toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: 'Publish to master'})).toBe(publish);
+    expect(publish).toHaveAttribute('aria-disabled', 'true');
+    expect(publish).toHaveFocus();
   });
 
   it('holds Publish for a clash, counts the changes marked, and says nothing of one once the owner keeps the last', async () => {
@@ -192,12 +231,31 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     // The panel marks the printing too, once it has read the branch again.
     expect(await screen.findByText('Clash')).toBeInTheDocument();
 
-    await user.click(within(tray).getByRole('button', {name: 'Keep my change to Yen Sid - Powerful Sorcerer #223'}));
+    await user.click(within(tray).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223'}));
     // The change stays, built on what the branch has now, and no word of a clash is left on screen.
     expect(within(tray).getByText('Yen Sid - Powerful Sorcerer #223: Normal only → Both')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/clash/i);
     expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('stays as an empty tray with focus on its heading when the owner drops the last clash, and says nothing of one', async () => {
+    stubStudioRepo({
+      branch: YEN_SID_FILES,
+      base: {...YEN_SID_FILES, [CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal']}))},
+    });
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    await within(tray).findByRole('alert');
+
+    await user.click(within(tray).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223'}));
+    expect(screen.getByRole('region', {name: 'Version changes'})).toBe(tray);
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
+    expect(within(tray).getByText('No version changes')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/clash/i);
   });
 
   it('still says a clash after a reload: the marks are saved with the batch, so the line is not lost with the page', async () => {
@@ -239,5 +297,24 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     const again = await screen.findByRole('region', {name: 'Version changes'});
     expect(within(again).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
     expect(within(again).getByText(LINE_223)).toBeInTheDocument();
+    expect(batch.result.current.changes).toEqual([expect.objectContaining({id: NUMBER_223_TO_BOTH.id})]);
+    // The 401 was the old token's: the new one sees no failure, and no offer to forget what it has just saved.
+    expect(within(again).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(again).queryByText(/GitHub rejected the saved token/)).not.toBeInTheDocument();
+    expect(within(again).queryByRole('button', {name: 'Forget token'})).not.toBeInTheDocument();
+    expect(within(again).getByRole('button', {name: 'Publish 1 change to master'})).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('opens over a saved batch that holds a malformed entry, with the good one in the tray', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    // #59's entry lacks `shownFrom`, which the tray's line reads: JSON leaves out a key that is undefined.
+    const malformed = {...NUMBER_59_TO_FOIL, shownFrom: undefined};
+    localStorage.setItem(`${VERSION_BATCH_KEY_PREFIX}master`, JSON.stringify({v: 1, changes: [malformed, NUMBER_223_TO_BOTH]}));
+    renderStudio({path: studioHref('new')});
+
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
+    expect(within(tray).getByText(LINE_223)).toBeInTheDocument();
+    expect(within(tray).queryByText(/#59/)).not.toBeInTheDocument();
   });
 });

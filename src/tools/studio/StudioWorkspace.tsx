@@ -80,7 +80,8 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
-  const versions = useVersionBatch();
+  // The outcome of a publish is told to the token that made it: a token saved after Forget token starts with none.
+  const versions = useVersionBatch(token);
   const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
   // Edit's save only while it was made from the draft on screen: one left running on another card isn't this card's.
   const busy = {reveal: ctrl.publishing, edit: edit.savingThisDraft};

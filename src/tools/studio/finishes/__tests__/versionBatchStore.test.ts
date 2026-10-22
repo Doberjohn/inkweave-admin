@@ -209,6 +209,24 @@ describe('the saved batch', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('drops a stored entry that lacks a field the tray or a publish reads, and keeps the rest', () => {
+    // JSON leaves out a key that is undefined, so these are entries saved without a shownFrom and without a ref.
+    const noShownFrom = {...CARD_TO_FOIL, shownFrom: undefined};
+    const noRef = {...ENCHANTED_TO_BOTH, ref: undefined};
+    const clashWithoutShownNow = {...ALT_FOIL_TO_BOTH, id: 'half-a-clash', clash: {id: 'half-a-clash', now: null}};
+    reloadWith({v: 1, changes: [noShownFrom, noRef, clashWithoutShownNow, ALT_FOIL_TO_BOTH]});
+    const {result} = renderHook(() => useVersionBatch());
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+    // They are dropped quietly: the owner is told of nothing.
+    expect(result.current.error).toBeNull();
+  });
+
+  it('keeps the first of two stored entries for a printing', () => {
+    reloadWith({v: 1, changes: [ALT_FOIL_TO_BOTH, CARD_TO_FOIL, {...ALT_FOIL_TO_BOTH, to: ['normal']}]});
+    const {result} = renderHook(() => useVersionBatch());
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+  });
+
   it.each([
     ['text that is not JSON', 'not json'],
     ['null', 'null'],
@@ -319,6 +337,13 @@ describe('another tab', () => {
     localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: [CARD_TO_FOIL]}));
     storageEvent(null);
     expect(result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('leaves out a malformed entry another tab saved, as it does one it reads on a reload', () => {
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    otherTabSaves([{...CARD_TO_FOIL, shownFrom: undefined}, ALT_FOIL_TO_BOTH, ENCHANTED_TO_BOTH]);
+    expect(result.current.changes).toEqual([ALT_FOIL_TO_BOTH, ENCHANTED_TO_BOTH]);
   });
 
   it('ignores a save of another branch, and of any other key', () => {
@@ -766,6 +791,92 @@ describe('what the last publish said', () => {
 
     act(() => result.current.keep('946'));
     expect(result.current.error).toBe(RACE);
+  });
+});
+
+/*
+ * A publish's outcome belongs to the token that made it: a token saved after Forget token must not
+ * be shown "GitHub rejected the saved token" about the one it replaced. A reader that names no token
+ * (the Printings panel) is shown the outcome as it is.
+ */
+describe('the outcome of a publish and the token that made it', () => {
+  const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials';
+
+  /** Three readers of the batch: one holding token 'a', one holding 'b', and one that names no token. */
+  function readers() {
+    return {
+      a: renderHook(() => useVersionBatch('a')),
+      b: renderHook(() => useVersionBatch('b')),
+      anyone: renderHook(() => useVersionBatch()),
+    };
+  }
+
+  /** Stages #223's change and publishes it with `token`, against a repo that answers `refuse` once if it is given. */
+  async function publishWith(token: string, view: View, refuse?: () => Response) {
+    const repo = stubRepo({files: SET_4_FILES});
+    if (refuse) repo.fetch.mockImplementationOnce(async () => refuse());
+    act(() => view.current.stage(ALT_FOIL_TO_BOTH));
+    await act(() => view.current.publish(token));
+  }
+
+  const rejectToken = () => new Response('Bad credentials', {status: 401});
+
+  it('shows a failure to the token that made the publish and to a reader that names none, but not to another token', async () => {
+    const {a, b, anyone} = readers();
+    await publishWith('a', a.result, rejectToken);
+
+    expect(a.result.current.error).toBe(REJECTED);
+    expect(anyone.result.current.error).toBe(REJECTED);
+    expect(b.result.current.error).toBeNull();
+    // The batch is the studio's whatever the token: the other reader sees the change that did not publish.
+    expect(b.result.current.changes).toEqual([ALT_FOIL_TO_BOTH]);
+  });
+
+  it('shows a publish that landed to its token alone, too', async () => {
+    const {a, b, anyone} = readers();
+    await publishWith('a', a.result);
+
+    expect(a.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(anyone.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(b.result.current.result).toBeNull();
+  });
+
+  it('hands the outcome to the token of the newer publish, and takes it from the older', async () => {
+    const {a, b} = readers();
+    await publishWith('a', a.result, rejectToken);
+    expect(a.result.current.error).toBe(REJECTED);
+
+    stubRepo({files: SET_4_FILES});
+    await act(() => b.result.current.publish('b'));
+    expect(b.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(a.result.current.result).toBeNull();
+    expect(a.result.current.error).toBeNull();
+  });
+
+  it('still shows the outcome to its token when a reader of that token mounts again', async () => {
+    const {a} = readers();
+    await publishWith('a', a.result, rejectToken);
+    a.unmount();
+
+    expect(renderHook(() => useVersionBatch('a')).result.current.error).toBe(REJECTED);
+  });
+
+  it('does not hide a publish under way from another token', async () => {
+    const held = heldUpdate();
+    stubRepo({files: SET_4_FILES, update: held.update});
+    const {a, b} = readers();
+    act(() => a.result.current.stage(ALT_FOIL_TO_BOTH));
+    let publishing = Promise.resolve();
+    act(() => {
+      publishing = a.result.current.publish('a');
+    });
+    expect(b.result.current.publishing).toBe(true);
+
+    await settled(publishing, held.moveBranch);
+    expect(b.result.current.publishing).toBe(false);
+    // It landed under 'a': the outcome is a's.
+    expect(a.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(b.result.current.result).toBeNull();
   });
 });
 
