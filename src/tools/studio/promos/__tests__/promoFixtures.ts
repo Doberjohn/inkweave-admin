@@ -1,11 +1,16 @@
-import type {BaseCard, PromoCatalog} from '../promoCatalog';
+import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {MOTHER_KNOWS_BEST_ENTRY, allCardsText} from '../../finishes/__tests__/finishFixtures';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
+import {serializeCatalog, type BaseCard, type PromoCatalog} from '../promoCatalog';
+import {mergeOver} from '../promoMerge';
 
 /*
  * Fixtures for the promo printings' tests and stories (#77). The catalog is a small one: five groups,
  * copied as master holds them (Doberjohn/inkweave after #900), with their provisional ids. What the
  * rules read is in it: a Core card's group in `fold`; in `noBaseCard`, Sets 1 to 8 cards' groups with
  * Ravensburger's art, a scan language and two arts under one number (24A/P2, 24B/P2), and Hades -
- * Dark Usurper's, which has no base number and two printings under one code (28/C3).
+ * Dark Usurper's, which has no base number and two printings under one code (28/C3). Beside it, the
+ * files of a branch that holds it. Nothing here reads a file from disk (see pinned.ts): stories load it.
  */
 
 /** Those groups as a catalog. Its `stats` are what `recountStats` makes of them, written out here. */
@@ -137,3 +142,39 @@ export const FIXTURE_CATALOG: PromoCatalog = {
 
 /** Mickey Mouse - Brave Little Prince: a Core card FIXTURE_CATALOG has no group for, so a first printing of it starts one. */
 export const PRINCE: BaseCard = {id: 2047, fullName: 'Mickey Mouse - Brave Little Prince', setCode: '9', number: 111, core: true};
+
+/** Mother Knows Best: the Core card FIXTURE_CATALOG's `fold` group is for. */
+export const MKB_BASE: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setCode: '9', number: 99, core: true};
+
+/**
+ * Mickey Mouse - Brave Little Prince as allCards.json stores him (Set 9 #111, id 2047), trimmed from the
+ * pinned file to what names the card (no text, art or hashes), with his Iconic under `variants` and no promo.
+ */
+export const PRINCE_ENTRY: LorcanaJSONCard = {
+  id: 2047,
+  name: 'Mickey Mouse',
+  version: 'Brave Little Prince',
+  fullName: 'Mickey Mouse - Brave Little Prince',
+  cost: 3,
+  color: 'Ruby',
+  inkwell: true,
+  type: 'Character',
+  setCode: '9',
+  number: 111,
+  rarity: 'Legendary',
+  variants: [{id: 2178, rarity: 'Iconic', number: 242}],
+};
+
+/**
+ * The files of a branch that is in step with `catalog`: the catalog itself, and allCards.json and
+ * collection/promos.json as the app's merge writes them from it over the two Core cards the fixture
+ * catalogs' `fold` groups are for, Mother Knows Best and Mickey Mouse - Brave Little Prince. A test whose
+ * branch has moved since a form opened builds its files with this: otherwise the out-of-step check refuses first.
+ */
+export function filesFor(catalog: PromoCatalog): Record<string, string> {
+  const merged = mergeOver({catalog, files: {allCards: allCardsText([MOTHER_KNOWS_BEST_ENTRY, PRINCE_ENTRY]), promos: '[]\n'}});
+  return {[CATALOG_PATH]: serializeCatalog(catalog), [ALL_CARDS_PATH]: merged.allCards, [PROMOS_PATH]: merged.promos};
+}
+
+/** The files of a branch that holds FIXTURE_CATALOG. */
+export const FIXTURE_FILES: Record<string, string> = filesFor(FIXTURE_CATALOG);

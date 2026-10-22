@@ -97,11 +97,16 @@ function routesOf({files, update}: Required<RepoAnswers>): Route[] {
   ];
 }
 
-/** What the commit wrote: each path its tree names, with the text of the blob it names, in the tree's order. */
-function filesOf(calls: readonly Call[]): Record<string, string> {
+/** What the commit wrote: each path its tree names, with the content of the blob it names as it was sent (base64), in the tree's order. */
+function blobsOf(calls: readonly Call[]): Record<string, string> {
   const blobs = calls.filter(isBlob).map(({body}) => body.content ?? '');
   const tree = calls.find(isTree)?.body.tree ?? [];
-  return Object.fromEntries(tree.map(({path, sha}) => [path, base64ToUtf8(blobs[Number(sha.replace('blob-', ''))])]));
+  return Object.fromEntries(tree.map(({path, sha}) => [path, blobs[Number(sha.replace('blob-', ''))]]));
+}
+
+/** What the commit wrote: each path its tree names, with the text of the blob it names, in the tree's order. */
+function filesOf(calls: readonly Call[]): Record<string, string> {
+  return Object.fromEntries(Object.entries(blobsOf(calls)).map(([path, content]) => [path, base64ToUtf8(content)]));
 }
 
 /** The stubbed API. */
@@ -114,6 +119,8 @@ export interface RepoStub {
   writes: () => string[];
   /** What the commit wrote: each file's path, and its text. */
   filesSent: () => Record<string, string>;
+  /** What the commit wrote: each file's path, and its blob's content as it was sent, in base64: the bytes of a scan. */
+  base64Sent: () => Record<string, string>;
   /** The commit's message, or undefined when no commit was made. */
   commitMessage: () => string | undefined;
 }
@@ -138,6 +145,7 @@ export function stubRepo({files, update = moved}: RepoAnswers): RepoStub {
     reads: () => calls.filter(isRead).map(({request}) => askedOf(request)),
     writes: () => calls.filter(({method}) => method !== 'GET').map(({method, route}) => `${method} ${route}`),
     filesSent: () => filesOf(calls),
+    base64Sent: () => blobsOf(calls),
     commitMessage: () => calls.find(isCommit)?.body.message,
   };
 }
