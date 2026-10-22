@@ -105,7 +105,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         {mode === 'new' ? (
           <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
         ) : (
-          <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
+          <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} token={token} />
         )}
       </div>
     </PageLayout>

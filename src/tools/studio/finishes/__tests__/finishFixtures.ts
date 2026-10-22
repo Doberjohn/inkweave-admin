@@ -6,6 +6,7 @@ import {
   type RawCollectionPromo,
 } from '../../../../app-bridge';
 import {printingRowsFor, type PrintingRow} from '../printingRows';
+import {changeFor, type VersionChange} from '../versionBatch';
 
 /*
  * Fixtures for the printing versions' tests and stories (#68): real entries of the pinned app's
@@ -98,6 +99,18 @@ export const YEN_SID_ROWS: PrintingRow[] = printingRowsFor({
   promos: [],
   valueOf: (ref) => (ref.id === '946' ? ['foil'] : null),
 });
+
+/** Yen Sid's #59 made Foil only: it shows Both, so the change takes Normal away. */
+export const NUMBER_59_TO_FOIL: VersionChange = changeFor({row: YEN_SID_ROWS[0], choice: 'foil'});
+
+/** His alt foil #223 made Both: its `["foil"]` becomes `["normal", "foil"]`, so the change takes nothing away. */
+export const NUMBER_223_TO_BOTH: VersionChange = changeFor({row: YEN_SID_ROWS[2], choice: 'both'});
+
+/** That change once a publish found #223 Normal only on the branch, where it was staged from Foil only. */
+export const NUMBER_223_TO_BOTH_CLASHED: VersionChange = {
+  ...NUMBER_223_TO_BOTH,
+  clash: {id: '946', now: ['normal'], shownNow: ['normal']},
+};
 
 /**
  * Ursula - Deceiver as allCards.json stores her: Set 9 #90. Set 3 holds her too (`URSULA_SET_3_ENTRY`), under the

@@ -13,6 +13,7 @@ import {ChangeList} from './components/ChangeList';
 import {CommitOutcome} from './components/CommitOutcome';
 import {EditingBanner} from './components/EditingBanner';
 import {EditSearch} from './components/EditSearch';
+import {PrintingsPanel} from './components/PrintingsPanel';
 import {ReleasedCardFacts} from './components/ReleasedCardFacts';
 import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
@@ -21,6 +22,9 @@ import {SynergyPanel} from './components/SynergyPanel';
 import type {EditLookup, PreviewFileView} from './editorState';
 import {searchCards} from './editSearch';
 import type {CollectionOnlyCards} from './finishes/collectionCards';
+import {useBranchPrintings} from './finishes/useBranchPrintings';
+import {changeFor} from './finishes/versionBatch';
+import {useVersionBatch} from './finishes/versionBatchStore';
 import {outcomeShows} from './outcomeShows';
 import {PRINTINGS_ONLY_NOTE, editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
@@ -38,8 +42,9 @@ const WHOLE_ROW: Readonly<Record<StudioLayout, CSSProperties>> = {
 // The handoff draws the aside as one column, Save across its width (README §7).
 const ASIDE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const SAVE: CSSProperties = {width: '100%'};
-// An image-only card's facts over their way out, spaced as the aside's panels are.
-const FACTS_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
+// The form slot's panels in a column, spaced as the aside's are: an image-only card's facts over
+// their way out, and a released card's data over its printings.
+const COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
 // A read error over its way out, spaced as the search's is.
 const FILE_ERROR: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
@@ -53,6 +58,8 @@ export interface EditPaneProps {
   handoff: FocusHandoff;
   /** R-26's Forget token; StudioWorkspace asks first while a draft is dirty (R-84). */
   onForgetToken: () => void;
+  /** The saved GitHub token: a released card's Printings panel reads the branch's data files with it (#68). */
+  token: string;
 }
 
 type ReadyLookup = Extract<EditLookup, {kind: 'ready'}>;
@@ -186,7 +193,7 @@ function ImageOnlyFacts({edit, card, reason, handoff}: Pick<PartProps, 'edit' | 
   const facts = <ReleasedCardFacts card={card} note={IMAGE_ONLY_NOTES[reason]} />;
   if (reason !== 'unrepresentable') return facts;
   return (
-    <div style={FACTS_COLUMN}>
+    <div style={COLUMN}>
       {facts}
       <CtaButton
         type="button"
@@ -225,6 +232,40 @@ function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 
       locked={EDIT_LOCKS}
       inksRestored={inksRestored}
     />
+  );
+}
+
+/**
+ * A released card's printings (#68): their versions as the target branch's files give them, and
+ * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
+ * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
+ * a change staged for one card shows on it again whenever it is opened.
+ */
+function PrintingsSection({card, token}: {card: LorcanaCard; token: string}) {
+  const view = useBranchPrintings({token, card});
+  const batch = useVersionBatch();
+  return <PrintingsPanel view={view} changes={batch.changes} onChoose={(chosen) => batch.stage(changeFor(chosen))} />;
+}
+
+/**
+ * The form slot: the card's data, and under it a released card's printings (#68), whether its
+ * data is a Sets 1 to 8 card's facts or the facts of a card whose image can change. A preview
+ * card has none: its versions arrive with LorcanaJSON once its set is official. The printings
+ * sit beside the form, not in it, so a Discard or a re-seed that opens the form afresh
+ * (CardEditor's `formKey`) never mounts them again.
+ */
+function FormSlot({released, card, token, children}: {
+  released: boolean;
+  card: LorcanaCard;
+  token: string;
+  children: ReactNode;
+}) {
+  if (!released) return children;
+  return (
+    <div style={COLUMN}>
+      {children}
+      <PrintingsSection card={card} token={token} />
+    </div>
   );
 }
 
@@ -326,9 +367,14 @@ function useFormResets(edit: CardEditorController) {
  * shows. An Ink row's Revert resets the switch alone (useFormResets). The
  * banner's h2 takes the page's handoff while the outcome line has nothing to
  * say (outcomeShows, CommitOutcome's own rule); after that the line does. A
- * ready card always has its tag; 'Released' only narrows the type.
+ * ready card always has its tag; 'Released' only narrows the type. A released
+ * card's printings go under its data, in the form slot (#68).
  */
-function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {ready: ReadyLookup; layout: StudioLayout}) {
+function CardEditor({edit, ready, layout, handoff, onForgetToken, token}: PartProps & {
+  ready: ReadyLookup;
+  layout: StudioLayout;
+  token: string;
+}) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
   return (
@@ -357,14 +403,16 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
             />
           ),
           form: (
-            <EditForm
-              key={resets.formKey}
-              edit={edit}
-              ready={ready}
-              layout={layout}
-              handoff={handoff}
-              inksRestored={resets.inksRestored}
-            />
+            <FormSlot released={edit.tag === 'Released'} card={ready.card} token={token}>
+              <EditForm
+                key={resets.formKey}
+                edit={edit}
+                ready={ready}
+                layout={layout}
+                handoff={handoff}
+                inksRestored={resets.inksRestored}
+              />
+            </FormSlot>
           ),
           aside: (
             <EditAside
@@ -389,11 +437,13 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
  * a card and coming back. The controller lives in StudioWorkspace, so a mode
  * switch keeps the draft (R-57).
  */
-export function EditPane({edit, cardId, layout, handoff, onForgetToken}: EditPaneProps) {
+export function EditPane({edit, cardId, layout, handoff, onForgetToken, token}: EditPaneProps) {
   const [query, setQuery] = useState('');
   const {lookup} = edit;
   const parts = {edit, handoff, onForgetToken};
-  if (lookup.kind === 'ready') return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} />;
+  if (lookup.kind === 'ready') {
+    return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} token={token} />;
+  }
   if (lookup.kind === 'loading') {
     return (
       <div style={WHOLE_ROW[layout]}>
