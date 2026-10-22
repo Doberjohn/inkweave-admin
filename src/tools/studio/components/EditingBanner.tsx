@@ -6,7 +6,8 @@ import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {cardsHref, studioHref} from '../../../shell/nav';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import type {CardTag} from '../editSearch';
+import {isPrintingsOnly} from '../branchCards';
+import {numberLabel, type CardTag} from '../editSearch';
 import {CardTags} from './CardMarks';
 
 // A strip across the page under its header, in the panels' fill (README §7),
@@ -50,14 +51,18 @@ interface EditingBannerProps {
 /**
  * The strip over an open card in Edit card (README §7): "Editing", the card's
  * name and version in the h2 the focus handoff lands on, its collector number
- * and tags, then the links out. "View card analytics" shows only for a card the
- * card list holds (R-33), and "Load a different card" goes back to the search.
- * Both are router Links, so the page moves focus from the URL, never on a click
- * (R-59).
+ * and tags, then the links out. A card of Sets 1 to 8 names its set before its
+ * number, "Set 3 · #90", as its search row does (numberLabel), so it tells
+ * from its Core reprint (#68). "View card analytics" shows only for a card the
+ * card list holds (R-33), which a card of Sets 1 to 8 isn't (#68), and "Load a
+ * different card" goes back to the search. Both are router Links, so the page
+ * moves focus from the URL, never on a click (R-59).
  */
 export function EditingBanner({card, tag, deployed, handoff}: EditingBannerProps) {
   const ref = useRef<HTMLDivElement>(null);
   useTakeHandoff(handoff, ref, 'h2');
+  const analytics = deployed && !isPrintingsOnly(card);
+  const number = numberLabel(card);
   return (
     <div ref={ref} style={BANNER}>
       <div style={IDENTITY}>
@@ -71,11 +76,11 @@ export function EditingBanner({card, tag, deployed, handoff}: EditingBannerProps
             </>
           )}
         </h2>
-        {card.setNumber != null && <code style={NUMBER}>#{card.setNumber}</code>}
+        {number !== '' && <code style={NUMBER}>{number}</code>}
         <CardTags tag={tag} deployed={deployed} />
       </div>
       <div style={LINKS}>
-        {deployed && (
+        {analytics && (
           <Link to={cardsHref(card.id)} className="adm-link">
             View card analytics
           </Link>

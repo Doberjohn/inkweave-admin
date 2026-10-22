@@ -7,10 +7,14 @@ import {
   editSources,
   goneNote,
   hasPreviewId,
+  isPrintingsOnly,
   isRevealPreview,
+  withCollectionCards,
   type CardListView,
 } from '../branchCards';
 import type {EditLookup} from '../editorState';
+import type {CollectionOnlyCards} from '../finishes/collectionCards';
+import {URSULA_SET_3, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import type {PreviewCardsFile} from '../previewCardsFile';
 import {
   BRANCH_ONLY_ENTRY,
@@ -102,6 +106,93 @@ describe('editSources', () => {
   it('hands the file on as it is when it drops nothing', () => {
     const file = readFile([PREVIEW_ENTRY, BRANCH_ONLY_ENTRY]);
     expect(editSources({list: listOf({cards: [LISTED_PREVIEW]}), file}).file).toBe(file);
+  });
+});
+
+/** Sets 1 to 8 as the collection hook hands them over: `status` says whether `cards` are in. */
+function collectionOf({cards = [], status = 'ready'}: Partial<CollectionOnlyCards> = {}): CollectionOnlyCards {
+  return {cards, status, retry: vi.fn()};
+}
+
+describe('withCollectionCards', () => {
+  it('puts the cards of Sets 1 to 8 after the card list’s, and finds them by id', () => {
+    const list = withCollectionCards({
+      list: listOf({cards: [LISTED_PREVIEW, RELEASED_CARD]}),
+      collection: collectionOf({cards: [YEN_SID]}),
+    });
+    expect(ids(list.cards)).toEqual([LISTED_PREVIEW.id, RELEASED_CARD.id, YEN_SID.id]);
+    expect(list.getCardById(YEN_SID.id)).toBe(YEN_SID);
+    expect(list.getCardById(RELEASED_CARD.id)).toBe(RELEASED_CARD);
+    expect(list.getCardById('999999')).toBeUndefined();
+  });
+
+  it('comes after editSources’ branch-only cards, which still lead', () => {
+    const sources = editSources({
+      list: listOf({cards: [LISTED_PREVIEW, RELEASED_CARD]}),
+      file: readFile([PREVIEW_ENTRY, BRANCH_ONLY_ENTRY]),
+    });
+    const list = withCollectionCards({list: sources.list, collection: collectionOf({cards: [YEN_SID]})});
+    expect(ids(list.cards)).toEqual([BRANCH_ONLY_ID, LISTED_PREVIEW.id, RELEASED_CARD.id, YEN_SID.id]);
+    // What editSources adds passes through: the branch-only card is still not deployed (R-66).
+    expect(list.branchOnlyIds).toEqual(new Set([BRANCH_ONLY_ENTRY.id]));
+    expect(list.getCardById(BRANCH_ONLY_ID)?.fullName).toBe('Wren - Night Busker');
+  });
+
+  it('lets the card list win an id both hold', () => {
+    const impostor = {...YEN_SID, name: 'Not Yen Sid'};
+    const list = withCollectionCards({list: listOf({cards: [impostor]}), collection: collectionOf({cards: [YEN_SID]})});
+    expect(list.getCardById(YEN_SID.id)).toBe(impostor);
+  });
+
+  it('lists a card both hold once, as the card list’s, and the other cards of Sets 1 to 8 after it', () => {
+    const impostor = {...YEN_SID, name: 'Not Yen Sid'};
+    const list = withCollectionCards({
+      list: listOf({cards: [impostor, RELEASED_CARD]}),
+      collection: collectionOf({cards: [YEN_SID, URSULA_SET_3]}),
+    });
+    expect(ids(list.cards)).toEqual([YEN_SID.id, RELEASED_CARD.id, URSULA_SET_3.id]);
+    expect(list.cards[0]).toBe(impostor);
+  });
+
+  it.each<{name: string; listed: Partial<CardListView>; status: CollectionOnlyCards['status']; isLoading: boolean}>([
+    {name: 'both are in', listed: {}, status: 'ready', isLoading: false},
+    {name: 'Sets 1 to 8 are loading', listed: {}, status: 'loading', isLoading: true},
+    {name: 'the card list is loading', listed: {isLoading: true}, status: 'ready', isLoading: true},
+    {name: 'Sets 1 to 8 failed, so the search goes on without them', listed: {}, status: 'error', isLoading: false},
+  ])('is loading until the card list and Sets 1 to 8 are both in: $name, $isLoading', ({listed, status, isLoading}) => {
+    expect(withCollectionCards({list: listOf(listed), collection: collectionOf({status})}).isLoading).toBe(isLoading);
+  });
+
+  it('leaves the card list’s error as it is, and takes none from a failure of Sets 1 to 8', () => {
+    const failed = new Error('Failed to fetch local cards: 500');
+    expect(withCollectionCards({list: listOf({error: failed}), collection: collectionOf()}).error).toBe(failed);
+    expect(withCollectionCards({list: listOf(), collection: collectionOf({status: 'error'})}).error).toBeNull();
+  });
+
+  it.each<CollectionOnlyCards['status']>(['loading', 'error'])('holds the card list’s cards alone while Sets 1 to 8 are %s', (status) => {
+    const list = withCollectionCards({list: listOf({cards: [RELEASED_CARD]}), collection: collectionOf({status})});
+    expect(ids(list.cards)).toEqual([RELEASED_CARD.id]);
+    expect(list.getCardById(YEN_SID.id)).toBeUndefined();
+  });
+
+  it('passes through what the card list carries besides, such as retryLoad', () => {
+    const list = {...listOf(), retryLoad: vi.fn()};
+    expect(withCollectionCards({list, collection: collectionOf()}).retryLoad).toBe(list.retryLoad);
+  });
+});
+
+// Sets 1 to 8 rotated out of Core, so allCards.json no longer holds them: only their printings' versions change here.
+describe('isPrintingsOnly', () => {
+  it.each<{name: string; card: Pick<LorcanaCard, 'setCode'> | null; expected: boolean}>([
+    {name: 'a card of Set 4', card: YEN_SID, expected: true},
+    {name: 'a card of Set 1', card: {setCode: '1'}, expected: true},
+    {name: 'a card of Set 8, the last below Core', card: {setCode: '8'}, expected: true},
+    {name: 'a card with no set code, which the engine does not call Core either', card: {}, expected: true},
+    {name: 'a card of Set 9, the first Core set', card: RELEASED_CARD, expected: false},
+    {name: 'a card of the reveal set', card: LISTED_PREVIEW, expected: false},
+    {name: 'no card open', card: null, expected: false},
+  ])('$name: $expected', ({card, expected}) => {
+    expect(isPrintingsOnly(card)).toBe(expected);
   });
 });
 

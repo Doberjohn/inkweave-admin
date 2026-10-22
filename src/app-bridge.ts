@@ -36,6 +36,8 @@ export {
   blackRgba,
   hexRgba,
   inkBlock,
+  // A promo set's place in release order, by its code ("P1", "C3"); -1 for a code none has.
+  promoSetRank,
   whiteRgba,
 } from '../upstream/inkweave/apps/web/src/shared/constants';
 export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
@@ -65,8 +67,25 @@ export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/compone
 // the card list: the engine's transform plus imageUrl, the image hashes,
 // scanLanguage and the printings. Card studio builds with it the cards that
 // only the target branch's previewCards.json holds (R-66), so each points at
-// its art, which shows once inkweave.ink serves it.
-export {searchCardsByName, smallImageUrl, transformRawCards} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// its art, which shows once inkweave.ink serves it. isChaseRarity tells Epic,
+// Enchanted and Iconic from the rest (Edit card's Printings panel names a
+// printing's row by it).
+export {
+  isChaseRarity,
+  searchCardsByName,
+  smallImageUrl,
+  transformRawCards,
+} from '../upstream/inkweave/apps/web/src/features/cards/loader';
+// A printing's versions: its data's `finishes`, else its rarity's (Doberjohn/inkweave#880).
+export {finishesOf} from '../upstream/inkweave/apps/web/src/features/collection/printingFinishes';
+// One version a printing comes in: normal or foil.
+export type {Finish} from '../upstream/inkweave/apps/web/src/features/collection/collectionParser';
+// The promos of collection/promos.json, as the file stores them and as collection mode holds them.
+export {
+  transformPromos,
+  type CollectionPromo,
+  type RawCollectionPromo,
+} from '../upstream/inkweave/apps/web/src/features/collection/collectionPromos';
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
 // path). Each id's result is kept for the session, and a non-OK or non-JSON
 // response is kept as an empty result. A failed fetch or malformed JSON rejects

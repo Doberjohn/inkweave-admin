@@ -1,12 +1,15 @@
 import {useState} from 'react';
 import {describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {cleanup, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
+import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
+import {ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
 import type {SearchRow} from '../editSearch';
+import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -61,6 +64,16 @@ function Harness() {
 }
 
 describe('EditSearch', () => {
+  it('says under its title what each kind of card opens for', () => {
+    renderSearch();
+    const search = screen.getByRole('region', {name: 'Find a card to edit'});
+    expect(search).toHaveTextContent(
+      'Every card, by name, version or id, with the branch’s preview cards first. A preview card opens in the form ' +
+        'with its current data; a card of Sets 1 to 8 opens for its printings’ versions only; any other card opens ' +
+        'for a new image and its printings’ versions.',
+    );
+  });
+
   describe('the rows', () => {
     it('links each row to its card in Edit card, tagged with where its data comes from', () => {
       renderSearch();
@@ -97,6 +110,57 @@ describe('EditSearch', () => {
       await userEvent.type(screen.getByRole('searchbox', {name: 'Search cards'}), 'anna');
       expect(screen.queryByRole('link', {name: /^Elsa /})).not.toBeInTheDocument();
       expect(screen.getByRole('link', {name: /^Anna /})).toBeInTheDocument();
+    });
+  });
+
+  // 178 names are in a Core set and in Sets 1 to 8, and for several the two cards share name, version, ink, rarity and
+  // number (Ursula - Deceiver is #90 in Set 9 and in Set 3). The rows open different things, so the set tells them apart (#68).
+  describe('a card of Sets 1 to 8 beside its Set 9 reprint', () => {
+    const rowOf = (card: LorcanaCard): SearchRow => ({card, tag: 'Released', deployed: true});
+    const URSULA_ROWS = [rowOf(URSULA_SET_9), rowOf(URSULA_SET_3)];
+    /** The width of a row's last grid column, the number's. */
+    const numberColumn = (link: HTMLElement) => parseInt(link.style.gridTemplateColumns.split(' ').at(-1) ?? '', 10);
+
+    it('names the set on the Set 3 row alone, so the two rows differ by name as well as by what they open', () => {
+      renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
+      const [core, old] = screen.getAllByRole('link', {name: /^Ursula /});
+      expect(core).toHaveAccessibleName('Ursula released Deceiver Emerald #90');
+      expect(old).toHaveAccessibleName('Ursula released Deceiver Emerald Set 3 · #90');
+      expect(core).toHaveAttribute('href', `/studio?mode=edit&card=${URSULA_SET_9.id}`);
+      expect(old).toHaveAttribute('href', `/studio?mode=edit&card=${URSULA_SET_3.id}`);
+      expect(within(core).getByText('#90')).toBeInTheDocument();
+      expect(within(old).getByText('Set 3 · #90')).toBeInTheDocument();
+    });
+
+    it('leaves the Core rows as they were: no set anywhere in a list of Core cards', () => {
+      renderSearch();
+      expect(screen.getByRole('link', {name: `Mei preview Red Panda Ruby #${MEI.setNumber}`})).toBeInTheDocument();
+      expect(screen.queryByText(/^Set \d/)).not.toBeInTheDocument();
+    });
+
+    // jsdom has no layout, so these pin the rule the geometry rests on. On a phone the names column is the viewport less the
+    // 64px rail, 64px of gutters (the studio root's 16px padding and the search's own, each a side), 26px of border and
+    // padding and 138px of thumbnail, marks and gaps, less this column: 39px at 375px with the 44px column "#204" had, and
+    // 31px with this one. The set wraps over the number rather than widening the column.
+    it('lets the number cell wrap, so "Set 3 ·" sits over "#90" instead of widening the column', () => {
+      renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
+      expect(screen.getByText('Set 3 · #90')).toHaveStyle({whiteSpace: 'normal'});
+      expect(screen.getByText('#90')).toHaveStyle({whiteSpace: 'normal'});
+    });
+
+    it('gives every list one number column, mixed or Core-only, so the marks never jump while a query is typed', () => {
+      renderSearch({rows: [...ROWS, ...URSULA_ROWS], total: ROWS.length + URSULA_ROWS.length});
+      const mixed = screen.getAllByRole('link').map(numberColumn);
+      cleanup();
+      renderSearch();
+      const coreOnly = screen.getAllByRole('link').map(numberColumn);
+
+      expect(new Set([...mixed, ...coreOnly]).size).toBe(1);
+      // Room for the set's line, "Set 8 ·": seven characters of the 12px monospace at 0.6em each...
+      const [width] = mixed;
+      expect(width).toBeGreaterThanOrEqual(Math.ceil(7 * 0.6 * ADMIN_TYPE.small));
+      // ...and at most 8px more of the names column than the 44px the number alone had.
+      expect(width).toBeLessThanOrEqual(44 + 8);
     });
   });
 

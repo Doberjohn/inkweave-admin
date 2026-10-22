@@ -1,6 +1,6 @@
 import {useState, type CSSProperties, type ReactNode} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, SPACING, useCardDataContext} from '../../app-bridge';
+import {CtaButton, LinkButton, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
 import type {FocusHandoff} from '../../shell/focusHandoff';
@@ -13,6 +13,7 @@ import {ChangeList} from './components/ChangeList';
 import {CommitOutcome} from './components/CommitOutcome';
 import {EditingBanner} from './components/EditingBanner';
 import {EditSearch} from './components/EditSearch';
+import {PrintingsPanel} from './components/PrintingsPanel';
 import {ReleasedCardFacts} from './components/ReleasedCardFacts';
 import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
@@ -20,8 +21,12 @@ import {StudioSlots} from './components/StudioSlots';
 import {SynergyPanel} from './components/SynergyPanel';
 import type {EditLookup, PreviewFileView} from './editorState';
 import {searchCards} from './editSearch';
+import type {CollectionOnlyCards} from './finishes/collectionCards';
+import {useBranchPrintings} from './finishes/useBranchPrintings';
+import {changeFor} from './finishes/versionBatch';
+import {useVersionBatch} from './finishes/versionBatchStore';
 import {outcomeShows} from './outcomeShows';
-import {editNote, saveLabel} from './studioCopy';
+import {PRINTINGS_ONLY_NOTE, editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
 import type {CardEditorController} from './useCardEditor';
@@ -37,8 +42,9 @@ const WHOLE_ROW: Readonly<Record<StudioLayout, CSSProperties>> = {
 // The handoff draws the aside as one column, Save across its width (README §7).
 const ASIDE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const SAVE: CSSProperties = {width: '100%'};
-// An image-only card's facts over their way out, spaced as the aside's panels are.
-const FACTS_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
+// The form slot's panels in a column, spaced as the aside's are: an image-only card's facts over
+// their way out, and a released card's data over its printings.
+const COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
 // A read error over its way out, spaced as the search's is.
 const FILE_ERROR: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
@@ -52,6 +58,8 @@ export interface EditPaneProps {
   handoff: FocusHandoff;
   /** R-26's Forget token; StudioWorkspace asks first while a draft is dirty (R-84). */
   onForgetToken: () => void;
+  /** The saved GitHub token: a released card's Printings panel reads the branch's data files with it (#68). */
+  token: string;
 }
 
 type ReadyLookup = Extract<EditLookup, {kind: 'ready'}>;
@@ -86,8 +94,8 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
     case 'missing':
       return (
         <FocusNotice handoff={handoff}>
-          No card has the id <code>{lookup.cardId}</code> in the card list or in previewCards.json. Cards from sets
-          before 9 rotated out of Core, and a preview id changes when its card is released: find it by name below.
+          No card has the id <code>{lookup.cardId}</code> in the card list or in previewCards.json. A preview id
+          changes when its card is released: find it by name below.
         </FocusNotice>
       );
     case 'fileFailed':
@@ -103,9 +111,37 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
   }
 }
 
+/** What the search says when Sets 1 to 8 couldn't be read (#68): the card list's cards are all it holds. */
+const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
+
+/**
+ * Above the search, when the chunks of Sets 1 to 8 failed (#68), with a way to read them again. The
+ * card list's cards search and open as ever. Try again takes its own notice with it (the read
+ * starts at once), so it asks for the handoff on the click, as the card list's Retry does when its
+ * error clears (useStudioHandoff): the search field takes it when no card is waiting, and the
+ * card a URL names takes it, or its explanation does, once the read lands. Only the click asks:
+ * a read that fails again leaves none waiting.
+ */
+function CollectionNotice({collection, handoff}: {collection: CollectionOnlyCards; handoff: FocusHandoff}) {
+  if (collection.status !== 'error') return null;
+  const tryAgain = () => {
+    collection.retry();
+    handoff.request();
+  };
+  return (
+    <Notice tone="error">
+      {COLLECTION_FAILED}{' '}
+      <LinkButton type="button" onClick={tryAgain}>
+        Try again
+      </LinkButton>
+    </Notice>
+  );
+}
+
 /**
  * Edit card's search (R4-5f) over the controller's cards: the card list plus
- * the cards only the branch file holds (R-66), the file's first (R-76). The
+ * the cards only the branch file holds (R-66), the file's first (R-76), and
+ * then Sets 1 to 8 (#68), whose notice says when they failed to load. The
  * card list's Retry asks for nothing here: StudioPage asks once its error
  * clears. The file's asks once its read lands.
  */
@@ -129,7 +165,12 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
       onQuery={onQuery}
       list={{loading: cardList.isLoading, error: cardList.error, onRetry: cardList.retryLoad}}
       file={{error: edit.previewFile.error, onRetry: askWhenLanded(edit.retry, handoff), onForgetToken}}
-      notice={notice}
+      notice={
+        <>
+          {notice}
+          <CollectionNotice collection={edit.collection} handoff={handoff} />
+        </>
+      }
       handoff={handoff}
     />
   );
@@ -152,7 +193,7 @@ function ImageOnlyFacts({edit, card, reason, handoff}: Pick<PartProps, 'edit' | 
   const facts = <ReleasedCardFacts card={card} note={IMAGE_ONLY_NOTES[reason]} />;
   if (reason !== 'unrepresentable') return facts;
   return (
-    <div style={FACTS_COLUMN}>
+    <div style={COLUMN}>
       {facts}
       <CtaButton
         type="button"
@@ -170,13 +211,16 @@ function ImageOnlyFacts({edit, card, reason, handoff}: Pick<PartProps, 'edit' | 
  * A preview card's form, the collector number locked (R-91 1); or, for an
  * image-only card, its facts and why (R-61, R-65). It goes by the controller's
  * reason (imageOnlyOf), not the lookup's: an image draft whose entry now has
- * fields still has no form to show, so it keeps its facts.
+ * fields still has no form to show, so it keeps its facts. A card of Sets 1 to
+ * 8 is read-only whole, its image included, so its facts say that instead, and
+ * offer no read of the file (#68).
  */
 function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 'edit' | 'handoff'> & {
   ready: ReadyLookup;
   layout: StudioLayout;
   inksRestored: number;
 }) {
+  if (edit.printingsOnly) return <ReleasedCardFacts card={ready.card} note={PRINTINGS_ONLY_NOTE} />;
   if (edit.imageOnly) return <ImageOnlyFacts edit={edit} card={ready.card} reason={edit.imageOnly} handoff={handoff} />;
   if (edit.form === null) return null;
   return (
@@ -188,6 +232,48 @@ function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 
       locked={EDIT_LOCKS}
       inksRestored={inksRestored}
     />
+  );
+}
+
+/**
+ * A released card's printings (#68): their versions as the target branch's files give them, and
+ * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
+ * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
+ * a change staged for one card shows on it again whenever it is opened. While a publish runs, the
+ * panel holds its choices.
+ */
+function PrintingsSection({card, token}: {card: LorcanaCard; token: string}) {
+  const view = useBranchPrintings({token, card});
+  const batch = useVersionBatch();
+  return (
+    <PrintingsPanel
+      view={view}
+      changes={batch.changes}
+      publishing={batch.publishing}
+      onChoose={(chosen) => batch.stage(changeFor(chosen))}
+    />
+  );
+}
+
+/**
+ * The form slot: the card's data, and under it a released card's printings (#68), whether its
+ * data is a Sets 1 to 8 card's facts or the facts of a card whose image can change. A preview
+ * card has none: its versions arrive with LorcanaJSON once its set is official. The printings
+ * sit beside the form, not in it, so a Discard or a re-seed that opens the form afresh
+ * (CardEditor's `formKey`) never mounts them again.
+ */
+function FormSlot({released, card, token, children}: {
+  released: boolean;
+  card: LorcanaCard;
+  token: string;
+  children: ReactNode;
+}) {
+  if (!released) return children;
+  return (
+    <div style={COLUMN}>
+      {children}
+      <PrintingsSection card={card} token={token} />
+    </div>
   );
 }
 
@@ -221,9 +307,11 @@ function FileError({file, onForgetToken}: {file: PreviewFileView; onForgetToken:
  * Revert are held while it runs, as Save is (R4-4c). Load it again asks once
  * its re-read lands, and the line then says what it kept (R-68), or that the
  * card can't be edited now; a read that fails shows its error under the
- * outcome.
+ * outcome. A card of Sets 1 to 8 has nothing to change or save, so it has no
+ * aside at all (#68).
  */
 function EditAside({edit, handoff, onForgetToken, onDiscard, onRevert}: PartProps & {onDiscard: () => void; onRevert: RevertRow}) {
+  if (edit.printingsOnly) return null;
   const save = () => void edit.save().then(handoff.request);
   return (
     <aside aria-label="Changes" style={ASIDE}>
@@ -287,9 +375,14 @@ function useFormResets(edit: CardEditorController) {
  * shows. An Ink row's Revert resets the switch alone (useFormResets). The
  * banner's h2 takes the page's handoff while the outcome line has nothing to
  * say (outcomeShows, CommitOutcome's own rule); after that the line does. A
- * ready card always has its tag; 'Released' only narrows the type.
+ * ready card always has its tag; 'Released' only narrows the type. A released
+ * card's printings go under its data, in the form slot (#68).
  */
-function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {ready: ReadyLookup; layout: StudioLayout}) {
+function CardEditor({edit, ready, layout, handoff, onForgetToken, token}: PartProps & {
+  ready: ReadyLookup;
+  layout: StudioLayout;
+  token: string;
+}) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
   return (
@@ -312,19 +405,22 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
               layout={layout}
               staged={{name: edit.imageName, error: edit.imageError}}
               current={ready.card}
+              imageControl={!edit.printingsOnly}
               onImageChange={edit.onImageChange}
               onRevertImage={edit.revertImage}
             />
           ),
           form: (
-            <EditForm
-              key={resets.formKey}
-              edit={edit}
-              ready={ready}
-              layout={layout}
-              handoff={handoff}
-              inksRestored={resets.inksRestored}
-            />
+            <FormSlot released={edit.tag === 'Released'} card={ready.card} token={token}>
+              <EditForm
+                key={resets.formKey}
+                edit={edit}
+                ready={ready}
+                layout={layout}
+                handoff={handoff}
+                inksRestored={resets.inksRestored}
+              />
+            </FormSlot>
           ),
           aside: (
             <EditAside
@@ -349,11 +445,13 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken}: PartProps & {
  * a card and coming back. The controller lives in StudioWorkspace, so a mode
  * switch keeps the draft (R-57).
  */
-export function EditPane({edit, cardId, layout, handoff, onForgetToken}: EditPaneProps) {
+export function EditPane({edit, cardId, layout, handoff, onForgetToken, token}: EditPaneProps) {
   const [query, setQuery] = useState('');
   const {lookup} = edit;
   const parts = {edit, handoff, onForgetToken};
-  if (lookup.kind === 'ready') return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} />;
+  if (lookup.kind === 'ready') {
+    return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} token={token} />;
+  }
   if (lookup.kind === 'loading') {
     return (
       <div style={WHOLE_ROW[layout]}>

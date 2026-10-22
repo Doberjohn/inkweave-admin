@@ -9,7 +9,7 @@ import {studioHref} from '../../../shell/nav';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
-import type {SearchRow} from '../editSearch';
+import {numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
@@ -20,8 +20,17 @@ const THUMB_WIDTH = 34;
 const THUMB_HEIGHT = 48;
 /** Room for two inks and a rarity, so every row's marks line up. */
 const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
-/** Room for "#204". */
-const NUMBER_WIDTH = 44;
+/**
+ * The number's column: one width for every list, so the marks never jump while a query is typed. A
+ * card of Sets 1 to 8 names its set before its number (numberLabel) and the cell wraps there, "Set 8 ·"
+ * over "#204", so the column holds the first line: seven characters of the 12px monospace at 0.6em
+ * each, and a pixel to spare, 52px. "#204" alone had 44px, so this takes 8px of the names column. On
+ * a phone that column is the viewport less the 64px rail, 64px of gutters (the studio root's 16px
+ * padding, then the search's own PAGE_GUTTER, 16px there, each a side), 26px of border and padding,
+ * 138px of thumbnail, marks and gaps, and this column: 31px at 375px, narrower than the "released"
+ * chip (about 50px).
+ */
+const NUMBER_WIDTH = Math.ceil(7 * 0.6 * ADMIN_TYPE.small) + 1;
 
 // The page body's padding (PageLayout's BODY), round the handoff's centred column.
 const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px ${PAGE_GUTTER}`};
@@ -85,8 +94,11 @@ const NAME_LINE: React.CSSProperties = {
 const NAME: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.emphasis};
 const VERSION: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 const MARKS: React.CSSProperties = {display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: SPACING.xs};
-// Muted, never dim: the number tells two cards of one name apart (R-6).
-const NUMBER: React.CSSProperties = {textAlign: 'right', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+// Muted, never dim: the number, and the set before it, tell two cards of one name apart (R-6).
+// It wraps, so a card of Sets 1 to 8 reads "Set 3 ·" over "#90" in NUMBER_WIDTH's 52px, 8px more
+// than a bare number's 44. The row is 64px tall at least, for its thumbnail, so the second line
+// costs no height.
+const NUMBER: React.CSSProperties = {textAlign: 'right', whiteSpace: 'normal', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
 /** The card list (useCardDataContext): every row comes from it, so its failure takes the field's place. */
 export interface EditSearchList {
@@ -118,7 +130,10 @@ export interface EditSearchProps {
   onQuery: (query: string) => void;
   list: EditSearchList;
   file: EditSearchFile;
-  /** A line above the field: the page's message for an id the card list doesn't hold (R4-6b). */
+  /**
+   * Lines above the field: the page's message for an id the card list doesn't
+   * hold (R4-6b), and for Sets 1 to 8 failing to load (#68).
+   */
   notice?: React.ReactNode;
   /**
    * The page's (R-59): the field takes it once "Load a different card", or the
@@ -136,8 +151,9 @@ function SearchTitle({id}: {id: string}) {
         Find a card to edit
       </h2>
       <p style={HINT}>
-        Every Core card, by name, version or id, with the branch’s preview cards first. A preview card opens in
-        the form with its current data; any other card opens for a new image.
+        Every card, by name, version or id, with the branch’s preview cards first. A preview card opens in
+        the form with its current data; a card of Sets 1 to 8 opens for its printings’ versions only; any other
+        card opens for a new image and its printings’ versions.
       </p>
     </div>
   );
@@ -233,9 +249,12 @@ function Thumb({card}: {card: LorcanaCard}) {
 /**
  * One match: a link that opens the card in Edit card, drawn as the handoff
  * draws it (README §7): the thumbnail, name and version, inks, rarity and
- * collector number, plus the card's tags. The spaces are text nodes of their
- * own, so the link's name reads "Mei preview Red Panda Ruby #31": a grid or a
- * flex row draws none of them.
+ * collector number, plus the card's tags. A card of Sets 1 to 8 names its set
+ * before the number (numberLabel), so it tells from a Core reprint of itself
+ * (#68); the number's cell wraps, the set over the number. The spaces are text
+ * nodes of their own, so the link's name reads
+ * "Mei preview Red Panda Ruby #31", or "Ursula released Deceiver Emerald
+ * Set 3 · #90": a grid or a flex row draws none of them.
  */
 function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
   const {card} = row;
@@ -253,7 +272,7 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
           <CardInks card={card} />
           <RarityMark rarity={card.rarity} />
         </span>{' '}
-        <code style={NUMBER}>{card.setNumber == null ? '' : `#${card.setNumber}`}</code>
+        <code style={NUMBER}>{numberLabel(card)}</code>
       </Link>
     </li>
   );

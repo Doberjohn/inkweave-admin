@@ -6,6 +6,7 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {inkBlock} from '../../../app-bridge';
 import {studioHref} from '../../../shell/nav';
 import {pngFile} from '../../../test/images';
+import {chunksOf, setOfChunk, type ChunkAnswer} from '../finishes/__tests__/collectionHarness';
 import {StudioPage} from '../StudioPage';
 import {cardList, type CardList} from './studioStores';
 
@@ -32,15 +33,19 @@ const json = (body: unknown) => new Response(JSON.stringify(body), {headers: {'c
 
 /**
  * Stubs fetch: the token can push, previewCards.json answers with `preview`
- * (by default it never settles: New reveal never needs it), and every other
+ * (by default it never settles: New reveal never needs it), the chunks of Sets
+ * 1 to 8 that Edit card's search adds answer with `chunk` (by default each
+ * holds no card, so a card id waits for them only a moment), and every other
  * request never settles.
  */
-export function stubFetch(preview: Answer = never) {
+export function stubFetch(preview: Answer = never, chunk: ChunkAnswer = chunksOf()) {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: unknown) => {
       if (url === REPO_URL) return Promise.resolve(json({permissions: {push: true}}));
-      return url === PREVIEW_URL ? Promise.resolve(preview()) : never();
+      if (url === PREVIEW_URL) return Promise.resolve(preview());
+      const set = setOfChunk(url);
+      return set === undefined ? never() : Promise.resolve(chunk(set));
     }),
   );
 }
@@ -129,6 +134,31 @@ export async function fillNewCard({user, name}: NewCard) {
   const input = document.querySelector<HTMLInputElement>('input[type="file"]');
   if (input) await user.upload(input, pngFile(`${name.toLowerCase()}.png`));
   await waitFor(() => expect(screen.getByRole('button', {name: /^Publish/})).toBeEnabled());
+}
+
+/**
+ * Watches the page for the nodes it adds, every frame React commits, whether
+ * or not they stay: a line drawn for one frame and gone by the next never
+ * shows to a query that runs afterwards. Stop it at the end of the test.
+ */
+export function watchAdditions() {
+  const added: string[] = [];
+  const record = (records: MutationRecord[]) =>
+    records.forEach(({addedNodes}) => addedNodes.forEach((node) => added.push(node.textContent ?? '')));
+  const watch = new MutationObserver(record);
+  watch.observe(document.body, {childList: true, subtree: true});
+  return {
+    /** The text of each node added so far, in order. */
+    texts: () => {
+      record(watch.takeRecords());
+      return [...added];
+    },
+    clear: () => {
+      record(watch.takeRecords());
+      added.length = 0;
+    },
+    stop: () => watch.disconnect(),
+  };
 }
 
 /**

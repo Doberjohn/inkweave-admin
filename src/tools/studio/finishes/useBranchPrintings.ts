@@ -1,0 +1,157 @@
+import {useEffect, useState} from 'react';
+import {isCoreSet, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {transformPromos, transformRawCards, type RawCollectionPromo} from '../../../app-bridge';
+import {
+  cachedBranchFile,
+  forgetBranchFiles,
+  lastTextCached,
+  messageOf,
+  namingItsFile,
+  readBranchFile,
+  useBranchFilesGeneration,
+  type BranchFile,
+} from './branchFiles';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, readFinishes, setChunkPath, type FileValues} from './finishFiles';
+import {primaryHome} from './printingHomes';
+import {printingRowsFor, type PrintingRow, type PrintingSources} from './printingRows';
+
+/*
+ * A card's printings, with the versions the target branch gives them (#68): what Edit card's
+ * Printings panel shows. They are read from the branch's files, not the deployed data's, so
+ * Publish's check of a change against a printing's value compares like with like.
+ */
+
+/** What the panel has of a card's printings: nothing yet, a read that failed, or the rows. */
+export type BranchPrintings =
+  | {status: 'loading'}
+  /** `retry` reads the files again, all of them: text the parsers couldn't read was kept like any other. */
+  | {status: 'error'; error: string; retry: () => void}
+  /**
+   * `refreshing`: the files are being read again since a publish dropped them, and these rows are
+   * the last read's, for the panel to hold until the read lands.
+   */
+  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true};
+
+const LOADING: BranchPrintings = {status: 'loading'};
+
+/** What a card's rows are made from, but the card: the files of its set, parsed. */
+type Files = Omit<PrintingSources, 'card'>;
+
+/** How a read of the files ended. */
+type Outcome = {files: Files} | {error: string};
+
+/** An outcome, with the set whose files it read and the count of drops (`useBranchFilesGeneration`) it read them after. */
+interface Settled {
+  setCode: string;
+  generation: number;
+  outcome: Outcome;
+}
+
+/** Each parse of a file's text is kept until that file's text changes, so a card of another set doesn't parse allCards.json again. */
+const finishesIn = lastTextCached(namingItsFile(readFinishes));
+const cardsIn = lastTextCached(namingItsFile(({text}) => transformRawCards(JSON.parse(text) as LorcanaJSONCard[])));
+const promosIn = lastTextCached(namingItsFile(({text}) => transformPromos(JSON.parse(text) as RawCollectionPromo[])));
+
+/**
+ * The files a card's rows are made from. The entries come from the first two: its set's chunk,
+ * which holds its printings (and, below Core, the card), and promos.json, which holds its promos.
+ * The versions come from whichever of them is a printing's primary home: the chunk, the catalog,
+ * where a promo's versions are first set, and for a Core card allCards.json.
+ */
+function pathsOf(setCode: string): string[] {
+  return [setChunkPath(setCode), PROMOS_PATH, CATALOG_PATH, ...(isCoreSet(setCode) ? [ALL_CARDS_PATH] : [])];
+}
+
+/**
+ * Parses the files of a set, in the order of `pathsOf`. A printing's versions are what its primary
+ * home names for it: nothing, where that file has no entry for it.
+ */
+function parsedFiles(files: readonly BranchFile[]): Files {
+  const [chunk, promos] = files;
+  const values = new Map(files.map((file): [string, FileValues] => [file.path, finishesIn(file)]));
+  return {
+    chunk: cardsIn(chunk),
+    promos: promosIn(promos),
+    valueOf: (ref) => values.get(primaryHome(ref))?.get(ref.id) ?? null,
+  };
+}
+
+/** Reads and parses the files of a set. */
+async function readFiles({token, setCode}: {token: string; setCode: string}): Promise<Files> {
+  const paths = pathsOf(setCode);
+  const texts = await Promise.all(paths.map((path) => readBranchFile({token, path})));
+  return parsedFiles(paths.map((path, i): BranchFile => ({path, text: texts[i]})));
+}
+
+/**
+ * The files of a set, parsed, when a read of every one of them has landed already; else null. A
+ * text its parser can't read is no files either: the read the hook starts reports that file.
+ */
+function cachedFiles(setCode: string): Files | null {
+  const files: BranchFile[] = [];
+  for (const path of pathsOf(setCode)) {
+    const text = cachedBranchFile(path);
+    if (text === undefined) return null;
+    files.push({path, text});
+  }
+  try {
+    return parsedFiles(files);
+  } catch {
+    return null;
+  }
+}
+
+/** What a hook that mounts after the files were read starts with, in place of loading: their outcome, or none. */
+function settledFromCache({setCode, generation}: {setCode: string; generation: number}): Settled | null {
+  const files = cachedFiles(setCode);
+  return files && {setCode, generation, outcome: {files}};
+}
+
+/**
+ * What the hook shows of the read it settled on. One of another set is loading. One made before
+ * the latest drop of the files is a read under way again: its rows stay, marked refreshing, while
+ * one that failed has none to keep, so that is loading too.
+ */
+function viewOf({settled, generation, card}: {settled: Settled | null; generation: number; card: LorcanaCard}): BranchPrintings {
+  if (settled?.setCode !== (card.setCode ?? '')) return LOADING;
+  const {outcome} = settled;
+  const current = settled.generation === generation;
+  if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
+  const rows = printingRowsFor({card, ...outcome.files});
+  return current ? {status: 'ready', rows} : {status: 'ready', rows, refreshing: true};
+}
+
+/**
+ * Reads a card's printings from the target branch's files. The files depend on the card's set
+ * alone, so another card of the same set reads and loads nothing, while a card of another set
+ * discards the last one's pending read. The view reads as loading until a read lands that answers
+ * the card's set. Once the files are dropped (`forgetBranchFiles`, which a publish makes) they are
+ * read again, and until that read lands the rows of the last one stay, marked refreshing, so the
+ * panel holds them rather than drop its list and the focus in it. A read landing late is dropped:
+ * it never shows another card's rows, nor replaces a newer read.
+ *
+ * Card studio mounts the panel anew for each card it opens, so a hook that mounts when the files
+ * were read already starts with their rows, and never shows loading for the frame it takes the
+ * read to answer from its cache. The read is made all the same, and settles on the same rows.
+ */
+export function useBranchPrintings({token, card}: {token: string; card: LorcanaCard}): BranchPrintings {
+  const {setCode = ''} = card;
+  const generation = useBranchFilesGeneration();
+  const [settled, setSettled] = useState<Settled | null>(() => settledFromCache({setCode, generation}));
+
+  useEffect(() => {
+    let cancelled = false;
+    const settle = (outcome: Outcome) => {
+      if (!cancelled) setSettled({setCode, generation, outcome});
+    };
+    readFiles({token, setCode}).then(
+      (files) => settle({files}),
+      (e: unknown) => settle({error: messageOf(e)}),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [token, setCode, generation]);
+
+  return viewOf({settled, generation, card});
+}

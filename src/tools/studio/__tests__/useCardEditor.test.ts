@@ -1,9 +1,12 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, waitFor} from '@testing-library/react';
-import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {synergyEngine, type LorcanaJSONCard} from 'inkweave-synergy-engine';
 import type {useCardDataContext} from '../../../app-bridge';
 import {DeferredReader} from '../../../test/DeferredReader';
 import {imageDataUrl, pngFile} from '../../../test/images';
+import {resetCollectionOnlyCards} from '../finishes/collectionCards';
+import {chunksOf, heldChunks, loadCollection, stubChunks} from '../finishes/__tests__/collectionHarness';
+import {SET_4_ENTRIES, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {useCardEditor} from '../useCardEditor';
 import {
   BRANCH_ENTRIES,
@@ -95,7 +98,7 @@ async function stage(result: Editor, file: File) {
 const imageOf = (result: Editor) => ({name: result.current.imageName, dataUrl: result.current.imageDataUrl});
 const NO_IMAGE = {name: null, dataUrl: null};
 
-beforeEach(() => {
+beforeEach(async () => {
   // A block, not an arrow's value: mockReset() returns the mock, and Vitest calls a function a hook returns as its teardown.
   readPreviewCards.mockReset();
   readPreviewCards.mockResolvedValue(BRANCH_ENTRIES);
@@ -103,6 +106,8 @@ beforeEach(() => {
   setCardList();
   DeferredReader.reset();
   vi.stubGlobal('FileReader', DeferredReader);
+  // Sets 1 to 8 are in (and hold no card) before the editor mounts, so a card of the list opens on the first render.
+  await loadCollection();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -385,5 +390,91 @@ describe('useCardEditor: synergies', () => {
     expect(groupIds(result)).not.toContain(RELEASED_SONG.id);
     open(RELEASED_CARD.id);
     expect(result.current.findSynergies()).toEqual([]);
+  });
+});
+
+/*
+ * Sets 1 to 8 (#68): the app's card list leaves them out, so the controller adds
+ * their cards from the collection chunks (collectionCards.ts). They come last in
+ * the search, their cards open printings-only, and nothing but the search and the
+ * lookup sees them: the synergy engine scores against the card list alone.
+ */
+describe('useCardEditor: Sets 1 to 8', () => {
+  const ids = (cards: readonly {id: string}[]) => cards.map((card) => card.id);
+
+  beforeEach(async () => {
+    await loadCollection({'4': SET_4_ENTRIES});
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('adds their cards to the search, after the card list’s', async () => {
+    const {result} = await renderEditor({cardId: null});
+    expect(ids(result.current.searchCards)).toEqual([...ids(STUDIO_CARDS), YEN_SID.id]);
+    expect(result.current.collection.status).toBe('ready');
+  });
+
+  it('opens one of their cards printings-only: released, with no form to edit', async () => {
+    const {result} = await renderEditor({cardId: YEN_SID.id});
+    expect(result.current.lookup).toMatchObject({kind: 'ready', card: {id: YEN_SID.id}, entry: null, imageOnly: 'released'});
+    expect({printingsOnly: result.current.printingsOnly, tag: result.current.tag, form: result.current.form}).toEqual({
+      printingsOnly: true,
+      tag: 'Released',
+      form: null,
+    });
+    expect({deployed: result.current.deployed, canSave: result.current.canSave}).toEqual({deployed: true, canSave: false});
+  });
+
+  it('is printings-only for no other card: not a released card of Sets 9 and up, a preview card, or none open', async () => {
+    const {result, open} = await renderEditor({cardId: null});
+    const printingsOnly = () => result.current.printingsOnly;
+    expect(printingsOnly()).toBe(false);
+    open(RELEASED_CARD.id);
+    expect(printingsOnly()).toBe(false);
+    open(idOf(MEI));
+    expect(printingsOnly()).toBe(false);
+    open(YEN_SID.id);
+    expect(printingsOnly()).toBe(true);
+  });
+
+  it('waits for them before it reads an id as missing', async () => {
+    resetCollectionOnlyCards();
+    const held = heldChunks({'4': SET_4_ENTRIES});
+    const {result, open} = await renderEditor({cardId: null});
+    open(YEN_SID.id);
+    expect(result.current.lookup).toEqual({kind: 'loading'});
+
+    await held.land();
+    expect(result.current.lookup).toMatchObject({kind: 'ready', card: {id: YEN_SID.id}});
+    open('999999');
+    expect(result.current.lookup).toEqual({kind: 'missing', cardId: '999999'});
+  });
+
+  it('keeps searching the card list when they fail to load, says so, and reads them again on retry', async () => {
+    resetCollectionOnlyCards();
+    let failing = true;
+    const served = chunksOf({'4': SET_4_ENTRIES});
+    stubChunks((set) => (failing ? new Response('Unavailable', {status: 503}) : served(set)));
+    const {result} = await renderEditor({cardId: null});
+    expect(result.current.collection.status).toBe('error');
+    expect(ids(result.current.searchCards)).toEqual(ids(STUDIO_CARDS));
+    // The card list's own error is its alone: a failure of Sets 1 to 8 doesn't turn the search into the list's.
+    expect(result.current.lookup).toEqual({kind: 'none'});
+
+    failing = false;
+    await act(async () => result.current.collection.retry());
+    await waitFor(() => expect(result.current.collection.status).toBe('ready'));
+    expect(ids(result.current.searchCards)).toContain(YEN_SID.id);
+  });
+
+  it('scores a preview card against the card list alone, never against their cards', async () => {
+    const findSynergies = vi.spyOn(synergyEngine, 'findSynergies');
+    const {result} = await renderEditor({cardId: idOf(MEI)});
+    expect(ids(result.current.searchCards)).toContain(YEN_SID.id);
+
+    result.current.findSynergies();
+    const scoredAgainst = findSynergies.mock.calls.flatMap(([, cards]) => ids(cards));
+    expect(scoredAgainst).toContain(RELEASED_SONG.id);
+    expect(scoredAgainst).not.toContain(YEN_SID.id);
   });
 });

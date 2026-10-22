@@ -1,8 +1,9 @@
 import {describe, expect, it, vi} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {cleanup, render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {EditingBanner} from '../components/EditingBanner';
+import {URSULA_SET_3, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -45,6 +46,27 @@ describe('EditingBanner', () => {
     expect(screen.queryByRole('link', {name: 'View card analytics'})).not.toBeInTheDocument();
     expect(screen.getByText('not deployed yet')).toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'Load a different card'})).toBeInTheDocument();
+  });
+
+  // Card analytics reads the card list, which holds Core cards alone: its page for a card of Sets 1 to 8 says it rotated out.
+  it('leaves out View card analytics for a card of Sets 1 to 8, which Card analytics has no page for (#68)', () => {
+    renderBanner({card: YEN_SID, tag: 'Released'});
+    expect(screen.getByRole('heading', {level: 2, name: 'Editing Yen Sid Powerful Sorcerer'})).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'View card analytics'})).not.toBeInTheDocument();
+    // It is deployed all the same: inkweave.ink serves it.
+    expect(screen.queryByText('not deployed yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', {name: 'Load a different card'})).toBeInTheDocument();
+  });
+
+  // Ursula - Deceiver is #90 in Set 3 and in Set 9: the banner names the set as the search row does (#68).
+  it('prints the set before the number of a card of Sets 1 to 8, so it tells from its Core reprint', () => {
+    renderBanner({card: URSULA_SET_3, tag: 'Released'});
+    expect(screen.getByText('Set 3 · #90').tagName).toBe('CODE');
+    cleanup();
+
+    renderBanner({card: URSULA_SET_9, tag: 'Released'});
+    expect(screen.getByText('#90').tagName).toBe('CODE');
+    expect(screen.queryByText(/^Set /)).not.toBeInTheDocument();
   });
 
   it('tags a released card', () => {

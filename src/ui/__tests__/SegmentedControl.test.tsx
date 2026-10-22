@@ -69,6 +69,32 @@ describe('SegmentedControl', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('holds every option while held: aria-disabled, so each keeps its focus, and a press does nothing', async () => {
+    const onChange = vi.fn();
+    render(<SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={onChange} held />);
+    for (const button of screen.getAllByRole('button')) expect(button).toHaveAttribute('aria-disabled', 'true');
+
+    const votes = screen.getByRole('button', {name: 'Votes'});
+    await userEvent.click(votes);
+    expect(onChange).not.toHaveBeenCalled();
+    // Not a native disabled, which would drop the focus to the page.
+    expect(votes).toBeEnabled();
+    expect(votes).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard(' ');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(votes).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('is live again once it is no longer held, and is never held by default', async () => {
+    const onChange = vi.fn();
+    const {rerender} = render(<SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={onChange} held />);
+    rerender(<SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value="gap" onChange={onChange} />);
+    for (const button of screen.getAllByRole('button')) expect(button).not.toHaveAttribute('aria-disabled');
+    await userEvent.click(screen.getByRole('button', {name: 'Votes'}));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('votes');
+  });
+
   it('marks a control that fills its width for AdminStyles (data-fill), and leaves the default as wide as its options', () => {
     render(
       <>

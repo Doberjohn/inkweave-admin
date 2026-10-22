@@ -6,6 +6,7 @@ import {DeferredReader} from '../../../test/DeferredReader';
 import {pngFile} from '../../../test/images';
 import {StaleCardError} from '../../reveal/githubClient';
 import {searchCards} from '../editSearch';
+import {loadCollection} from '../finishes/__tests__/collectionHarness';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, UNNUMBERED_ENTRY, cardOf, previewEntry, studioCard} from '../studioFixtures';
 import {useCardEditor} from '../useCardEditor';
 
@@ -64,11 +65,13 @@ function renderEditor(cardId: string | null) {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   // Blocks, not an arrow's value: mockReset() returns the mock, which Vitest would call as a teardown.
   readPreviewCards.mockReset();
   commitCardEdit.mockReset();
   commitCardImage.mockReset();
+  // Sets 1 to 8 are in (and hold no card) before the editor mounts, so a card of the list opens on the first render.
+  await loadCollection();
 });
 
 afterEach(() => {

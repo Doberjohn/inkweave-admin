@@ -296,4 +296,47 @@ describe('StudioCardPanel', () => {
     renderPanel({layout});
     expect(screen.getByLabelText('Click or drop to upload scan').closest('label')?.parentElement).toHaveStyle({maxWidth});
   });
+
+  // A Sets 1 to 8 card's art is Ravensburger's, so Edit card draws it and offers no way to replace it (#68).
+  describe('without an image control', () => {
+    const noControl: Partial<StudioCardPanelProps> = {mode: 'edit', card: CURRENT, current: CURRENT, imageControl: false};
+
+    it('draws the card and its caption, with the pill, Replace card image and the formats hint gone', () => {
+      const {container} = renderPanel(noControl);
+      expect(container.querySelector('[data-testid="card-tile"]')).toBeInTheDocument();
+      expect(screen.getByText('Mei')).toBeInTheDocument();
+      expect(screen.getByText('Red Panda')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Click or drop to/)).toBeNull();
+      expect(screen.queryByLabelText('Replace card image')).toBeNull();
+      expect(screen.queryByText(FORMATS)).toBeNull();
+    });
+
+    it('has no file input and no drop target: a drop target is the label round a file input', () => {
+      const {container} = renderPanel(noControl);
+      expect(container.querySelector('input[type="file"]')).toBeNull();
+      expect(container.querySelectorAll('label')).toHaveLength(0);
+      expect(dropTargets()).toEqual([]);
+    });
+
+    it('is not a Tab stop at all', async () => {
+      const user = userEvent.setup();
+      renderPanel(noControl);
+      await user.tab();
+      expect(document.body).toHaveFocus();
+    });
+
+    it('still shows the translation of a scan that is not English', () => {
+      renderPanel({...noControl, card: {...CURRENT, scanLanguage: 'ja'}});
+      expect(screen.getByRole('region', {name: 'English translation of Mei - Red Panda'})).toBeInTheDocument();
+    });
+
+    it('keeps both file controls by default, and when it is asked for', () => {
+      for (const imageControl of [undefined, true]) {
+        const {unmount} = renderPanel({mode: 'edit', card: CURRENT, current: CURRENT, imageControl});
+        expect(screen.getByLabelText('Replace card image')).toBeInTheDocument();
+        expect(screen.getByLabelText('Click or drop to replace image')).toBeInTheDocument();
+        unmount();
+      }
+    });
+  });
 });

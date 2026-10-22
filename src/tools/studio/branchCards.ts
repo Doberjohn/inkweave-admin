@@ -1,8 +1,9 @@
-import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {isCoreSet, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {transformRawCards} from '../../app-bridge';
 import {targetBranch} from '../../github/githubCommit';
 import {REVEAL_SET_CODE} from '../reveal/constants';
 import type {EditLookup} from './editorState';
+import type {CollectionOnlyCards} from './finishes/collectionCards';
 import type {PreviewCardsFile} from './previewCardsFile';
 
 /*
@@ -127,6 +128,38 @@ export function editSources<L extends CardListView, F extends PreviewCardsFile>(
 }): EditSources<L, F> {
   const file = withoutShadowed(sources);
   return {list: withBranchCards({list: sources.list, file}), file};
+}
+
+/**
+ * The card list with the cards of Sets 1 to 8 after it (#68): the ones it never holds, since they
+ * rotated out of Core. They come last, so the branch file's cards lead the search (R-76) and a blank
+ * query lists the Core cards before the rotated-out ones. It reads loading until they are in too, so
+ * a deep link to one of their cards waits for them instead of reading missing; a failed read isn't
+ * loading, and the lookup goes on without them. The error stays the card list's own: Sets 1 to 8
+ * failing is not the card list failing. Where the card list and they hold one id, the card list wins:
+ * the search lists its card alone, and the lookup finds it. Everything else the list carries, such
+ * as retryLoad and branchOnlyIds, passes through.
+ */
+export function withCollectionCards<L extends CardListView>({list, collection}: {list: L; collection: CollectionOnlyCards}): L {
+  const isLoading = list.isLoading || collection.status === 'loading';
+  const unlisted = collection.cards.filter((card) => list.getCardById(card.id) === undefined);
+  if (unlisted.length === 0) return {...list, isLoading};
+  const byId = new Map(unlisted.map((card) => [card.id, card]));
+  return {
+    ...list,
+    cards: [...list.cards, ...unlisted],
+    getCardById: (id: string) => list.getCardById(id) ?? byId.get(id),
+    isLoading,
+  };
+}
+
+/**
+ * Whether the card is one of Sets 1 to 8 (#68): below the Core floor, so allCards.json no longer
+ * holds it, and its data and art aren't admin's to change. Only the versions of its printings are.
+ * False with no card open. A card with no set code counts too: the engine doesn't call it Core.
+ */
+export function isPrintingsOnly(card: Pick<LorcanaCard, 'setCode'> | null): boolean {
+  return card !== null && !isCoreSet(card.setCode);
 }
 
 /** Whether inkweave.ink serves the card: false for a card only the branch file holds. */

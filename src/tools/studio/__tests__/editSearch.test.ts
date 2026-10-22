@@ -1,7 +1,8 @@
 import {describe, expect, it} from 'vitest';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE} from '../../reveal/constants';
-import {SEARCH_LIMIT, cardTag, previewIdsOf, searchCards} from '../editSearch';
+import {SEARCH_LIMIT, cardTag, namesSet, numberLabel, previewIdsOf, searchCards} from '../editSearch';
+import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 
 /** A card-list card; ids are strings there, as the card list holds them. */
 function card(p: Partial<LorcanaCard>): LorcanaCard {
@@ -41,6 +42,38 @@ describe('cardTag', () => {
     ['an entry the file holds is Preview, whatever its set', card({id: '15001', setCode: '15'}), new Set([15001]), 'Preview'],
   ])('%s', (_, subject, previewIds, expected) => {
     expect(cardTag(subject, previewIds)).toBe(expected);
+  });
+});
+
+// 178 names are in a Core set and in Sets 1 to 8, and for several the two cards share their name, version, inks,
+// rarity and number: the set is what tells their rows apart, and only a Sets 1 to 8 row names it (#68).
+describe('numberLabel', () => {
+  it.each([
+    ['a Core card is its collector number alone', URSULA_SET_9, '#90'],
+    ['a card of the reveal set is its collector number alone', revealCard(21, {setNumber: 21}), '#21'],
+    ['a card of Set 3 names its set before the number', URSULA_SET_3, 'Set 3 · #90'],
+    ['a card of Set 1', card({setCode: '1', setNumber: 5}), 'Set 1 · #5'],
+    ['a card of Set 8, the last below Core, with a three-digit number', card({setCode: '8', setNumber: 204}), 'Set 8 · #204'],
+    ['a card with no number prints none, a set or not', card({setCode: '3', setNumber: undefined}), ''],
+    ['a card with no set code names no set', card({setCode: undefined, setNumber: 7}), '#7'],
+  ])('%s', (_, subject, expected) => {
+    expect(numberLabel(subject)).toBe(expected);
+  });
+
+  it('tells a Set 9 card from its Set 3 reprint', () => {
+    expect(numberLabel(URSULA_SET_9)).not.toBe(numberLabel(URSULA_SET_3));
+  });
+});
+
+describe('namesSet', () => {
+  it.each([
+    ['a card of Set 3', card({setCode: '3'}), true],
+    ['a card of Set 8', card({setCode: '8'}), true],
+    ['a card of Set 9', card({setCode: '9'}), false],
+    ['a card of the reveal set', revealCard(1), false],
+    ['a card with no set code, which has none to name', card({setCode: undefined}), false],
+  ])('%s: %s', (_, subject, expected) => {
+    expect(namesSet(subject)).toBe(expected);
   });
 });
 

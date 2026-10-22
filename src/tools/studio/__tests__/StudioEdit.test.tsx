@@ -9,8 +9,11 @@ import {commitCardImage} from '../../image/githubClient';
 import {StaleCardError, commitCardEdit, commitNewCard, commitPreviewCardImage} from '../../reveal/githubClient';
 import {goneNote} from '../branchCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
+import {deferredResponse} from '../finishes/__tests__/branchHarness';
+import {chunksOf} from '../finishes/__tests__/collectionHarness';
+import {SET_4_ENTRIES, URSULA_SET_3, URSULA_SET_3_ENTRY, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {loadAgainNote} from '../loadAgainNote';
-import {newRevealNote} from '../studioCopy';
+import {PRINTINGS_ONLY_NOTE, newRevealNote} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {
@@ -58,6 +61,8 @@ const SAVING =
   "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed. " +
   'Any edits made since the save started are dropped, and if the save fails, its changes are lost too.';
 const RENAMED = 'Mei Lee';
+/** What the search says when the chunks of Sets 1 to 8 fail (#68), above its way out. */
+const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
 
 // The card list as inkweave.ink serves it: a released card, then the deployed preview cards (loader.ts:195-198).
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -212,7 +217,12 @@ describe('StudioPage: finding a card in Edit card', () => {
     const {router} = renderStudio({path: '/studio?mode=edit'});
     act(() => void router.navigate(studioHref('edit', '999999')));
     const line = await screen.findByText(/^No card has the id/);
-    expect(line).toHaveTextContent('No card has the id 999999 in the card list or in previewCards.json.');
+    expect(line).toHaveTextContent(
+      'No card has the id 999999 in the card list or in previewCards.json. ' +
+        'A preview id changes when its card is released: find it by name below.',
+    );
+    // Cards of Sets 1 to 8 open now (#68), so the line no longer says those sets can't.
+    expect(line).not.toHaveTextContent(/rotated out/);
     await waitFor(() => expect(line).toHaveFocus());
     expect(searchField()).toBeInTheDocument();
   });
@@ -243,7 +253,7 @@ describe('StudioPage: finding a card in Edit card', () => {
     renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
     expect(await banner(RELEASED_CARD)).toBeInTheDocument();
     expect(screen.getByText('released')).toBeInTheDocument();
-    expect(screen.getByText('Card data comes from LorcanaJSON; only the image can be replaced here.')).toBeInTheDocument();
+    expect(screen.getByText("Card data comes from LorcanaJSON: only the image and the printings' versions can be changed here.")).toBeInTheDocument();
     expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: 'Synergies'})).not.toBeInTheDocument();
     // No field can change, so the change list asks only for an image.
@@ -309,6 +319,170 @@ describe('StudioPage: finding a card in Edit card', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     await waitFor(() => expect(screen.getByLabelText('GitHub token')).toHaveFocus());
+  });
+});
+
+describe('StudioPage: Sets 1 to 8 in Edit card (#68)', () => {
+  beforeEach(() => {
+    stubFetch(fileOf(FILE), chunksOf({'4': SET_4_ENTRIES}));
+  });
+
+  it('finds a card of Sets 1 to 8 by name, tagged released, and lists its printings nowhere (R-80)', async () => {
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Yen Sid');
+    const row = await screen.findByRole('link', {name: /^Yen Sid /});
+    // A card of Sets 1 to 8 names its set before its number.
+    expect(row).toHaveAccessibleName('Yen Sid released Powerful Sorcerer Amethyst Set 4 · #59');
+    expect(row).toHaveAttribute('href', studioHref('edit', YEN_SID.id));
+    expect(within(row).getByText('released')).toBeInTheDocument();
+    // Her Enchanted (900) and her alt foil (946) are printings of the card, and the search lists cards only.
+    expect(screen.getAllByRole('link', {name: /^Yen Sid /})).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('1 card matches');
+  });
+
+  // 178 names are in a Core set and in Sets 1 to 8. Ursula - Deceiver is #90 in Set 9 and in Set 3, with the same
+  // version, ink and rarity, and the rows open different things: only the set tells them apart.
+  it('names the set on a Sets 1 to 8 row, so it tells from its Set 9 reprint, and each row opens its own card', async () => {
+    setCardList({cards: [...CARDS, URSULA_SET_9]});
+    stubFetch(fileOf(FILE), chunksOf({'3': [URSULA_SET_3_ENTRY]}));
+    const {router, user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Ursula');
+    const core = await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald #90'});
+    const old = await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald Set 3 · #90'});
+    expect(within(core).getByText('#90')).toBeInTheDocument();
+    expect(within(old).getByText('Set 3 · #90')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', {name: /^Ursula /})).toHaveLength(2);
+
+    // The Set 3 row opens printings-only.
+    await user.click(old);
+    expect(router.state.location.search).toBe(`?mode=edit&card=${URSULA_SET_3.id}`);
+    expect(await screen.findByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Replace card image')).not.toBeInTheDocument();
+
+    // The Set 9 row opens with its image control.
+    await user.click(screen.getByRole('link', {name: 'Load a different card'}));
+    await user.click(await screen.findByRole('link', {name: 'Ursula released Deceiver Emerald #90'}));
+    expect(router.state.location.search).toBe(`?mode=edit&card=${URSULA_SET_9.id}`);
+    expect(await screen.findByLabelText('Replace card image')).toBeInTheDocument();
+    expect(screen.queryByText(PRINTINGS_ONLY_NOTE)).not.toBeInTheDocument();
+  });
+
+  it('opens it printings-only: its data read-only, with no image control, no Save and no change list', async () => {
+    const {router, user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Yen Sid');
+    await user.click(await screen.findByRole('link', {name: /^Yen Sid /}));
+    expect(router.state.location.search).toBe(`?mode=edit&card=${YEN_SID.id}`);
+    await waitFor(async () => expect(await banner(YEN_SID)).toHaveFocus());
+    expect(document.title).toBe('Yen Sid - Powerful Sorcerer · Card studio · Inkweave admin');
+    expect(screen.getByText('released')).toBeInTheDocument();
+
+    const facts = screen.getByRole('region', {name: 'Card data'});
+    expect(within(facts).getByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+    expect(within(facts).getByText('Powerful Sorcerer')).toBeInTheDocument();
+    expect(within(facts).getByText('#59')).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'Card preview'})).toBeInTheDocument();
+
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.queryByLabelText('Replace card image')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /replace card image/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /save/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: 'No changes yet'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', {name: 'Changes'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
+  });
+
+  it('keeps the image control and Save on a released card of Sets 9 and up', async () => {
+    renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
+    expect(await banner(RELEASED_CARD)).toBeInTheDocument();
+    expect(screen.getByLabelText('Replace card image')).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+    expect(screen.queryByText(PRINTINGS_ONLY_NOTE)).not.toBeInTheDocument();
+  });
+
+  it('waits for Sets 1 to 8 before it reads a card id as missing, then opens the card printings-only', async () => {
+    const held = deferredResponse();
+    const empty = chunksOf();
+    stubFetch(fileOf(FILE), (set) => (set === '4' ? held.response : empty(set)));
+    renderStudio({path: studioHref('edit', YEN_SID.id)});
+    expect(screen.getByText('Loading the card…')).toBeInTheDocument();
+    expect(screen.queryByText(/^No card has the id/)).not.toBeInTheDocument();
+
+    held.respond(Response.json(SET_4_ENTRIES));
+    expect(await banner(YEN_SID)).toBeInTheDocument();
+    expect(screen.getByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+  });
+
+  it('says when Sets 1 to 8 did not load, searches Sets 9 and up all the same, and reads them again on Try again (R-48)', async () => {
+    let failing = true;
+    const served = chunksOf({'4': SET_4_ENTRIES});
+    stubFetch(fileOf(FILE), (set) => (failing ? new Response('Server Error', {status: 500}) : served(set)));
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveTextContent(COLLECTION_FAILED);
+    await user.type(searchField(), 'Lantern');
+    expect(await screen.findByRole('link', {name: /^Lantern Keeper /})).toBeInTheDocument();
+
+    failing = false;
+    await user.click(within(notice).getByRole('button', {name: 'Try again'}));
+    // The button went with the notice, so focus moved on to the field (R-48).
+    await waitFor(() => expect(searchField()).toHaveFocus());
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    await user.clear(searchField());
+    await user.type(searchField(), 'Yen Sid');
+    expect(await screen.findByRole('link', {name: /^Yen Sid /})).toBeInTheDocument();
+  });
+
+  it('reads a card id of Sets 1 to 8 as missing when they did not load, beside the notice that says so', async () => {
+    stubFetch(fileOf(FILE), () => new Response('Server Error', {status: 500}));
+    renderStudio({path: studioHref('edit', YEN_SID.id)});
+    expect(await screen.findByText(/^No card has the id/)).toBeInTheDocument();
+    expect(screen.getByText(COLLECTION_FAILED)).toBeInTheDocument();
+  });
+
+  it('opens the card a deep link names once Try again lands, with focus on its banner (R-48, R-59)', async () => {
+    let failing = true;
+    const served = chunksOf({'4': SET_4_ENTRIES});
+    stubFetch(fileOf(FILE), (set) => (failing ? new Response('Server Error', {status: 500}) : served(set)));
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tryAgain = await screen.findByRole('button', {name: 'Try again'});
+
+    failing = false;
+    await user.click(tryAgain);
+    // The explanation and the button went with the search; the card that replaces them takes the focus.
+    await waitFor(async () => expect(await banner(YEN_SID)).toHaveFocus());
+    expect(screen.getByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+    expect(screen.queryByText(COLLECTION_FAILED)).not.toBeInTheDocument();
+  });
+
+  it('leaves the explanation of a missing id to take the focus when Try again fails too', async () => {
+    stubFetch(fileOf(FILE), () => new Response('Server Error', {status: 500}));
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(await screen.findByRole('button', {name: 'Try again'}));
+    const line = await screen.findByText(/^No card has the id/);
+    await waitFor(() => expect(line).toHaveFocus());
+    expect(screen.getByText(COLLECTION_FAILED)).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Try again'})).toBeInTheDocument();
+  });
+
+  it('leaves the analytics link out of its banner: Card analytics has no page for it (#68)', async () => {
+    renderStudio({path: studioHref('edit', YEN_SID.id)});
+    expect(await banner(YEN_SID)).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'View card analytics'})).not.toBeInTheDocument();
+    expect(screen.getByRole('link', {name: 'Load a different card'})).toBeInTheDocument();
+  });
+
+  it('draws no notice while Sets 1 to 8 load, or once they are in', async () => {
+    const held = deferredResponse();
+    const empty = chunksOf();
+    stubFetch(fileOf(FILE), (set) => (set === '4' ? held.response : empty(set)));
+    renderStudio({path: '/studio?mode=edit'});
+    expect(screen.getByRole('status')).toHaveTextContent('3 cards');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    held.respond(Response.json(SET_4_ENTRIES));
+    // Yen Sid joins the three cards of the list.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('4 cards'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
 
