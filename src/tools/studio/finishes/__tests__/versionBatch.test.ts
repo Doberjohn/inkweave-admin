@@ -8,6 +8,7 @@ import {
   clashCount,
   hasClash,
   keptClash,
+  marksAny,
   removalNote,
   withChange,
   withClashes,
@@ -96,18 +97,37 @@ describe('withChange', () => {
     expect(back.changes.map((change) => change.id)).toEqual(['946']);
   });
 
-  it('replaces the clash of a change with the choice made against what the branch now has', () => {
-    const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
-    // The panel read the branch again after the refused publish, so the row now says Normal only.
-    const again = withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'foil'}));
-    expect(again.changes).toHaveLength(1);
-    expect(again.changes[0]).toMatchObject({from: ['normal'], shownFrom: ['normal'], to: ['foil']});
-    expect(hasClash(again)).toBe(false);
+  it('keeps the base of a change chosen again, whatever its row shows now, and writes only the new choice', () => {
+    const staged = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    // The branch moved since: someone made #223 Normal only. The panel read it again (a reload, say), so the row says so.
+    const again = withChange(batchOf(staged), changeFor({row: altFoilNow(['normal']), choice: 'normal'}));
+    // The publish still checks the printing against what it held when the change was first staged.
+    expect(again.changes).toEqual([{...staged, to: ['normal']}]);
   });
 
-  it('drops a clashed change when the owner chooses what the branch now has', () => {
+  it('takes a change back when the owner chooses what the printing showed when it was first staged, whatever its row shows now', () => {
+    const staged = withChange(EMPTY_BATCH, changeFor({row: ALT_FOIL_223, choice: 'both'}));
+    expect(withChange(staged, changeFor({row: altFoilNow(['normal']), choice: 'foil'})).changes).toEqual([]);
+  });
+
+  it('keeps the clash of a change chosen again, with its base: only Keep mine or Drop settles it', () => {
     const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
-    expect(withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'normal'})).changes).toEqual([]);
+    // The panel read the branch again after the refused publish, so the row now says Normal only.
+    const again = withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'normal'}));
+    expect(again.changes).toEqual([{...clashed.changes[0], to: ['normal']}]);
+    expect(again.changes[0]).toMatchObject({from: ['foil'], shownFrom: ['foil'], clash: ALT_FOIL_NOW_NORMAL});
+    expect(hasClash(again)).toBe(true);
+  });
+
+  it('drops a clashed change when the owner chooses what the printing showed when the change was first staged', () => {
+    const clashed = withClashes(batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'})), [ALT_FOIL_NOW_NORMAL]);
+    expect(withChange(clashed, changeFor({row: altFoilNow(['normal']), choice: 'foil'})).changes).toEqual([]);
+  });
+
+  it('keeps the label the change was staged with', () => {
+    const staged = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    const renamed = changeFor({row: {...ALT_FOIL_223, label: 'Another label'}, choice: 'normal'});
+    expect(withChange(batchOf(staged), renamed).changes[0].label).toBe(staged.label);
   });
 
   it('leaves the batch it was given as it was', () => {
@@ -181,6 +201,16 @@ describe('clashes', () => {
     expect(clashed.changes.map((change) => change.clash)).toEqual([gone, ALT_FOIL_NOW_NORMAL]);
   });
 
+  it('tells whether any clash names a change the batch holds', () => {
+    const batch = batchOf(changeFor({row: CARD_59, choice: 'foil'}), changeFor({row: ALT_FOIL_223, choice: 'both'}));
+    expect(marksAny(batch, [ALT_FOIL_NOW_NORMAL])).toBe(true);
+    expect(marksAny(batch, [{id: '900', now: null, shownNow: ['foil']}, ALT_FOIL_NOW_NORMAL])).toBe(true);
+    // Another tab published or reverted the change the clash names: nothing is left to mark.
+    expect(marksAny(withoutChange(batch, '946'), [ALT_FOIL_NOW_NORMAL])).toBe(false);
+    expect(marksAny(EMPTY_BATCH, [ALT_FOIL_NOW_NORMAL])).toBe(false);
+    expect(marksAny(batch, [])).toBe(false);
+  });
+
   it('leaves the batch it was given unmarked', () => {
     const batch = batchOf(changeFor({row: ALT_FOIL_223, choice: 'both'}));
     withClashes(batch, [ALT_FOIL_NOW_NORMAL]);
@@ -242,6 +272,33 @@ describe('afterPublish', () => {
     const after = afterPublish(during, sent);
     expect(after.changes).toHaveLength(1);
     expect(after.changes[0].to).toEqual(['normal']);
+  });
+
+  it('starts a change staged again for a printing it sent from what it sent: the value the branch now holds', () => {
+    const sentChange = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    // Another tab chose #223 again while the publish ran: Normal only, from the base the sent change had.
+    const during = batchOf({...sentChange, to: ['normal']});
+    expect(afterPublish(during, [sentChange]).changes).toEqual([
+      {...sentChange, from: ['normal', 'foil'], shownFrom: ['normal', 'foil'], to: ['normal']},
+    ]);
+  });
+
+  it('drops the clash mark of a change it starts again from what it sent', () => {
+    const sentChange = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    const during = batchOf({...sentChange, to: ['normal'], clash: ALT_FOIL_NOW_NORMAL});
+    const [after] = afterPublish(during, [sentChange]).changes;
+    expect(after).not.toHaveProperty('clash');
+    expect(after).toMatchObject({from: ['normal', 'foil'], shownFrom: ['normal', 'foil'], to: ['normal']});
+  });
+
+  it('drops a change staged again that asks for what the publish sent, and keeps the others as they are', () => {
+    const sentChange = changeFor({row: ALT_FOIL_223, choice: 'both'});
+    const other = changeFor({row: CARD_59, choice: 'foil'});
+    // A copy of the sent change, as another tab's save hands it back: another object that asks for the same.
+    const during = batchOf({...sentChange}, other);
+    const after = afterPublish(during, [sentChange]);
+    expect(after.changes).toEqual([other]);
+    expect(after.changes[0]).toBe(other);
   });
 
   it('empties the batch when it sent every change, and leaves it alone when it sent none', () => {

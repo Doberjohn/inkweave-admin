@@ -123,9 +123,9 @@ export const NUMBER_59_TO_FOIL_GONE: VersionChange = {
 };
 
 /**
- * The batch as the Version changes tray reads it: holding `changes`, with no publish under way and
- * nothing said of the last one, unless `rest` says so. Its actions do nothing; a test that watches
- * one hands in a spy.
+ * The batch as the Version changes tray reads it: holding `changes`, saved, with no publish under
+ * way and nothing said of the last one, unless `rest` says so. Its actions do nothing; a test that
+ * watches one hands in a spy.
  */
 export function batchView(changes: readonly VersionChange[], rest: Partial<VersionBatchView> = {}): VersionBatchView {
   return {
@@ -133,6 +133,7 @@ export function batchView(changes: readonly VersionChange[], rest: Partial<Versi
     publishing: false,
     result: null,
     error: null,
+    unsaved: false,
     stage: () => {},
     revert: () => {},
     discard: () => {},

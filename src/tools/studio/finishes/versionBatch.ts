@@ -10,8 +10,9 @@ import type {PrintingRow} from './printingRows';
  * the batch (versionBatchStore.ts) and the publish that writes it share them.
  *
  * A change leaves the batch by the owner's word alone: Revert or Drop, Discard all, a choice that
- * puts the printing back to what it showed, Keep mine on a clash the branch's new value settles, or
- * a publish that sent it. Nothing here removes one for any other reason.
+ * puts the printing back to what it showed, Keep mine on a clash the branch's new value settles, a
+ * publish that sent it, or one that wrote what it asks for. Nothing here removes one for any other
+ * reason.
  */
 
 /**
@@ -34,11 +35,15 @@ export interface VersionClash {
 export interface VersionChange {
   /** The printing's id. The batch holds one change for each. */
   id: string;
-  /** The row's label: "Yen Sid - Powerful Sorcerer #223". */
+  /** The row's label when the change was first staged: "Yen Sid - Powerful Sorcerer #223". */
   label: string;
   /** What finds the printing among the app's files. */
   ref: PrintingRef;
-  /** The `finishes` the printing's primary home held when the change was staged, or null where it held none. A publish checks it. */
+  /**
+   * The `finishes` the printing's primary home held when the change was first staged, or null where
+   * it held none: choosing again keeps it, and only Keep mine or a publish that wrote the printing
+   * starts it again. A publish checks it.
+   */
   from: PrintingFinishes | null;
   /** The versions it showed then. */
   shownFrom: readonly Finish[];
@@ -62,13 +67,25 @@ export function changeFor({row, choice}: {row: PrintingRow; choice: FinishChoice
 }
 
 /**
- * The batch with `change` in it, in the place of the one for the same printing. A change that sets
- * the printing to the versions it showed when the change started leaves the batch instead, and
- * takes the printing's earlier change with it, so no publish rewrites what the binder already
- * shows. Compared by what each shows, an explicit Both and a missing field on a printing whose
- * rarity gives Both are the same.
+ * The batch with `change` in it. A printing the batch already holds a change for keeps that
+ * change's base (`from`, `shownFrom`, and a clash mark if it has one), and only what it writes
+ * becomes the new choice: a publish checks the printing against what it held when the change was
+ * first staged, so a row read again since (after a reload, say) never moves that. A choice that
+ * sets the printing back to the versions it showed then takes the change out instead (`placed`).
  */
 export function withChange(batch: VersionBatch, change: VersionChange): VersionBatch {
+  const held = batch.changes.find((pending) => pending.id === change.id);
+  return placed(batch, held ? {...held, to: change.to} : change);
+}
+
+/**
+ * The batch with `change` in the place of its printing's change, or after the others where there
+ * is none. A change that sets the printing to the versions it showed when the change started
+ * leaves the batch instead, and takes the printing's earlier change with it, so no publish
+ * rewrites what the binder already shows. Compared by what each shows, an explicit Both and a
+ * missing field on a printing whose rarity gives Both are the same.
+ */
+function placed(batch: VersionBatch, change: VersionChange): VersionBatch {
   const held = batch.changes.some((pending) => pending.id === change.id);
   if (sameFinishes(change.to, change.shownFrom)) return held ? withoutChange(batch, change.id) : batch;
   const changes = held
@@ -77,9 +94,27 @@ export function withChange(batch: VersionBatch, change: VersionChange): VersionB
   return {changes};
 }
 
+/**
+ * The change started again from what its printing's primary home holds (`from`) and shows
+ * (`shownFrom`) now, with no clash mark: Keep mine on a clash, and a publish that wrote the
+ * printing while the change waited.
+ */
+function restarted(change: VersionChange, base: Pick<VersionChange, 'from' | 'shownFrom'>): VersionChange {
+  const {id, label, ref, to} = change;
+  return {id, label, ref, to, ...base};
+}
+
 /** The batch without the printing's change. */
 export function withoutChange(batch: VersionBatch, id: string): VersionBatch {
   return {changes: batch.changes.filter((change) => change.id !== id)};
+}
+
+/**
+ * Whether a clash names a change the batch holds, which `withClashes` would mark. None does where
+ * another tab published or reverted the changes a publish sent before its clashes came back.
+ */
+export function marksAny(batch: VersionBatch, clashes: readonly VersionClash[]): boolean {
+  return clashes.some(({id}) => batch.changes.some((change) => change.id === id));
 }
 
 /** The batch with each change a clash names marked with it. The other changes are as they were. */
@@ -101,9 +136,9 @@ export function withClashes(batch: VersionBatch, clashes: readonly VersionClash[
 export function keptClash(batch: VersionBatch, id: string): VersionBatch {
   const change = batch.changes.find((pending) => pending.id === id);
   if (!change) return batch;
-  const {clash, ...unclashed} = change;
+  const {clash} = change;
   if (!clash || clash.gone) return batch;
-  return withChange(batch, {...unclashed, from: clash.now, shownFrom: clash.shownNow});
+  return placed(batch, restarted(change, {from: clash.now, shownFrom: clash.shownNow}));
 }
 
 /** Whether a change is clashed, which keeps Publish off until the owner has kept or dropped it. */
@@ -122,10 +157,24 @@ export function clashCount(batch: VersionBatch): number {
 
 /**
  * The batch once a publish landed: without the changes it sent, which it finds by identity. A
- * change staged again for a printing meanwhile is another object, so it stays.
+ * change staged again for a printing meanwhile (by another tab, say) is another object, so it
+ * stays, started again from what the publish wrote (`leftAfter`).
  */
 export function afterPublish(batch: VersionBatch, sent: readonly VersionChange[]): VersionBatch {
-  return {changes: batch.changes.filter((change) => !sent.includes(change))};
+  return {changes: batch.changes.flatMap((change) => leftAfter(change, sent))};
+}
+
+/**
+ * What a publish that sent `sent` leaves of a change: nothing of one it sent. One for a printing it
+ * wrote all the same starts from what the publish wrote there, which the branch holds now, with no
+ * clash mark, and leaves too if it asks for that very value. Any other is as it was.
+ */
+function leftAfter(change: VersionChange, sent: readonly VersionChange[]): VersionChange[] {
+  if (sent.includes(change)) return [];
+  const wrote = sent.find(({id}) => id === change.id);
+  if (!wrote) return [change];
+  const next = restarted(change, {from: wrote.to, shownFrom: wrote.to});
+  return sameFinishes(next.to, next.shownFrom) ? [] : [next];
 }
 
 /**

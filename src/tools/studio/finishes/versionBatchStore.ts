@@ -3,11 +3,13 @@ import {targetBranch} from '../../../github/githubCommit';
 import {forgetBranchFiles} from './branchFiles';
 import {publishVersions, VersionClashError} from './publishVersions';
 import {savedChangesOf} from './savedChanges';
+import {tokenMark} from './tokenMark';
 import {
   EMPTY_BATCH,
   afterPublish,
   hasClash,
   keptClash,
+  marksAny,
   withChange,
   withClashes,
   withoutChange,
@@ -25,10 +27,11 @@ import {
  * reload keeps it, and a rehearsal's batch never shows, or publishes, on master. What a page reads
  * is its memory, which a save writes through to storage, so a save that fails (blocked site data, a
  * full quota) leaves the batch in memory for the page's life, and the next save that works writes
- * all of it. Whether a publish is under way, and how the last one ended, belong to the page alone
- * and are never saved. How the last one ended also belongs to the token that made it: a reader that
- * holds another token (a new one, saved after Forget token) is not told "GitHub rejected the saved
- * token" about the one it replaced.
+ * all of it; until then the view says so (`unsaved`), for the tray to warn. Whether a publish is
+ * under way, and how the last one ended, belong to the page alone and are never saved. How the last
+ * one ended also belongs to the token that made it: a reader that holds another token (a new one,
+ * saved after Forget token) is not told "GitHub rejected the saved token" about the one it
+ * replaced. The store knows that token again by its mark (tokenMark.ts), and never holds the token.
  *
  * Another tab on the same branch saves to the same key, and a save writes the whole batch, so a
  * page that never read it back would write over what the other tab staged. A page follows it
@@ -41,9 +44,11 @@ import {
  * A publish sends the changes staged when it starts (publishVersions.ts), and the owner may stage
  * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch.
  * When it finds clashes it marks them on their changes, and the batch stays, as it does for any
- * other failure; the marks are all it says of them, and `error` is for the other failures. A
- * landing or a clash writes the batch, so it first takes in what is saved, as the first component
- * to listen does: no component may have listened while the publish ran.
+ * other failure; the marks are all it says of them, and `error` is for the other failures. Where
+ * no change is left to mark (another tab published or reverted them first), `error` says that
+ * nothing was published. A landing or a clash writes the batch, so it first takes in what is
+ * saved, as the first component to listen does: no component may have listened while the publish
+ * ran.
  */
 
 /** Where a branch's batch is saved: this prefix, then the branch's name. Admin's own keys start `inkweave-admin.`. */
@@ -51,6 +56,9 @@ export const VERSION_BATCH_KEY_PREFIX = 'inkweave-admin.version-batch.';
 
 /** What a saved batch says its shape is, so a later shape can be told from this one. */
 const SAVED_VERSION = 1;
+
+/** Why a publish refused for clashes said nothing of them: no change was left in the batch to mark. */
+export const NOTHING_PUBLISHED = 'Nothing was published: these changes were published or reverted in another tab.';
 
 /** How a publish that landed ended. */
 export interface PublishResult {
@@ -67,16 +75,23 @@ export interface VersionBatchView {
   publishing: boolean;
   /**
    * The publish that landed last, until the owner stages, reverts or discards a change, or
-   * publishes again. Only to a reader of the token that made it (`useVersionBatch(token)`).
+   * publishes again. Only to a reader that names the token that made it, or names none
+   * (`useVersionBatch(token)`).
    */
   result: PublishResult | null;
   /**
    * Why the last publish didn't land, until the owner stages, reverts or discards a change, or
-   * publishes again. Only to a reader of the token that made it. Never a clash: that is the marks on
-   * the changes (`hasClash`), which the tray words from the ones still marked, so no message of it
-   * outlives the last mark.
+   * publishes again. Only to a reader that names the token that made it, or names none. Never a
+   * clash: that is the marks on the changes (`hasClash`), which the tray words from the ones still
+   * marked, so no message of it outlives the last mark. A refusal for clashes that left no change
+   * to mark says that nothing was published (`NOTHING_PUBLISHED`).
    */
   error: string | null;
+  /**
+   * The last save of the batch to this browser's storage failed (blocked site data, a full quota),
+   * so a reload would lose what only the page holds, until a save works.
+   */
+  unsaved: boolean;
   /** Adds a change, in the place of its printing's earlier one. One that restores what the printing showed removes it. */
   stage: (change: VersionChange) => void;
   /** Takes a printing's change out of the batch: Revert, and Drop on a clash. */
@@ -97,8 +112,11 @@ interface BranchState {
   publishing: boolean;
   result: PublishResult | null;
   error: string | null;
-  /** The token the last publish was made with, whose `result` and `error` these are: they show to its readers only. */
-  outcomeToken: string | null;
+  /**
+   * The mark of the token the last publish was made with (`tokenMark`), whose `result` and `error`
+   * these are: they show to its readers only. The token itself is never kept.
+   */
+  outcomeMark: number | null;
 }
 
 /** The shape saved text is read as, before any of it is trusted. */
@@ -176,7 +194,7 @@ function snapshot(): BranchState {
     publishing: false,
     result: null,
     error: null,
-    outcomeToken: null,
+    outcomeMark: null,
   };
   states.set(branch, loaded);
   return loaded;
@@ -295,11 +313,13 @@ function landed({sent, commitUrl}: {sent: readonly VersionChange[]; commitUrl: s
  * The publish found clashes: each marks its change, and the panel reads the branch again to show
  * what it has now. The marks are all it says (see `error`): they are saved with the batch, so a
  * reload or another tab that takes the batch in sees them too, and they fall one by one as the
- * owner keeps or drops each.
+ * owner keeps or drops each. Where the batch holds a change for none of them, another tab
+ * published or reverted the changes first: nothing is marked, so `error` says nothing was published.
  */
 function clashed({clashes}: VersionClashError): void {
   adoptUnheard();
-  put({batch: withClashes(snapshot().batch, clashes), publishing: false});
+  const {batch} = snapshot();
+  put({batch: withClashes(batch, clashes), publishing: false, error: marksAny(batch, clashes) ? null : NOTHING_PUBLISHED});
   forgetBranchFiles();
 }
 
@@ -322,31 +342,32 @@ function canPublish({batch, publishing}: BranchState): boolean {
 /**
  * Writes the batch in one commit, unless a publish is under way, nothing is staged or a clash is
  * open. It sends the changes staged when it starts, and while it runs what the last publish said
- * (`result`, `error`) is gone; how it ends is said to `token` alone. Each way it ends sets
- * `publishing` back itself, with no `finally`.
+ * (`result`, `error`) is gone; how it ends is said to `token` alone, which the store keeps only as
+ * its mark. Each way it ends sets `publishing` back itself, with no `finally`.
  */
 function publish(token: string): Promise<void> {
   const state = snapshot();
   if (!canPublish(state)) return Promise.resolve();
   const sent = state.batch.changes;
-  put({publishing: true, result: null, error: null, outcomeToken: token});
+  put({publishing: true, result: null, error: null, outcomeMark: tokenMark(token)});
   return publishVersions({token, changes: sent}).then(({commitUrl}) => landed({sent, commitUrl}), refused);
 }
 
 /**
  * The shared batch of the target branch, and what the panel and the tray do to it. Given a token,
- * it tells how the last publish ended only if that publish was made with the same one: a token the
- * owner saved since has nothing to be told. With none (the Printings panel, which has no use for the
- * outcome) it tells the outcome as it is.
+ * it tells how the last publish ended only if that publish was made with the same one (by their
+ * marks): a token the owner saved since has nothing to be told. With none (the Printings panel,
+ * which has no use for the outcome) it tells the outcome as it is.
  */
 export function useVersionBatch(token?: string): VersionBatchView {
-  const {batch, publishing, result, error, outcomeToken} = useSyncExternalStore(subscribe, snapshot);
-  const theirs = token === undefined || token === outcomeToken;
+  const {batch, publishing, result, error, unsaved, outcomeMark} = useSyncExternalStore(subscribe, snapshot);
+  const theirs = token === undefined || tokenMark(token) === outcomeMark;
   return {
     changes: batch.changes,
     publishing,
     result: theirs ? result : null,
     error: theirs ? error : null,
+    unsaved,
     stage,
     revert,
     discard,

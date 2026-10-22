@@ -272,9 +272,34 @@ describe('VersionsTray: once one of its own buttons was pressed', () => {
     expect(container).not.toBeEmptyDOMElement();
   });
 
-  it('is not made to stay by a button that is not its own: Publish, or Forget token', async () => {
+  it('stays, with focus on Publish, when a publish it started ends with nothing to show', async () => {
+    const publish = vi.fn(() => Promise.resolve());
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {publish}));
+    const button = screen.getByRole('button', {name: 'Publish 1 change to master'});
+    await userEvent.click(button);
+    expect(publish).toHaveBeenCalledOnce();
+
+    // The batch it sent is gone, and nothing is said of the publish: Publish counts as a press, so the tray stays.
+    rerender(trayElement(batchView([])));
+    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 0'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Publish to master'})).toBe(button);
+    expect(button).toHaveFocus();
+  });
+
+  it('stays after a press of a held Publish too, which keeps its focus though it starts nothing', async () => {
+    const publish = vi.fn(() => Promise.resolve());
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH_CLASHED], {publish}));
+    const button = screen.getByRole('button', {name: 'Publish 1 change to master'});
+    await userEvent.click(button);
+    expect(publish).not.toHaveBeenCalled();
+
+    rerender(trayElement(batchView([])));
+    expect(screen.getByRole('button', {name: 'Publish to master'})).toBe(button);
+    expect(button).toHaveFocus();
+  });
+
+  it('is not made to stay by Forget token, which is the page’s button, not its own', async () => {
     const {container, rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {error: REJECTED}));
-    await userEvent.click(screen.getByRole('button', {name: 'Publish 1 change to master'}));
     await userEvent.click(screen.getByRole('button', {name: 'Forget token'}));
 
     rerender(trayElement(batchView([])));
@@ -481,6 +506,39 @@ describe('VersionsTray: the outcome', () => {
     renderTray(batchView([], {result: LANDED}));
     expect(screen.getByRole('status')).toHaveTextContent('It went to rehearse-68; only master deploys to production.');
     expect(screen.getByRole('status')).not.toHaveTextContent('They show in the binder');
+  });
+});
+
+/*
+ * The batch lives in this browser's storage, so a reload keeps it. Where storage refused the last
+ * save (blocked site data, a full quota), only the page holds the changes, and the owner is told.
+ */
+describe('VersionsTray: a batch this browser could not save', () => {
+  const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
+
+  it('warns while the last save failed, and stops once a save works', () => {
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {unsaved: true}));
+    const tray = screen.getByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByRole('alert')).toHaveTextContent(UNSAVED);
+
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH, NUMBER_59_TO_FOIL])));
+    expect(screen.queryByText(UNSAVED)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says it under the changes, before Publish', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH], {unsaved: true}));
+    const warning = screen.getByText(UNSAVED);
+    const list = screen.getByRole('list');
+    const publish = screen.getByRole('button', {name: 'Publish 1 change to master'});
+    expect(list.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(warning.compareDocumentPosition(publish) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('says nothing of it with no change left to lose', () => {
+    renderTray(batchView([], {unsaved: true, result: LANDED}));
+    expect(screen.getByRole('status')).toHaveTextContent('Published 2 changes.');
+    expect(screen.queryByText(UNSAVED)).not.toBeInTheDocument();
   });
 });
 

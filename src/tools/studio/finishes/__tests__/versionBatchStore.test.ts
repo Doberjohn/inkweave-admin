@@ -1,5 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook} from '@testing-library/react';
+import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {isRejectedToken} from '../../../../github/rejectedToken';
 import {useBranchFilesGeneration} from '../branchFiles';
 import {setChunkPath} from '../finishFiles';
@@ -127,13 +128,6 @@ describe('useVersionBatch', () => {
     expect(result.current.discard).toBe(discard);
     expect(result.current.keep).toBe(keep);
     expect(result.current.publish).toBe(publish);
-  });
-
-  it('resolves a publish when nothing is staged', async () => {
-    const {result} = renderHook(() => useVersionBatch());
-    await expect(result.current.publish('token')).resolves.toBeUndefined();
-    expect(result.current.changes).toEqual([]);
-    expect(result.current.publishing).toBe(false);
   });
 });
 
@@ -297,6 +291,31 @@ describe('storage that fails', () => {
     vi.stubGlobal('localStorage', {getItem: refuse, setItem: refuse, removeItem: refuse});
     expect(() => act(() => resetVersionBatch())).not.toThrow();
     expect(result.current.changes).toEqual([]);
+  });
+
+  it('says whether the last save failed, until a save works', () => {
+    const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const {result} = renderHook(() => useVersionBatch());
+    expect(result.current.unsaved).toBe(false);
+
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    expect(result.current.unsaved).toBe(true);
+    // An action that changes nothing saves nothing, so it leaves the failure as it was.
+    act(() => result.current.keep('no-such-printing'));
+    expect(result.current.unsaved).toBe(true);
+
+    save.mockRestore();
+    act(() => result.current.stage(CARD_TO_FOIL));
+    expect(result.current.unsaved).toBe(false);
+  });
+
+  it('says so to every reader, whichever token it names', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    const page = renderHook(() => useVersionBatch('a'));
+    const panel = renderHook(() => useVersionBatch());
+    act(() => panel.result.current.stage(ALT_FOIL_TO_BOTH));
+    expect(page.result.current.unsaved).toBe(true);
+    expect(panel.result.current.unsaved).toBe(true);
   });
 });
 
@@ -509,6 +528,7 @@ describe('another tab', () => {
  */
 
 const CHUNK_4 = setChunkPath('4');
+const BOTH: PrintingFinishes = ['normal', 'foil'];
 
 /** Set 4's chunk at the commit a publish builds on, as its rows were read: nothing changed since. */
 const SET_4_FILES = {[CHUNK_4]: SET_4_TEXT};
@@ -579,15 +599,29 @@ describe('publishing', () => {
     expect(generation.result.current).toBe(1);
   });
 
-  it('keeps a change staged again for a printing it sent, which is another change', async () => {
+  it('keeps a change staged again for a printing it sent, started from what it sent', async () => {
     const held = heldUpdate();
     const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
     const normal = changeFor({row: ALT_FOIL_223, choice: 'normal'});
     act(() => view.current.stage(normal));
 
     await settled(publishing, held.moveBranch);
-    expect(view.current.changes).toEqual([normal]);
+    // The branch holds Both for #223 now, so the change that asks for Normal only starts from there.
+    expect(view.current.changes).toEqual([{...normal, from: BOTH, shownFrom: BOTH}]);
     expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+  });
+
+  it('finds the clash of a change chosen again after the branch moved: its base is the first staging’s', async () => {
+    // #59 had no field, so it showed Both, when its change was staged. Someone has since written Both for it.
+    stubRepo({files: {[CHUNK_4]: collectionText(withFinishes(SET_4_ENTRIES, {750: BOTH}))}});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(CARD_TO_FOIL));
+    // The panel read the branch again (a reload, say), so #59's row names Both; the owner chooses Normal only.
+    act(() => result.current.stage(changeFor({row: {...CARD_59, value: BOTH, shown: BOTH}, choice: 'normal'})));
+    await publishNow(result);
+
+    // Built from the row, the change would have started from Both and written over the other edit unseen.
+    expect(result.current.changes).toEqual([{...CARD_TO_FOIL, to: ['normal'], clash: {id: '750', now: BOTH, shownNow: BOTH}}]);
   });
 
   it('marks clashes and keeps the batch when a printing changed', async () => {
@@ -905,6 +939,39 @@ describe('a publish and other tabs', () => {
     await settled(publishing, held.moveBranch);
     expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL]});
     expect(renderHook(() => useVersionBatch()).result.current.changes).toEqual([CARD_TO_FOIL]);
+  });
+
+  it('says nothing was published when its clashes find no change left to mark: another tab took them out first', async () => {
+    const late = deferredResponse();
+    const {view, publishing} = publishingAltFoil({files: {[CHUNK_4]: () => late.response}});
+    const generation = renderHook(() => useBranchFilesGeneration());
+    // Another tab publishes #223's change, or reverts it, and saves the batch without it.
+    otherTabSaves([]);
+
+    await settled(publishing, () => late.respond(new Response(SET_4_ALT_FOIL_NORMAL[CHUNK_4])));
+    expect(view.current.error).toBe('Nothing was published: these changes were published or reverted in another tab.');
+    expect(view.current.changes).toEqual([]);
+    expect(view.current.result).toBeNull();
+    expect(view.current.publishing).toBe(false);
+    // The branch moved, so the panel reads it again.
+    expect(generation.result.current).toBe(1);
+  });
+
+  it('marks the clashes it finds a change for, and says nothing else, when another tab took out only some', async () => {
+    const late = deferredResponse();
+    const files = {[CHUNK_4]: () => late.response};
+    const repo = stubRepo({files});
+    const {result} = renderHook(() => useVersionBatch());
+    act(() => result.current.stage(ALT_FOIL_TO_BOTH));
+    act(() => result.current.stage(CARD_TO_FOIL));
+    const publishing = startPublish(result);
+    otherTabSaves([CARD_TO_FOIL]);
+
+    const both = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal'], 750: ['normal']}));
+    await settled(publishing, () => late.respond(new Response(both)));
+    expect(result.current.changes).toEqual([{...CARD_TO_FOIL, clash: {id: '750', now: ['normal'], shownNow: ['normal']}}]);
+    expect(result.current.error).toBeNull();
+    expect(repo.writes()).toEqual([]);
   });
 
   it('takes in what another tab saved while no component listened, before it marks a clash', async () => {

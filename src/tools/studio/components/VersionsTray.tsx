@@ -94,6 +94,9 @@ const GONE = 'No longer in the data.';
 /** What stands where the rows go when the tray shows with no change. */
 const NO_CHANGES = 'No version changes';
 
+/** What the tray says while this browser's storage refuses the batch: only the page holds the changes. */
+const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
+
 export interface VersionsTrayProps {
   /** The studio's batch and how the last publish ended, as `useVersionBatch` hands them over. */
   view: VersionBatchView;
@@ -294,6 +297,29 @@ function PublishFailure({error, onForgetToken}: {error: string; onForgetToken: (
   );
 }
 
+interface NoticesProps {
+  view: VersionBatchView;
+  /** How many changes are clashed, and the id of the line that says so, which describes Publish. */
+  clashes: number;
+  clashId: string;
+  onForgetToken: () => void;
+}
+
+/**
+ * What the tray says between its rows and Publish: that this browser couldn't save the changes it
+ * lists, why Publish is held, and how the last publish failed. The first is an alert: a reload
+ * would lose those changes, which the owner must know before it.
+ */
+function TrayNotices({view, clashes, clashId, onForgetToken}: NoticesProps) {
+  return (
+    <>
+      {view.unsaved && view.changes.length > 0 && <Notice tone="error">{UNSAVED}</Notice>}
+      {clashes > 0 && <ClashNotice count={clashes} id={clashId} />}
+      {view.error !== null && <PublishFailure error={view.error} onForgetToken={onForgetToken} />}
+    </>
+  );
+}
+
 /**
  * The live region, mounted with the tray so what it says is announced when it arrives: a live
  * region mounted with its text often isn't (PendingTray's). It holds the publish that landed.
@@ -316,27 +342,24 @@ function PublishStatus({result}: {result: PublishResult | null}) {
 
 interface PublishProps {
   view: VersionBatchView;
-  token: string;
   /** The id of the line that says why Publish is held, where one does. */
   describedBy: string | undefined;
+  /** Publish was pressed: the tray publishes, unless Publish is held (`holdsPublish`). */
+  onPublish: () => void;
 }
 
 /**
  * Publish, and what the last publish said. It is aria-disabled where it is held, so it keeps the
- * focus a native disabled would drop; a click still arrives then, so it does nothing.
+ * focus a native disabled would drop; a click still arrives then, and the tray does nothing with it.
  */
-function PublishBar({view, token, describedBy}: PublishProps) {
-  const held = holdsPublish(view);
-  const publish = () => {
-    if (!held) void view.publish(token);
-  };
+function PublishBar({view, describedBy, onPublish}: PublishProps) {
   return (
     <div style={FOOT}>
       <CtaButton
         type="button"
-        aria-disabled={held || undefined}
+        aria-disabled={holdsPublish(view) || undefined}
         aria-describedby={describedBy}
-        onClick={publish}>
+        onClick={onPublish}>
         {view.publishing ? 'Publishing…' : publishLabel(view.changes.length)}
       </CtaButton>
       <PublishStatus result={view.result} />
@@ -346,19 +369,21 @@ function PublishBar({view, token, describedBy}: PublishProps) {
 
 /**
  * The Version changes tray (#68), under whichever pane the studio shows: the batch of version
- * changes the Printings panel stages, as rows with their buttons, then why Publish is held, how a
- * failed publish failed, Publish and the publish that landed. It renders nothing while there is
- * nothing to say: no change, no publish under way, nothing about the last one.
+ * changes the Printings panel stages, as rows with their buttons, then a warning when this browser
+ * couldn't save them, why Publish is held, how a failed publish failed, Publish and the publish
+ * that landed. It renders nothing while there is nothing to say: no change, no publish under way,
+ * nothing about the last one.
  *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on
  * first and never falls to <body> (R-48): to the next row's first button, else the previous
  * row's, else the heading. The heading takes it from Discard all. Publish stays where it is.
  *
  * With the last change gone the heading would go too, were the tray to follow its rule: the store's
- * revert clears the outcome as well. So once the owner has pressed one of those buttons the tray
- * stays for the rest of its mount, empty or not, as PendingTray's empty state. A batch that
- * another tab empties, with no press here, takes the tray away, as an empty batch keeps it from
- * appearing when the studio opens.
+ * revert clears the outcome as well. So once the owner has pressed one of those buttons, or
+ * Publish, the tray stays for the rest of its mount, empty or not, as PendingTray's empty state: a
+ * publish that ends with nothing to show keeps it, and the focus on Publish. A batch that another
+ * tab empties, with no press here, takes the tray away, as an empty batch keeps it from appearing
+ * when the studio opens.
  *
  * A clash is told from the changes still marked, never from the store's `error`, which holds the
  * other failures only.
@@ -380,13 +405,16 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
     focusHeading(trayRef.current);
     view.discard();
   };
+  const publish = () => {
+    setPressed(true);
+    if (!holdsPublish(view)) void view.publish(token);
+  };
   return (
     <section ref={trayRef} aria-label="Version changes" style={TRAY}>
       <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
       <ChangeRows view={view} onSettle={settle} />
-      {clashes > 0 && <ClashNotice count={clashes} id={clashId} />}
-      {view.error !== null && <PublishFailure error={view.error} onForgetToken={onForgetToken} />}
-      <PublishBar view={view} token={token} describedBy={clashes > 0 ? clashId : undefined} />
+      <TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />
+      <PublishBar view={view} describedBy={clashes > 0 ? clashId : undefined} onPublish={publish} />
     </section>
   );
 }
