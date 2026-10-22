@@ -1,5 +1,5 @@
 import {useRef, useState} from 'react';
-import {CtaButton, LinkButton, SPACING} from '../../app-bridge';
+import {CtaButton, SPACING} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
 import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
@@ -21,6 +21,7 @@ import {
   type ChangeDay,
   type PathStream,
 } from './historyModel';
+import {ReadFailure} from './ReadFailure';
 import type {ChangeHistory, OlderRead} from './useChangeHistory';
 
 const FILTER_OPTIONS: ReadonlyArray<{value: AreaFilter; label: string}> = [
@@ -43,49 +44,65 @@ function reach({shown, changes, hasOlder}: {shown: number; changes: readonly Cha
   return hasOlder && oldest ? `${countOf(shown)} since ${fmtWeekday(localDay(oldest))}` : countOf(shown);
 }
 
-/** What the filter row says when nothing in the list passes it. */
+/**
+ * What the filter row says when nothing in the list passes it: in the stretch read so far,
+ * while older pages remain, or in the whole history once they don't.
+ */
 function emptyMessage({filter, hasOlder}: {filter: AreaFilter; hasOlder: boolean}): string {
-  const what = filter === 'all' ? 'No changes yet.' : `No changes to ${AREA_LABELS[filter].toLowerCase()} in this stretch.`;
-  return hasOlder ? `${what} Show older changes to look further back.` : what;
+  if (!hasOlder) return filter === 'all' ? 'No changes yet.' : `No changes to ${AREA_LABELS[filter].toLowerCase()}.`;
+  const what = filter === 'all' ? 'No changes' : `No changes to ${AREA_LABELS[filter].toLowerCase()}`;
+  return `${what} in this stretch. Show older changes to look further back.`;
+}
+
+/** What a day's changes and their reads need: the page's source, and its Forget token. */
+interface DayPanelProps {
+  day: ChangeDay;
+  source: ChangeSource;
+  onForgetToken: () => void;
 }
 
 /** One day's changes, newest first, in a flush panel headed by the day. */
-function DayPanel({day, source}: {day: ChangeDay; source: ChangeSource}) {
+function DayPanel({day, source, onForgetToken}: DayPanelProps) {
   return (
     <Panel title={fmtWeekday(day.day)} action={countOf(day.changes.length)} padded={false}>
       <ol style={{margin: 0, padding: 0, listStyle: 'none'}}>
         {day.changes.map((change, index) => (
-          <ChangeItem key={change.sha} change={change} source={source} divided={index > 0} />
+          <ChangeItem key={change.sha} change={change} source={source} divided={index > 0} onForgetToken={onForgetToken} />
         ))}
       </ol>
     </Panel>
   );
 }
 
-/** Reads each path's next page; while one runs the button holds, keeping its focus (aria-disabled). */
-function OlderRow({older, onLoadOlder}: {older: OlderRead; onLoadOlder: () => void}) {
-  const loading = older.status === 'loading';
+/** Why the last read of older pages failed, and Forget token when GitHub rejected the saved token. */
+function OlderError({error, onForgetToken}: {error: string; onForgetToken: () => void}) {
   return (
-    <div style={{display: 'grid', justifyItems: 'center', gap: SPACING.md}}>
-      {older.status === 'error' && <Notice tone="error">Older changes could not be read: {older.error}</Notice>}
-      <CtaButton type="button" variant="neutral" aria-disabled={loading || undefined} onClick={onLoadOlder}>
-        {loading ? 'Reading older changes…' : 'Show older changes'}
-      </CtaButton>
-    </div>
+    <>
+      <Notice tone="error">Older changes could not be read: {error}</Notice>
+      {isRejectedToken(error) && <ForgetTokenOffer onForget={onForgetToken} />}
+    </>
   );
 }
 
-/** The first read failed: why, a Retry, and Forget token when GitHub rejected the saved one. */
-function HistoryError({error, onRetry, onForgetToken}: {error: string; onRetry: () => void; onForgetToken: () => void}) {
+interface OlderRowProps {
+  older: OlderRead;
+  onLoadOlder: () => void;
+  onForgetToken: () => void;
+}
+
+/**
+ * Reads each path's next page; while one runs the button holds, keeping its focus
+ * (aria-disabled). After a failed read it is the retry, and Forget token joins it when
+ * GitHub rejected the saved token.
+ */
+function OlderRow({older, onLoadOlder, onForgetToken}: OlderRowProps) {
+  const loading = older.status === 'loading';
   return (
-    <div style={{display: 'grid', gap: SPACING.md}}>
-      <Notice tone="error">
-        The app&rsquo;s history could not be read: {error}{' '}
-        <LinkButton type="button" size="sm" onClick={onRetry}>
-          Try again
-        </LinkButton>
-      </Notice>
-      {isRejectedToken(error) && <ForgetTokenOffer onForget={onForgetToken} />}
+    <div style={{display: 'grid', justifyItems: 'center', gap: SPACING.md}}>
+      {older.status === 'error' && <OlderError error={older.error} onForgetToken={onForgetToken} />}
+      <CtaButton type="button" variant="neutral" aria-disabled={loading || undefined} onClick={onLoadOlder}>
+        {loading ? 'Reading older changes…' : 'Show older changes'}
+      </CtaButton>
     </div>
   );
 }
@@ -112,10 +129,11 @@ interface HistoryListProps {
   older: OlderRead;
   onLoadOlder: () => void;
   source: ChangeSource;
+  onForgetToken: () => void;
 }
 
 /** The paths read so far as one list: the filter, a panel per day, then Show older changes or the end of the history. */
-function HistoryList({streams, older, onLoadOlder, source}: HistoryListProps) {
+function HistoryList({streams, older, onLoadOlder, source, onForgetToken}: HistoryListProps) {
   const [filter, setFilter] = useState<AreaFilter>('all');
   const {changes, hasOlder} = mergedChanges(streams);
   const shown = filterChanges(changes, filter);
@@ -140,9 +158,13 @@ function HistoryList({streams, older, onLoadOlder, source}: HistoryListProps) {
       {shown.length === 0 ? (
         <Notice>{emptyMessage({filter, hasOlder})}</Notice>
       ) : (
-        byDay(shown).map((day) => <DayPanel key={day.day} day={day} source={source} />)
+        byDay(shown).map((day) => <DayPanel key={day.day} day={day} source={source} onForgetToken={onForgetToken} />)
       )}
-      {hasOlder ? <OlderRow older={older} onLoadOlder={onLoadOlder} /> : changes.length > 0 && <HistoryEnd handoff={endHandoff} />}
+      {hasOlder ? (
+        <OlderRow older={older} onLoadOlder={onLoadOlder} onForgetToken={onForgetToken} />
+      ) : (
+        changes.length > 0 && <HistoryEnd handoff={endHandoff} />
+      )}
     </>
   );
 }
@@ -171,7 +193,8 @@ export function ChangesView({history, source, onForgetToken, handoff}: ChangesVi
       handoff.request();
       history.retry();
     };
-    return <HistoryError error={state.error} onRetry={onRetry} onForgetToken={onForgetToken} />;
+    return <ReadFailure what="The app’s history" error={state.error} onRetry={onRetry} onForgetToken={onForgetToken} />;
   }
-  return <HistoryList streams={state.streams} older={state.older} onLoadOlder={history.loadOlder} source={source} />;
+  const {streams, older} = state;
+  return <HistoryList streams={streams} older={older} onLoadOlder={history.loadOlder} source={source} onForgetToken={onForgetToken} />;
 }

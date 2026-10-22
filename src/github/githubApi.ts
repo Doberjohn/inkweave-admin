@@ -53,15 +53,29 @@ export interface FileAt {
 }
 
 /**
- * A repo file as it is at `ref`, for its text or its bytes. The raw media type
- * returns the file as-is, up to 100 MB; the default JSON form base64-encodes
- * it and stops at 1 MB (docs/PLAN.md, 4.4).
+ * A repo file as it is at `ref`. The raw media type returns the file as-is, up
+ * to 100 MB; the default JSON form base64-encodes it and stops at 1 MB
+ * (docs/PLAN.md, 4.4).
  */
-export async function readRaw({token, path, ref}: FileAt): Promise<Response> {
+async function contentsAt({token, path, ref, cache}: FileAt & {cache: RequestCache}): Promise<Response> {
   const res = await fetch(`${API}${REPO_PATH}/contents/${path}?ref=${encodeURIComponent(ref)}`, {
-    ...FRESH,
+    cache,
     headers: {...authHeaders(token), Accept: 'application/vnd.github.raw+json'},
   });
   if (!res.ok) throw new Error(`GitHub ${res.status} on ${path}: ${(await res.text()).slice(0, 200)}`);
   return res;
+}
+
+/** A repo file as it is now at `ref`, a branch or a commit, for its text or its bytes: never from the browser's cache (FRESH). */
+export function readRaw(file: FileAt): Promise<Response> {
+  return contentsAt({...file, ...FRESH});
+}
+
+/**
+ * A repo file as a commit holds it, `ref` being the commit's sha. That never changes, so
+ * the browser answers from its cache whatever it already holds (the change history's
+ * reads, which reopening a change repeats).
+ */
+export function readRawAtCommit(file: FileAt): Promise<Response> {
+  return contentsAt({...file, cache: 'force-cache'});
 }

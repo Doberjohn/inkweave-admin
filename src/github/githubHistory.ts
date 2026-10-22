@@ -1,4 +1,4 @@
-import {REPO_PATH, ghJson, readRaw, type FileAt} from './githubApi';
+import {REPO_PATH, ghJson, readRawAtCommit, type FileAt} from './githubApi';
 import {targetBranch} from './githubCommit';
 
 /*
@@ -42,12 +42,15 @@ export interface ChangedFile {
   previous_filename?: string;
 }
 
+/** How many of a commit's files GitHub lists with it. A commit that changed more pages the rest, which the history never reads. */
+export const FILES_LISTED = 300;
+
 /** One commit as GitHub gives it alone: its page, its parents and the files it changed. */
 export interface CommitFiles {
   sha: string;
   html_url: string;
   parents: {sha: string}[];
-  /** Up to the first 300; GitHub pages the rest, which the history never reads. */
+  /** Up to the first FILES_LISTED. */
   files?: ChangedFile[];
 }
 
@@ -56,7 +59,12 @@ export function readCommitFiles({token, sha}: {token: string; sha: string}): Pro
   return ghJson<CommitFiles>(token, `${REPO_PATH}/commits/${sha}`);
 }
 
+/** A file's text at a commit (`ref`, its sha): one side of a change. */
+export async function readFileAtCommit(file: FileAt): Promise<string> {
+  return (await readRawAtCommit(file)).text();
+}
+
 /** A file's bytes at a commit, as a Blob: a scan, for an image to show. */
 export async function readRepoBlob(file: FileAt): Promise<Blob> {
-  return (await readRaw(file)).blob();
+  return (await readRawAtCommit(file)).blob();
 }

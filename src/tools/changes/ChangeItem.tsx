@@ -18,6 +18,8 @@ interface ChangeItemProps {
   source: ChangeSource;
   /** Ruled off from the change above it: every one but a day's first, which its panel's header rules off. */
   divided: boolean;
+  /** Forgets the saved token, which GitHub rejected reading the change's details. */
+  onForgetToken: () => void;
 }
 
 /**
@@ -25,7 +27,7 @@ interface ChangeItemProps {
  * header (adm-acc-head) that opens what it changed. Its details are read when it first
  * opens, and kept for the session (commitDetails), so it opens at once after that.
  */
-export function ChangeItem({change, source, divided}: ChangeItemProps) {
+export function ChangeItem({change, source, divided, onForgetToken}: ChangeItemProps) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const headerRef = useRef<HTMLButtonElement>(null);
@@ -53,7 +55,12 @@ export function ChangeItem({change, source, divided}: ChangeItemProps) {
       {open && (
         <div id={detailsId} style={{padding: `0 ${SPACING.lg}px ${SPACING.section}px`}}>
           {/* Try again goes with the error it sits in, so the header, which stays, takes focus (R-48). */}
-          <ChangeDetails change={change} source={source} onRetried={() => headerRef.current?.focus()} />
+          <ChangeDetails
+            change={change}
+            source={source}
+            onRetried={() => headerRef.current?.focus()}
+            onForgetToken={onForgetToken}
+          />
         </div>
       )}
     </li>

@@ -39,6 +39,16 @@ describe('diffTuning', () => {
     ]);
   });
 
+  // A value turned into an object, or back, is one change, so neither side's value is lost.
+  it('compares an object with a value or a list whole', () => {
+    expect(diffTuning({before: text({ramp: 'fast'}), after: text({ramp: {scores: {a: 1}}})})).toEqual([
+      {key: 'ramp', label: 'ramp', from: 'fast', to: '{"scores":{"a":1}}'},
+    ]);
+    expect(diffTuning({before: text({ramp: {a: 1}}), after: text({ramp: [1, 2]})})).toEqual([
+      {key: 'ramp', label: 'ramp', from: '{"a":1}', to: '[1,2]'},
+    ]);
+  });
+
   it('reads a file the commit added as every value new, and a key outside the entries by its path', () => {
     expect(diffTuning({before: null, after: text({version: 2})})).toEqual([{key: 'version', label: 'version', from: '—', to: '2'}]);
   });

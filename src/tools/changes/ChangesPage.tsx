@@ -1,4 +1,4 @@
-import {useRef} from 'react';
+import {useRef, useState} from 'react';
 import {SPACING} from '../../app-bridge';
 import {targetBranch} from '../../github/githubCommit';
 import {GithubTokenGate} from '../../github/GithubTokenGate';
@@ -46,13 +46,16 @@ interface ChangesWorkspaceProps {
  */
 function ChangesWorkspace({token, handoff, onForgetToken}: ChangesWorkspaceProps) {
   const history = useChangeHistory(token);
+  // One source for the workspace's life, which its key ties to the token: an open change's
+  // reads, and the scans it shows, never start again because the list read another page.
+  const [source] = useState(() => githubSource(token));
   const viewRef = useRef<HTMLDivElement>(null);
   useTakeHandoff(handoff, viewRef, 'button', history.state.status !== 'loading');
   return (
     <PageLayout title={TITLE} subtitle={<Subtitle />}>
       {/* One column no wider than the body, as PageLayout's own grid is, so a long line wraps instead of widening the page. */}
       <div ref={viewRef} style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: SPACING.xl}}>
-        <ChangesView history={history} source={githubSource(token)} onForgetToken={onForgetToken} handoff={handoff} />
+        <ChangesView history={history} source={source} onForgetToken={onForgetToken} handoff={handoff} />
       </div>
     </PageLayout>
   );

@@ -62,9 +62,23 @@ interface Sides {
   after: unknown;
 }
 
-/** Every leaf under `sides` whose value differs: an object on either side is walked key by key, anything else compared whole. */
-function leafChanges({path, before, after}: Sides): Sides[] {
-  if (isObject(before) || isObject(after)) {
+/** An object, or nothing: a side whose keys can be walked, an added or removed entry's missing side included. */
+const isBranch = (value: unknown) => value === undefined || isObject(value);
+
+/** Whether two sides are walked key by key: two objects, or an object and nothing. */
+function walked({before, after}: Sides): boolean {
+  if (!isBranch(before) || !isBranch(after)) return false;
+  return isObject(before) || isObject(after);
+}
+
+/**
+ * Every leaf under `sides` whose value differs. Two objects, or an object and nothing, are
+ * walked key by key. Anything else is compared whole, an object against a value or a list
+ * too, so neither side's value is lost.
+ */
+function leafChanges(sides: Sides): Sides[] {
+  const {path, before, after} = sides;
+  if (walked(sides)) {
     const a = isObject(before) ? before : {};
     const b = isObject(after) ? after : {};
     const keys = [...new Set([...Object.keys(b), ...Object.keys(a)])];

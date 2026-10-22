@@ -107,7 +107,7 @@ describe('ChangesPage', () => {
     await user.click(versions);
     expect(versions).toHaveAttribute('aria-expanded', 'true');
     const details = document.getElementById(versions.getAttribute('aria-controls') ?? '') as HTMLElement;
-    expect(await within(details).findByText(/Not set → Normal only/)).toHaveTextContent('Versions: Not set → Normal only');
+    expect(await within(details).findByText(/→ Normal only/)).toHaveTextContent('Versions: Both (by rarity) → Normal only');
     expect(within(details).getByRole('link', {name: 'Bruno Madrigal - Undetected Uncle 4/D23'})).toHaveAttribute(
       'href',
       '/studio?mode=edit&card=1936',
@@ -117,6 +117,28 @@ describe('ChangesPage', () => {
       'https://github.com/Doberjohn/inkweave/commit/v1',
     );
     expect(within(details).getByText(/^Doberjohn ·/)).toHaveTextContent('Doberjohn · 2026-10-22 17:13 · v1 on GitHub');
+  });
+
+  it('offers Forget token when GitHub rejects the token reading a change, and Forget token returns to the gate', async () => {
+    const user = userEvent.setup();
+    const stub = stubHistory(REPO);
+    renderPage();
+    const versions = await screen.findByRole('button', {name: /Set the versions of 1 printing/});
+    stub.fetch.mockImplementation(async () => new Response('{"message":"Bad credentials"}', {status: 401}));
+    await user.click(versions);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/What this change did could not be read: GitHub 401 on/);
+
+    await user.click(screen.getByRole('button', {name: 'Forget token'}));
+    expect(screen.getByRole('heading', {level: 2, name: 'GitHub token'})).toBeInTheDocument();
+  });
+
+  it('says an area has no changes at all once the whole history is read', async () => {
+    const user = userEvent.setup();
+    stubHistory({histories: {[TUNING]: [TUNE]}});
+    renderPage();
+    await screen.findByText('Tune scoring copy + scores');
+    await user.click(screen.getByRole('button', {name: 'Scans'}));
+    expect(screen.getByText('No changes to scans.')).toBeInTheDocument();
   });
 
   it('shows only the changes to the area the filter picks', async () => {
@@ -163,7 +185,7 @@ describe('ChangesPage', () => {
     commits.v1 = REPO.commits?.v1 as CommitFiles;
     await user.click(tryAgain);
     expect(versions).toHaveFocus();
-    expect(await screen.findByText(/Not set → Normal only/)).toBeInTheDocument();
+    expect(await screen.findByText(/Both \(by rarity\) → Normal only/)).toBeInTheDocument();
   });
 
   it('offers Try again and Forget token when GitHub rejects the token, and Forget token returns to the gate', async () => {

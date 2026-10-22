@@ -1,5 +1,4 @@
-import {readRepoFile} from '../../github/githubCommit';
-import {readCommitFiles, type ChangedFile} from '../../github/githubHistory';
+import {FILES_LISTED, readCommitFiles, readFileAtCommit, type ChangedFile} from '../../github/githubHistory';
 import {TUNING_PATH} from '../tuning/githubClient';
 import {areaOf} from './changePaths';
 import {readEntries, type EntryMap} from './dataEntries';
@@ -28,10 +27,15 @@ export interface CommitDetails {
   entries: EntryChange[];
   tuning: TuningChange[];
   scans: ScanFile[];
-  /** Followed files it changed that aren't itemized: more than MAX_READ of them, or a file this can't read. */
+  /** Followed files it changed that aren't itemized: more than MAX_READ of them, a file this can't read, or a commit not complete. */
   unread: string[];
   /** How many files it changed outside the followed paths: code, tests, docs. */
   otherFiles: number;
+  /**
+   * Whether GitHub listed every file it changed. One that changed FILES_LISTED or more has
+   * files GitHub doesn't list with it, so nothing in it is itemized, and its counts are at least.
+   */
+  complete: boolean;
 }
 
 /**
@@ -55,11 +59,32 @@ interface TextSides {
   after: string | null;
 }
 
-/** The file's text on each side of the commit. A file the commit added has none before, one it removed none after. */
+/**
+ * A changed file as the history sees it, or null for one it doesn't follow. A file renamed
+ * out of a followed path left the history: its old path is a file the commit removed.
+ */
+function asFollowed(file: ChangedFile): ChangedFile | null {
+  if (areaOf(file.filename) !== null) return file;
+  const old = file.previous_filename;
+  return old !== undefined && areaOf(old) !== null ? {filename: old, status: 'removed'} : null;
+}
+
+/**
+ * Where the file was before the commit, where the history followed it: its old path if it
+ * was renamed, else its path. A file the commit added, or renamed into a followed path, had none.
+ */
+function pathBefore(file: ChangedFile): string | null {
+  if (file.status === 'added') return null;
+  const old = file.previous_filename ?? file.filename;
+  return areaOf(old) === null ? null : old;
+}
+
+/** The file's text on each side of the commit, read at the commit's parent and at the commit; null for a side with no file. */
 async function readSides({token, sha, parent}: CommitRef, file: ChangedFile): Promise<TextSides> {
+  const old = pathBefore(file);
   const [before, after] = await Promise.all([
-    file.status === 'added' || parent === null ? null : readRepoFile(token, file.previous_filename ?? file.filename, parent),
-    file.status === 'removed' ? null : readRepoFile(token, file.filename, sha),
+    old === null || parent === null ? null : readFileAtCommit({token, path: old, ref: parent}),
+    file.status === 'removed' ? null : readFileAtCommit({token, path: file.filename, ref: sha}),
   ]);
   return {path: file.filename, before, after};
 }
@@ -114,14 +139,18 @@ function itemized(read: readonly TextSides[]): Pick<CommitDetails, 'entries' | '
   return {entries, tuning: tuning ?? [], unread: tuning === null ? [...unread, TUNING_PATH] : unread};
 }
 
-/** Reads what the commit changed: its files, then each followed text file on both sides of it. */
+/**
+ * Reads what the commit changed: its files, then each followed text file on both sides of
+ * it, unless it changed too many to itemize, or more than GitHub lists.
+ */
 async function loadCommitDetails({token, sha}: {token: string; sha: string}): Promise<CommitDetails> {
   const commit = await readCommitFiles({token, sha});
   const files = commit.files ?? [];
-  const followed = files.filter((file) => areaOf(file.filename) !== null);
+  const followed = files.flatMap((file) => asFollowed(file) ?? []);
   const texts = followed.filter((file) => areaOf(file.filename) !== 'scans');
-  const listed = {url: commit.html_url, scans: scansOf(files, sha), otherFiles: files.length - followed.length};
-  if (texts.length > MAX_READ) return {...listed, entries: [], tuning: [], unread: texts.map((file) => file.filename)};
+  const complete = files.length < FILES_LISTED;
+  const listed = {url: commit.html_url, scans: scansOf(followed, sha), otherFiles: files.length - followed.length, complete};
+  if (!complete || texts.length > MAX_READ) return {...listed, entries: [], tuning: [], unread: texts.map((file) => file.filename)};
   const ref: CommitRef = {token, sha, parent: commit.parents[0]?.sha ?? null};
   return {...listed, ...itemized(await Promise.all(texts.map((file) => readSides(ref, file))))};
 }

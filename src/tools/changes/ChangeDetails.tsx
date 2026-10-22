@@ -1,12 +1,13 @@
 import {Link} from 'react-router-dom';
-import {LinkButton, SPACING} from '../../app-bridge';
+import {SPACING} from '../../app-bridge';
 import {REPO_URL} from '../../github/githubApi';
+import {FILES_LISTED} from '../../github/githubHistory';
 import {studioHref} from '../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {Notice} from '../../ui/Notice';
 import {Tag} from '../../ui/Tag';
 import {useDetails, useScanUrl, type ChangeSource} from './changeSource';
 import type {CommitDetails, ScanFile} from './commitDetails';
+import {ReadFailure} from './ReadFailure';
 import type {EntryChange, ValueChange} from './entryDiff';
 import {localDay, localTime, type Change} from './historyModel';
 import type {TuningChange} from './tuningDiff';
@@ -136,16 +137,23 @@ function ScanList({source, scans}: {source: ChangeSource; scans: readonly ScanFi
   );
 }
 
-/** What a change's details say beyond the lists: files it couldn't itemize, files outside the history, or nothing at all. */
+const plural = (n: number) => (n === 1 ? '' : 's');
+
+/**
+ * What a change's details say beyond the lists: that GitHub listed only part of the commit,
+ * the files not itemized, the files outside the history, or that it changed nothing listed.
+ */
+function notesOf({entries, tuning, scans, unread, otherFiles, complete}: CommitDetails): string[] {
+  const notes: string[] = [];
+  if (!complete) notes.push(`GitHub lists ${FILES_LISTED} of a commit's files at most, so this one isn't itemized here. Its page on GitHub has them all.`);
+  else if (entries.length + tuning.length + scans.length + unread.length === 0) notes.push('It changed nothing these lists show.');
+  if (unread.length > 0) notes.push(`Not itemized here: ${unread.join(', ')}.`);
+  if (otherFiles > 0) notes.push(`It also changed ${complete ? '' : 'at least '}${otherFiles} file${plural(otherFiles)} outside the card data and tuning.`);
+  return notes;
+}
+
 function DetailsNotes({details}: {details: CommitDetails}) {
-  const {entries, tuning, scans, unread, otherFiles} = details;
-  const itemized = entries.length + tuning.length + scans.length;
-  const notes = [
-    ...(itemized === 0 && unread.length === 0 ? ['It changed nothing these lists show.'] : []),
-    ...(unread.length > 0 ? [`Not itemized here: ${unread.join(', ')}.`] : []),
-    ...(otherFiles > 0 ? [`It also changed ${otherFiles} file${otherFiles === 1 ? '' : 's'} outside the card data and tuning.`] : []),
-  ];
-  return notes.map((note) => (
+  return notesOf(details).map((note) => (
     <p key={note} style={{...META, overflowWrap: 'anywhere'}}>
       {note}
     </p>
@@ -181,13 +189,15 @@ interface ChangeDetailsProps {
   source: ChangeSource;
   /** Try again was pressed, and took itself away with the error: the change's header takes focus. */
   onRetried: () => void;
+  /** Forgets the saved token, which GitHub rejected. */
+  onForgetToken: () => void;
 }
 
 /**
  * An open change: what it did to the cards and printings, tuning.json and the scans, read
  * from its commit (commitDetails), with who made it and a link to the commit.
  */
-export function ChangeDetails({change, source, onRetried}: ChangeDetailsProps) {
+export function ChangeDetails({change, source, onRetried, onForgetToken}: ChangeDetailsProps) {
   const {state, retry} = useDetails({source, sha: change.sha});
   const onRetry = () => {
     retry();
@@ -197,12 +207,7 @@ export function ChangeDetails({change, source, onRetried}: ChangeDetailsProps) {
     <div style={{display: 'grid', gap: SPACING.md}}>
       {state.status === 'loading' && <p style={META}>Reading what changed…</p>}
       {state.status === 'error' && (
-        <Notice tone="error">
-          What this change did could not be read: {state.error}{' '}
-          <LinkButton type="button" size="sm" onClick={onRetry}>
-            Try again
-          </LinkButton>
-        </Notice>
+        <ReadFailure what="What this change did" error={state.error} onRetry={onRetry} onForgetToken={onForgetToken} />
       )}
       {state.status === 'ready' && <DetailsBody source={source} details={state.details} />}
       <CommitLine change={change} />

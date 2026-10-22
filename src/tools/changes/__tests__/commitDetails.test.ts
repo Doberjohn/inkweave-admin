@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import {FILES_LISTED} from '../../../github/githubHistory';
 import {commitDetails, MAX_READ} from '../commitDetails';
 import {commitOf, stubHistory} from './historyHarness';
 
@@ -45,13 +46,14 @@ describe('commitDetails', () => {
           cardId: '1936',
           label: 'Bruno Madrigal - Undetected Uncle 4/D23',
           kind: 'changed',
-          values: [{key: 'finishes', label: 'Versions', from: 'Not set', to: 'Foil only'}],
+          values: [{key: 'finishes', label: 'Versions', from: 'Both (by rarity)', to: 'Foil only'}],
         },
       ],
       tuning: [],
       scans: [],
       unread: [],
       otherFiles: 0,
+      complete: true,
     });
   });
 
@@ -65,6 +67,52 @@ describe('commitDetails', () => {
     expect(details).toMatchObject({scans: [{path: `${RAW}/14040.jpg`, cardId: '14040', sha: 's1'}], entries: [], otherFiles: 1});
     // A scan isn't read until the view shows it.
     expect(stub.asked()).toEqual(['/commits/s1']);
+  });
+
+  // convert-reveal-images removes each raw scan once it has made the AVIFs: no scan to show.
+  it('lists no scan for one the commit removed', async () => {
+    stubHistory({commits: {c1: commitOf({sha: 'c1', parent: 'p1', files: [{filename: `${RAW}/14040.jpg`, status: 'removed'}]})}});
+    expect(await commitDetails({token: 't', sha: 'c1'})).toMatchObject({scans: [], otherFiles: 0});
+  });
+
+  it('reads a followed file renamed within the history at its old path before the commit', async () => {
+    const chunk = 'apps/web/public/data/collection/14.json';
+    const stub = stubHistory({
+      commits: {r1: commitOf({sha: 'r1', parent: 'p1', files: [{filename: chunk, status: 'renamed', previous_filename: PROMOS}]})},
+      files: {
+        [`p1:${PROMOS}`]: `${JSON.stringify([{id: 1, fullName: 'Gone', number: 1, promoGrouping: 'C1'}])}\n`,
+        [`r1:${chunk}`]: '[]\n',
+      },
+    });
+    const details = await commitDetails({token: 't', sha: 'r1'});
+    expect(details.entries.map(({label, kind}) => [label, kind])).toEqual([['Gone 1/C1', 'removed']]);
+    expect(stub.asked()).toContain(`/contents/${PROMOS}?ref=p1`);
+  });
+
+  it('reads a followed file renamed out of the history as one the commit removed', async () => {
+    stubHistory({
+      commits: {r2: commitOf({sha: 'r2', parent: 'p1', files: [{filename: 'old/promos.json', status: 'renamed', previous_filename: PROMOS}]})},
+      files: {[`p1:${PROMOS}`]: `${JSON.stringify([{id: 1, fullName: 'Gone', number: 1, promoGrouping: 'C1'}])}\n`},
+    });
+    const details = await commitDetails({token: 't', sha: 'r2'});
+    expect(details.entries.map(({label, kind}) => [label, kind])).toEqual([['Gone 1/C1', 'removed']]);
+    expect(details.otherFiles).toBe(0);
+  });
+
+  it('reads a file renamed into the history as one the commit added', async () => {
+    const stub = stubHistory({
+      commits: {r3: commitOf({sha: 'r3', parent: 'p1', files: [{filename: PROMOS, status: 'renamed', previous_filename: 'old/promos.json'}]})},
+      files: {[`r3:${PROMOS}`]: `${JSON.stringify([{id: 1, fullName: 'New', number: 1, promoGrouping: 'C1'}])}\n`},
+    });
+    expect((await commitDetails({token: 't', sha: 'r3'})).entries.map(({kind}) => kind)).toEqual(['added']);
+    expect(stub.asked().filter((asked) => asked.includes('?ref=p1'))).toEqual([]);
+  });
+
+  it(`itemizes nothing in a commit that changed ${FILES_LISTED} files or more, which GitHub lists only in part`, async () => {
+    const files = Array.from({length: FILES_LISTED}, (_, i) => modified(i === 0 ? CATALOG : `docs/${i}.md`));
+    const stub = stubHistory({commits: {huge: commitOf({sha: 'huge', parent: 'p1', files})}});
+    expect(await commitDetails({token: 't', sha: 'huge'})).toMatchObject({complete: false, entries: [], unread: [CATALOG], otherFiles: FILES_LISTED - 1});
+    expect(stub.asked()).toEqual(['/commits/huge']);
   });
 
   it('reads tuning.json as values, and a file the commit added as having none before', async () => {

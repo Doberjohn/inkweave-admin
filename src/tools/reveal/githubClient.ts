@@ -1,5 +1,5 @@
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
-import {commitCardImage, type CardImageCommit} from '../image/githubClient';
+import {commitCardImage, RAW_DIR, type CardImageCommit} from '../image/githubClient';
 import {insertCardIntoPreviewJson} from './insertCardIntoPreviewJson';
 import {EDITABLE_CARD_KEYS, replaceCardInPreviewJson, type PreviewCardChanges} from './replaceCardInPreviewJson';
 import {
@@ -14,7 +14,6 @@ import {
 
 /** The preview cards of the reveal season: what New reveal adds to and Edit card saves. */
 export const PREVIEW_PATH = 'apps/web/public/data/previewCards.json';
-const RAW_DIR = 'apps/web/public/card-images-raw';
 
 /**
  * One atomic commit on the target branch adding the card to previewCards.json

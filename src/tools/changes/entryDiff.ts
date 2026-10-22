@@ -1,5 +1,5 @@
-import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
-import type {Finish} from '../../app-bridge';
+import type {LorcanaJSONCard, PrintingFinishes} from 'inkweave-synergy-engine';
+import {finishesOf} from '../../app-bridge';
 import {EDITABLE_CARD_KEYS, type EditableCardKey, type PreviewCardChanges} from '../reveal/replaceCardInPreviewJson';
 import {changeRows} from '../studio/changeRows';
 import {choiceLabel} from '../studio/finishes/finishValues';
@@ -9,7 +9,7 @@ import type {DataEntry, EntryMap, Fields} from './dataEntries';
  * What a commit did to the cards and printings of the card data files: an entry added,
  * removed, or changed in some of its values. A card's fields read in Edit card's words
  * (changeRows), a printing's versions in the Printings panel's (Both, Foil only, Normal
- * only), and any other key by its name.
+ * only, the ones its rarity gives where it names none), and any other key by its name.
  */
 
 /** One value a change made to an entry: what it is, and how it read before and after. */
@@ -45,9 +45,16 @@ const EDITABLE: ReadonlySet<string> = new Set<string>(EDITABLE_CARD_KEYS);
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** A printing's versions as the Printings panel names them, and "Not set" where the entry names none. */
-function versionsText(value: unknown): string {
-  return Array.isArray(value) ? choiceLabel(value as Finish[]) : 'Not set';
+/**
+ * The versions one side of an entry shows, as the Printings panel names them: its own
+ * `finishes`, else its rarity's (`finishesOf`), which says so: "Both (by rarity)". An empty
+ * list names none, as a missing one does, so its rarity's show.
+ */
+function versionsText(side: Fields): string {
+  const own = Array.isArray(side.finishes) && side.finishes.length > 0 ? (side.finishes as PrintingFinishes) : undefined;
+  const rarity = typeof side.rarity === 'string' ? side.rarity : undefined;
+  const label = choiceLabel(finishesOf({rarity, finishes: own}));
+  return own === undefined ? `${label} (by rarity)` : label;
 }
 
 /** Any other value: a short one as it is, a long one as null. */
@@ -69,7 +76,7 @@ function valueChanges(before: Fields, after: Fields): ValueChange[] {
   const keys = [...new Set([...Object.keys(after), ...Object.keys(before)])].filter((key) => !same(before[key], after[key]));
   const fields = keys.filter((key): key is EditableCardKey => EDITABLE.has(key));
   const versions: ValueChange[] = keys.includes('finishes')
-    ? [{key: 'finishes', label: 'Versions', from: versionsText(before.finishes), to: versionsText(after.finishes)}]
+    ? [{key: 'finishes', label: 'Versions', from: versionsText(before), to: versionsText(after)}]
     : [];
   const rest = keys
     .filter((key) => key !== 'finishes' && !EDITABLE.has(key))

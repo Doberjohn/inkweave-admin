@@ -29,14 +29,32 @@ describe('diffEntries', () => {
     });
   });
 
-  it("words a printing's versions as the Printings panel does, and none set as Not set", () => {
+  it("words a printing's versions as the Printings panel does, and none set as its rarity's", () => {
     const promo = {id: 1194, fullName: 'Bruno 4/D23', baseId: 1936, rarity: 'Special'};
     expect(diffEntries({before: file(promo), after: file({...promo, finishes: ['foil']})})[0].values).toEqual([
-      {key: 'finishes', label: 'Versions', from: 'Not set', to: 'Foil only'},
+      {key: 'finishes', label: 'Versions', from: 'Both (by rarity)', to: 'Foil only'},
     ]);
     expect(
       diffEntries({before: file({...promo, finishes: ['foil']}), after: file({...promo, finishes: ['normal', 'foil']})})[0].values,
     ).toEqual([{key: 'finishes', label: 'Versions', from: 'Foil only', to: 'Both'}]);
+  });
+
+  // A value removed leaves the rarity's, which the panel shows: Both stays Both for a Legendary.
+  it.each([
+    ['Legendary', ['normal', 'foil'], 'Both', 'Both (by rarity)'],
+    ['Enchanted', ['normal'], 'Normal only', 'Foil only (by rarity)'],
+  ])('reads a %s printing whose %j is removed as its rarity gives it', (rarity, finishes, from, to) => {
+    const printing = {id: 9, fullName: 'X #9', rarity};
+    expect(diffEntries({before: file({...printing, finishes}), after: file(printing)})[0].values).toEqual([
+      {key: 'finishes', label: 'Versions', from, to},
+    ]);
+  });
+
+  it('reads an empty list of versions as none set', () => {
+    const printing = {id: 9, fullName: 'X #9', rarity: 'Special'};
+    expect(diffEntries({before: file({...printing, finishes: []}), after: file({...printing, finishes: ['foil']})})[0].values).toEqual([
+      {key: 'finishes', label: 'Versions', from: 'Both (by rarity)', to: 'Foil only'},
+    ]);
   });
 
   it('names any other key, printing a short value and holding back a long one', () => {

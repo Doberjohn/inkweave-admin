@@ -22,7 +22,7 @@ const CHANGES: Change[] = [
   change({sha: '2187bfb', date: '2026-10-08T11:25:00Z', headline: 'fix(card-images): update image for Pepita - Watchful Alebrije [14040]', areas: ['scans']}),
 ];
 
-const NO_DETAILS = {entries: [], tuning: [], scans: [], unread: [], otherFiles: 0};
+const NO_DETAILS = {entries: [], tuning: [], scans: [], unread: [], otherFiles: 0, complete: true};
 
 const url = (sha: string) => `https://github.com/Doberjohn/inkweave/commit/${sha}`;
 
@@ -94,10 +94,13 @@ const SOURCE: ChangeSource = {
   scan: () => Promise.resolve(SCAN),
 };
 
-/** The changes as each followed area's history, read to its start or with more to read. */
-function streams(changes: readonly Change[], done: boolean): PathStream[] {
+/**
+ * The changes as each followed area's history, every one read to its start but `unread`,
+ * which has more to read. Its oldest change is the list's oldest, so the floor shows all five.
+ */
+function streams(changes: readonly Change[], unread?: ChangeArea): PathStream[] {
   const areas: ChangeArea[] = ['cards', 'scans', 'data', 'tuning'];
-  return areas.map((area) => ({path: area, area, changes: changes.filter((c) => c.areas.includes(area)), pages: 1, done}));
+  return areas.map((area) => ({path: area, area, changes: changes.filter((c) => c.areas.includes(area)), pages: 1, done: area !== unread}));
 }
 
 /** The view's history: a state, and reads that do nothing in a story. */
@@ -134,21 +137,21 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Every path read to its start. Open a change to see what it did: versions, a card's field, tuning values, a scan, or files too many to itemize. */
-export const Default: Story = {args: {history: history({status: 'ready', streams: streams(CHANGES, true), older: {status: 'idle'}})}};
+export const Default: Story = {args: {history: history({status: 'ready', streams: streams(CHANGES), older: {status: 'idle'}})}};
 
 /** A path has more to read: Show older changes, and the reach in the count. */
 export const MoreToRead: Story = {
-  args: {history: history({status: 'ready', streams: streams(CHANGES, false), older: {status: 'idle'}})},
+  args: {history: history({status: 'ready', streams: streams(CHANGES, 'cards'), older: {status: 'idle'}})},
 };
 
 /** Older pages are being read: the button holds, keeping its focus. */
 export const ReadingOlder: Story = {
-  args: {history: history({status: 'ready', streams: streams(CHANGES, false), older: {status: 'loading'}})},
+  args: {history: history({status: 'ready', streams: streams(CHANGES, 'cards'), older: {status: 'loading'}})},
 };
 
 export const OlderReadFailed: Story = {
   args: {
-    history: history({status: 'ready', streams: streams(CHANGES, false), older: {status: 'error', error: 'GitHub 502 on /repos/Doberjohn/inkweave/commits'}}),
+    history: history({status: 'ready', streams: streams(CHANGES, 'cards'), older: {status: 'error', error: 'GitHub 502 on /repos/Doberjohn/inkweave/commits'}}),
   },
 };
 
@@ -161,4 +164,4 @@ export const RejectedToken: Story = {
   },
 };
 
-export const NoChanges: Story = {args: {history: history({status: 'ready', streams: streams([], true), older: {status: 'idle'}})}};
+export const NoChanges: Story = {args: {history: history({status: 'ready', streams: streams([]), older: {status: 'idle'}})}};
