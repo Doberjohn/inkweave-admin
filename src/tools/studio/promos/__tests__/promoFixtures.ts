@@ -1,5 +1,3 @@
-import {readFileSync} from 'node:fs';
-import {resolve} from 'node:path';
 import type {BaseCard, PromoCatalog} from '../promoCatalog';
 
 /*
@@ -9,11 +7,6 @@ import type {BaseCard, PromoCatalog} from '../promoCatalog';
  * Ravensburger's art, a scan language and two arts under one number (24A/P2, 24B/P2), and Hades -
  * Dark Usurper's, which has no base number and two printings under one code (28/C3).
  */
-
-/** A file of the pinned app, as text: what the tests use as a stand-in for the branch's copy. */
-export function readPinned(path: string): string {
-  return readFileSync(resolve('upstream/inkweave', path), 'utf8');
-}
 
 /** Those groups as a catalog. Its `stats` are what `recountStats` makes of them, written out here. */
 export const FIXTURE_CATALOG: PromoCatalog = {

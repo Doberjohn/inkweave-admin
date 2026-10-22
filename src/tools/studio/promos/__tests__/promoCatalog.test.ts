@@ -11,7 +11,8 @@ import {
   takenBy,
   type CatalogPrinting,
 } from '../promoCatalog';
-import {FIXTURE_CATALOG, readPinned} from './promoFixtures';
+import {readPinned} from './pinned';
+import {FIXTURE_CATALOG} from './promoFixtures';
 
 describe('promoCatalog', () => {
   it('round-trips the pinned catalog byte for byte', () => {
