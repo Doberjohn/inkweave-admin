@@ -44,7 +44,7 @@ export function homesOf(ref: PrintingRef): readonly string[] {
   return ref.core ? [...own, ALL_CARDS_PATH] : own;
 }
 
-/** The file where the printing's versions are first set, and where a change to them is checked. */
+/** The printing's primary home (see the header), which a staged change is checked against for a clash. */
 export function primaryHome(ref: PrintingRef): string {
   return homesOf(ref)[0];
 }
