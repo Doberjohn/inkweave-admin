@@ -35,7 +35,7 @@ export interface VersionClash {
 export interface VersionChange {
   /** The printing's id. The batch holds one change for each. */
   id: string;
-  /** The row's label when the change was first staged: "Yen Sid - Powerful Sorcerer #223". */
+  /** The row's label when the change was first staged: "Yen Sid - Powerful Sorcerer #223 · Set 4". */
   label: string;
   /** What finds the printing among the app's files. */
   ref: PrintingRef;

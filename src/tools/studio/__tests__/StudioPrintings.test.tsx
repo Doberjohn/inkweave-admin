@@ -53,7 +53,7 @@ const MING = cardOf(VARIANTS_ENTRY);
 const CARDS: LorcanaCard[] = [RELEASED_CARD, MEI, MING];
 const FILE: LorcanaJSONCard[] = [PREVIEW_ENTRY, VARIANTS_ENTRY, BRANCH_ONLY_ENTRY];
 
-const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223';
+const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223 · Set 4';
 const LANTERN_12 = 'Versions of Lantern Keeper - Night Watch #12';
 
 /** previewCards.json, as GitHub's raw contents answer it. */
@@ -172,7 +172,7 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     expect(batch.result.current.changes).toEqual([
       expect.objectContaining({
         id: '946',
-        label: 'Yen Sid - Powerful Sorcerer #223',
+        label: 'Yen Sid - Powerful Sorcerer #223 · Set 4',
         from: ['foil'],
         shownFrom: ['foil'],
         to: ['normal', 'foil'],

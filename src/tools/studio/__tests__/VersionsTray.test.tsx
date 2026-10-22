@@ -32,8 +32,8 @@ const RACE = 'master changed while publishing, so nothing was published. Publish
 /** Three changes, one row each, in the order they were staged. */
 const THREE = [NUMBER_59_TO_FOIL, NUMBER_209_TO_BOTH, NUMBER_223_TO_BOTH];
 
-const LINE_59 = 'Yen Sid - Powerful Sorcerer #59: Both → Foil only';
-const LINE_223 = 'Yen Sid - Powerful Sorcerer #223: Foil only → Both';
+const LINE_59 = 'Yen Sid - Powerful Sorcerer #59 · Set 4: Both → Foil only';
+const LINE_223 = 'Yen Sid - Powerful Sorcerer #223 · Set 4: Foil only → Both';
 
 function trayElement(view: VersionBatchView, props: Partial<VersionsTrayProps> = {}) {
   return <VersionsTray view={view} token="tok" onForgetToken={() => {}} {...props} />;
@@ -147,8 +147,8 @@ describe('VersionsTray: the changes', () => {
     renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {revert}));
     const buttons = screen.getAllByRole('button', {name: /^Revert /});
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Revert Yen Sid - Powerful Sorcerer #59',
-      'Revert Yen Sid - Powerful Sorcerer #223',
+      'Revert Yen Sid - Powerful Sorcerer #59 · Set 4',
+      'Revert Yen Sid - Powerful Sorcerer #223 · Set 4',
     ]);
     expect(buttons.map((button) => button.textContent)).toEqual(['Revert', 'Revert']);
 
@@ -161,10 +161,10 @@ describe('VersionsTray: the changes', () => {
     const buttons = within(screen.getByRole('list')).getAllByRole('button');
     expect(buttons.map((button) => button.textContent)).toEqual(['Revert', 'Keep mine', 'Drop', 'Drop']);
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Revert Yen Sid - Powerful Sorcerer #209',
-      'Keep mine for Yen Sid - Powerful Sorcerer #223',
-      'Drop Yen Sid - Powerful Sorcerer #223',
-      'Drop Yen Sid - Powerful Sorcerer #59',
+      'Revert Yen Sid - Powerful Sorcerer #209 · Set 4',
+      'Keep mine for Yen Sid - Powerful Sorcerer #223 · Set 4',
+      'Drop Yen Sid - Powerful Sorcerer #223 · Set 4',
+      'Drop Yen Sid - Powerful Sorcerer #59 · Set 4',
     ]);
     for (const button of buttons) {
       expect(button.getAttribute('aria-label')?.startsWith(button.textContent ?? '')).toBe(true);
@@ -317,10 +317,10 @@ describe('VersionsTray: a clash', () => {
     expect(within(row).queryByRole('button', {name: /^Revert /})).not.toBeInTheDocument();
     expect(within(row).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep mine', 'Drop']);
 
-    await userEvent.click(within(row).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223'}));
+    await userEvent.click(within(row).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     expect(keep).toHaveBeenCalledExactlyOnceWith('946');
     // Drop is a revert: the change leaves the batch.
-    await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223'}));
+    await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     expect(revert).toHaveBeenCalledExactlyOnceWith('946');
     expect(keep).toHaveBeenCalledOnce();
 
@@ -344,7 +344,7 @@ describe('VersionsTray: a clash', () => {
     expect(within(row).queryByText(/^Changed on /)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', {name: /^Keep mine/})).not.toBeInTheDocument();
 
-    await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #59'}));
+    await userEvent.click(within(row).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #59 · Set 4'}));
     expect(revert).toHaveBeenCalledExactlyOnceWith('750');
   });
 

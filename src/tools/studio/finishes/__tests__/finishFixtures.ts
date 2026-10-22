@@ -370,6 +370,52 @@ export const MICKEY_PROMO_ENTRIES: RawCollectionPromo[] = [
 
 export const MICKEY_PROMOS: CollectionPromo[] = transformPromos(MICKEY_PROMO_ENTRIES);
 
+/** Moana - Adventurer of Land and Sea as Set 7's chunk stores her: #156, a Common of a pre-Core set. */
+export const MOANA_ENTRY: LorcanaJSONCard = {
+  id: 1589,
+  name: 'Moana',
+  version: 'Adventurer of Land and Sea',
+  fullName: 'Moana - Adventurer of Land and Sea',
+  cost: 3,
+  color: 'Sapphire',
+  inkwell: true,
+  type: 'Character',
+  setCode: '7',
+  number: 156,
+  rarity: 'Common',
+  images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/set7/156_db8f8bfd235190fe43bd1a1b244fd75e66f94620.jpg'},
+};
+
+export const MOANA: LorcanaCard = cardWithId(cardsOf([MOANA_ENTRY]), '1589');
+
+/**
+ * Her two 26/P2 promos, as promos.json stores them: the same code, and the second printed for
+ * Europe under the name "Vaiana", which only its `printedName` tells apart.
+ */
+export const MOANA_P2_ENTRIES: RawCollectionPromo[] = [
+  {
+    id: 1433,
+    rarity: 'Special',
+    number: 26,
+    promoGrouping: 'P2',
+    images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/promo2/26_c1dc332226a7f1d343be88e156ef85143903f054.jpg'},
+    fullName: 'Moana - Adventurer of Land and Sea',
+    baseId: 1589,
+  },
+  {
+    id: 1663,
+    rarity: 'Special',
+    number: 26,
+    promoGrouping: 'P2',
+    printedName: 'Vaiana',
+    images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/promo2/26vaiana_3b810693bd58b5f343586238d5030921207632c5.jpg'},
+    fullName: 'Moana - Adventurer of Land and Sea',
+    baseId: 1589,
+  },
+];
+
+export const MOANA_P2: CollectionPromo[] = transformPromos(MOANA_P2_ENTRIES);
+
 /*
  * The same entries as the files that hold them store them: text, as the contents API answers a
  * read (`readRepoFile`), in each file's own format (finishFiles.ts), so a read goes through the

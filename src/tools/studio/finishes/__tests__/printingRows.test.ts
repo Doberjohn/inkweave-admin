@@ -9,10 +9,14 @@ import {
   C3_MKB_ENTRIES,
   MICKEY,
   MICKEY_PROMOS,
+  MOANA,
+  MOANA_P2,
   MOTHER_KNOWS_BEST,
   PEGASUS,
   SET_4,
   SET_9,
+  URSULA_SET_3,
+  URSULA_SET_9,
   YEN_SID,
 } from './finishFixtures';
 
@@ -39,8 +43,53 @@ describe('printingRowsFor', () => {
     const rows = printingRowsFor({card: YEN_SID, chunk: SET_4, promos: [], valueOf: (r) => (r.id === '946' ? ['foil'] : null)});
     expect(rows.map((r) => r.name)).toEqual(['#59', '#209 · Enchanted', '#223 · Alt foil']);
     expect(rows.map((r) => r.shown)).toEqual([['normal', 'foil'], ['foil'], ['foil']]);
-    expect(rows[2].label).toBe('Yen Sid - Powerful Sorcerer #223');
+    expect(rows[2].label).toBe('Yen Sid - Powerful Sorcerer #223 · Set 4');
     expect(rows[2].ref).toEqual({id: '946', kind: 'printing', setCode: '4', core: false});
+  });
+
+  /*
+   * A label names a printing on its own, in the tray and as its choices' name, so it says what tells
+   * two pockets apart where their names don't: the set of a Sets 1 to 8 card, whose Core reprint has
+   * the same name and number, and the name a promo has printed on it.
+   */
+  describe('how it labels a printing', () => {
+    it('ends the label of a Sets 1 to 8 card and its printings with their set, and leaves their names as they are', () => {
+      const rows = rowsOf({card: YEN_SID, chunk: SET_4});
+      expect(rows.map((r) => r.label)).toEqual([
+        'Yen Sid - Powerful Sorcerer #59 · Set 4',
+        'Yen Sid - Powerful Sorcerer #209 · Set 4',
+        'Yen Sid - Powerful Sorcerer #223 · Set 4',
+      ]);
+      expect(namesOf(rows)).toEqual(['#59', '#209 · Enchanted', '#223 · Alt foil']);
+    });
+
+    it('tells a Sets 1 to 8 card from its Core reprint, whose label names no set', () => {
+      expect(rowsOf({card: URSULA_SET_3})[0].label).toBe('Ursula - Deceiver #90 · Set 3');
+      expect(rowsOf({card: URSULA_SET_9})[0].label).toBe('Ursula - Deceiver #90');
+    });
+
+    it('never names the set on a promo’s label, whose code no other promo has', () => {
+      const rows = rowsOf({card: MICKEY, promos: MICKEY_PROMOS});
+      expect(rows[0].label).toBe('Mickey Mouse - Brave Little Tailor #115 · Set 1');
+      expect(rows.slice(1).map((r) => r.label)).toEqual([
+        'Mickey Mouse - Brave Little Tailor 1/P1',
+        'Mickey Mouse - Brave Little Tailor 5/C1',
+        'Mickey Mouse - Brave Little Tailor 1/D23',
+        'Mickey Mouse - Brave Little Tailor 12/C3',
+        'Mickey Mouse - Brave Little Tailor 24/C3',
+      ]);
+    });
+
+    it('ends a promo’s name and label with the name printed on it, where it has one', () => {
+      const rows = rowsOf({card: MOANA, promos: MOANA_P2});
+      expect(namesOf(rows)).toEqual(['#156', '26/P2', '26/P2 · Vaiana']);
+      expect(rows.map((r) => r.label)).toEqual([
+        'Moana - Adventurer of Land and Sea #156 · Set 7',
+        'Moana - Adventurer of Land and Sea 26/P2',
+        'Moana - Adventurer of Land and Sea 26/P2 · Vaiana',
+      ]);
+      expect(rows.map((r) => r.ref.id)).toEqual(['1589', '1433', '1663']);
+    });
   });
 
   it('lists a Core card’s promos after its printings, by promo set', () => {
@@ -159,6 +208,8 @@ describe('printingRowsFor', () => {
       expect(row.ref).toEqual({id: '750', kind: 'card', setCode: '', core: false});
       expect(row.rarity).toBe('');
       expect(row.shown).toEqual(['normal', 'foil']);
+      // It has no set to name.
+      expect(row.label).toBe('Yen Sid - Powerful Sorcerer #59');
     });
   });
 

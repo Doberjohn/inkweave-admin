@@ -35,7 +35,7 @@ describe('changeFor', () => {
   it('describes the row and the choice made for it', () => {
     expect(changeFor({row: ALT_FOIL_223, choice: 'both'})).toEqual({
       id: '946',
-      label: 'Yen Sid - Powerful Sorcerer #223',
+      label: 'Yen Sid - Powerful Sorcerer #223 · Set 4',
       ref: {id: '946', kind: 'printing', setCode: '4', core: false},
       from: ['foil'],
       shownFrom: ['foil'],

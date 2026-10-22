@@ -53,10 +53,10 @@ const MING = cardOf(VARIANTS_ENTRY);
 const CARDS: LorcanaCard[] = [RELEASED_CARD, MEI, MING];
 const FILE: LorcanaJSONCard[] = [PREVIEW_ENTRY, VARIANTS_ENTRY, BRANCH_ONLY_ENTRY];
 
-const NUMBER_59 = 'Versions of Yen Sid - Powerful Sorcerer #59';
-const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223';
-const LINE_59 = 'Yen Sid - Powerful Sorcerer #59: Both → Foil only';
-const LINE_223 = 'Yen Sid - Powerful Sorcerer #223: Foil only → Both';
+const NUMBER_59 = 'Versions of Yen Sid - Powerful Sorcerer #59 · Set 4';
+const NUMBER_223 = 'Versions of Yen Sid - Powerful Sorcerer #223 · Set 4';
+const LINE_59 = 'Yen Sid - Powerful Sorcerer #59 · Set 4: Both → Foil only';
+const LINE_223 = 'Yen Sid - Powerful Sorcerer #223 · Set 4: Foil only → Both';
 /** The tray's warning while this browser's storage refuses the batch. */
 const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
 
@@ -130,7 +130,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(printings.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tray.parentElement).toContainElement(printings);
 
-    await user.click(within(tray).getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59'}));
+    await user.click(within(tray).getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59 · Set 4'}));
     // The store's revert clears the outcome too, so nothing but the press keeps the tray up: it is the same
     // element, and the heading that took the focus is still in the document.
     expect(screen.getByRole('region', {name: 'Version changes'})).toBe(tray);
@@ -242,9 +242,9 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     // The panel marks the printing too, once it has read the branch again.
     expect(await screen.findByText('Clash')).toBeInTheDocument();
 
-    await user.click(within(tray).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223'}));
+    await user.click(within(tray).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     // The change stays, built on what the branch has now, and no word of a clash is left on screen.
-    expect(within(tray).getByText('Yen Sid - Powerful Sorcerer #223: Normal only → Both')).toBeInTheDocument();
+    expect(within(tray).getByText('Yen Sid - Powerful Sorcerer #223 · Set 4: Normal only → Both')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/clash/i);
     expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).not.toHaveAttribute('aria-disabled', 'true');
@@ -261,7 +261,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
     await within(tray).findByRole('alert');
 
-    await user.click(within(tray).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223'}));
+    await user.click(within(tray).getByRole('button', {name: 'Drop Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     expect(screen.getByRole('region', {name: 'Version changes'})).toBe(tray);
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
     expect(within(tray).getByText('No version changes')).toBeInTheDocument();

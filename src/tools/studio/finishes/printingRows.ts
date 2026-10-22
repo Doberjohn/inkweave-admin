@@ -19,9 +19,14 @@ import type {PrintingKind, PrintingRef} from './printingHomes';
 /** One pocket of the binder, and the versions it comes in. */
 export interface PrintingRow {
   ref: PrintingRef;
-  /** What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil" or "1/C3". */
+  /** What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil", "1/C3" or "26/P2 · Vaiana". */
   name: string;
-  /** The card's name and the pocket's code: "Yen Sid - Powerful Sorcerer #223". */
+  /**
+   * The card's name and the pocket's code, with what tells it from a pocket that shares both: a
+   * Sets 1 to 8 card's or printing's set, "Yen Sid - Powerful Sorcerer #223 · Set 4", since its Core
+   * reprint has the same name and number, and the name printed on a promo where it has one,
+   * "Moana - Adventurer of Land and Sea 26/P2 · Vaiana". A change keeps the label it was staged with.
+   */
   label: string;
   /** The pocket's own art, at the small size the binder uses. */
   thumbnail: string | undefined;
@@ -74,11 +79,12 @@ const byPromoSet = (a: CollectionPromo, b: CollectionPromo) =>
 /** A row before its versions are looked up. */
 type Pocket = Omit<PrintingRow, 'value' | 'shown'>;
 
-/** What a pocket is made of: its printing's own entry and kind, the code its label ends with, and its name. */
+/** What a pocket is made of: its printing's own entry and kind, what its label gives after the card's name, and its name. */
 interface PocketParts {
   card: LorcanaCard;
   entry: Pick<LorcanaCard, 'id' | 'rarity' | 'imageUrl' | 'imageHashSm'>;
   kind: PrintingKind;
+  /** "#223 · Set 4", "26/P2 · Vaiana". */
   code: string;
   name: string;
 }
@@ -98,23 +104,37 @@ function pocketOf({card, entry, kind, code, name}: PocketParts): Pocket {
 /** A collector number as the binder prints it: "#223". */
 const numberCode = (number: number | undefined) => `#${number ?? UNKNOWN}`;
 
+/**
+ * What the label of a card of Sets 1 to 8, or of one of its printings, adds after its number: its
+ * set, " · Set 4". Its Core reprint has the same name and number, so only the set tells their rows
+ * apart. A Core card adds nothing, nor does one whose data names no set.
+ */
+function setTail({setCode = ''}: LorcanaCard): string {
+  return setCode === '' || isCoreSet(setCode) ? '' : ` · Set ${setCode}`;
+}
+
 /** The card itself is named by its collector number. */
 function cardPocket(card: LorcanaCard): Pocket {
   const code = numberCode(card.setNumber);
-  return pocketOf({card, entry: card, kind: 'card', code, name: code});
+  return pocketOf({card, entry: card, kind: 'card', code: `${code}${setTail(card)}`, name: code});
 }
 
 /** An Epic, Enchanted or Iconic printing is named by its rarity; any other printing is an alt foil. */
 function printingPocket({card, entry}: {card: LorcanaCard; entry: LorcanaCard}): Pocket {
   const code = numberCode(entry.setNumber);
   const title = isChaseRarity(entry.rarity) ? entry.rarity : ALT_FOIL;
-  return pocketOf({card, entry, kind: 'printing', code, name: `${code} · ${title}`});
+  return pocketOf({card, entry, kind: 'printing', code: `${code}${setTail(card)}`, name: `${code} · ${title}`});
 }
 
-/** A promo is named by the code printed on it: its number, its art if it has two, and its promo set. */
+/**
+ * A promo is named by the code printed on it: its number, its art if it has two, and its promo set,
+ * then the name printed on it where it has one ("26/P2 · Vaiana"), which tells it from a promo of
+ * the same code. Its code names its promo set already, so its label never adds the card's set.
+ */
 function promoPocket({card, promo}: {card: LorcanaCard; promo: CollectionPromo}): Pocket {
-  const {number, artVariant = '', promoGrouping = UNKNOWN} = promo;
-  const code = `${number ?? UNKNOWN}${artVariant}/${promoGrouping}`;
+  const {number, artVariant = '', promoGrouping = UNKNOWN, printedName} = promo;
+  const printed = `${number ?? UNKNOWN}${artVariant}/${promoGrouping}`;
+  const code = printedName === undefined ? printed : `${printed} · ${printedName}`;
   return pocketOf({card, entry: promo, kind: 'promo', code, name: code});
 }
 

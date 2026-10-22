@@ -74,7 +74,7 @@ const itemOf = (row: PrintingRow) => screen.getByText(row.name).closest('li') as
 describe('PrintingsPanel', () => {
   it("shows Yen Sid's printings with their versions and where each comes from", () => {
     renderPanel();
-    const group = screen.getByRole('group', {name: 'Versions of Yen Sid - Powerful Sorcerer #223'});
+    const group = screen.getByRole('group', {name: 'Versions of Yen Sid - Powerful Sorcerer #223 · Set 4'});
     expect(within(group).getByRole('button', {name: 'Foil only'})).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getAllByText('By rarity')).toHaveLength(2);
     expect(screen.getByText('In the data')).toBeInTheDocument();
