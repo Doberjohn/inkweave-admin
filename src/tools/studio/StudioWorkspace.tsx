@@ -13,6 +13,7 @@ import {EditPane} from './EditPane';
 import {openCard} from './editorState';
 import {useVersionBatch} from './finishes/versionBatchStore';
 import {NewRevealPane} from './NewRevealPane';
+import {usePrintingForm} from './promos/usePrintingForm';
 import {STUDIO_SUBTITLE, STUDIO_TITLE, studioDocumentTitle} from './studioCopy';
 import {studioLayout} from './studioLayout';
 import {
@@ -80,6 +81,8 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
+  // Edit card's promo printing form (#77), held here beside its draft, so a mode switch keeps it too.
+  const printing = usePrintingForm({token, cardId: card});
   // The outcome of a publish is told to the token that made it: a token saved after Forget token starts with none.
   const versions = useVersionBatch(token);
   const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
@@ -114,7 +117,15 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         {mode === 'new' ? (
           <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
         ) : (
-          <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} token={token} />
+          <EditPane
+            edit={edit}
+            cardId={card}
+            layout={layout}
+            handoff={handoff}
+            onForgetToken={forgetToken}
+            token={token}
+            printing={printing}
+          />
         )}
         <VersionsTray view={versions} token={token} onForgetToken={forgetToken} />
       </div>

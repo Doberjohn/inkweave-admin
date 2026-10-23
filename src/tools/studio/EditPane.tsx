@@ -1,6 +1,6 @@
 import {useState, type CSSProperties, type ReactNode} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, LinkButton, SPACING, useCardDataContext} from '../../app-bridge';
+import {CtaButton, LinkButton, PROMO_SETS, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
 import type {FocusHandoff} from '../../shell/focusHandoff';
@@ -13,7 +13,7 @@ import {ChangeList} from './components/ChangeList';
 import {CommitOutcome} from './components/CommitOutcome';
 import {EditingBanner} from './components/EditingBanner';
 import {EditSearch} from './components/EditSearch';
-import {PrintingsPanel} from './components/PrintingsPanel';
+import {PrintingsPanel, type PromoPrintingsProps} from './components/PrintingsPanel';
 import {ReleasedCardFacts} from './components/ReleasedCardFacts';
 import {StudioCardPanel} from './components/StudioCardPanel';
 import {StudioForm} from './components/StudioForm';
@@ -26,6 +26,8 @@ import {useBranchPrintings} from './finishes/useBranchPrintings';
 import {changeFor} from './finishes/versionBatch';
 import {useVersionBatch} from './finishes/versionBatchStore';
 import {outcomeShows} from './outcomeShows';
+import {baseCardOf, coreCopyOf, promoSetOptions} from './promos/printingForm';
+import type {PrintingFormController} from './promos/usePrintingForm';
 import {PRINTINGS_ONLY_NOTE, editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
@@ -49,6 +51,9 @@ const READ_AGAIN: CSSProperties = {alignSelf: 'flex-start'};
 // A read error over its way out, spaced as the search's is.
 const FILE_ERROR: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
 
+/** The promo sets a printing form offers (#77), newest first: the app's, at admin's pin. */
+const PROMO_SET_OPTIONS = promoSetOptions(PROMO_SETS);
+
 export interface EditPaneProps {
   edit: CardEditorController;
   /** The card the URL names (studioCardOf), for the line while it waits on a failed read of previewCards.json. */
@@ -60,6 +65,11 @@ export interface EditPaneProps {
   onForgetToken: () => void;
   /** The saved GitHub token: a released card's Printings panel reads the branch's data files with it (#68). */
   token: string;
+  /**
+   * The promo printing form (#77), which a released card's Printings panel opens. StudioWorkspace
+   * holds it, so a mode switch keeps it.
+   */
+  printing: PrintingFormController;
 }
 
 type ReadyLookup = Extract<EditLookup, {kind: 'ready'}>;
@@ -235,22 +245,48 @@ function EditForm({edit, ready, layout, handoff, inksRestored}: Pick<PartProps, 
   );
 }
 
+/** What a released card's Printings panel is made from: the card, the token its files are read with, and the printing form. */
+interface PrintingsSectionProps extends Pick<EditPaneProps, 'token' | 'printing' | 'onForgetToken'> {
+  card: LorcanaCard;
+  /** The card is one of Sets 1 to 8 (the controller's printingsOnly): where a Core card reprints it, its promos are that card's. */
+  printingsOnly: boolean;
+}
+
+/**
+ * What the panel needs for the card's promo printings (#77): the studio's form, the card as the
+ * catalog files it, and the promo sets. A Sets 1 to 8 card that a Core card reprints files its promos
+ * under the Core copy, which the card list holds, so its panel points there instead.
+ */
+function usePromoPrintings({card, printing, printingsOnly, onForgetToken}: Omit<PrintingsSectionProps, 'token'>): PromoPrintingsProps {
+  const {cards} = useCardDataContext();
+  return {
+    controller: printing,
+    card: baseCardOf(card),
+    coreCopy: printingsOnly ? coreCopyOf({card, cards}) : null,
+    promoSets: PROMO_SET_OPTIONS,
+    onForgetToken,
+  };
+}
+
 /**
  * A released card's printings (#68): their versions as the target branch's files give them, and
  * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
  * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
  * a change staged for one card shows on it again whenever it is opened. While a publish runs, the
- * panel holds its choices.
+ * panel holds its choices. The panel also adds and edits the card's promo printings, through the
+ * studio's printing form, each in a commit of its own (#77).
  */
-function PrintingsSection({card, token}: {card: LorcanaCard; token: string}) {
-  const view = useBranchPrintings({token, card});
+function PrintingsSection({token, ...section}: PrintingsSectionProps) {
+  const view = useBranchPrintings({token, card: section.card});
   const batch = useVersionBatch();
+  const promos = usePromoPrintings(section);
   return (
     <PrintingsPanel
       view={view}
       changes={batch.changes}
       publishing={batch.publishing}
       onChoose={(chosen) => batch.stage(changeFor(chosen))}
+      promos={promos}
     />
   );
 }
@@ -262,17 +298,12 @@ function PrintingsSection({card, token}: {card: LorcanaCard; token: string}) {
  * sit beside the form, not in it, so a Discard or a re-seed that opens the form afresh
  * (CardEditor's `formKey`) never mounts them again.
  */
-function FormSlot({released, card, token, children}: {
-  released: boolean;
-  card: LorcanaCard;
-  token: string;
-  children: ReactNode;
-}) {
+function FormSlot({released, children, ...section}: PrintingsSectionProps & {released: boolean; children: ReactNode}) {
   if (!released) return children;
   return (
     <div style={COLUMN}>
       {children}
-      <PrintingsSection card={card} token={token} />
+      <PrintingsSection {...section} />
     </div>
   );
 }
@@ -376,12 +407,14 @@ function useFormResets(edit: CardEditorController) {
  * banner's h2 takes the page's handoff while the outcome line has nothing to
  * say (outcomeShows, CommitOutcome's own rule); after that the line does. A
  * ready card always has its tag; 'Released' only narrows the type. A released
- * card's printings go under its data, in the form slot (#68).
+ * card's printings go under its data, in the form slot (#68), with the
+ * studio's printing form for its promos (#77).
  */
-function CardEditor({edit, ready, layout, handoff, onForgetToken, token}: PartProps & {
+function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printing}: PartProps & {
   ready: ReadyLookup;
   layout: StudioLayout;
   token: string;
+  printing: PrintingFormController;
 }) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
@@ -411,7 +444,13 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token}: PartPr
             />
           ),
           form: (
-            <FormSlot released={edit.tag === 'Released'} card={ready.card} token={token}>
+            <FormSlot
+              released={edit.tag === 'Released'}
+              card={ready.card}
+              token={token}
+              printing={printing}
+              printingsOnly={edit.printingsOnly}
+              onForgetToken={onForgetToken}>
               <EditForm
                 key={resets.formKey}
                 edit={edit}
@@ -442,15 +481,15 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token}: PartPr
  * cardPageState). A ready card opens in the editor; one that loads says so;
  * every other state is the search, with a line above it saying why the URL's
  * card isn't open. The pane holds the search's query, so it survives opening
- * a card and coming back. The controller lives in StudioWorkspace, so a mode
- * switch keeps the draft (R-57).
+ * a card and coming back. The controllers live in StudioWorkspace, so a mode
+ * switch keeps the draft (R-57), and the printing form (#77).
  */
-export function EditPane({edit, cardId, layout, handoff, onForgetToken, token}: EditPaneProps) {
+export function EditPane({edit, cardId, layout, handoff, onForgetToken, token, printing}: EditPaneProps) {
   const [query, setQuery] = useState('');
   const {lookup} = edit;
   const parts = {edit, handoff, onForgetToken};
   if (lookup.kind === 'ready') {
-    return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} token={token} />;
+    return <CardEditor key={lookup.card.id} {...parts} ready={lookup} layout={layout} token={token} printing={printing} />;
   }
   if (lookup.kind === 'loading') {
     return (
