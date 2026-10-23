@@ -36,6 +36,18 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('button', {name: 'Votes'})).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('presses nothing when the value is null', () => {
+    render(<SegmentedControl options={[{value: 'a', label: 'A'}, {value: 'b', label: 'B'}]} value={null} onChange={() => {}} ariaLabel="Pick" />);
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false']);
+  });
+
+  it('reports a press on any option while nothing is chosen', async () => {
+    const onChange = vi.fn();
+    render(<SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value={null} onChange={onChange} />);
+    await userEvent.click(screen.getByRole('button', {name: '|Gap|'}));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('gap');
+  });
+
   it('reports a click on another option', async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);

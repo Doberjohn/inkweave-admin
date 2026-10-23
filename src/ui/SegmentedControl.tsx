@@ -1,6 +1,7 @@
 interface SegmentedControlProps<T extends string> {
   options: ReadonlyArray<{value: T; label: string}>;
-  value: T;
+  /** The selected option. Null presses none: Card studio's add-a-printing form starts with no versions chosen. */
+  value: T | null;
   onChange: (v: T) => void;
   /** Names the group for assistive tech: "Sort rules", "Score band". */
   ariaLabel: string;
@@ -50,7 +51,8 @@ function inPairs(buttons: React.ReactElement[]) {
  * (`.adm-seg-btn[aria-pressed="true"]`). Pressing the selected option again
  * does nothing, so onChange fires only for a real change: Card studio's mode
  * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
- * current mode adds no history entry. While the control is held, no press
+ * current mode adds no history entry. While nothing is selected (a null
+ * value), every option is a real change. While the control is held, no press
  * fires it.
  */
 export function SegmentedControl<T extends string>({options, value, onChange, ariaLabel, fill, held}: SegmentedControlProps<T>) {
