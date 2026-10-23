@@ -124,11 +124,8 @@ export interface MergeReport {
 // Makes each card's promo entries the catalog's, in place; throws, changing nothing, if the catalog can't merge.
 export const mergePromoPrintings: (cards: MergeCard[], catalog: MergeCatalog) => MergeReport = appMergePromoPrintings;
 // Every catalog promo as collection/promos.json lists it; `kept` holds the versions a file has already, by id.
-// The cast: the .mjs only reads `kept`, but its `= new Map()` default types it as a mutable Map, which refuses a ReadonlyMap.
-export const collectionPromos = appCollectionPromos as (
-  catalog: MergeCatalog,
-  kept?: ReadonlyMap<string, readonly string[]>,
-) => object[];
+// The .mjs exports are untyped (allowJs, no checkJs): this annotation is what admin relies on, and the bridge tests pin the output.
+export const collectionPromos: (catalog: MergeCatalog, kept?: Map<string, readonly string[]>) => object[] = appCollectionPromos;
 // The `finishes` already in entries and their variants, by id: what collectionPromos carries over.
 export const finishesById: (entries: readonly object[]) => Map<string, readonly string[]> = appFinishesById;
 // A card's printings in the switcher's order: the others by number, then the promos by set and number.

@@ -181,8 +181,13 @@ export function nextProvisionalId(catalog: PromoCatalog): number {
 }
 
 /** Whether the printing has a provisional id, not a LorcanaJSON one. */
-function isProvisional({id}: CatalogPrinting): boolean {
+export function isProvisional({id}: Pick<CatalogPrinting, 'id'>): boolean {
   return id >= PROVISIONAL_ID_BASE;
+}
+
+/** Whether the printing has Ravensburger's art, which its entry holds as `images`. */
+export function hasOfficialArt({images}: Pick<CatalogPrinting, 'images'>): boolean {
+  return images !== undefined;
 }
 
 /** How many printings each promo set holds, its codes in alphabetical order. */
@@ -201,7 +206,7 @@ function countsOf(catalog: PromoCatalog): CatalogStats {
     promoPrintings: all.length,
     withLorcanaJsonId: all.filter((printing) => !isProvisional(printing)).length,
     withProvisionalId: all.filter(isProvisional).length,
-    withOfficialArtUrl: all.filter((printing) => printing.images !== undefined).length,
+    withOfficialArtUrl: all.filter(hasOfficialArt).length,
     foldIntoAllCards: {printings: folded.length, baseCards: catalog.fold.length},
     noBaseCardInAllCards: {printings: waiting.length, cards: catalog.noBaseCard.length},
     byPromoGrouping: countBySet(all),

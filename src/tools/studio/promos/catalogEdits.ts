@@ -1,8 +1,8 @@
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {byPrintingOrder} from '../../../app-bridge';
 import {
-  PROVISIONAL_ID_BASE,
   findPrinting,
+  isProvisional,
   nextProvisionalId,
   printingCode,
   recountStats,
@@ -167,7 +167,7 @@ function withLine({lines, printing, fullName}: {
   fullName: string;
 }): Record<string, string> {
   const held: string | undefined = lines[printing.id];
-  if (held === undefined && printing.id < PROVISIONAL_ID_BASE) return lines;
+  if (held === undefined && !isProvisional(printing)) return lines;
   const code = printingCode(printing);
   return {...lines, [printing.id]: held === undefined ? `${code} ${fullName}` : relabeled({line: held, code})};
 }

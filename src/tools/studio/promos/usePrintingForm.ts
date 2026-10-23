@@ -11,8 +11,8 @@ import {
   type PrintingFormValues,
   type ScanState,
 } from './printingForm';
-import type {BaseCard, CatalogPrinting} from './promoCatalog';
-import {PrintingRefusal, factsOf, publishPrinting} from './publishPrinting';
+import {hasOfficialArt, type BaseCard, type CatalogPrinting} from './promoCatalog';
+import {PrintingRefusal, publishPrinting} from './publishPrinting';
 
 /*
  * The promo printing form's controller (#77): the one form open in Edit card's Printings panel (an add
@@ -174,7 +174,7 @@ function scanOf({file, dataUrl, error}: ImageUpload): ScanState {
 /** Whether the open form is an edit of a printing with Ravensburger's art: an edit doesn't replace that art, so the form holds no scan. */
 function keepsItsArt(form: FormState | null): boolean {
   const printing = form?.printing ?? null;
-  return printing !== null && factsOf(printing).officialArt;
+  return printing !== null && hasOfficialArt(printing);
 }
 
 /** Whether the owner entered or chose anything the form didn't open with: a file, or values that would publish something else. */

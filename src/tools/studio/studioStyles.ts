@@ -1,13 +1,15 @@
 import type {CSSProperties} from 'react';
 import {COLORS, SPACING} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
+import type {FrameState} from './cardPanel';
 import {STUDIO_PADDING, type StudioLayout, type StudioSlot} from './studioLayout';
 
 /*
- * The styles Card studio's parts share (R4): the page's layout, its panels and
- * the text its fields and notes print. Inline, as cardStyles.ts is for the card
- * page: hover, focus and selected states are adm-* classes in AdminStyles
- * (R-41). The layout follows the handoff (README §7).
+ * The styles Card studio's parts share (R4): the page's layout, its panels, the
+ * frame round a card's picture and the text its fields and notes print.
+ * Inline, as cardStyles.ts is for the card page: hover, focus and selected
+ * states are adm-* classes in AdminStyles (R-41). The layout follows the
+ * handoff (README §7).
  */
 
 /** The gap between the studio's panels, across and down (12px). */
@@ -90,6 +92,20 @@ export const STUDIO_PANEL: CSSProperties = {
   backgroundClip: 'padding-box',
   border: `1px solid ${ADMIN_COLORS.border}`,
   borderRadius: ADMIN_RADIUS.panel,
+};
+
+/** CardTile's own proportions, so a card, the placeholder stripes and a scan's frame take the same box. */
+export const CARD_ASPECT = '0.72';
+
+/**
+ * The border of a card picture's frame, by what the picture shows: nothing yet
+ * (dashed), the art as it stands (solid), or the file the owner chose (gold).
+ * The card panel's preview and the printing form's scan frame both wear it.
+ */
+export const FRAME_BORDER: Readonly<Record<FrameState, string>> = {
+  empty: `1px dashed ${ADMIN_COLORS.strongBorder}`,
+  current: `1px solid ${ADMIN_COLORS.inputBorder}`,
+  staged: `1px solid ${ADMIN_COLORS.accentStrong}`,
 };
 
 /**

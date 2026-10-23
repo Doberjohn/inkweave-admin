@@ -1,5 +1,6 @@
 import {isCoreSet, type LorcanaCard} from 'inkweave-synergy-engine';
 import type {PromoSet} from '../../../app-bridge';
+import {extOf} from '../../../components/fileName';
 import {stripDataUrl} from '../../../github/githubCommit';
 import {finishesOfChoice, type FinishChoice} from '../finishes/finishValues';
 import {printingCode, type BaseCard, type CatalogPrinting, type CodeParts, type FoundPrinting} from './promoCatalog';
@@ -110,7 +111,7 @@ function languageOf({scanLanguage}: PrintingFormValues): string | null {
  */
 function scanFileOf({name, dataUrl}: ScanState): ScanFile | null {
   if (dataUrl === null) return null;
-  return {ext: (name?.split('.').pop() ?? '').toLowerCase(), base64: stripDataUrl(dataUrl)};
+  return {ext: extOf(name ?? ''), base64: stripDataUrl(dataUrl)};
 }
 
 /** Whether the two forms name the same code: the same promo set, and the same number however each was typed ("42", " 042 "). */

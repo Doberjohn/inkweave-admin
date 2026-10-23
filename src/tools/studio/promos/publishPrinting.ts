@@ -10,6 +10,7 @@ import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../finishes/finishFiles
 import {withEditedPrinting, withNewPrinting, type NewPrinting, type PrintingEdit} from './catalogEdits';
 import {
   findPrinting,
+  hasOfficialArt,
   isKnownPromoSet,
   parseCatalog,
   printingCode,
@@ -107,7 +108,7 @@ export function factsOf(printing: CatalogPrinting): PrintingFacts {
     promoGrouping: printing.promoGrouping,
     number: printing.number ?? null,
     scanLanguage: printing.scanLanguage ?? null,
-    officialArt: printing.images !== undefined,
+    officialArt: hasOfficialArt(printing),
   };
   if (printing.artVariant !== undefined) facts.artVariant = printing.artVariant;
   return facts;

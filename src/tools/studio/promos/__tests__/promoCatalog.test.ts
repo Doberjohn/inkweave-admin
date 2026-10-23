@@ -2,7 +2,9 @@ import {describe, expect, it} from 'vitest';
 import {CATALOG_PATH} from '../../finishes/finishFiles';
 import {
   findPrinting,
+  hasOfficialArt,
   isKnownPromoSet,
+  isProvisional,
   nextProvisionalId,
   parseCatalog,
   printingCode,
@@ -88,5 +90,14 @@ describe('promoCatalog', () => {
     const group = {...FIXTURE_CATALOG.fold[0], variants: [printing(80000), printing(80001)]};
     const stats = recountStats({...FIXTURE_CATALOG, fold: [group], noBaseCard: []});
     expect([stats.withLorcanaJsonId, stats.withProvisionalId]).toEqual([1, 1]);
+  });
+  it("tells a printing with Ravensburger's art by the images its entry holds", () => {
+    const hasArt = (id: number) => hasOfficialArt(findPrinting(FIXTURE_CATALOG, id)!.printing);
+    expect(hasArt(659)).toBe(true);
+    expect(hasArt(80043)).toBe(false);
+  });
+  it("tells a provisional id from LorcanaJSON's at 80001", () => {
+    expect(isProvisional({id: 80001})).toBe(true);
+    expect(isProvisional({id: 80000})).toBe(false);
   });
 });

@@ -5,13 +5,13 @@ import {useHiddenFileInput} from '../../../components/useHiddenFileInput';
 import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
-import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, isStaged, type ImageNoteIds} from '../cardPanel';
+import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, isStaged, type FrameState, type ImageNoteIds} from '../cardPanel';
 import {CHOICE_OPTIONS} from '../finishes/finishValues';
 import {missingLine, publishLabel, type PromoSetOption, type ScanState} from '../promos/printingForm';
-import {printingCode, type FoundPrinting} from '../promos/promoCatalog';
+import {hasOfficialArt, printingCode, type FoundPrinting} from '../promos/promoCatalog';
 import type {OpenPrintingForm, PrintingFormController} from '../promos/usePrintingForm';
 import {scanLanguageOptions} from '../scanLanguages';
-import {FIELD_LABEL, HINT} from '../studioStyles';
+import {CARD_ASPECT, FIELD_LABEL, FRAME_BORDER, HINT} from '../studioStyles';
 import {CommitOutcome} from './CommitOutcome';
 import {Field} from './Field';
 
@@ -30,8 +30,6 @@ import {Field} from './Field';
 /** The scan column's width, and the least the fields ask for beside it: with the gap, a box under 360px wraps them under the scan. */
 const SCAN_WIDTH = 130;
 const FIELDS_BASIS = 180;
-/** A card's proportions, as the studio's preview draws them. */
-const CARD_ASPECT = '0.72';
 
 /** The one thing a printing with Ravensburger's art says in place of a scan control. */
 const RAVENSBURGER_ART = "Its art is Ravensburger's, so it has no scan to replace.";
@@ -92,15 +90,6 @@ const NO_ERRORS: Readonly<Record<string, string>> = {};
 /** What the promo set's select says under it: it offers only the app's promo sets, at admin's pin. */
 const PROMO_SET_HINT = "A promo set not listed here has to be added to the app's PROMO_SETS first.";
 
-/** The picture's frame: no art to show (dashed), the printing's art now (solid), or the scan the owner chose (gold). */
-type FrameState = 'empty' | 'current' | 'staged';
-
-const FRAME_BORDER: Readonly<Record<FrameState, string>> = {
-  empty: `1px dashed ${ADMIN_COLORS.strongBorder}`,
-  current: `1px solid ${ADMIN_COLORS.inputBorder}`,
-  staged: `1px solid ${ADMIN_COLORS.accentStrong}`,
-};
-
 export interface PromoPrintingFormProps {
   /** Its form is open: the box draws nothing without one. */
   controller: PrintingFormController;
@@ -125,7 +114,7 @@ function artVariantOf({printing}: OpenPrintingForm): string | undefined {
 
 /** Whether the form edits a printing with Ravensburger's art, which an edit doesn't replace: it has no scan control then. */
 function keepsItsArt({printing}: OpenPrintingForm): boolean {
-  return printing?.images !== undefined;
+  return printing !== null && hasOfficialArt(printing);
 }
 
 /** Whether the scan the owner chose can't be published yet: it failed its check, or its bytes are still being read. */
@@ -138,7 +127,7 @@ function captionOf({kind}: OpenPrintingForm): string {
   return kind === 'add' ? 'Click or drop to add the scan' : 'Click or drop to replace the scan';
 }
 
-/** What the picture frame looks like for the art it shows and the scan the owner chose. */
+/** The picture's frame: no art to show (dashed), the printing's art now (solid), or the scan the owner chose (gold). */
 function frameStateOf({scan, art}: {scan: ScanState; art: string | undefined}): FrameState {
   if (scan.dataUrl !== null) return 'staged';
   return art === undefined ? 'empty' : 'current';

@@ -1,6 +1,7 @@
 import {findGlyphWords, findSpelledGlyphWords, type Ink} from 'inkweave-synergy-engine';
 import type {RevealCardForm} from './buildPreviewCard';
 import {ALL_INKS, SET_TOTAL, inkBlock} from '../../app-bridge';
+import {extOf} from '../../components/fileName';
 import {CARD_TYPES, REVEAL_ID_BASE, STAT_FIELDS, STAT_LABELS} from './constants';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
@@ -137,8 +138,7 @@ function checkImage(imageName: string | null, errors: Errors): void {
     errors.image = 'Upload a card image';
     return;
   }
-  const ext = imageName.split('.').pop()?.toLowerCase() ?? '';
-  if (!VALID_EXT.has(ext)) errors.image = 'Image must be jpg, jpeg, png, or webp';
+  if (!VALID_EXT.has(extOf(imageName))) errors.image = 'Image must be jpg, jpeg, png, or webp';
 }
 
 /**
