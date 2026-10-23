@@ -22,6 +22,17 @@ describe('promoCatalog', () => {
     const text = readPinned(CATALOG_PATH);
     expect(serializeCatalog(parseCatalog(text))).toBe(text);
   });
+  it.each(['fold', 'noBaseCard', 'notes'])('refuses a catalog whose %s is no list, naming it', (key) => {
+    expect(() => parseCatalog(JSON.stringify({...FIXTURE_CATALOG, [key]: undefined}))).toThrow(`its "${key}" isn't a list`);
+  });
+  it('refuses a catalog whose provisionalIds is no object, naming it', () => {
+    expect(() => parseCatalog(JSON.stringify({...FIXTURE_CATALOG, provisionalIds: undefined}))).toThrow(`its "provisionalIds" isn't an object`);
+  });
+  it.each(['fold', 'noBaseCard'] as const)('refuses a catalog with a group in %s that lists no variants, naming it', (key) => {
+    const [group, ...others] = FIXTURE_CATALOG[key];
+    const catalog = {...FIXTURE_CATALOG, [key]: [...others, {...group, variants: undefined}]};
+    expect(() => parseCatalog(JSON.stringify(catalog))).toThrow(`a group in "${key}" has no "variants" list`);
+  });
   it('names a printing by the code printed on it', () => {
     expect(printingCode({number: 1, promoGrouping: 'P5'})).toBe('1/P5');
     expect(printingCode({number: 24, artVariant: 'A', promoGrouping: 'P2'})).toBe('24A/P2');
@@ -45,6 +56,14 @@ describe('promoCatalog', () => {
     const art = (artVariant: string) => ({promoGrouping: 'P2', number: 24, artVariant});
     expect(takenBy({catalog: FIXTURE_CATALOG, code: art('A')})?.printing.id).toBe(1661);
     expect(takenBy({catalog: FIXTURE_CATALOG, code: art('C')})).toBeNull();
+  });
+  it('finds no printing for a code with no number, though a printing with no number shares its set', () => {
+    // The Tailor's group holds 5/C1, and here a C1 printing nobody knows the number of too.
+    const unnumbered: CatalogPrinting = {id: 80060, rarity: 'Special', promoGrouping: 'C1'};
+    const [tailor, ...others] = FIXTURE_CATALOG.noBaseCard;
+    const catalog = {...FIXTURE_CATALOG, noBaseCard: [{...tailor, variants: [...tailor.variants, unnumbered]}, ...others]};
+    expect(takenBy({catalog, code: {promoGrouping: 'C1', number: undefined}})).toBeNull();
+    expect(takenBy({catalog, code: {promoGrouping: 'C1', number: 5}})?.printing.id).toBe(80003);
   });
   it('knows the promo sets the app knows', () => {
     expect(isKnownPromoSet('P4')).toBe(true);

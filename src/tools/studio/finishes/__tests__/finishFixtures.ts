@@ -449,9 +449,12 @@ export interface CatalogGroup {
   variants: readonly RawCardVariant[];
 }
 
-/** The promo catalog holding these groups: `JSON.stringify(x, null, 2)`, no newline. */
+/**
+ * The promo catalog holding these groups: `JSON.stringify(x, null, 2)`, no newline. Its other sections are
+ * there and empty, since Card studio's read of the catalog (`parseCatalog`) refuses one that lacks a section.
+ */
 export function catalogText(fold: readonly CatalogGroup[] = []): string {
-  return JSON.stringify({about: '', fold, noBaseCard: []}, null, 2);
+  return JSON.stringify({about: '', fold, noBaseCard: [], provisionalIds: {}, notes: []}, null, 2);
 }
 
 /** Set 4's chunk as text: Yen Sid's three entries, the alt foil naming `["foil"]`. */

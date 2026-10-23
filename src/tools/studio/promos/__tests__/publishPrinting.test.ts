@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {RAW_DIR} from '../../../image/githubClient';
-import {BASE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
+import {BASE, BASE_TREE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting, type PrintingEdit} from '../catalogEdits';
 import {
@@ -72,6 +72,16 @@ function staleFiles(): Record<string, string> {
   return {...FIXTURE_FILES, [ALL_CARDS_PATH]: `${JSON.stringify(all, null, 2)}\n`, [PROMOS_PATH]: '[]\n'};
 }
 
+/**
+ * FIXTURE_FILES with the hashes a local image build injects (the app's download-card-images.mjs) on the first
+ * entry of promos.json. The app's merge CLI reads the file without them.
+ */
+function hashedPromos(): Record<string, string> {
+  const [first, ...rest] = JSON.parse(FIXTURE_FILES[PROMOS_PATH]) as object[];
+  const hashed = {...first, imageHash: 'aaaa000011112222', imageHashSm: 'bbbb333344445555'};
+  return {...FIXTURE_FILES, [PROMOS_PATH]: `${JSON.stringify([hashed, ...rest])}\n`};
+}
+
 describe('the fixture branch', () => {
   it('is in step with its catalog', () => {
     const files = {allCards: FIXTURE_FILES[ALL_CARDS_PATH], promos: FIXTURE_FILES[PROMOS_PATH]};
@@ -119,6 +129,14 @@ describe('publishPrinting', () => {
     await publishPrinting({token: 't', change: {...EDIT_80024({}), note: 'Foil twin of 1/C3.'}});
     expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
     expect(repo.commitMessage()).toBe('chore(collection): edit 13/C3 Mother Knows Best from Card studio');
+  });
+  it('commits nothing for an edit that changes nothing', async () => {
+    // GitHub names a tree by what it holds, so the catalog as the branch holds it builds the base commit's tree again.
+    const repo = stubRepo({files: FIXTURE_FILES, tree: BASE_TREE});
+    await expect(publishPrinting({token: 't', change: EDIT_80024({})})).rejects.toThrow(
+      'Nothing changed on master: it already holds these files as they are, so nothing was committed.');
+    expect(repo.filesSent()).toEqual({[CATALOG_PATH]: FIXTURE_FILES[CATALOG_PATH]});
+    expect(repo.writes()).toEqual(['POST git/blobs', 'POST git/trees']);
   });
   it('names a renumbering in its commit', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
@@ -168,6 +186,21 @@ describe('the id an add takes', () => {
     const ids = (JSON.parse(repo.filesSent()[PROMOS_PATH]) as Array<{id: number}>).map(({id}) => id);
     expect(ids).toEqual(expect.arrayContaining([80050, 80051]));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('a promos.json that a local image build hashed', () => {
+  it('commits the catalog alone for a note-only edit: the hashes are no change', async () => {
+    const repo = stubRepo({files: hashedPromos()});
+    await publishPrinting({token: 't', change: {...EDIT_80024({}), note: 'Foil twin of 1/C3.'}});
+    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
+  });
+  it('writes promos.json with no hash for an add', async () => {
+    const repo = stubRepo({files: hashedPromos()});
+    await publishPrinting({token: 't', change: ADD_9_P4});
+    const promos = repo.filesSent()[PROMOS_PATH];
+    expect(promos).toContain('"id":80050');
+    expect(promos).not.toContain('imageHash');
   });
 });
 
@@ -351,6 +384,12 @@ describe('a publish the branch can\'t take', () => {
     const repo = stubRepo({files: FIXTURE_FILES});
     const stray: BaseCard = {id: 99999, fullName: 'Nobody - Nowhere', setCode: '9', number: 1, core: true};
     await expect(publishPrinting({token: 't', change: {...ADD_9_P4, card: stray}})).rejects.toThrow('no card 99999 (Nobody - Nowhere) in allCards.json');
+    expect(repo.writes()).toEqual([]);
+  });
+  it("names a catalog it can't read, as the panel does, writing nothing", async () => {
+    const catalog = JSON.stringify({...FIXTURE_CATALOG, noBaseCard: undefined}, null, 2);
+    const repo = stubRepo({files: {...FIXTURE_FILES, [CATALOG_PATH]: catalog}});
+    await expect(publishPrinting({token: 't', change: ADD_9_P4})).rejects.toThrow(`${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list`);
     expect(repo.writes()).toEqual([]);
   });
 });

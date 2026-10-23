@@ -4,7 +4,7 @@ import {withNewPrinting} from '../catalogEdits';
 import {parseCatalog, serializeCatalog, type BaseCard, type FoldGroup, type PromoCatalog} from '../promoCatalog';
 import {mergeOver, outOfStep} from '../promoMerge';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, PRINCE} from './promoFixtures';
+import {FIXTURE_CATALOG, FIXTURE_FILES, PRINCE} from './promoFixtures';
 
 /** A card of allCards.json, as far as these tests look at it. */
 interface TestCard {
@@ -87,6 +87,12 @@ describe('outOfStep', () => {
   it('names the promos file alone where allCards.json is in step', () => {
     const base = pinned();
     expect(outOfStep({catalog: base.catalog, files: {...base.files, promos: '[]\n'}})).toEqual(['collection/promos.json']);
+  });
+  it("finds a promos.json in step whatever its hashes and its formatting, as the app's CLI reads it", () => {
+    const listed = JSON.parse(FIXTURE_FILES[PROMOS_PATH]) as object[];
+    const hashed = listed.map((promo) => ({...promo, imageHash: 'aaaa000011112222', imageHashSm: 'bbbb333344445555'}));
+    const files = {allCards: FIXTURE_FILES[ALL_CARDS_PATH], promos: `${JSON.stringify(hashed, null, 2)}\n`};
+    expect(outOfStep({catalog: FIXTURE_CATALOG, files})).toEqual([]);
   });
   it('names a card alone where promos.json is in step', () => {
     expect(outOfStep(pinnedWith((cards) => mkb(cards).variants?.pop()))).toEqual(['Mother Knows Best']);

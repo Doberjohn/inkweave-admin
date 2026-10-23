@@ -13,6 +13,12 @@ import {askedOf, contentsAnswer, type Asked, type Served} from './branchHarness'
 /** The commit the branch is at: a publish builds on it, and reads the files there. */
 export const BASE = 'base';
 
+/** The tree the commit `BASE` points at. */
+export const BASE_TREE = 'base-tree';
+
+/** The tree a publish builds, unless a test says it is `BASE_TREE`. */
+const NEW_TREE = 'tree';
+
 /** The commit a publish makes, as GitHub links it. */
 export const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/published';
 
@@ -70,6 +76,11 @@ export interface RepoAnswers {
   files: Readonly<Record<string, Served>>;
   /** How GitHub answers the ref update: by default it moves the branch (`moved`). */
   update?: () => Response | Promise<Response>;
+  /**
+   * The sha GitHub gives the tree a publish builds: by default a new one. GitHub names a tree by what it
+   * holds, so files that change nothing build the base commit's tree again: a test says so with `BASE_TREE`.
+   */
+  tree?: string;
 }
 
 /**
@@ -85,13 +96,13 @@ function atBaseOnly(contents: ReturnType<typeof contentsAnswer>): Answer {
 }
 
 /** The routes of a publish, in the order commitFiles calls them. Each blob is named by its place among the blobs. */
-function routesOf({files, update}: Required<RepoAnswers>): Route[] {
+function routesOf({files, update, tree}: Required<RepoAnswers>): Route[] {
   return [
     [isRead, atBaseOnly(contentsAnswer(files))],
     [({method, route}) => method === 'GET' && route.startsWith('git/ref/heads/'), () => json({object: {sha: BASE}})],
-    [({route}) => route === `git/commits/${BASE}`, () => json({tree: {sha: 'base-tree'}})],
+    [({route}) => route === `git/commits/${BASE}`, () => json({tree: {sha: BASE_TREE}})],
     [isBlob, (_call, calls) => json({sha: `blob-${calls.filter(isBlob).length - 1}`}, 201)],
-    [isTree, () => json({sha: 'tree'}, 201)],
+    [isTree, () => json({sha: tree}, 201)],
     [isCommit, () => json({sha: 'published', html_url: COMMIT_URL}, 201)],
     [({method}) => method === 'PATCH', () => update()],
   ];
@@ -129,8 +140,8 @@ export interface RepoStub {
  * Stubs fetch as GitHub's API for a branch at `BASE` that holds `files`, which it serves only at
  * `BASE`. Unstub in afterEach (`vi.unstubAllGlobals`).
  */
-export function stubRepo({files, update = moved}: RepoAnswers): RepoStub {
-  const routes = routesOf({files, update});
+export function stubRepo({files, update = moved, tree = NEW_TREE}: RepoAnswers): RepoStub {
+  const routes = routesOf({files, update, tree});
   const calls: Call[] = [];
   const answer = vi.fn<typeof fetch>(async (...request) => {
     const call = callOf(request);

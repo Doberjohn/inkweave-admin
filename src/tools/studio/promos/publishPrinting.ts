@@ -6,6 +6,7 @@ import {
   type CommitFile,
 } from '../../../github/githubCommit';
 import {RAW_DIR} from '../../image/githubClient';
+import {namingItsFile, type BranchFile} from '../finishes/branchFiles';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting, type PrintingEdit} from './catalogEdits';
 import {
@@ -21,7 +22,7 @@ import {
   type CodeParts,
   type PromoCatalog,
 } from './promoCatalog';
-import {mergeOver, outOfStep, type MergeInput} from './promoMerge';
+import {mergeOver, outOfStep, promosDiffer, type MergeInput} from './promoMerge';
 
 /*
  * The publish of a promo printing's add or edit (#77): one commit on the target branch that writes the
@@ -30,10 +31,10 @@ import {mergeOver, outOfStep, type MergeInput} from './promoMerge';
  * and both card files there, checks the change against them, applies it and runs the app's merge over the
  * result (promoMerge.ts). A change the branch can't take is refused there, before anything is written
  * (PrintingRefusal), and so is a branch that moves meanwhile (commitFiles' own error, which ends "Publish
- * again."). allCards.json and collection/promos.json are the merge's output, each sent only when its text
- * changes: nothing here edits their entries. Any other failure, an unreadable file or a catalog the merge
- * can't take, passes through as it is. A code that a message or a result names is the printing's own, its
- * art variant included: 24A/P2, not 24/P2.
+ * again."). allCards.json and collection/promos.json are the merge's output, each sent only when the merge
+ * changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits their entries.
+ * Any other failure, an unreadable file or a catalog the merge can't take, passes through as it is. A code
+ * that a message or a result names is the printing's own, its art variant included: 24A/P2, not 24/P2.
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -252,14 +253,16 @@ function textFile({path, text}: {path: string; text: string}): CommitFile {
 }
 
 /**
- * The commit's files: the catalog as changed, each card file whose text the app's merge changes, and the
- * scan where there is one. The merge runs over the files as the branch holds them (`held`).
+ * The commit's files: the catalog as changed, each card file the app's merge changes, and the scan where
+ * there is one. The merge runs over the files as the branch holds them (`held`). allCards.json is sent when
+ * its text changes, and promos.json when the promos it lists do, hashes aside (`promosDiffer`): a file whose
+ * only difference is the hashes a local image build injected stays as it is, as the app's CLI leaves it.
  */
 function filesToCommit({change, id, catalog, held}: {change: PrintingChange; id: number; catalog: PromoCatalog; held: MergeInput}): CommitFile[] {
   const merged = mergeOver({catalog, files: held.files});
   const files = [textFile({path: CATALOG_PATH, text: serializeCatalog(catalog)})];
   if (merged.allCards !== held.files.allCards) files.push(textFile({path: ALL_CARDS_PATH, text: merged.allCards}));
-  if (merged.promos !== held.files.promos) files.push(textFile({path: PROMOS_PATH, text: merged.promos}));
+  if (promosDiffer(merged.promos, held.files.promos)) files.push(textFile({path: PROMOS_PATH, text: merged.promos}));
   // RAW_DIR is where Edit card's image tool commits a scan too: the app converts it to the printing's art.
   if (change.scan) files.push({path: `${RAW_DIR}/${id}.${change.scan.ext}`, contentBase64: change.scan.base64});
   return files;
@@ -271,11 +274,14 @@ interface Plan {
   id: number;
 }
 
+/** The catalog a file holds. One it can't read is named, as Edit card's Printings panel names it: "scripts/data/promo-printings.json can't be read: …". */
+const catalogIn = namingItsFile(({text}: BranchFile) => parseCatalog(text));
+
 /** The catalog and both card files as they are at the commit `base`. */
 async function readHeld({token, base}: {token: string; base: string}): Promise<MergeInput> {
   const paths = [CATALOG_PATH, ALL_CARDS_PATH, PROMOS_PATH];
   const [catalog, allCards, promos] = await Promise.all(paths.map((path) => readRepoFile(token, path, base)));
-  return {catalog: parseCatalog(catalog), files: {allCards, promos}};
+  return {catalog: catalogIn({path: CATALOG_PATH, text: catalog}), files: {allCards, promos}};
 }
 
 /** Reads the branch at `base`, checks the change against it and works out what to commit. */
@@ -289,13 +295,14 @@ async function planAt({token, base, change}: {token: string; base: string; chang
 /**
  * Publishes the change in one commit on the target branch: the catalog, the card files the app's merge
  * changes, and the scan. Nothing is written when the branch can't take it (PrintingRefusal, whose `kind`
- * says why), when a file can't be read or the catalog can't merge (the error as it is), or when the
- * branch moves first (commitFiles' error, whose message ends "Publish again.").
+ * says why), when a file can't be read or the catalog can't merge (the error as it is), when the
+ * branch moves first (commitFiles' error, whose message ends "Publish again."), or when the branch holds
+ * the files already, so that the commit would change nothing (commitFiles' error, "Nothing changed on …").
  */
 export async function publishPrinting({token, change}: {token: string; change: PrintingChange}): Promise<PrintingPublished> {
   const code = printingCode(codePartsAfter(change));
   // An add's id is the next one at the base, so it is known only inside the callback, which
-  // commitFiles calls once and only returns after.
+  // commitFiles calls once and only returns after. The last plan is the one it committed.
   const planned: Plan[] = [];
   const {commitUrl} = await commitFiles({
     token,
@@ -306,5 +313,7 @@ export async function publishPrinting({token, change}: {token: string; change: P
       return plan.files;
     },
   });
-  return {commitUrl, id: planned[0].id, code};
+  const committed = planned.at(-1);
+  if (committed === undefined) throw new Error(`The commit for ${code} landed, but commitFiles never asked for its files: the printing's id isn't known.`);
+  return {commitUrl, id: committed.id, code};
 }

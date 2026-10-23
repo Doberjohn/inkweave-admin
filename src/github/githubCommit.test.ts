@@ -166,6 +166,22 @@ describe('commitFiles', () => {
     ).rejects.toThrow('master changed while publishing, so nothing was published. Publish again.');
   });
 
+  // GitHub names a tree by what it holds, so files that change nothing build the
+  // base commit's tree again.
+  it('commits nothing when the files change nothing', async () => {
+    const calls: string[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+      const u = String(url);
+      calls.push(`${init?.method ?? 'GET'} ${u.slice(u.indexOf('/git/') + 1)}`);
+      return u.endsWith('/git/trees') ? new Response(JSON.stringify({sha: 'basetree'}), {status: 201}) : gitStub(u);
+    });
+
+    await expect(
+      commitFiles({token: 'tok', message: 'test commit', files: [{path: 'a.txt', contentBase64: 'Zm9v'}]}),
+    ).rejects.toThrow('Nothing changed on master: it already holds these files as they are, so nothing was committed.');
+    expect(calls).toEqual(['GET git/ref/heads/master', 'GET git/commits/basecommit', 'POST git/blobs', 'POST git/trees']);
+  });
+
   // A read-modify-write must build on the commit it read: if the branch moves
   // meanwhile, the non-force ref update fails instead of undoing the other change.
   it('derives the files from the commit it builds on', async () => {

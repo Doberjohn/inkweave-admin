@@ -7,10 +7,12 @@ import type {PromoCatalog} from './promoCatalog';
  * follow it. Card studio never edits the entries of those two files itself: it runs the app's merge,
  * bridged from scripts/lib/promo-printings.mjs, and commits the text that comes out. That text is the
  * merge's whole output, so it carries any other change the merge makes to files the branch left out of
- * step: `outOfStep` names every such change, and an empty list means there is none. Both functions
- * here read the texts they are given and nothing else, and neither changes its arguments. Where the
- * catalog can't merge into the cards (a card it names isn't there, an id is already taken) the app's
- * merge throws, and so do they: the error's message says why, and nothing is returned.
+ * step: `outOfStep` names every such change, and an empty list means there is none. It reads
+ * collection/promos.json as the app's merge CLI does (`promosDiffer`): the hashes a local image build
+ * injects are no change. The functions here read the texts they are given and nothing else, and none
+ * changes its arguments. Where the catalog can't merge into the cards (a card it names isn't there, an id
+ * is already taken) the app's merge throws, and so do `mergeOver` and `outOfStep`: the error's message
+ * says why, and nothing is returned.
  */
 
 /** The texts of the two files the merge writes. */
@@ -89,12 +91,31 @@ export function mergeOver(opts: MergeInput): MergedTexts {
 }
 
 /**
- * What the merge over the files as they are would change, so that [] means it changes neither file's
- * text. It names, in the merge report's order and each once, the full name of every card whose JSON
- * text changes: a promo entry added, rewritten or removed, but also entries put in another order or a
+ * A promos.json text as the app's merge CLI compares it (`withoutHashes`, merge-promo-printings.mjs):
+ * parsed and written again compactly, with every key starting with imageHash left out.
+ */
+function withoutHashes(text: string): string {
+  return JSON.stringify(JSON.parse(text), (key: string, value: unknown) => (key.startsWith('imageHash') ? undefined : value));
+}
+
+/**
+ * Whether two promos.json texts list different promos once every key starting with imageHash is left
+ * out: the hashes a local image build injects (the app's download-card-images.mjs). Their formatting
+ * counts for nothing either, since each is parsed. The app's CLI reads the file so: it neither calls such
+ * a file out of step nor writes it again, and neither does Card studio.
+ */
+export function promosDiffer(a: string, b: string): boolean {
+  return withoutHashes(a) !== withoutHashes(b);
+}
+
+/**
+ * What the merge over the files as they are would change, so that [] means it changes neither file. It
+ * names, in the merge report's order and each once, the full name of every card whose JSON text
+ * changes: a promo entry added, rewritten or removed, but also entries put in another order or a
  * `finishes` key moved, which the report counts as no change. Then 'allCards.json', when its text
- * still differs though no card was named (its formatting), then 'collection/promos.json', when that
- * file's text changes. Throws where the catalog can't merge into the cards.
+ * still differs though no card was named (its formatting), then 'collection/promos.json', when the
+ * promos it lists change, hashes and formatting aside (`promosDiffer`). Throws where the catalog can't
+ * merge into the cards.
  */
 export function outOfStep(opts: MergeInput): string[] {
   const all = openAllCards(opts);
@@ -102,6 +123,6 @@ export function outOfStep(opts: MergeInput): string[] {
   const {texts, report} = merged(opts, all);
   const names = changedCards({report, before});
   if (names.length === 0 && texts.allCards !== opts.files.allCards) names.push(ALL_CARDS_FILE);
-  if (texts.promos !== opts.files.promos) names.push(PROMOS_FILE);
+  if (promosDiffer(texts.promos, opts.files.promos)) names.push(PROMOS_FILE);
   return [...new Set(names)];
 }

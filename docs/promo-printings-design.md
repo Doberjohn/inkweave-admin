@@ -115,11 +115,12 @@ Checked on 2026-10-22: master's `allCards.json` and `promos.json` are exactly wh
 - the catalog's own lines.
 
 **What it checks at the base.** Each check stops the publish, writes nothing and says why:
-- **The files are in step.** The merge over the branch's files as they are must change nothing. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
+- **The files are in step.** The merge over the branch's files as they are must change nothing, `promos.json` compared hash keys aside, as the app's CLI reads it. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
 - **The code is free.** No other printing has the promo set and number. An edit is checked only when it changes the promo set or number (see "Settled during the build").
 - **An edit's printing is unchanged.** The printing's catalog entry must still be what the form opened from. If it isn't, someone changed it, and the form shows the branch's values.
 - **The promo set is known.** It must be one the app knows. An edit is checked only when it changes the promo set (see "Settled during the build").
 - **The branch hasn't moved.** If it moves while the commit is built, `commitFiles` refuses it, as it already does ("Publish again.").
+- **The commit changes something.** If the branch already holds the files as they are, the commit would be empty, and `commitFiles` refuses it ("Nothing changed on …").
 
 The commit message names the printing and its card, for example "chore(collection): add 1/P5 Mickey Mouse - Brave Little Prince from Card studio", as #68's version commits are worded. The wording is the builder's.
 

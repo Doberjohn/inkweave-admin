@@ -63,6 +63,16 @@ export interface CommitResult {
 }
 
 /**
+ * Refuses a tree that is the base commit's own. GitHub names a tree by what it
+ * holds, so files the branch already holds as they are build it again, and a
+ * commit of it would change nothing.
+ */
+function requireChange({tree, baseCommit, branch}: {tree: {sha: string}; baseCommit: {tree: {sha: string}}; branch: string}): void {
+  if (tree.sha !== baseCommit.tree.sha) return;
+  throw new Error(`Nothing changed on ${branch}: it already holds these files as they are, so nothing was committed.`);
+}
+
+/**
  * One atomic commit on the target branch writing an arbitrary set of files.
  * Reads the branch tip, creates a blob per file, builds a tree on the base
  * commit's tree, commits, and fast-forwards the ref.
@@ -71,6 +81,10 @@ export interface CommitResult {
  * sha and reads what it edits at that commit (readRepoFile's `ref`). If the
  * branch moves meanwhile, the non-force ref update fails instead of silently
  * undoing the other change.
+ *
+ * Files the branch already holds as they are build the base commit's tree again
+ * (GitHub names a tree by what it holds). That would be an empty commit, so it
+ * throws instead: no commit is made and the branch stays where it was.
  */
 export async function commitFiles(opts: {
   token: string;
@@ -104,6 +118,7 @@ export async function commitFiles(opts: {
     method: 'POST',
     body: JSON.stringify({base_tree: baseCommit.tree.sha, tree: treeEntries}),
   });
+  requireChange({tree, baseCommit, branch});
 
   const commit = await ghJson<{sha: string; html_url: string}>(
     token,
