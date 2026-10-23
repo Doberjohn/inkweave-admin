@@ -245,8 +245,11 @@ export function editFormOf({printing, card, ...held}: {printing: CatalogPrinting
   return {kind: 'edit', card, printing, values, initial: values, scan: NO_SCAN, error: null, ...held};
 }
 
+/** The printing an edit form opens: Snow White's 42/P2 unless an `id` names another, with the `card` it is a printing of. */
+type EditOf = {id?: undefined; card?: undefined} | {id: number; card: BaseCard};
+
 /** The edit form of a printing of FIXTURE_CATALOG: Snow White's 42/P2 (80049, a Chinese scan) unless `id` and `card` say another. */
-export function editForm({id = 80049, card = SNOW_WHITE_BASE, ...held}: {id?: number; card?: BaseCard} & EditHeld = {}): OpenPrintingForm {
+export function editForm({id = 80049, card = SNOW_WHITE_BASE, ...held}: EditOf & EditHeld = {}): OpenPrintingForm {
   return editFormOf({printing: printingOf(id), card, ...held});
 }
 
@@ -254,7 +257,7 @@ export function editForm({id = 80049, card = SNOW_WHITE_BASE, ...held}: {id?: nu
  * Makes one of a controller's actions from what it does. A test passes `vi.fn`, so that the action records
  * its calls: this file can't import vitest. A story passes nothing, and its actions only do what they are given.
  */
-export type MakeAction = <Args extends unknown[], Result>(does: (...args: Args) => Result) => (...args: Args) => Result;
+type MakeAction = <Args extends unknown[], Result>(does: (...args: Args) => Result) => (...args: Args) => Result;
 
 const AS_GIVEN: MakeAction = (does) => does;
 

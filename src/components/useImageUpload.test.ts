@@ -112,6 +112,10 @@ describe('imageProblem', () => {
     expect(imageProblem('a.jpg', WEBP)).toBe('a.jpg holds a WebP image; rename it to end in .webp.');
   });
 
+  it('asks for an extension where the name has none, as in a file named just png', () => {
+    expect(imageProblem('png', PNG)).toBe('png holds a PNG image; rename it to end in .png.');
+  });
+
   it('refuses other bytes, and anything that is not base64', () => {
     expect(imageProblem('a.png', dataUrl('GIF89a\x01\x00\x01\x00'))).toBe('a.png is not a JPEG, PNG or WebP image.');
     expect(imageProblem('a.webp', dataUrl('RIFF\x24\x00\x00\x00WAVEfmt '))).toBe('a.webp is not a JPEG, PNG or WebP image.');

@@ -223,6 +223,17 @@ describe("an add that starts a Sets 1 to 8 card's group", () => {
       message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds."});
     expect(repo.writes()).toEqual([]);
   });
+  it("names a set's data whose cards aren't a list, writing nothing", async () => {
+    const repo = stubRepo({files: {...withSet3Chunk(), [setChunkPath('3')]: '{"cards":[]}\n'}});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toThrow(`${setChunkPath('3')} can't be read: its cards aren't a list`);
+    expect(repo.writes()).toEqual([]);
+  });
+  it('reads no set data until every other check has passed', async () => {
+    // The card files are out of step, so the publish is refused before it reads Set 3's chunk, which holds Baloo.
+    const repo = stubRepo({files: {...withSet3Chunk(), ...staleFiles()}});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'outOfStep'});
+    expect(repo.reads().map(({path}) => path)).not.toContain(setChunkPath('3'));
+  });
   it('reads no set data for a Core card, or for a card the catalog has a group for', async () => {
     const pathsReadFor = async (card: BaseCard) => {
       const repo = stubRepo({files: FIXTURE_FILES});

@@ -103,7 +103,7 @@ export interface BaseCard {
 }
 
 /** Where provisional ids start. A printing LorcanaJSON lacks takes the next one; LorcanaJSON's own ids are below. */
-export const PROVISIONAL_ID_BASE = 80001;
+const PROVISIONAL_ID_BASE = 80001;
 
 /** The catalog's sections that are lists. */
 const LISTS = ['fold', 'noBaseCard', 'notes'] as const;

@@ -131,6 +131,8 @@ describe('validateRevealCardForm', () => {
   it('requires an image with a valid extension', () => {
     expect(validateRevealCardForm(form(), NO_IDS, null).errors.image).toBeDefined();
     expect(validateRevealCardForm(form(), NO_IDS, 'mei.gif').errors.image).toBeDefined();
+    // A name with no dot has no extension, so a file named just "png" is no .png.
+    expect(validateRevealCardForm(form(), NO_IDS, 'png').errors.image).toBe('Image must be jpg, jpeg, png, or webp');
   });
 
   it('rejects a second ink equal to the first', () => {

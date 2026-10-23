@@ -58,36 +58,45 @@ function specifiersOf(file, text) {
   return specifiers;
 }
 
-// The code file a relative specifier of `from` names. Bare packages, assets and misses give undefined.
-function resolveImport({from, specifier, exists}) {
-  if (!RELATIVE.test(specifier)) return undefined;
+/**
+ * What a module that `from` loads is to the walk: a Node builtin, a code file to read next, a relative
+ * specifier that names no file (a miss: a TS-style "./x.js" for x.ts is one), or nothing to follow (a
+ * bare package, or an asset).
+ * @returns {{kind: 'builtin' | 'miss' | 'none'} | {kind: 'code', file: string}}
+ */
+function loadOf({from, specifier, exists}) {
+  if (isNodeBuiltin(specifier)) return {kind: 'builtin'};
+  if (!RELATIVE.test(specifier)) return {kind: 'none'};
   const base = path.posix.join(path.posix.dirname(from), specifier.replace(/\?.*$/, ''));
   const found = SUFFIXES.map((suffix) => base + suffix).find((candidate) => exists(candidate));
-  return found && CODE.has(path.posix.extname(found)) ? found : undefined;
+  if (found === undefined) return {kind: 'miss'};
+  return CODE.has(path.posix.extname(found)) ? {kind: 'code', file: found} : {kind: 'none'};
 }
 
 /**
- * Every Node builtin a walk from `entries` reaches through relative imports, and the files it visited.
- * Paths are repo-relative with "/" separators. `read(path)` gives a file's text and `exists(path)` says
- * whether a file is there.
- * @returns {{visited: string[], nodeImports: Array<{file: string, specifier: string}>}}
+ * Every Node builtin a walk from `entries` reaches through relative imports, every relative import it
+ * found no file for, and the files it visited. Paths are repo-relative with "/" separators. `read(path)`
+ * gives a file's text and `exists(path)` says whether a file is there.
+ * @returns {{visited: string[], nodeImports: Array<{file: string, specifier: string}>, unresolved: Array<{file: string, specifier: string}>}}
  */
 function walk({entries, read, exists}) {
   const seen = new Set(entries);
   const visited = [...seen];
   const nodeImports = [];
+  const unresolved = [];
   // A file found on the way joins `visited`, and the loop reaches it in turn.
   for (const file of visited) {
     for (const specifier of specifiersOf(file, read(file))) {
-      if (isNodeBuiltin(specifier)) nodeImports.push({file, specifier});
-      const next = resolveImport({from: file, specifier, exists});
-      if (next && !seen.has(next)) {
-        seen.add(next);
-        visited.push(next);
+      const load = loadOf({from: file, specifier, exists});
+      if (load.kind === 'builtin') nodeImports.push({file, specifier});
+      if (load.kind === 'miss') unresolved.push({file, specifier});
+      if (load.kind === 'code' && !seen.has(load.file)) {
+        seen.add(load.file);
+        visited.push(load.file);
       }
     }
   }
-  return {visited, nodeImports};
+  return {visited, nodeImports, unresolved};
 }
 
 // The checkout's files, by path from the repo root, which is where Vitest runs.
@@ -119,7 +128,8 @@ describe('what the browser loads', () => {
     loaded = walk(onDisk(ENTRIES));
   }, 120_000);
 
-  // A walk that went nowhere would pass the next test, so this one pins what it must reach.
+  // A walk that went nowhere would pass the next test, so this one pins what it must reach, and that no
+  // relative import ended a branch of it unread.
   it('reaches the bridged promo merge and the promo fixtures', () => {
     for (const file of [
       'upstream/inkweave/scripts/lib/promo-printings.mjs',
@@ -129,6 +139,7 @@ describe('what the browser loads', () => {
     ]) {
       expect(loaded.visited).toContain(file);
     }
+    expect(loaded.unresolved).toEqual([]);
   });
 
   it('finds no Node builtin in anything the build or a story loads', () => {
@@ -190,5 +201,10 @@ describe('the walk', () => {
       'data.json': '{}',
     };
     expect(walk(inMemory(files, ['a.mjs'])).visited).toEqual(['a.mjs', 'b.ts', 'c.tsx', 'folder/index.ts', 'd.mjs']);
+  });
+
+  it('names a relative import that resolves to no file, such as a TS-style .js for a .ts', () => {
+    const files = {'a.ts': "import './b.js';\nimport './style.css';\nimport 'a-package';\n", 'b.ts': '', 'style.css': 'body {}'};
+    expect(walk(inMemory(files, ['a.ts'])).unresolved).toEqual([{file: 'a.ts', specifier: './b.js'}]);
   });
 });

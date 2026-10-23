@@ -305,8 +305,18 @@ interface ChunkCard {
   fullName: string;
 }
 
-/** The cards a set's chunk holds. One it can't read is named, as the catalog is. */
-const chunkCardsIn = namingItsFile(({text}: BranchFile) => JSON.parse(text) as ChunkCard[]);
+/**
+ * The cards a chunk's text holds. Valid JSON that isn't a list is refused, as parseCatalog refuses a section,
+ * by what is wrong: a read of it further on would throw a bare TypeError.
+ */
+function chunkCards({text}: BranchFile): ChunkCard[] {
+  const cards: unknown = JSON.parse(text);
+  if (!Array.isArray(cards)) throw new Error("its cards aren't a list");
+  return cards as ChunkCard[];
+}
+
+/** The cards a set's chunk holds. One it can't read is named, as the catalog is: "… can't be read: its cards aren't a list". */
+const chunkCardsIn = namingItsFile(chunkCards);
 
 /**
  * Refuses an add that starts a Sets 1 to 8 card's group when the app's data for the card's set, its chunk at

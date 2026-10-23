@@ -3,10 +3,10 @@ import {CATALOG_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting} from '../catalogEdits';
 import {parseCatalog, printingCode, serializeCatalog, type BaseCard, type CatalogPrinting, type PromoCatalog} from '../promoCatalog';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, PRINCE, SNOW_WHITE_BASE} from './promoFixtures';
+import {FIXTURE_CATALOG, MKB_BASE, PRINCE, SNOW_WHITE_BASE} from './promoFixtures';
 
 const NEW_9_P4: NewPrinting = {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null};
-const snowWhite = (catalog: PromoCatalog) => catalog.noBaseCard.find((g) => g.fullName === 'Snow White - Unexpected Houseguest');
+const snowWhite = (catalog: PromoCatalog) => catalog.noBaseCard.find((g) => g.fullName === SNOW_WHITE_BASE.fullName);
 
 describe('catalogEdits', () => {
   it('adds a printing of a Core card in a new fold group, in baseId order', () => {
@@ -26,8 +26,7 @@ describe('catalogEdits', () => {
     expect(catalog.fold.map((g) => g.baseId)).toEqual([2001, 2035]);
   });
   it("adds to the card's own group in printing order, its language before its versions", () => {
-    const card: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setCode: '9', number: 99, core: true};
-    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: {promoGrouping: 'C3', number: 2, finishes: ['normal'], scanLanguage: 'ja'}, note: null});
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card: MKB_BASE, printing: {promoGrouping: 'C3', number: 2, finishes: ['normal'], scanLanguage: 'ja'}, note: null});
     expect(catalog.fold[0].variants.map(printingCode)).toEqual(['1/C3', '2/C3', '13/C3']);
     expect(Object.keys(catalog.fold[0].variants[1])).toEqual(['id', 'rarity', 'number', 'promoGrouping', 'scanLanguage', 'finishes']);
   });

@@ -15,7 +15,7 @@ import {
   type CatalogStats,
 } from '../promoCatalog';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG} from './promoFixtures';
+import {FIXTURE_CATALOG, printingOf} from './promoFixtures';
 
 describe('promoCatalog', () => {
   it('round-trips the pinned catalog byte for byte', () => {
@@ -111,7 +111,7 @@ describe('promoCatalog', () => {
     expect([stats.withLorcanaJsonId, stats.withProvisionalId]).toEqual([1, 1]);
   });
   it("tells a printing with Ravensburger's art by the images its entry holds", () => {
-    const hasArt = (id: number) => hasOfficialArt(findPrinting(FIXTURE_CATALOG, id)!.printing);
+    const hasArt = (id: number) => hasOfficialArt(printingOf(id));
     expect(hasArt(659)).toBe(true);
     expect(hasArt(80043)).toBe(false);
   });
