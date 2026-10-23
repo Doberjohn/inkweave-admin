@@ -1,10 +1,11 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
+import {parseCatalog} from '../../promos/promoCatalog';
 import {forgetBranchFiles} from '../branchFiles';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishFiles';
 import {useBranchPrintings, type BranchPrintings} from '../useBranchPrintings';
-import {deferredResponse, stubBranch} from './branchHarness';
+import {deferredResponse, stubBranch, type Served} from './branchHarness';
 import {
   C2_PEGASUS_ENTRIES,
   C3_MKB_ENTRIES,
@@ -117,6 +118,31 @@ describe('useBranchPrintings', () => {
     expect(branch.paths().sort()).toEqual([ALL_CARDS_PATH, CATALOG_PATH, CHUNK_9, PROMOS_PATH].sort());
     expect(namesOf(rendered.result.current)).toEqual(MKB_NAMES);
     expect(valuesOf(rendered.result.current)).toEqual([null, ['normal'], ['foil']]);
+  });
+
+  it("hands the panel the branch's catalog", async () => {
+    stubBranch(MKB_FILES);
+    const rendered = renderPrintings(MOTHER_KNOWS_BEST);
+    await whenReady(rendered);
+    expect(ready(rendered.result.current).catalog).toEqual(parseCatalog(MKB_FILES[CATALOG_PATH]));
+  });
+
+  it("hands the catalog of the branch as it is once the files are read again, and the last read's meanwhile", async () => {
+    const files: Record<string, Served> = {...MKB_FILES};
+    stubBranch(files);
+    const rendered = renderPrintings(MOTHER_KNOWS_BEST);
+    await whenReady(rendered);
+    const before = ready(rendered.result.current).catalog;
+
+    // A publish took 13/C3 out of the catalog: the read of it after the publish waits until the test answers it.
+    const published = catalogText([{baseId: 2035, variants: C3_MKB_ENTRIES.slice(0, 1)}]);
+    const late = deferredResponse();
+    files[CATALOG_PATH] = () => late.response;
+    act(() => forgetBranchFiles());
+    expect(ready(rendered.result.current)).toMatchObject({refreshing: true, catalog: before});
+
+    await act(async () => late.respond(new Response(published)));
+    expect(ready(rendered.result.current).catalog).toEqual(parseCatalog(published));
   });
 
   it('shows each row the versions of its primary home, whatever the other files that hold it say', async () => {
@@ -308,14 +334,15 @@ describe('useBranchPrintings', () => {
       stubBranch({...YEN_SID_FILES, [CHUNK_4]: () => (asked++ === 0 ? new Response(SET_4_TEXT) : late.response)});
       const rendered = renderPrintings(YEN_SID);
       await whenReady(rendered);
-      const before = ready(rendered.result.current).rows;
+      const before = ready(rendered.result.current);
 
       act(() => forgetBranchFiles());
-      expect(rendered.result.current).toEqual({status: 'ready', rows: before, refreshing: true});
+      expect(rendered.result.current).toEqual({status: 'ready', rows: before.rows, refreshing: true, catalog: before.catalog});
 
       const published = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
       await act(async () => late.respond(new Response(published)));
-      expect(rendered.result.current).toEqual({status: 'ready', rows: expect.any(Array)});
+      const catalog = parseCatalog(EMPTY_CATALOG_TEXT);
+      expect(rendered.result.current).toEqual({status: 'ready', rows: expect.any(Array), catalog});
       expect(valuesOf(rendered.result.current)).toEqual([null, null, ['normal', 'foil']]);
     });
 
@@ -390,10 +417,12 @@ describe('useBranchPrintings', () => {
       act(() => forgetBranchFiles());
       await waitFor(() => expect(valuesOf(rendered.result.current)).toEqual([null, ['normal'], null]));
 
-      // allCards.json was read again too, and is the same text: it is not parsed again.
+      // allCards.json was read again too, and is the same text: it is not parsed again. The catalog is
+      // parsed twice over, once for its versions and once as the catalog the panel's form reads (#77),
+      // and each of the two parses a text once.
       expect(parsesOf(MKB_FILES[ALL_CARDS_PATH])).toBe(1);
-      expect(parsesOf(MKB_FILES[CATALOG_PATH])).toBe(1);
-      expect(parsesOf(catalog)).toBe(1);
+      expect(parsesOf(MKB_FILES[CATALOG_PATH])).toBe(2);
+      expect(parsesOf(catalog)).toBe(2);
     });
   });
 });

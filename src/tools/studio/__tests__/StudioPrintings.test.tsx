@@ -1,14 +1,18 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {act, renderHook, screen, waitFor, within} from '@testing-library/react';
+import {act, fireEvent, renderHook, screen, waitFor, within} from '@testing-library/react';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {studioHref} from '../../../shell/nav';
 import {pngFile} from '../../../test/images';
 import {askedOf, contentsAnswer, type Asked, type Served} from '../finishes/__tests__/branchHarness';
-import {chunksOf} from '../finishes/__tests__/collectionHarness';
+import {chunksOf, type Chunks} from '../finishes/__tests__/collectionHarness';
 import {
   EMPTY_CATALOG_TEXT,
+  MOTHER_KNOWS_BEST,
   SET_4_ENTRIES,
   SET_4_TEXT,
+  URSULA_SET_3,
+  URSULA_SET_3_ENTRY,
+  URSULA_SET_9,
   YEN_SID,
   allCardsText,
   collectionText,
@@ -16,6 +20,8 @@ import {
 import {COMMIT_URL} from '../finishes/__tests__/repoHarness';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
+import {withNewPrinting} from '../promos/catalogEdits';
+import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, filesFor} from '../promos/__tests__/promoFixtures';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
@@ -67,9 +73,10 @@ const isDataFile = (path: string) => path === ALL_CARDS_PATH || path === CATALOG
 /**
  * The page's fetch (stubFetch), and the branch holding `files` besides: a data file it doesn't hold is
  * a 404, as on a real branch, and the object is read again on every request, so a test can add one.
+ * The app serves `chunks` as Sets 1 to 8, which the search adds: Set 4's Yen Sid unless a test says other.
  */
-function stubStudio(files: Readonly<Record<string, Served>>) {
-  stubFetch(previewFile, chunksOf({'4': SET_4_ENTRIES}));
+function stubStudio(files: Readonly<Record<string, Served>>, chunks: Chunks = {'4': SET_4_ENTRIES}) {
+  stubFetch(previewFile, chunksOf(chunks));
   const studio = globalThis.fetch;
   const branch = contentsAnswer(files);
   const answer = vi.fn((...call: Parameters<typeof fetch>) => {
@@ -148,6 +155,8 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     expect(within(screen.getByRole('region', {name: 'Card data'})).getByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
     expect(screen.queryByLabelText('Replace card image')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', {name: /save/i})).not.toBeInTheDocument();
+    // No Core card reprints Yen Sid, so his promos are his own to add (#77).
+    expect(within(panel).getByRole('button', {name: 'Add a printing'})).toBeInTheDocument();
   });
 
   it('shows no panel for a preview card, and reads none of the data files', async () => {
@@ -284,5 +293,121 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     // The button went with the error: the heading of the panel that replaced it takes the focus.
     await waitFor(() => expect(screen.getByRole('heading', {name: 'Printings'})).toHaveFocus());
+  });
+});
+
+/*
+ * Adding and editing a card's promo printings from its Printings panel (#77), as the page runs it: the
+ * studio's controller over the real commit layer, against the app's repo (stubStudioRepo). The branch
+ * holds FIXTURE_CATALOG, and allCards.json and collection/promos.json in step with it.
+ */
+describe('StudioPage: promo printings in the Printings panel (#77)', () => {
+  const MKB_FILES: Record<string, Served> = {...FIXTURE_FILES, [CHUNK_9]: EMPTY_FILE};
+  const PROMO_FILES = [CATALOG_PATH, ALL_CARDS_PATH, PROMOS_PATH];
+
+  /**
+   * The app's repo holding Mother Knows Best's files, which once a commit lands are what it wrote, as
+   * GitHub's would be: the panel's read after the commit sees the branch the commit made.
+   */
+  function stubMkbRepo() {
+    const branch = {...MKB_FILES};
+    const repo = stubStudioRepo({branch});
+    for (const path of PROMO_FILES) branch[path] = () => new Response(repo.filesSent()[path] ?? FIXTURE_FILES[path]);
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    return repo;
+  }
+
+  it('adds 9/P4 to Mother Knows Best in one commit and lists it', async () => {
+    const repo = stubMkbRepo();
+    const {user} = renderStudio({path: studioHref('edit', '2035')});
+    await user.click(await screen.findByRole('button', {name: 'Add a printing'}));
+    // The button went with the press: the form it opened takes the focus.
+    await waitFor(() => expect(screen.getByRole('heading', {level: 3, name: 'New printing of Mother Knows Best'})).toHaveFocus());
+    await user.selectOptions(screen.getByLabelText('Promo set'), 'P4');
+    await user.type(screen.getByLabelText('Number'), '9');
+    await user.click(within(screen.getByRole('group', {name: 'Versions of the new printing'})).getByRole('button', {name: 'Foil only'}));
+    await user.upload(screen.getByLabelText('Click or drop to add the scan'), pngFile('scan.png'));
+    const publish = await screen.findByRole('button', {name: 'Publish 9/P4'});
+    await waitFor(() => expect(publish).toBeEnabled());
+    await user.click(publish);
+
+    const line = await screen.findByText('Committed.', {exact: false});
+    expect(Object.keys(repo.filesSent()).sort()).toEqual(
+      [ALL_CARDS_PATH, PROMOS_PATH, 'apps/web/public/card-images-raw/80050.png', CATALOG_PATH].sort(),
+    );
+    expect(repo.commitMessage()).toBe('chore(collection): add 9/P4 Mother Knows Best from Card studio');
+    // The form went with the publish: the line under the rows says where it landed, and takes the focus.
+    await waitFor(() => expect(line).toHaveFocus());
+    // The panel read the branch again, and lists the printing like any other, Foil only.
+    const group = await within(await printings()).findByRole('group', {name: 'Versions of Mother Knows Best 9/P4'});
+    expect(within(group).getByRole('button', {name: 'Foil only'})).toHaveAttribute('aria-pressed', 'true');
+    expect(line).toHaveFocus();
+  });
+
+  it('keeps a refused add open, its failure focused, while the panel reads the branch again', async () => {
+    // Someone added 9/P4 to Mother Knows Best after the panel read the branch.
+    const {catalog: moved} = withNewPrinting({
+      catalog: FIXTURE_CATALOG,
+      card: MKB_BASE,
+      printing: {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null},
+      note: null,
+    });
+    const movedFiles = filesFor(moved);
+    const branch = {...MKB_FILES};
+    const repo = stubStudioRepo({branch, base: {...movedFiles, [CHUNK_9]: EMPTY_FILE}});
+    // Once the publish has read the branch, so does the panel: the branch it reads again is the one that moved.
+    for (const path of PROMO_FILES) branch[path] = () => new Response(repo.reads().length > 0 ? movedFiles[path] : FIXTURE_FILES[path]);
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    const {user} = renderStudio({path: studioHref('edit', '2035')});
+    await user.click(await screen.findByRole('button', {name: 'Add a printing'}));
+    await user.selectOptions(screen.getByLabelText('Promo set'), 'P4');
+    await user.type(screen.getByLabelText('Number'), '9');
+    await user.click(within(screen.getByRole('group', {name: 'Versions of the new printing'})).getByRole('button', {name: 'Foil only'}));
+    await user.upload(screen.getByLabelText('Click or drop to add the scan'), pngFile('scan.png'));
+    const publish = screen.getByRole('button', {name: 'Publish 9/P4'});
+    await waitFor(() => expect(publish).toBeEnabled());
+    // A browser drops the focus of a button that goes off to <body>, and jsdom keeps it there: the press comes from <body>.
+    act(() => (document.activeElement as HTMLElement).blur());
+    fireEvent.click(publish);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('9/P4 is taken on master: Mother Knows Best has it.');
+    expect(repo.writes()).toEqual([]);
+    // The panel read the branch again (it lists the 9/P4 that took the code), and the form stayed open, its
+    // failure focused: the form now says whose the code is too.
+    expect(await within(await printings()).findByRole('group', {name: 'Versions of Mother Knows Best 9/P4'})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 3, name: 'New printing of Mother Knows Best'})).toBeInTheDocument();
+    expect(await screen.findByText('9/P4 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    await waitFor(() => expect(alert.parentElement).toHaveFocus());
+  });
+
+  it("moves 13/C3 to 14/C3 from its row's Edit, in one commit with no scan", async () => {
+    const repo = stubMkbRepo();
+    const {user} = renderStudio({path: studioHref('edit', '2035')});
+    await user.click(await screen.findByRole('button', {name: 'Edit Mother Knows Best 13/C3'}));
+    const number = screen.getByLabelText('Number');
+    await user.clear(number);
+    await user.type(number, '14');
+    await user.click(screen.getByRole('button', {name: 'Save as 14/C3'}));
+
+    await screen.findByText('Committed.', {exact: false});
+    expect(Object.keys(repo.filesSent()).sort()).toEqual([ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH].sort());
+    expect(repo.commitMessage()).toBe('chore(collection): edit 13/C3 to 14/C3 Mother Knows Best from Card studio');
+    expect(await within(await printings()).findByRole('group', {name: 'Versions of Mother Knows Best 14/C3'})).toBeInTheDocument();
+    expect(screen.queryByRole('group', {name: 'Versions of Mother Knows Best 13/C3'})).not.toBeInTheDocument();
+  });
+
+  it("points Ursula's Set 3 copy to her Core printing, which holds her promos, and offers no Add a printing on it", async () => {
+    const chunk3 = setChunkPath('3');
+    stubStudio({[chunk3]: collectionText([URSULA_SET_3_ENTRY]), [PROMOS_PATH]: EMPTY_FILE, [CATALOG_PATH]: EMPTY_CATALOG_TEXT}, {'3': [URSULA_SET_3_ENTRY]});
+    setCardList({cards: [URSULA_SET_9]});
+    renderStudio({path: studioHref('edit', URSULA_SET_3.id)});
+
+    const panel = await printings();
+    expect(
+      await within(panel).findByText(/^Its promos are filed under its Core printing, Ursula - Deceiver \(Set 9 #90\): add and edit them there\./),
+    ).toBeInTheDocument();
+    expect(within(panel).getByRole('link', {name: 'Open the Core printing'})).toHaveAttribute('href', studioHref('edit', URSULA_SET_9.id));
+    expect(within(panel).queryByRole('button', {name: 'Add a printing'})).not.toBeInTheDocument();
   });
 });

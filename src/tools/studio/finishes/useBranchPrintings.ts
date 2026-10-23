@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {isCoreSet, type LorcanaCard, type LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {transformPromos, transformRawCards, type RawCollectionPromo} from '../../../app-bridge';
+import {parseCatalog, type PromoCatalog} from '../promos/promoCatalog';
 import {
   cachedBranchFile,
   forgetBranchFiles,
@@ -29,13 +30,18 @@ export type BranchPrintings =
   /**
    * `refreshing`: the files are being read again since a publish dropped them, and these rows are
    * the last read's, for the panel to hold until the read lands.
+   *
+   * `catalog`: the branch's promo catalog, the same read's, which the panel's printing form reads
+   * (#77): the entry a row's Edit opens, and who has the code a form names. The hook always sets it.
+   * It is optional only so that a view a test or a story builds without one still types: the panel
+   * then offers no form.
    */
-  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true};
+  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true; catalog?: PromoCatalog};
 
 const LOADING: BranchPrintings = {status: 'loading'};
 
-/** What a card's rows are made from, but the card: the files of its set, parsed. */
-type Files = Omit<PrintingSources, 'card'>;
+/** What a card's rows are made from, but the card, and the catalog its promos are filed in: the files of its set, parsed. */
+type Files = Omit<PrintingSources, 'card'> & {catalog: PromoCatalog};
 
 /** How a read of the files ended. */
 type Outcome = {files: Files} | {error: string};
@@ -51,12 +57,15 @@ interface Settled {
 const finishesIn = lastTextCached(namingItsFile(readFinishes));
 const cardsIn = lastTextCached(namingItsFile(({text}) => transformRawCards(JSON.parse(text) as LorcanaJSONCard[])));
 const promosIn = lastTextCached(namingItsFile(({text}) => transformPromos(JSON.parse(text) as RawCollectionPromo[])));
+/** The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for its versions: each parses a text once. */
+const catalogIn = lastTextCached(namingItsFile(({text}) => parseCatalog(text)));
 
 /**
  * The files a card's rows are made from. The entries come from the first two: its set's chunk,
  * which holds its printings (and, below Core, the card), and promos.json, which holds its promos.
  * The versions come from whichever of them is a printing's primary home: the chunk, the catalog,
- * where a promo's versions are first set, and for a Core card allCards.json.
+ * where a promo's versions are first set, and for a Core card allCards.json. The catalog, the
+ * third, is the printing form's as well.
  */
 function pathsOf(setCode: string): string[] {
   return [setChunkPath(setCode), PROMOS_PATH, CATALOG_PATH, ...(isCoreSet(setCode) ? [ALL_CARDS_PATH] : [])];
@@ -67,11 +76,12 @@ function pathsOf(setCode: string): string[] {
  * home names for it: nothing, where that file has no entry for it.
  */
 function parsedFiles(files: readonly BranchFile[]): Files {
-  const [chunk, promos] = files;
+  const [chunk, promos, catalog] = files;
   const values = new Map(files.map((file): [string, FileValues] => [file.path, finishesIn(file)]));
   return {
     chunk: cardsIn(chunk),
     promos: promosIn(promos),
+    catalog: catalogIn(catalog),
     valueOf: (ref) => values.get(primaryHome(ref))?.get(ref.id) ?? null,
   };
 }
@@ -109,16 +119,17 @@ function settledFromCache({setCode, generation}: {setCode: string; generation: n
 
 /**
  * What the hook shows of the read it settled on. One of another set is loading. One made before
- * the latest drop of the files is a read under way again: its rows stay, marked refreshing, while
- * one that failed has none to keep, so that is loading too.
+ * the latest drop of the files is a read under way again: its rows and its catalog stay, marked
+ * refreshing, while one that failed has none to keep, so that is loading too.
  */
 function viewOf({settled, generation, card}: {settled: Settled | null; generation: number; card: LorcanaCard}): BranchPrintings {
   if (settled?.setCode !== (card.setCode ?? '')) return LOADING;
   const {outcome} = settled;
   const current = settled.generation === generation;
   if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
-  const rows = printingRowsFor({card, ...outcome.files});
-  return current ? {status: 'ready', rows} : {status: 'ready', rows, refreshing: true};
+  const {catalog, ...sources} = outcome.files;
+  const rows = printingRowsFor({card, ...sources});
+  return current ? {status: 'ready', rows, catalog} : {status: 'ready', rows, catalog, refreshing: true};
 }
 
 /**

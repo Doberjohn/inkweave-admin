@@ -13,6 +13,7 @@ import {EditPane} from './EditPane';
 import {openCard} from './editorState';
 import {useVersionBatch} from './finishes/versionBatchStore';
 import {NewRevealPane} from './NewRevealPane';
+import {usePrintingForm} from './promos/usePrintingForm';
 import {STUDIO_SUBTITLE, STUDIO_TITLE, studioDocumentTitle} from './studioCopy';
 import {studioLayout} from './studioLayout';
 import {
@@ -40,7 +41,7 @@ interface StudioWorkspaceProps {
 
 /**
  * R-26's in-page Forget token, offered when GitHub rejects the token. The
- * workspace is keyed by the token, so forgetting it drops both drafts: it asks
+ * workspace is keyed by the token, so forgetting it drops every draft: it asks
  * first while one is dirty, as the tuning aside does (R-84). The gate that
  * replaces the workspace takes the handoff.
  */
@@ -55,10 +56,12 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
 }
 
 /**
- * Card studio with a token saved. It holds both drafts, New reveal's and Edit
- * card's, so a mode switch keeps them (R-57), and the page's one guard over
- * them (R-58): a card change asks about the Edit draft only, leaving about
- * every dirty draft. The guard needs the data router, so no story renders this.
+ * Card studio with a token saved. It holds three drafts: New reveal's, Edit
+ * card's, and Edit card's promo printing form (#77). So a mode switch keeps
+ * them all (R-57), and the page's one guard counts each of them (R-58): a card
+ * change asks only about the Edit draft and the printing form, which are the
+ * card's, never New reveal's, and leaving the page asks about every dirty
+ * draft. The guard needs the data router, so no story renders this.
  *
  * The root under the header is the element useContainerWidth measures. It is
  * there in every mode and state, so the measure never stops: the hook watches
@@ -80,11 +83,14 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
+  // Edit card's promo printing form (#77), held here beside its draft, so a mode switch keeps it too.
+  const printing = usePrintingForm({token, cardId: card});
   // The outcome of a publish is told to the token that made it: a token saved after Forget token starts with none.
   const versions = useVersionBatch(token);
-  const drafts = {reveal: ctrl.dirty, edit: edit.dirty};
+  const drafts = {reveal: ctrl.dirty, edit: edit.dirty, printing: printing.dirty};
   // Edit's save only while it was made from the draft on screen: one left running on another card isn't this card's.
-  const busy = {reveal: ctrl.publishing, edit: edit.savingThisDraft};
+  // The printing form drops with its card, so its publish is always this card's.
+  const busy = {reveal: ctrl.publishing, edit: edit.savingThisDraft, printing: printing.publishing};
   const forgetToken = useForgetToken({drafts, handoff});
   useReloadAfterPublish({published: ctrl.result, reload: edit.reloadFile});
 
@@ -106,7 +112,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
       documentTitle={studioDocumentTitle({mode, card: openCard(edit.lookup)})}
       scrollKey={studioHref(mode, card)}>
       <UnsavedChangesGuard
-        dirty={drafts.reveal || drafts.edit}
+        dirty={drafts.reveal || drafts.edit || drafts.printing}
         leaves={(from, to) => shouldBlockStudioNavigation(from, to, drafts)}
         message={(to) => studioUnsavedQuestion({from: location, to, drafts, busy})}
       />
@@ -114,7 +120,15 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         {mode === 'new' ? (
           <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
         ) : (
-          <EditPane edit={edit} cardId={card} layout={layout} handoff={handoff} onForgetToken={forgetToken} token={token} />
+          <EditPane
+            edit={edit}
+            cardId={card}
+            layout={layout}
+            handoff={handoff}
+            onForgetToken={forgetToken}
+            token={token}
+            printing={printing}
+          />
         )}
         <VersionsTray view={versions} token={token} onForgetToken={forgetToken} />
       </div>

@@ -9,10 +9,20 @@ import {commitCardImage} from '../../image/githubClient';
 import {StaleCardError, commitCardEdit, commitNewCard, commitPreviewCardImage} from '../../reveal/githubClient';
 import {goneNote} from '../branchCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
-import {deferredResponse} from '../finishes/__tests__/branchHarness';
+import {deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {chunksOf} from '../finishes/__tests__/collectionHarness';
-import {SET_4_ENTRIES, URSULA_SET_3, URSULA_SET_3_ENTRY, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
+import {
+  MOTHER_KNOWS_BEST,
+  SET_4_ENTRIES,
+  URSULA_SET_3,
+  URSULA_SET_3_ENTRY,
+  URSULA_SET_9,
+  YEN_SID,
+  collectionText,
+} from '../finishes/__tests__/finishFixtures';
+import {setChunkPath} from '../finishes/finishFiles';
 import {loadAgainNote} from '../loadAgainNote';
+import {FIXTURE_FILES} from '../promos/__tests__/promoFixtures';
 import {PRINTINGS_ONLY_NOTE, newRevealNote} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
@@ -27,6 +37,7 @@ import {
   stubReads,
   type Answer,
 } from './studioHarness';
+import {stubStudioRepo} from './studioRepo';
 import {measured} from './studioStores';
 
 // previewCards.json is read for real, against the fetch stub; only the commits are faked.
@@ -60,6 +71,10 @@ const LEAVES_BOTH =
 const SAVING =
   "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed. " +
   'Any edits made since the save started are dropped, and if the save fails, its changes are lost too.';
+/** The promo printing form's lines (#77, studioPaths.ts), and its publish in flight on master (R2's, writeInFlight.ts). */
+const PRINTING_CARD = "Your printing form for this card isn't published yet. Leaving the card drops it.";
+const PRINTING_LEAVES = "Your printing form isn't published yet. Leaving Card studio drops it.";
+const PUBLISHING = "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
 const RENAMED = 'Mei Lee';
 /** What the search says when the chunks of Sets 1 to 8 fail (#68), above its way out. */
 const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
@@ -945,6 +960,97 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     expect(screen.getByRole('button', {name: /^Card text/})).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', {name: /^Identity/})).toHaveAttribute('aria-expanded', 'true');
     expect(await nameField()).toHaveValue(RENAMED);
+  });
+});
+
+/*
+ * The promo printing form (#77) is held by the workspace beside Edit card's draft, so a mode switch keeps it, and the
+ * page's one guard counts it as a third draft. Mother Knows Best is a Core card, which gets Add a printing. The app's
+ * repo holds her files (stubStudioRepo), and the form's publish goes through the real commit layer.
+ */
+describe('StudioPage: the guard and a started promo printing form (#77)', () => {
+  const MKB_FILES: Record<string, Served> = {...FIXTURE_FILES, [setChunkPath('9')]: collectionText([])};
+
+  /** Mother Knows Best open in Edit card, with Add a printing pressed: the form is open and empty. */
+  async function openPrintingForm(update?: () => Promise<Response>) {
+    stubStudioRepo({branch: MKB_FILES, update});
+    setCardList({cards: [...CARDS, MOTHER_KNOWS_BEST]});
+    const studio = renderStudio({path: studioHref('edit', MOTHER_KNOWS_BEST.id)});
+    await studio.user.click(await screen.findByRole('button', {name: 'Add a printing'}));
+    return studio;
+  }
+
+  /** The form open with a note typed in it: all it takes to start it. */
+  async function startPrintingForm(update?: () => Promise<Response>) {
+    const studio = await openPrintingForm(update);
+    await studio.user.type(screen.getByLabelText('Note'), 'from the box');
+    return studio;
+  }
+
+  /** Fills the open form out as 9/P4, foil only, with a scan, and presses Publish. */
+  async function publishNineP4(user: UserEvent) {
+    await user.selectOptions(screen.getByLabelText('Promo set'), 'P4');
+    await user.type(screen.getByLabelText('Number'), '9');
+    await user.click(within(screen.getByRole('group', {name: 'Versions of the new printing'})).getByRole('button', {name: 'Foil only'}));
+    await user.upload(screen.getByLabelText('Click or drop to add the scan'), pngFile('scan.png'));
+    const publish = await screen.findByRole('button', {name: 'Publish 9/P4'});
+    await waitFor(() => expect(publish).toBeEnabled());
+    await user.click(publish);
+  }
+
+  it('keeps a started form across a mode switch without asking, and asks before a card change drops it (R-57, R-58)', async () => {
+    const {router, user} = await startPrintingForm();
+    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    await user.click(screen.getByRole('button', {name: 'Edit card'}));
+    // Every draft stays mounted, so the switch asks nothing and the form is as it was.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('Note')).toHaveValue('from the box');
+
+    act(() => void router.navigate(studioHref('edit', MEI.id)));
+    // It stays on the page, so it asks about the card, and the form is all it names.
+    const dialog = await cardDialog();
+    expect(within(dialog).getByText(PRINTING_CARD)).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent('Edit card changes');
+    expect(within(dialog).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep editing', 'Drop changes']);
+
+    await user.click(within(dialog).getByRole('button', {name: 'Keep editing'}));
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+    expect(router.state.location.search).toBe(`?mode=edit&card=${MOTHER_KNOWS_BEST.id}`);
+    expect(screen.getByLabelText('Note')).toHaveValue('from the box');
+  });
+
+  it('drops the form with a card change that is let through, and the card opens without it', async () => {
+    const {router, user} = await startPrintingForm();
+    act(() => void router.navigate(studioHref('edit', MEI.id)));
+    await user.click(within(await cardDialog()).getByRole('button', {name: 'Drop changes'}));
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+    expect(await banner(MEI)).toBeInTheDocument();
+
+    // Nothing is held, so the way back asks nothing, and the card is as it was before the form was started.
+    act(() => void router.navigate(studioHref('edit', MOTHER_KNOWS_BEST.id)));
+    expect(await screen.findByRole('button', {name: 'Add a printing'})).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Note')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {draft: 'an unpublished form alone', publishing: false, says: PRINTING_LEAVES},
+    {draft: 'its publish in flight', publishing: true, says: PUBLISHING},
+  ])("words leaving the studio with $draft: the form's dirty and busy reach the guard (R-58)", async ({publishing, says}) => {
+    // The ref update never settles, so the publish stays in flight once it has made its commit.
+    const {router, user} = await startPrintingForm(() => new Promise<Response>(() => {}));
+    if (publishing) await publishNineP4(user);
+    act(() => void router.navigate('/'));
+    expect(within(await leaveDialog()).getByText(says)).toBeInTheDocument();
+  });
+
+  it('asks nothing when the form is open but nothing was entered in it', async () => {
+    const {router} = await openPrintingForm();
+    expect(await screen.findByLabelText('Note')).toHaveValue('');
+
+    act(() => void router.navigate('/'));
+    expect(await screen.findByRole('heading', {name: 'Overview'})).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 

@@ -1,16 +1,30 @@
-import {createRef, useImperativeHandle, useState, type Ref} from 'react';
-import {describe, expect, it, vi} from 'vitest';
-import {act, render, screen, within} from '@testing-library/react';
+import {createRef, useImperativeHandle, useState, type ReactElement, type Ref} from 'react';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {PrintingsPanel, type PrintingsPanelProps} from '../components/PrintingsPanel';
+import {MemoryRouter} from 'react-router-dom';
+import {PROMO_SETS} from '../../../app-bridge';
+import {pngFile} from '../../../test/images';
+import {PrintingsPanel, type PrintingsPanelProps, type PromoPrintingsProps} from '../components/PrintingsPanel';
 import {
+  MKB_ROWS,
   NUMBER_223_TO_BOTH,
   NUMBER_223_TO_BOTH_CLASHED,
   NUMBER_59_TO_FOIL,
   YEN_SID_ROWS,
 } from '../finishes/__tests__/finishFixtures';
+import {COMMIT_URL, stubRepo} from '../finishes/__tests__/repoHarness';
 import type {PrintingRow} from '../finishes/printingRows';
 import type {BranchPrintings} from '../finishes/useBranchPrintings';
+import {EMPTY_PRINTING_FORM, editValuesOf, promoSetOptions} from '../promos/printingForm';
+import {findPrinting, type PromoCatalog} from '../promos/promoCatalog';
+import {usePrintingForm, type OpenPrintingForm, type PrintingFormController} from '../promos/usePrintingForm';
+import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, filesFor} from '../promos/__tests__/promoFixtures';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 /** Yen Sid's #59 (Both, by rarity), his Enchanted #209 (Foil, by rarity) and his alt foil #223 (Foil, in the data). */
 const [NUMBER_59, ENCHANTED_209, ALT_FOIL_223] = YEN_SID_ROWS;
@@ -18,6 +32,9 @@ const [NUMBER_59, ENCHANTED_209, ALT_FOIL_223] = YEN_SID_ROWS;
 const READY: BranchPrintings = {status: 'ready', rows: YEN_SID_ROWS};
 const LOADING: BranchPrintings = {status: 'loading'};
 const FAILED = 'GitHub 404 on apps/web/public/data/collection/4.json: Not Found';
+
+/** `ui` in a router, as the studio renders the panel: a Core copy's note links to that card (#77). */
+const routed = (ui: ReactElement) => <MemoryRouter>{ui}</MemoryRouter>;
 
 /**
  * The panel on Yen Sid's rows with nothing staged, unless the test says otherwise. `onChoose` records
@@ -27,10 +44,10 @@ const FAILED = 'GitHub 404 on apps/web/public/data/collection/4.json: Not Found'
 function renderPanel(first: Partial<PrintingsPanelProps> = {}) {
   const onChoose = vi.fn();
   let props: PrintingsPanelProps = {view: READY, changes: [], onChoose, ...first};
-  const rendered = render(<PrintingsPanel {...props} />);
+  const rendered = render(routed(<PrintingsPanel {...props} />));
   const update = (next: Partial<PrintingsPanelProps>) => {
     props = {...props, ...next};
-    rendered.rerender(<PrintingsPanel {...props} />);
+    rendered.rerender(routed(<PrintingsPanel {...props} />));
   };
   return {onChoose, update, user: userEvent.setup()};
 }
@@ -324,5 +341,322 @@ describe('PrintingsPanel: reading the files again (R-48)', () => {
     await user.click(both);
     update({changes: [NUMBER_223_TO_BOTH]});
     expect(both).toHaveFocus();
+  });
+});
+
+/*
+ * Adding and editing a card's promo printings from the panel (#77). The form is PromoPrintingForm's
+ * (its own tests), and its controller the studio's (usePrintingForm): here, where the panel puts the
+ * form, when it offers one, what it tells the form, and where the focus goes as forms open and close.
+ */
+
+/** Mother Knows Best's #99, 1/C3 (80017) and 13/C3 (80024), with the branch's catalog. */
+const [MKB_99, MKB_1_C3, MKB_13_C3] = MKB_ROWS;
+const MKB_READY: BranchPrintings = {status: 'ready', rows: MKB_ROWS, catalog: FIXTURE_CATALOG};
+const PROMO_OPTIONS = promoSetOptions(PROMO_SETS);
+/** A row's art, where a test needs one: Mother Knows Best's promos have none of their own in the fixtures. */
+const ART = 'https://api.lorcana.ravensburger.com/images/en/challenge3/13_art.jpg';
+const LANDED_NOTE = 'Its art shows on inkweave.ink once the app has converted the scan and deployed.';
+const GONE = '13/C3 is no longer on master.';
+const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
+
+/** The catalog once someone took 13/C3 out of it by hand: Mother Knows Best keeps 1/C3 alone. */
+const WITHOUT_13_C3: PromoCatalog = {
+  ...FIXTURE_CATALOG,
+  fold: [{...FIXTURE_CATALOG.fold[0], variants: FIXTURE_CATALOG.fold[0].variants.slice(0, 1)}],
+};
+
+/** The printing of FIXTURE_CATALOG with this id. */
+const printingWith = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
+
+/** Mother Knows Best's add form, as it opens unless `held` changes it. */
+function addForm(held: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
+  const opened = EMPTY_PRINTING_FORM;
+  return {kind: 'add', card: MKB_BASE, printing: null, values: opened, initial: opened, scan: {name: null, dataUrl: null, error: null}, error: null, ...held};
+}
+
+/** The edit form of Mother Knows Best's printing `id`, as it opens unless `held` changes it. */
+function editForm(id: number, held: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
+  const values = editValuesOf(printingWith(id));
+  return {...addForm(), kind: 'edit', printing: printingWith(id), values, initial: values, ...held};
+}
+
+/** A controller holding `form`, whose actions are spies. */
+function controllerOf(form: OpenPrintingForm | null, rest: Partial<PrintingFormController> = {}): PrintingFormController {
+  return {
+    form,
+    dirty: false,
+    publishing: false,
+    outcome: {result: null, error: null, note: ''},
+    openAdd: vi.fn(),
+    openEdit: vi.fn(),
+    patch: vi.fn(),
+    chooseScan: vi.fn(() => Promise.resolve()),
+    cancel: vi.fn(),
+    publish: vi.fn(() => Promise.resolve(false)),
+    ...rest,
+  };
+}
+
+/** What the panel gets for Mother Knows Best's promos: no form open and nothing said, unless `rest` says otherwise. */
+function promosProps(rest: Partial<PromoPrintingsProps> = {}): PromoPrintingsProps {
+  return {controller: controllerOf(null), card: MKB_BASE, coreCopy: null, promoSets: PROMO_OPTIONS, onForgetToken: vi.fn(), ...rest};
+}
+
+/** The Edit buttons, by the names they read to a screen reader. */
+const editNames = () => screen.queryAllByRole('button', {name: /^Edit /}).map((button) => button.getAttribute('aria-label'));
+const addButton = () => screen.queryByRole('button', {name: 'Add a printing'});
+/** Whether `later` comes after `earlier` in the page. */
+const follows = (earlier: Element, later: Element) => Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+describe('PrintingsPanel: promo printings (#77)', () => {
+  it('offers Add a printing under the rows, and Edit on promo rows only', () => {
+    renderPanel({view: MKB_READY, promos: promosProps()});
+    expect(addButton()).toBeInTheDocument();
+    expect(follows(screen.getByRole('list'), addButton()!)).toBe(true);
+    expect(editNames()).toEqual(['Edit Mother Knows Best 1/C3', 'Edit Mother Knows Best 13/C3']);
+    // Each Edit reads "Edit" and sits in its own row, after the row's marker; the card's own row has none.
+    const edit = within(itemOf(MKB_13_C3)).getByRole('button', {name: 'Edit Mother Knows Best 13/C3'});
+    expect(edit).toHaveTextContent(/^Edit$/);
+    expect(follows(within(itemOf(MKB_13_C3)).getByText('In the data'), edit)).toBe(true);
+    expect(within(itemOf(MKB_99)).queryByRole('button', {name: /^Edit/})).toBeNull();
+  });
+
+  it.each([
+    ['without the form', {view: MKB_READY}],
+    ["before the branch's catalog is read", {view: {status: 'ready', rows: MKB_ROWS}, promos: promosProps()}],
+  ] satisfies Array<[string, Partial<PrintingsPanelProps>]>)('offers no Add a printing and no Edit %s', (_case, props) => {
+    renderPanel(props);
+    expect(addButton()).toBeNull();
+    expect(editNames()).toEqual([]);
+  });
+
+  it('offers no Edit on a promo the catalog does not hold', () => {
+    renderPanel({view: {...MKB_READY, catalog: WITHOUT_13_C3}, promos: promosProps()});
+    expect(editNames()).toEqual(['Edit Mother Knows Best 1/C3']);
+  });
+
+  it("offers Edit by a row's kind: never on a card or a set printing, whatever ids the catalog holds", () => {
+    // A catalog whose entries have the ids of Yen Sid's #59, Enchanted and alt foil: they are still no promos.
+    const promo = FIXTURE_CATALOG.fold[0].variants[0];
+    const lookalikes: PromoCatalog = {
+      ...FIXTURE_CATALOG,
+      fold: [{...FIXTURE_CATALOG.fold[0], variants: YEN_SID_ROWS.map((row) => ({...promo, id: Number(row.ref.id)}))}],
+    };
+    renderPanel({view: {status: 'ready', rows: YEN_SID_ROWS, catalog: lookalikes}, promos: promosProps()});
+    expect(addButton()).toBeInTheDocument();
+    expect(editNames()).toEqual([]);
+  });
+
+  it('opens an add of the card, and an edit of the printing the catalog holds for the row', async () => {
+    const controller = controllerOf(null);
+    const {user} = renderPanel({view: MKB_READY, promos: promosProps({controller})});
+    await user.click(addButton()!);
+    expect(controller.openAdd).toHaveBeenCalledExactlyOnceWith(MKB_BASE);
+    await user.click(screen.getByRole('button', {name: 'Edit Mother Knows Best 13/C3'}));
+    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
+  });
+
+  it('holds Add a printing and every Edit while the files are read again after a publish, as it holds the choices', async () => {
+    const controller = controllerOf(null);
+    const {user, update} = renderPanel({view: {...MKB_READY, refreshing: true}, promos: promosProps({controller})});
+    // The catalog is the last read's until the read lands: an Edit opened on it would open the entry as it was.
+    const held = [addButton()!, ...screen.getAllByRole('button', {name: /^Edit /})];
+    expect(held).toHaveLength(3);
+    for (const button of held) {
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      await user.click(button);
+    }
+    expect(controller.openAdd).not.toHaveBeenCalled();
+    expect(controller.openEdit).not.toHaveBeenCalled();
+    // A held button keeps the focus its press gave it.
+    expect(held[2]).toHaveFocus();
+
+    update({view: MKB_READY});
+    for (const button of held) expect(button).not.toHaveAttribute('aria-disabled');
+    expect(held[2]).toHaveFocus();
+    await user.click(held[2]);
+    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
+  });
+
+  it('opens the edit form under its row, and hides Add and Edit meanwhile', () => {
+    const rows = [MKB_99, MKB_1_C3, {...MKB_13_C3, thumbnail: ART}];
+    renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: controllerOf(editForm(80024))})});
+    const items = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(items).toHaveLength(4);
+    expect(within(items[2]).getByText('13/C3')).toBeInTheDocument();
+    expect(within(items[3]).getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    // The form shows the row's art.
+    expect(items[3].querySelector('img')).toHaveAttribute('src', ART);
+    expect(addButton()).toBeNull();
+    expect(editNames()).toEqual([]);
+  });
+
+  it('opens the add form under the rows, in place of Add a printing, and hides every Edit meanwhile', () => {
+    renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(addForm())})});
+    const form = screen.getByRole('region', {name: 'New printing of Mother Knows Best'});
+    expect(follows(screen.getByRole('list'), form)).toBe(true);
+    expect(within(screen.getByRole('list')).queryByRole('region')).toBeNull();
+    expect(addButton()).toBeNull();
+    expect(editNames()).toEqual([]);
+    // The form offers the promo sets it was given.
+    expect(within(screen.getByLabelText('Promo set')).getAllByRole('option')).toHaveLength(PROMO_OPTIONS.length + 1);
+  });
+
+  it('tells the form who has the code it names, from the branch’s catalog', () => {
+    const scan = {name: 'scan.png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=', error: null};
+    const values = {...EMPTY_PRINTING_FORM, promoGrouping: 'C3', number: '13', versions: 'foil' as const};
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(addForm({values, scan}))})});
+    expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toBeDisabled();
+
+    update({promos: promosProps({controller: controllerOf(addForm({values: {...values, promoGrouping: 'P4', number: '9'}, scan}))})});
+    expect(screen.queryByText(/is taken/)).toBeNull();
+    expect(screen.getByRole('button', {name: 'Publish 9/P4'})).toBeEnabled();
+  });
+
+  it('holds an edit that moves its printing onto another’s code, never one that keeps its own', () => {
+    const moved = editForm(80017, {values: {...editValuesOf(printingWith(80017)), number: '13'}});
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(moved)})});
+    expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+
+    const noted = editForm(80024, {values: {...editValuesOf(printingWith(80024)), note: 'Foil twin of 1/C3.'}});
+    update({promos: promosProps({controller: controllerOf(noted)})});
+    expect(screen.queryByText(/is taken/)).toBeNull();
+    expect(screen.getByRole('button', {name: 'Save 13/C3'})).toBeEnabled();
+  });
+
+  it('offers Forget token from the form when GitHub rejects the token', async () => {
+    const onForgetToken = vi.fn();
+    const {user} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(addForm({error: REJECTED})), onForgetToken})});
+    await user.click(screen.getByRole('button', {name: 'Forget token'}));
+    expect(onForgetToken).toHaveBeenCalledOnce();
+  });
+
+  it("points a Core reprint's Sets 1 to 8 copy to its Core copy", () => {
+    renderPanel({view: {status: 'ready', rows: [], catalog: FIXTURE_CATALOG}, promos: promosProps({coreCopy: {id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'}})});
+    expect(screen.getByText(/Its promos are filed under its Core printing, Ursula - Deceiver \(Set 9 #90\): add and edit them there\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: 'Open the Core printing'})).toHaveAttribute('href', '/studio?mode=edit&card=2026');
+    expect(addButton()).toBeNull();
+  });
+
+  it("shows a landed publish's outcome under the rows", () => {
+    const outcome = {result: {commitUrl: COMMIT_URL}, error: null, note: LANDED_NOTE};
+    renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(null, {outcome})})});
+    const line = screen.getByRole('status');
+    expect(line).toHaveTextContent(`Committed. View commit. ${LANDED_NOTE}`);
+    expect(within(line).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+    expect(follows(screen.getByRole('list'), line)).toBe(true);
+    // Another printing can be added at once.
+    expect(follows(addButton()!, line)).toBe(true);
+  });
+
+  it("keeps a landed publish's outcome in view when the read after it fails", () => {
+    const outcome = {result: {commitUrl: COMMIT_URL}, error: null, note: LANDED_NOTE};
+    renderPanel({view: {status: 'error', error: FAILED, retry: () => {}}, promos: promosProps({controller: controllerOf(null, {outcome})})});
+    const retry = screen.getByRole('button', {name: 'Read the files again'});
+    const line = screen.getByRole('status');
+    expect(line).toHaveTextContent(`Committed. View commit. ${LANDED_NOTE}`);
+    expect(within(line).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+    expect(follows(retry, line)).toBe(true);
+  });
+
+  it('shows a refusal that closed the form under the rows, as an alert', () => {
+    renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(null, {outcome: {result: null, error: GONE, note: ''}})})});
+    expect(screen.getByRole('alert')).toHaveTextContent(GONE);
+    expect(follows(screen.getByRole('list'), screen.getByRole('alert'))).toBe(true);
+  });
+});
+
+/*
+ * Each form opens in place of the button that opened it, which hides while it is open, and Cancel
+ * takes the form away with its own button. A publish that lands, or that the branch refuses because the
+ * printing is gone, closes the form too. So the panel hands the focus on each time (R-48): to the form
+ * that opened, back to the button that opened it, or to the line under the rows that says what came of
+ * the publish. These run the panel on the studio's own controller.
+ */
+describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)', () => {
+  /** The panel on the studio's controller for Mother Knows Best; its view stays as given. */
+  function LivePanel({view}: {view: BranchPrintings}) {
+    const controller = usePrintingForm({token: 't', cardId: '2035'});
+    return <PrintingsPanel view={view} changes={[]} onChoose={() => {}} promos={promosProps({controller})} />;
+  }
+
+  function renderLive(view: BranchPrintings = MKB_READY) {
+    render(routed(<LivePanel view={view} />));
+    return userEvent.setup();
+  }
+
+  const heading = (name: string) => screen.getByRole('heading', {level: 3, name});
+  const edit13 = () => screen.getByRole('button', {name: 'Edit Mother Knows Best 13/C3'});
+
+  it('hands the focus to the add form it opens, and back to Add a printing on Cancel', async () => {
+    const user = renderLive();
+    await user.click(addButton()!);
+    await waitFor(() => expect(heading('New printing of Mother Knows Best')).toHaveFocus());
+
+    await user.click(screen.getByRole('button', {name: 'Cancel'}));
+    expect(screen.queryByRole('heading', {level: 3})).toBeNull();
+    await waitFor(() => expect(addButton()).toHaveFocus());
+  });
+
+  it("hands the focus to the edit form it opens, and back to that row's Edit on Cancel", async () => {
+    const user = renderLive();
+    await user.click(edit13());
+    await waitFor(() => expect(heading('Edit 13/C3 · id 80024')).toHaveFocus());
+
+    await user.click(screen.getByRole('button', {name: 'Cancel'}));
+    await waitFor(() => expect(edit13()).toHaveFocus());
+  });
+
+  it('hands the focus to the line under the rows once a publish lands', async () => {
+    stubRepo({files: FIXTURE_FILES});
+    const user = renderLive();
+    await user.click(addButton()!);
+    await user.selectOptions(screen.getByLabelText('Promo set'), 'P4');
+    await user.type(screen.getByLabelText('Number'), '9');
+    await user.click(within(screen.getByRole('group', {name: 'Versions of the new printing'})).getByRole('button', {name: 'Foil only'}));
+    await user.upload(screen.getByLabelText('Click or drop to add the scan'), pngFile('scan.png'));
+    const publish = screen.getByRole('button', {name: 'Publish 9/P4'});
+    await waitFor(() => expect(publish).toBeEnabled());
+
+    await user.click(publish);
+    const line = await screen.findByText('Committed.', {exact: false});
+    expect(screen.queryByRole('heading', {level: 3})).toBeNull();
+    await waitFor(() => expect(line).toHaveFocus());
+    expect(line).toHaveAttribute('role', 'status');
+    expect(addButton()).toBeInTheDocument();
+  });
+
+  it('hands the focus to the failure under the rows when the branch no longer has the printing', async () => {
+    stubRepo({files: filesFor(WITHOUT_13_C3)});
+    const user = renderLive();
+    await user.click(edit13());
+    await user.type(screen.getByLabelText('Add a note'), 'Foil twin of 1/C3.');
+    await user.click(screen.getByRole('button', {name: 'Save 13/C3'}));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(GONE);
+    expect(screen.queryByRole('heading', {level: 3})).toBeNull();
+    await waitFor(() => expect(alert.parentElement).toHaveFocus());
+    expect(editNames()).toEqual(['Edit Mother Knows Best 1/C3', 'Edit Mother Knows Best 13/C3']);
+  });
+
+  it('leaves the focus where it is when it is not where the press left it', () => {
+    renderLive();
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+    // fireEvent presses the button without moving the focus to it, so the focus is on the input, not on <body>.
+    fireEvent.click(addButton()!);
+    expect(heading('New printing of Mother Knows Best')).toBeInTheDocument();
+    expect(elsewhere).toHaveFocus();
+    elsewhere.remove();
+  });
+
+  it('hands the focus on Add a printing to "Read the files again" when the read after a publish fails', () => {
+    const {update} = renderPanel({view: {...MKB_READY, refreshing: true}, promos: promosProps()});
+    act(() => addButton()!.focus());
+    update({view: {status: 'error', error: FAILED, retry: () => {}}});
+    expect(screen.getByRole('button', {name: 'Read the files again'})).toHaveFocus();
   });
 });
