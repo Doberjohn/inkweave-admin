@@ -75,7 +75,10 @@ const COMPILER_BAILOUTS = Object.fromEntries(
 const TEST_CODE = ['**/*.test.{ts,tsx}', '**/__tests__/**', 'src/test/**'];
 
 export default tseslint.config(
-  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert']},
+  // .claude/worktrees holds the desktop app's session worktrees, each a checkout of its own that
+  // lints itself. Linted from here, it gives typescript-eslint a second tsconfig root, and every
+  // file fails to parse. Vitest leaves it out too (vite.config.ts).
+  {ignores: ['dist', 'coverage', 'upstream', 'app-master', '.reveal-sync-convert', '.claude/worktrees']},
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

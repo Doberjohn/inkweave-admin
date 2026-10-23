@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import {resetAdminDataCache} from '../tools/analytics/adminData';
 import {resetVotesFilter} from '../tools/analytics/votesFilter';
+import {resetCommitDetails} from '../tools/changes/commitDetails';
 import {resetBranchFiles} from '../tools/studio/finishes/branchFiles';
 import {resetCollectionOnlyCards} from '../tools/studio/finishes/collectionCards';
 import {resetVersionBatch} from '../tools/studio/finishes/versionBatchStore';
@@ -9,10 +10,11 @@ import {resetVersionBatch} from '../tools/studio/finishes/versionBatchStore';
 // filter is one setting for the session (#33), the studio keeps each file it
 // read from the target branch, and what it parsed to (#68), the cards of Sets 1
 // to 8 it read from the app's collection chunks (#68), and its batch of
-// version changes lives in module state and in localStorage (#68). Reset all
-// five before every test, so no test inherits another's fetch, data, filter,
-// read, cards or batch. The batch's reset deletes the master batch's saved copy
-// too, so a test that saves under another branch's key clears it itself.
+// version changes lives in module state and in localStorage (#68), and the
+// change history keeps each commit's details for the session. Reset all six
+// before every test, so no test inherits another's fetch, data, filter, read,
+// cards, batch or details. The batch's reset deletes the master batch's saved
+// copy too, so a test that saves under another branch's key clears it itself.
 //
 // This file loads branchFiles and versionBatchStore, and githubCommit and
 // publishVersions with them, before a test file's vi.mock registers, so a
@@ -28,4 +30,5 @@ beforeEach(() => {
   resetBranchFiles();
   resetCollectionOnlyCards();
   resetVersionBatch();
+  resetCommitDetails();
 });

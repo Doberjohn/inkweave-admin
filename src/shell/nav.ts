@@ -27,6 +27,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // New reveal and Edit card on one page (R4), in place of the write tools at /reveal and /image,
   // which now redirect here (R-10). Both modes commit to the app repo, so the page writes (R-4).
   {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
+  // What changed in the app's card data and tuning, read from its history. It only reads, so it doesn't write (R-4).
+  {id: 'changes', label: 'Change history', mark: 'Ch', path: '/changes', group: 'publish', writes: false},
 ];
 
 /**

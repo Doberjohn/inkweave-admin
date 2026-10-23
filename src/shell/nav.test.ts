@@ -50,10 +50,11 @@ describe('the Calibration & tuning item', () => {
   });
 });
 
-describe('the Card studio item', () => {
-  it('is the one Publish item, in place of the two old write tools (R4)', () => {
+describe('the Publish items', () => {
+  it('are Card studio, in place of the two old write tools (R4), then Change history, which only reads', () => {
     expect(NAV_ITEMS.filter((item) => item.group === 'publish')).toEqual([
       {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
+      {id: 'changes', label: 'Change history', mark: 'Ch', path: '/changes', group: 'publish', writes: false},
     ]);
   });
 });

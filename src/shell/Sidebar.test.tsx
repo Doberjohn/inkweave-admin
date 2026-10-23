@@ -30,7 +30,7 @@ describe('Sidebar', () => {
     renderSidebar();
     expect(screen.getByText('Insights')).toBeInTheDocument();
     expect(hrefs('Insights')).toEqual(['/calibration', '/activity', '/web', '/cards']);
-    expect(hrefs('Publish')).toEqual(['/studio']);
+    expect(hrefs('Publish')).toEqual(['/studio', '/changes']);
     // The mark is aria-hidden: the exact name proves it stays out of the link's name.
     expect(nav().getByRole('link', {name: 'Card studio'})).toHaveAttribute('href', '/studio');
   });
