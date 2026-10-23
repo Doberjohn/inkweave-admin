@@ -11,3 +11,17 @@ allowBuilds:
   esbuild: false
   # Comes in through posthog-js. Its postinstall only prints a funding banner.
   core-js: false
+
+overrides:
+  # GHSA-mrhx-c7xc-m3w5: zod below 4.6.6 can exhaust memory validating oversized collections.
+  # eslint-plugin-react-hooks takes zod 3.25 or 4, so its copy moves to the fixed 4.6.7.
+  # eslint-plugin-react-compiler still takes zod 3 only, which has no fix: see auditConfig below.
+  'zod@>=4.0.0 <4.6.6': 4.6.7
+
+# Advisories the audit (ci.yml's security-audit) accepts, each with its reason.
+auditConfig:
+  ignoreGhsas:
+    # zod 3.25.76, the last zod 3 and with no fix, comes in only through eslint-plugin-react-compiler,
+    # whose newest release still takes zod 3. It runs only while ESLint checks admin's own code, so no
+    # untrusted input reaches it. Drop this when the plugin takes zod 4, or when admin drops the plugin.
+    - GHSA-mrhx-c7xc-m3w5
