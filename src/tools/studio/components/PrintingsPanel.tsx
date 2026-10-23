@@ -174,7 +174,8 @@ export interface PrintingsPanelProps {
  *   and when the rows go with the focus in them;
  * - `form`: the heading of a printing form that just opened, in place of the button that opened it, or of
  *   an edit form that moved, as a read dropped its row or brought it back, with the focus in it;
- * - `opener`: the button that opened a form just cancelled: Add a printing, or a row's Edit;
+ * - `opener`: the button that opened a form just cancelled: Add a printing, or a row's Edit. An edit form
+ *   whose row a read dropped sat where Add a printing does, so its Cancel hands the focus to Add;
  * - `outcome`: the line under the rows, once a publish landed or a refusal closed its form.
  */
 type HandoffTarget = {to: 'panel'} | {to: 'form'} | {to: 'opener'; opener: string} | {to: 'outcome'};
@@ -200,7 +201,8 @@ function selectorOf({target, failed}: {target: HandoffTarget; failed: boolean}):
     case 'form':
       return 'h3';
     case 'opener':
-      return `[data-opens="${target.opener}"]`;
+      // The rows come before Add a printing, so a row's Edit wins where it is; where the row went, Add takes it.
+      return `[data-opens="${target.opener}"],[data-opens="${ADD_OPENER}"]`;
     case 'outcome':
       return OUTCOME_TARGET;
   }
@@ -293,7 +295,8 @@ interface FormKitInput {
 function formKitOf({promos, catalog, held, handTo}: FormKitInput): FormKit | null {
   if (promos === undefined || catalog === undefined) return null;
   const {controller} = promos;
-  // Cancel takes the form and its own button away, and the button that opened the form is back.
+  // Cancel takes the form and its own button away, and the button that opened the form is back (or Add a
+  // printing, for an edit form whose row went: the form sat in Add's place).
   const cancel = () => {
     const opener = openerOf(controller.form);
     controller.cancel();

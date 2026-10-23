@@ -704,6 +704,19 @@ describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)
     expect(both).toHaveFocus();
   });
 
+  it('hands the focus to Add a printing on Cancel of an edit form whose row went, since the form sat in its place', async () => {
+    const user = userEvent.setup();
+    const {rerender} = render(routed(<LivePanel view={MKB_READY} />));
+    await user.click(edit13());
+    await waitFor(() => expect(heading('Edit 13/C3 · id 80024')).toHaveFocus());
+    rerender(routed(<LivePanel view={WITHOUT_ROW_13} />));
+
+    await user.click(screen.getByRole('button', {name: 'Cancel'}));
+    expect(screen.queryByRole('heading', {level: 3})).toBeNull();
+    // No row's Edit opens 13/C3 now: Add a printing, which the form took the place of, takes the focus back.
+    await waitFor(() => expect(addButton()).toHaveFocus());
+  });
+
   it('puts the edit form back under its row when a read brings the row back, its heading taking the focus that was in it', () => {
     const {update} = renderPanel({view: WITHOUT_ROW_13, promos: promosProps({controller: edit13Form()})});
     act(() => screen.getByLabelText('Number').focus());
