@@ -172,7 +172,7 @@ function PreviewFrame({card, slot, layout, wiring}: {card: LorcanaCard | null; s
   );
 }
 
-/** Under the preview (R-89): the name in Tinos, then the version and the inks, named for a screen reader. */
+/** Under the preview (R-89): the name in the display face, then the version and the inks, named for a screen reader. */
 function CardCaption({card}: {card: LorcanaCard | null}) {
   if (!card?.name) return <p style={{...HINT, ...CENTRED}}>Fill in the name to preview the card.</p>;
   return (

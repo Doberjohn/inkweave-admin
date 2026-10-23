@@ -13,10 +13,10 @@ interface KpiCardProps {
 }
 
 /**
- * One headline number: the label, the value in Tinos at the KPI size, and a
- * hint. The card is a group named by its label, so a screen reader reads the
- * label with the value. Hints carry data, so they take the muted colour, never
- * dim (R-6).
+ * One headline number: the label, the value in the display face at the KPI
+ * size, and a hint. The card is a group named by its label, so a screen reader
+ * reads the label with the value. Hints carry data, so they take the muted
+ * colour, never dim (R-6).
  */
 export function KpiCard({label, value, hint, tag, valueColor = ADMIN_COLORS.text}: KpiCardProps) {
   const labelId = useId();

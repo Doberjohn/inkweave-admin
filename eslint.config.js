@@ -118,6 +118,7 @@ export default tseslint.config(
       'inkweave/no-adhoc-buttons': 'error',
       'inkweave/no-unshelled-dialogs': 'error',
       'inkweave/no-dim-text': 'error',
+      'inkweave/no-unloaded-font-weight': 'error',
     },
   },
   {
