@@ -445,6 +445,17 @@ describe('the branch files kept after a publish', () => {
 });
 
 describe('a form that stays open after a refusal or a failure', () => {
+  it('keeps the form open, with its message, when the files are out of step', async () => {
+    const {files, open, says} = REFUSALS.outOfStep;
+    stubRepo({files});
+    const {result} = renderFor('2035');
+    await open(result);
+    await act(async () => {
+      expect(await result.current.publish()).toBe(false);
+    });
+    expect(result.current.form).not.toBeNull();
+    expect(result.current.form?.error).toBe(says);
+  });
   it('keeps its scan, so the owner fixes the form and publishes again', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
     const {result} = renderFor('2047');

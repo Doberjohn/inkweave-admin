@@ -7,6 +7,7 @@ import {
   findPrinting,
   nextProvisionalId,
   parseCatalog,
+  takenBy,
   type BaseCard,
   type CatalogPrinting,
   type PromoCatalog,
@@ -424,6 +425,14 @@ describe('a publish the branch can\'t take', () => {
   ])('checks %s', async (_what, change, kind) => {
     stubRepo({files: FIXTURE_FILES});
     await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({kind});
+  });
+  it('refuses an unknown promo set before a taken code', async () => {
+    // 13/Q9 is Mother Knows Best's in WITH_Q9, and Q9 is a set the pinned PROMO_SETS lacks: an add of it trips both checks.
+    expect(takenBy({catalog: WITH_Q9, code: {promoGrouping: 'Q9', number: 13}})?.printing.id).toBe(80024);
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    const change: PrintingChange = {...ADD_9_P4, printing: {...ADD_9_P4.printing, promoGrouping: 'Q9', number: 13}};
+    await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownSet'});
+    expect(repo.writes()).toEqual([]);
   });
   it("passes on the app's own error for a catalog that can't merge, writing nothing", async () => {
     const repo = stubRepo({files: FIXTURE_FILES});

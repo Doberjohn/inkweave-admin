@@ -2,7 +2,6 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState, type ReactNode} from 'react';
 import {PROMO_SETS, SPACING} from '../../../app-bridge';
 import {useFileDropGuard} from '../../../components/useFileDrop';
-import {imageDataUrl} from '../../../test/images';
 import {Panel} from '../../../ui/Panel';
 import {EMPTY_PRINTING_FORM, promoSetOptions, type PrintingFormValues, type ScanState} from '../promos/printingForm';
 import {findPrinting} from '../promos/promoCatalog';
@@ -28,8 +27,13 @@ const WIDE_SLOT = 624;
 const NARROW_SLOT = 400;
 const PHONE_SLOT = 224;
 
-/** A scan that was read and checked. Its bytes are only a PNG's signature, so its preview is a broken image: AddEmpty takes a real file. */
-const SCAN: ScanState = {name: 'scan.png', dataUrl: imageDataUrl('scan.png'), error: null};
+/** A whole PNG, 36 by 50 pixels: a card's shape, with its art, name and text box blocked in. */
+const SCAN_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAyCAMAAAADUYksAAAAFVBMVEUUFCBYQIw0eG7o3sR4bmAoKDzwvjyqu+k/' +
+  'AAAATElEQVR42u3ROxIAIAhDQb+5/5HttGJCEZHCV++MgKUIq6Q8CABFwFYmAo4KQK6ZfNul/JZrqJE+UqNJeoE6SY+GWeRzcdtdPaYIiVqrXw194mHrPQAAAABJRU5ErkJggg==';
+
+/** A scan that was read and checked, which the frame shows. */
+const SCAN: ScanState = {name: 'scan.png', dataUrl: SCAN_PNG, error: null};
 /** 9/P4 for Foil only, all of an add the owner chooses before the scan. */
 const NINE_P4: PrintingFormValues = {...EMPTY_PRINTING_FORM, promoGrouping: 'P4', number: '9', versions: 'foil'};
 

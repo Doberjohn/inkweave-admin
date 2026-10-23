@@ -20,6 +20,11 @@ describe('catalogEdits', () => {
     expect(catalog.stats.foldIntoAllCards).toEqual({printings: 3, baseCards: 2});
     expect(FIXTURE_CATALOG.fold).toHaveLength(1);
   });
+  it('files a new Core group before the groups whose baseId is higher', () => {
+    const card: BaseCard = {id: 2001, fullName: 'Hercules - Divine Hero', setCode: '9', number: 1, core: true};
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: NEW_9_P4, note: null});
+    expect(catalog.fold.map((g) => g.baseId)).toEqual([2001, 2035]);
+  });
   it("adds to the card's own group in printing order, its language before its versions", () => {
     const card: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setCode: '9', number: 99, core: true};
     const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: {promoGrouping: 'C3', number: 2, finishes: ['normal'], scanLanguage: 'ja'}, note: null});
@@ -96,6 +101,8 @@ describe('catalogEdits', () => {
     const edited = withEditedPrinting({catalog, id: 80024, edit: {promoGrouping: 'C3', number: 14, scanLanguage: null}, note: null});
     expect(edited.provisionalIds['80024']).toBe('14/C3 Mother Knows Best');
   });
+  // A pin bump whose catalog orders an entry's keys otherwise, or adds a key anywhere but last, fails here:
+  // ENTRY_KEYS in catalogEdits.ts has to follow the app's order.
   it('leaves every printing of the pinned catalog byte for byte under an edit that changes nothing', () => {
     const text = readPinned(CATALOG_PATH);
     const pinned = parseCatalog(text);

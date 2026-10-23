@@ -1037,8 +1037,8 @@ describe('StudioPage: the guard and a started promo printing form (#77)', () => 
     {draft: 'an unpublished form alone', publishing: false, says: PRINTING_LEAVES},
     {draft: 'its publish in flight', publishing: true, says: PUBLISHING},
   ])("words leaving the studio with $draft: the form's dirty and busy reach the guard (R-58)", async ({publishing, says}) => {
-    // The ref update never settles, so the publish stays in flight once it has made its commit.
-    const {router, user} = await startPrintingForm(() => new Promise<Response>(() => {}));
+    // For the row that publishes, the ref update never settles, so the publish stays in flight once it has made its commit.
+    const {router, user} = await startPrintingForm(publishing ? never : undefined);
     if (publishing) await publishNineP4(user);
     act(() => void router.navigate('/'));
     expect(within(await leaveDialog()).getByText(says)).toBeInTheDocument();
@@ -1051,6 +1051,19 @@ describe('StudioPage: the guard and a started promo printing form (#77)', () => 
     act(() => void router.navigate('/'));
     expect(await screen.findByRole('heading', {name: 'Overview'})).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('asks before Forget token drops the printing form', async () => {
+    // GitHub rejects the token when the publish moves the branch: the form keeps the failure, and offers Forget token.
+    const {user} = await openPrintingForm(async () => new Response('Bad credentials', {status: 401}));
+    await publishNineP4(user);
+    const forget = await screen.findByRole('button', {name: 'Forget token'});
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await user.click(forget);
+    // The workspace asks first, since the form is still unpublished (R-84).
+    expect(confirm).toHaveBeenCalledWith('Forget the token and drop your printing form?');
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('tok');
   });
 });
 

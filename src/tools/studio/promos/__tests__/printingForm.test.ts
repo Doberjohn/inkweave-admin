@@ -279,6 +279,10 @@ describe('the card a form belongs to', () => {
     const second = {...URSULA_SET_9, id: '9999', setNumber: 190};
     expect(coreCopyOf({card: URSULA_SET_3, cards: [second, URSULA_SET_9]})).toEqual({id: '9999', name: 'Ursula - Deceiver (Set 9 #190)'});
   });
+  it('finds the Core copy past the Sets 1 to 8 card itself', () => {
+    // The card list holds the Set 3 card too, under the same name, and first: only a Core card is its copy.
+    expect(coreCopyOf({card: URSULA_SET_3, cards: [URSULA_SET_3, URSULA_SET_9]})).toEqual({id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'});
+  });
 });
 
 describe('changeOf', () => {
