@@ -489,7 +489,7 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     const scan = {name: 'scan.png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=', error: null};
     const values = {...EMPTY_PRINTING_FORM, promoGrouping: 'C3', number: '13', versions: 'foil' as const};
     const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(addForm({values, scan}))})});
-    expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toHaveAccessibleDescription('13/C3 is taken: Mother Knows Best has it.');
     expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toBeDisabled();
 
     update({promos: promosProps({controller: controllerOf(addForm({values: {...values, promoGrouping: 'P4', number: '9'}, scan}))})});
@@ -500,7 +500,7 @@ describe('PrintingsPanel: promo printings (#77)', () => {
   it('holds an edit that moves its printing onto another’s code, never one that keeps its own', () => {
     const moved = editForm({id: 80017, card: MKB_BASE, values: {...editValuesOf(printingOf(80017)), number: '13'}});
     const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(moved)})});
-    expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Save as 13/C3'})).toHaveAccessibleDescription('13/C3 is taken: Mother Knows Best has it.');
 
     const noted = editForm({id: 80024, card: MKB_BASE, values: {...editValuesOf(printingOf(80024)), note: 'Foil twin of 1/C3.'}});
     update({promos: promosProps({controller: controllerOf(noted)})});

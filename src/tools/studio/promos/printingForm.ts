@@ -2,13 +2,15 @@ import {isCoreSet, type LorcanaCard} from 'inkweave-synergy-engine';
 import type {PromoSet} from '../../../app-bridge';
 import {extOf} from '../../../components/fileName';
 import {stripDataUrl} from '../../../github/githubCommit';
+import {isStaged} from '../cardPanel';
 import {finishesOfChoice, type FinishChoice} from '../finishes/finishValues';
 import {printingCode, type BaseCard, type CatalogPrinting, type CodeParts, type FoundPrinting} from './promoCatalog';
 import {factsOf, type PrintingChange, type ScanFile} from './publishPrinting';
 
 /*
  * The rules of the promo printing form (#77), apart from the form itself: what it holds, the promo sets
- * it offers, what it still lacks before Publish is on, how Publish reads, what is said once a publish
+ * it offers, what it still lacks before Publish is on and whether its scan holds Publish too, what the
+ * Number field says of a number typed, how Publish reads, what is said of a scan chosen and once a publish
  * lands, and the change a complete form hands to publishPrinting.ts. Nothing here reads the branch or
  * renders anything: the form's controller passes in what the owner entered, who the branch's catalog
  * says has the code, and the scan as useImageUpload holds it. A code that a line or a label names is the
@@ -131,8 +133,8 @@ export function sameValues(a: PrintingFormValues, b: PrintingFormValues): boolea
   return sameCode(a, b) && a.versions === b.versions && a.scanLanguage === b.scanLanguage && noteOf(a) === noteOf(b);
 }
 
-/** What `missingLine` reads. */
-interface MissingLineOptions {
+/** What `missingLine` and `numberProblem` read. */
+export interface MissingLineOptions {
   kind: FormKind;
   values: PrintingFormValues;
   /** What the form opened with: an add's values are empty, an edit's are its printing's. */
@@ -157,15 +159,24 @@ function takenLine({kind, values, initial, taken, artVariant}: MissingLineOption
   return `${code} is taken: ${taken.group.fullName} has it.`;
 }
 
-/** An add's first gap, in the order the form asks for things: its promo set, number, versions and scan, then its code. */
-function addLine(opts: MissingLineOptions): string | null {
-  const {values, scan} = opts;
-  if (values.promoGrouping === '') return 'Choose a promo set to publish.';
-  if (parseNumber(values.number) === null) return 'Enter a number from 1 up to publish.';
+/** An add's gap after its code: its versions, then its scan. */
+function versionsOrScanLine({values, scan}: MissingLineOptions): string | null {
   if (values.versions === null) return 'Choose its versions to publish.';
   // A scan that failed its check says why beside the file control, so the line adds nothing to it.
   if (scan.dataUrl === null) return scan.error === null ? 'Add its scan to publish.' : null;
-  return takenLine(opts);
+  return null;
+}
+
+/**
+ * An add's first gap, in the order the form asks for things: its promo set and number, then the code they
+ * name, the moment another printing has it, then its versions and scan. A taken code waits for nothing
+ * else: no versions or scan would let it through.
+ */
+function addLine(opts: MissingLineOptions): string | null {
+  const {values} = opts;
+  if (values.promoGrouping === '') return 'Choose a promo set to publish.';
+  if (parseNumber(values.number) === null) return 'Enter a number from 1 up to publish.';
+  return takenLine(opts) ?? versionsOrScanLine(opts);
 }
 
 /** An edit's first gap: a change to make, then the promo set and number it keeps, then its code. */
@@ -185,6 +196,35 @@ function editLine(opts: MissingLineOptions): string | null {
  */
 export function missingLine(opts: MissingLineOptions): string | null {
   return opts.kind === 'add' ? addLine(opts) : editLine(opts);
+}
+
+/**
+ * What the Number field says of the number the owner typed, or null. As New reveal's fields do (R-72), it
+ * marks only a value the owner filled in: a blank number, spaces included, is incomplete, not wrong, and
+ * the line under Publish asks for it. A number `parseNumber` can't read says so, and one that names a code
+ * another printing has says whose it is, in the line's words.
+ */
+export function numberProblem(opts: MissingLineOptions): string | null {
+  const typed = opts.values.number;
+  if (typed.trim() === '') return null;
+  if (parseNumber(typed) === null) return 'Enter a number from 1 up.';
+  return takenLine(opts);
+}
+
+/** Whether the scan the owner chose can't be published yet: it failed its check, or its bytes are still being read. */
+export function scanUnusable({name, dataUrl, error}: ScanState): boolean {
+  return error !== null || (name !== null && dataUrl === null);
+}
+
+/**
+ * What the scan's live region says once a file is chosen and nothing is wrong with it (isStaged), as the
+ * card panel says its own (stagedNote): what the scan does with the printing. Null while no file is
+ * chosen, and while the file's error says why it can't be used.
+ */
+export function scanNote({kind, scan}: {kind: FormKind; scan: ScanState}): string | null {
+  if (!isStaged(scan)) return null;
+  if (kind === 'add') return `Scan staged (${scan.name}). It's published with the printing.`;
+  return `New scan staged (${scan.name}). It replaces the printing's scan when you save.`;
 }
 
 /** What `publishLabel` reads. */

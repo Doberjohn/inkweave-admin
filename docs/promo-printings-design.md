@@ -86,6 +86,8 @@ The studio works out:
 
 It refuses a promo set and number that another printing already has.
 
+The line under Publish names the first thing the add lacks: the promo set, the number, then a code another printing has, then the versions and the scan. A taken code shows as soon as the promo set and number name it ("13/C3 is taken: Mother Knows Best has it."), since no versions or scan would let it through. The Number field marks only what the owner typed, as New reveal's fields do (R-72). A number that doesn't read is invalid and says why under the field ("Enter a number from 1 up."), and so is a taken code, in the line's words. A blank one is left to the line. The edit form's Number does the same.
+
 ### The edit form
 
 The edit form is filled in from the printing's entry in the branch's catalog:

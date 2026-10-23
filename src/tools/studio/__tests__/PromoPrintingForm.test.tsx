@@ -125,18 +125,39 @@ describe('PromoPrintingForm: what it asks for', () => {
     expect(screen.getByRole('button', {name})).toBeDisabled();
   });
 
-  it('says whose a taken code is, and holds Publish', () => {
+  it('says whose a taken code is, under Publish and on Number, and holds Publish', () => {
     const taken = findPrinting(FIXTURE_CATALOG, 80024)!;
     renderForm({form: addForm({values: {...NINE_P4, promoGrouping: 'C3', number: '13'}, scan: PNG}), taken});
-    expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    const line = '13/C3 is taken: Mother Knows Best has it.';
+    expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toHaveAccessibleDescription(line);
     expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toBeDisabled();
+    expect(screen.getByLabelText('Number')).toHaveAccessibleDescription(line);
+    expect(screen.getByLabelText('Number')).toBeInvalid();
   });
 
   it('names the art variant in the code an edit would take: 25A/P2, not 25/P2', () => {
     const taken = findPrinting(FIXTURE_CATALOG, 1662)!;
     renderForm({form: editForm({...HIRO_24A, values: changed(1661, {number: '25'})}), taken});
-    expect(screen.getByText('25A/P2 is taken: Hiro Hamada - Armor Designer has it.')).toBeInTheDocument();
+    const line = '25A/P2 is taken: Hiro Hamada - Armor Designer has it.';
+    expect(screen.getByRole('button', {name: 'Save as 25A/P2'})).toHaveAccessibleDescription(line);
     expect(screen.getByRole('button', {name: 'Save as 25A/P2'})).toBeDisabled();
+    expect(screen.getByLabelText('Number')).toHaveAccessibleDescription(line);
+  });
+
+  it('marks Number invalid and says why when the typed number does not read', async () => {
+    const user = userEvent.setup();
+    render(<OnTheStudiosController card={PRINCE} />);
+    await user.click(screen.getByRole('button', {name: 'Add a printing'}));
+    await user.selectOptions(screen.getByLabelText('Promo set'), 'P4');
+    const number = screen.getByLabelText('Number');
+    // A blank number is incomplete, not wrong: the line under Publish asks for it (R-72).
+    expect(number).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByText('Enter a number from 1 up to publish.')).toBeInTheDocument();
+
+    await user.type(number, 'abc');
+    expect(number).toHaveAttribute('aria-invalid', 'true');
+    expect(number).toHaveAccessibleDescription(/Enter a number from 1 up\./);
+    expect(screen.getByText('Enter a number from 1 up.')).toBeInTheDocument();
   });
 
   it('puts what is missing under the buttons, and ties it to Publish', () => {
@@ -344,10 +365,16 @@ describe('PromoPrintingForm: the scan', () => {
     expect(label).not.toHaveAttribute('data-dragging');
   });
 
-  it('names the file chosen in a polite live region, beside the formats', () => {
-    renderForm({form: addForm({scan: PNG})});
-    expect(screen.getByText('scan.png').closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
+  it('says in a polite live region, beside the formats, what the scan chosen does', () => {
+    const {unmount} = renderForm({form: addForm({scan: PNG})});
+    expect(screen.getByText("Scan staged (scan.png). It's published with the printing.").closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
     expect(screen.getByText(FORMATS)).toBeInTheDocument();
+    unmount();
+    renderForm({form: editForm({scan: PNG})});
+    expect(screen.getByText("New scan staged (scan.png). It replaces the printing's scan when you save.").closest('[aria-live]')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
   });
 
   describe('its picture', () => {
@@ -524,7 +551,7 @@ describe('PromoPrintingForm: on the controller the studio holds', () => {
     await user.click(within(versions()).getByRole('button', {name: 'Foil only'}));
     expect(screen.getByText('Add its scan to publish.')).toBeInTheDocument();
     await user.upload(screen.getByLabelText('Click or drop to add the scan'), pngFile('scan.png'));
-    expect(await screen.findByText('scan.png')).toBeInTheDocument();
+    expect(await screen.findByText("Scan staged (scan.png). It's published with the printing.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', {name: 'Publish 9/P4'})).toBeEnabled());
 
     await user.click(screen.getByRole('button', {name: 'Publish 9/P4'}));

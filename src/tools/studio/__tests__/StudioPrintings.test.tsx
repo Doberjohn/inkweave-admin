@@ -377,7 +377,7 @@ describe('StudioPage: promo printings in the Printings panel (#77)', () => {
     // failure focused: the form now says whose the code is too.
     expect(await within(await printings()).findByRole('group', {name: 'Versions of Mother Knows Best 9/P4'})).toBeInTheDocument();
     expect(screen.getByRole('heading', {level: 3, name: 'New printing of Mother Knows Best'})).toBeInTheDocument();
-    expect(await screen.findByText('9/P4 is taken: Mother Knows Best has it.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', {name: 'Publish 9/P4'})).toHaveAccessibleDescription('9/P4 is taken: Mother Knows Best has it.'));
     await waitFor(() => expect(alert.parentElement).toHaveFocus());
   });
 

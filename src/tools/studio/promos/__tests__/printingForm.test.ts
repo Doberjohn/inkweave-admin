@@ -9,10 +9,13 @@ import {
   editValuesOf,
   formCode,
   missingLine,
+  numberProblem,
   outcomeNote,
   parseNumber,
   promoSetOptions,
   publishLabel,
+  scanNote,
+  scanUnusable,
   type PrintingFormValues,
   type ScanState,
 } from '../printingForm';
@@ -114,11 +117,69 @@ describe('missingLine of an add', () => {
   it('counts a scan only once its bytes are read', () => {
     expect(add({promoGrouping: 'P4', number: '9', versions: 'foil'}, READING)).toBe('Add its scan to publish.');
   });
-  it('says whose a taken code is, once the form is complete', () => {
+  it('says whose a taken code is, with its scan or without one', () => {
     const values = {...EMPTY_PRINTING_FORM, promoGrouping: 'C3', number: '13', versions: 'foil' as const};
     const taken = findPrinting(FIXTURE_CATALOG, 80024);
     expect(missingLine({kind: 'add', values, initial: EMPTY_PRINTING_FORM, scan: SCAN, taken})).toBe('13/C3 is taken: Mother Knows Best has it.');
-    expect(missingLine({kind: 'add', values, initial: EMPTY_PRINTING_FORM, scan: NO_SCAN, taken})).toBe('Add its scan to publish.');
+    expect(missingLine({kind: 'add', values, initial: EMPTY_PRINTING_FORM, scan: NO_SCAN, taken})).toBe('13/C3 is taken: Mother Knows Best has it.');
+  });
+  it('names a taken code as soon as the set and number name it, before the versions and the scan', () => {
+    const taken = findPrinting(FIXTURE_CATALOG, 80024);
+    const named = {...EMPTY_PRINTING_FORM, promoGrouping: 'C3', number: '13'};
+    const line = (values: PrintingFormValues) => missingLine({kind: 'add', values, initial: EMPTY_PRINTING_FORM, scan: NO_SCAN, taken});
+    expect(line(named)).toBe('13/C3 is taken: Mother Knows Best has it.');
+    expect(line({...named, versions: 'foil'})).toBe('13/C3 is taken: Mother Knows Best has it.');
+  });
+});
+
+describe('numberProblem', () => {
+  /** What Number says of `number`, typed in an add of a P4 printing, while `taken` has the code (nobody, unless the test says). */
+  const onAdd = (number: string, taken: FoundPrinting | null = null) =>
+    numberProblem({kind: 'add', values: {...EMPTY_PRINTING_FORM, promoGrouping: 'P4', number}, initial: EMPTY_PRINTING_FORM, scan: NO_SCAN, taken});
+
+  it.each([
+    ['', null],
+    ['abc', 'Enter a number from 1 up.'],
+    ['0', 'Enter a number from 1 up.'],
+    ['1.5', 'Enter a number from 1 up.'],
+    [' 07 ', null],
+  ])('says of a number typed as %j in an add whose code is free: %j', (number, problem) => {
+    expect(onAdd(number)).toBe(problem);
+  });
+  it('leaves a number of spaces to the line under Publish, as a blank one (R-72)', () => {
+    expect(onAdd('   ')).toBeNull();
+  });
+  it('says whose a code is, where another printing has the one the number names', () => {
+    const values = {...EMPTY_PRINTING_FORM, promoGrouping: 'C3', number: '13'};
+    const taken = findPrinting(FIXTURE_CATALOG, 80024);
+    expect(numberProblem({kind: 'add', values, initial: EMPTY_PRINTING_FORM, scan: NO_SCAN, taken})).toBe('13/C3 is taken: Mother Knows Best has it.');
+  });
+  it('marks nothing on an edit that keeps its own code, though a twin shares it', () => {
+    const twin = heldBy({id: 80032, code: {promoGrouping: 'C3', number: 28}});
+    const initial = editValuesOf(printingOf(80032));
+    expect(numberProblem({kind: 'edit', values: {...initial, note: 'Championship prize.'}, initial, scan: NO_SCAN, taken: twin})).toBeNull();
+  });
+});
+
+describe('the scan', () => {
+  it("says what a staged scan does: an add publishes it, and an edit's replaces the printing's scan", () => {
+    expect(scanNote({kind: 'add', scan: SCAN})).toBe("Scan staged (mickey-1-p5.webp). It's published with the printing.");
+    expect(scanNote({kind: 'edit', scan: SCAN})).toBe("New scan staged (mickey-1-p5.webp). It replaces the printing's scan when you save.");
+  });
+  it('says a file is staged while its bytes are still read', () => {
+    expect(scanNote({kind: 'add', scan: READING})).toBe("Scan staged (mickey-1-p5.webp). It's published with the printing.");
+  });
+  it('says nothing of a file that failed its check, which says why itself, or of no file', () => {
+    expect(scanNote({kind: 'add', scan: REFUSED})).toBeNull();
+    expect(scanNote({kind: 'edit', scan: NO_SCAN})).toBeNull();
+  });
+  it('holds Publish for a scan that failed its check, or whose bytes are still read', () => {
+    expect(scanUnusable(REFUSED)).toBe(true);
+    expect(scanUnusable(READING)).toBe(true);
+  });
+  it('holds nothing for a scan read and checked, or for no scan', () => {
+    expect(scanUnusable(SCAN)).toBe(false);
+    expect(scanUnusable(NO_SCAN)).toBe(false);
   });
 });
 
