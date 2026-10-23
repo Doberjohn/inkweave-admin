@@ -16,21 +16,14 @@ import {
   type PrintingFormValues,
   type ScanState,
 } from '../printingForm';
-import {findPrinting, isKnownPromoSet, takenBy, type BaseCard, type CodeParts, type FoundPrinting} from '../promoCatalog';
-import {FIXTURE_CATALOG, PRINCE} from './promoFixtures';
+import {findPrinting, isKnownPromoSet, takenBy, type CodeParts, type FoundPrinting} from '../promoCatalog';
+import {FIXTURE_CATALOG, HIRO_BASE, NO_SCAN, PRINCE, SNOW_WHITE_BASE, printingOf} from './promoFixtures';
 
-const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
 const SCAN: ScanState = {name: 'mickey-1-p5.webp', dataUrl: 'data:image/webp;base64,UklGRgAAAABXRUJQ', error: null};
 /** A file chosen and still being read: named, with no bytes yet and no error. */
 const READING: ScanState = {name: 'mickey-1-p5.webp', dataUrl: null, error: null};
 /** A file that failed the byte check: its error says why, and no bytes are kept. */
 const REFUSED: ScanState = {name: 'scan.gif', dataUrl: null, error: 'scan.gif is not a JPEG, PNG or WebP image.'};
-
-const SNOW_WHITE: BaseCard = {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false};
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
-
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
 
 const add = (values: Partial<PrintingFormValues>, scan = SCAN) =>
   missingLine({kind: 'add', values: {...EMPTY_PRINTING_FORM, ...values}, initial: EMPTY_PRINTING_FORM, scan, taken: null});
@@ -42,8 +35,8 @@ function edit({id, values = {}, scan = NO_SCAN, taken = null}: {
   scan?: ScanState;
   taken?: FoundPrinting | null;
 }): string | null {
-  const initial = editValuesOf(printing(id));
-  return missingLine({kind: 'edit', values: {...initial, ...values}, initial, scan, taken, artVariant: printing(id).artVariant});
+  const initial = editValuesOf(printingOf(id));
+  return missingLine({kind: 'edit', values: {...initial, ...values}, initial, scan, taken, artVariant: printingOf(id).artVariant});
 }
 
 /** Who else has the code the edit of printing `id` would give it, as the panel works it out. */
@@ -91,8 +84,8 @@ describe('numbers and codes', () => {
 
 describe('the form a printing opens with', () => {
   it('fills an edit in from the printing, with no versions and no note', () => {
-    expect(editValuesOf(printing(80049))).toEqual({promoGrouping: 'P2', number: '42', versions: null, scanLanguage: 'zh', note: ''});
-    expect(editValuesOf(printing(80017))).toEqual({promoGrouping: 'C3', number: '1', versions: null, scanLanguage: 'en', note: ''});
+    expect(editValuesOf(printingOf(80049))).toEqual({promoGrouping: 'P2', number: '42', versions: null, scanLanguage: 'zh', note: ''});
+    expect(editValuesOf(printingOf(80017))).toEqual({promoGrouping: 'C3', number: '1', versions: null, scanLanguage: 'en', note: ''});
   });
   it('leaves the number blank for a printing nobody has numbered', () => {
     expect(editValuesOf({id: 1, rarity: 'Special', promoGrouping: 'C1'}).number).toBe('');
@@ -131,7 +124,7 @@ describe('missingLine of an add', () => {
 
 describe('missingLine of an edit', () => {
   it('asks an edit for a change', () => {
-    const initial = editValuesOf(findPrinting(FIXTURE_CATALOG, 80049)!.printing);
+    const initial = editValuesOf(printingOf(80049));
     expect(missingLine({kind: 'edit', values: initial, initial, scan: NO_SCAN, taken: null})).toBe('Change something to save.');
   });
   it('counts a new code, scan, language or note as something to save', () => {
@@ -186,7 +179,7 @@ describe('publishLabel', () => {
     expect(publishLabel({kind: 'edit', values: at('P5', '2'), initialCode: '1/P5', publishing: true})).toBe('Publishing…');
   });
   it('names the art variant of the printing an edit opened', () => {
-    const hiro = editValuesOf(printing(1661));
+    const hiro = editValuesOf(printingOf(1661));
     const label = (values: PrintingFormValues) => publishLabel({kind: 'edit', values, initialCode: '24A/P2', publishing: false, artVariant: 'A'});
     expect(label(hiro)).toBe('Save 24A/P2');
     expect(label({...hiro, number: '30'})).toBe('Save as 30A/P2');
@@ -232,7 +225,7 @@ describe('changeOf', () => {
     const values = {...EMPTY_PRINTING_FORM, promoGrouping: 'P5', number: '1', versions: 'foil' as const, note: ' '};
     expect(changeOf({kind: 'add', card: PRINCE, printing: null, values, scan: SCAN})).toEqual({kind: 'add', card: PRINCE,
       printing: {promoGrouping: 'P5', number: 1, finishes: ['foil'], scanLanguage: null}, note: null, scan: {ext: 'webp', base64: 'UklGRgAAAABXRUJQ'}});
-    const snow = findPrinting(FIXTURE_CATALOG, 80049)!.printing;
+    const snow = printingOf(80049);
     expect(changeOf({kind: 'edit', card: PRINCE, printing: snow, values: {...editValuesOf(snow), number: '44'}, scan: NO_SCAN}))
       .toMatchObject({kind: 'edit', id: 80049, from: {promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false},
         edit: {promoGrouping: 'P2', number: 44, scanLanguage: 'zh'}, scan: null});
@@ -248,21 +241,21 @@ describe('changeOf', () => {
     expect(changeOf({kind: 'add', card: PRINCE, printing: null, values, scan})).toMatchObject({scan: {ext: 'png', base64: 'iVBORw0KGgo='}});
   });
   it("sends a new scan with an edit of a printing without Ravensburger's art, and its note and language", () => {
-    const snow = printing(80049);
+    const snow = printingOf(80049);
     const values = {...editValuesOf(snow), scanLanguage: 'ja', note: 'Re-scanned.'};
-    expect(changeOf({kind: 'edit', card: SNOW_WHITE, printing: snow, values, scan: SCAN})).toEqual({kind: 'edit', card: SNOW_WHITE, id: 80049,
+    expect(changeOf({kind: 'edit', card: SNOW_WHITE_BASE, printing: snow, values, scan: SCAN})).toEqual({kind: 'edit', card: SNOW_WHITE_BASE, id: 80049,
       from: {promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false},
       edit: {promoGrouping: 'P2', number: 42, scanLanguage: 'ja'}, note: 'Re-scanned.', scan: {ext: 'webp', base64: 'UklGRgAAAABXRUJQ'}});
   });
   it("never sends a scan with an edit of a printing that has Ravensburger's art", () => {
-    const hiro = printing(1661);
-    const change = changeOf({kind: 'edit', card: HIRO, printing: hiro, values: {...editValuesOf(hiro), note: 'The first of the two arts.'}, scan: SCAN});
+    const hiro = printingOf(1661);
+    const change = changeOf({kind: 'edit', card: HIRO_BASE, printing: hiro, values: {...editValuesOf(hiro), note: 'The first of the two arts.'}, scan: SCAN});
     expect(change).toMatchObject({kind: 'edit', id: 1661, from: {promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'},
       edit: {promoGrouping: 'P2', number: 24, scanLanguage: null}, note: 'The first of the two arts.', scan: null});
   });
   it('makes an English edit a change of no language', () => {
-    const snow = printing(80049);
-    expect(changeOf({kind: 'edit', card: SNOW_WHITE, printing: snow, values: {...editValuesOf(snow), scanLanguage: 'en'}, scan: NO_SCAN}))
+    const snow = printingOf(80049);
+    expect(changeOf({kind: 'edit', card: SNOW_WHITE_BASE, printing: snow, values: {...editValuesOf(snow), scanLanguage: 'en'}, scan: NO_SCAN}))
       .toMatchObject({edit: {scanLanguage: null}});
   });
   it('refuses a form that is not complete, rather than build a change from it', () => {
@@ -271,7 +264,7 @@ describe('changeOf', () => {
     expect(without({number: ''})).toThrow('The form is incomplete');
     expect(without({versions: null})).toThrow('The form is incomplete');
     expect(without({}, NO_SCAN)).toThrow('The form is incomplete');
-    expect(() => changeOf({kind: 'edit', card: SNOW_WHITE, printing: printing(80049), values: {...values, number: 'x'}, scan: NO_SCAN})).toThrow('The form is incomplete');
-    expect(() => changeOf({kind: 'edit', card: SNOW_WHITE, printing: null, values, scan: NO_SCAN})).toThrow('An edit needs the printing it edits');
+    expect(() => changeOf({kind: 'edit', card: SNOW_WHITE_BASE, printing: printingOf(80049), values: {...values, number: 'x'}, scan: NO_SCAN})).toThrow('The form is incomplete');
+    expect(() => changeOf({kind: 'edit', card: SNOW_WHITE_BASE, printing: null, values, scan: NO_SCAN})).toThrow('An edit needs the printing it edits');
   });
 });

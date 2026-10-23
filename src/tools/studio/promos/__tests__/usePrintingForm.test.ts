@@ -7,21 +7,15 @@ import {useBranchFilesGeneration} from '../../finishes/branchFiles';
 import {CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting} from '../catalogEdits';
 import {EMPTY_PRINTING_FORM} from '../printingForm';
-import {findPrinting, parseCatalog, type BaseCard, type CatalogPrinting} from '../promoCatalog';
+import {parseCatalog, type CatalogPrinting} from '../promoCatalog';
 import {type RefusalKind} from '../publishPrinting';
 import {usePrintingForm} from '../usePrintingForm';
-import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor} from './promoFixtures';
+import {FIXTURE_CATALOG, FIXTURE_FILES, HIRO_BASE, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor, printingOf} from './promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
-
-/** Hiro Hamada - Armor Designer, whose 24A/P2 and 24B/P2 have Ravensburger's art. */
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
-
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
 
 /** A printing the branch doesn't have: 13/C3 under an id nobody issued, for an edit that finds it gone. */
 const GHOST: CatalogPrinting = {id: 80099, rarity: 'Special', number: 13, promoGrouping: 'C3', finishes: ['foil']};
@@ -45,7 +39,7 @@ function renderWithGenerations(cardId: string) {
 
 /** Opens an edit of Mother Knows Best's 13/C3 with a note on it, so the form has something to publish. */
 function startNoteOnMkb(result: Rendered): void {
-  act(() => result.current.openEdit({card: MKB_BASE, printing: printing(80024)}));
+  act(() => result.current.openEdit({card: MKB_BASE, printing: printingOf(80024)}));
   act(() => result.current.patch({note: 'x'}));
 }
 
@@ -77,7 +71,7 @@ describe('opening a form', () => {
     expect(result.current.dirty).toBe(true);
   });
   it('opens an edit form filled in from the printing', () => {
-    const snow = findPrinting(FIXTURE_CATALOG, 80049)!.printing;
+    const snow = printingOf(80049);
     const {result} = renderFor('240');
     act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: snow}));
     expect(result.current.form?.values).toEqual({promoGrouping: 'P2', number: '42', versions: null, scanLanguage: 'zh', note: ''});
@@ -97,7 +91,7 @@ describe('opening a form', () => {
     act(() => result.current.openAdd(MKB_BASE));
     expect(result.current.outcome).toEqual({result: null, error: null, note: ''});
     expect(result.current.form).toMatchObject({kind: 'add', printing: null});
-    act(() => result.current.openEdit({card: MKB_BASE, printing: printing(80017)}));
+    act(() => result.current.openEdit({card: MKB_BASE, printing: printingOf(80017)}));
     expect(result.current.form).toMatchObject({kind: 'edit', printing: {id: 80017}});
   });
   it('starts every form without the scan an earlier one held', async () => {
@@ -105,7 +99,7 @@ describe('opening a form', () => {
     act(() => result.current.openAdd(PRINCE));
     await act(() => result.current.chooseScan(pngFile('scan.png')));
     expect(result.current.form?.scan.name).toBe('scan.png');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     expect(result.current.form?.scan).toEqual({name: null, dataUrl: null, error: null});
     expect(result.current.dirty).toBe(false);
   });
@@ -129,7 +123,7 @@ describe('what counts as unsaved', () => {
   });
   it("counts what would be published, so a number retyped with spaces or a note of spaces is nothing, and an entry taken back is clean again", () => {
     const {result} = renderFor('240');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     act(() => result.current.patch({number: ' 042 ', note: '   '}));
     expect(result.current.dirty).toBe(false);
     act(() => result.current.patch({number: '43'}));
@@ -148,7 +142,7 @@ describe('the scan', () => {
   });
   it("takes none for a printing with Ravensburger's art, whose art an edit doesn't replace", async () => {
     const {result} = renderFor('1529');
-    act(() => result.current.openEdit({card: HIRO, printing: printing(1661)}));
+    act(() => result.current.openEdit({card: HIRO_BASE, printing: printingOf(1661)}));
     await act(() => result.current.chooseScan(pngFile('scan.png')));
     expect(result.current.form?.scan).toEqual({name: null, dataUrl: null, error: null});
     expect(result.current.dirty).toBe(false);
@@ -257,7 +251,7 @@ describe('a publish the branch refuses or fails', () => {
   it('re-seeds an edit form from the branch when its printing changed meanwhile', async () => {
     const repo = stubRepo({files: SNOW_WHITE_MOVED});
     const {result} = renderFor('240');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     act(() => result.current.patch({number: '44'}));
     await act(async () => {
       expect(await result.current.publish()).toBe(false);
@@ -273,7 +267,7 @@ describe('a publish the branch refuses or fails', () => {
   it('keeps the note the owner typed when it re-seeds the form, which stays unsaved until the note lands', async () => {
     const repo = stubRepo({files: SNOW_WHITE_MOVED});
     const {result} = renderFor('240');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     act(() => result.current.patch({number: '44', note: 'Seen at a store event.'}));
     await act(async () => {
       expect(await result.current.publish()).toBe(false);
@@ -294,7 +288,7 @@ describe('a publish the branch refuses or fails', () => {
   it('drops the scan it chose when it re-seeds the form', async () => {
     stubRepo({files: SNOW_WHITE_MOVED});
     const {result} = renderFor('240');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     await act(() => result.current.chooseScan(pngFile('better.png')));
     expect(result.current.form?.scan.name).toBe('better.png');
     await act(async () => {
@@ -318,7 +312,7 @@ describe('a publish the branch refuses or fails', () => {
   it('keeps the form and its error when a publish fails', async () => {
     stubRepo({files: FIXTURE_FILES, update: notAFastForward});
     const {result, generations} = renderWithGenerations('2035');
-    act(() => result.current.openEdit({card: MKB_BASE, printing: findPrinting(FIXTURE_CATALOG, 80024)!.printing}));
+    act(() => result.current.openEdit({card: MKB_BASE, printing: printingOf(80024)}));
     act(() => result.current.patch({note: 'Foil twin of 1/C3.'}));
     await act(async () => {
       expect(await result.current.publish()).toBe(false);
@@ -332,7 +326,7 @@ describe('a publish the branch refuses or fails', () => {
   it('keeps the form with a refusal the owner can act on', async () => {
     stubRepo({files: FIXTURE_FILES});
     const {result} = renderFor('2035');
-    act(() => result.current.openEdit({card: MKB_BASE, printing: printing(80024)}));
+    act(() => result.current.openEdit({card: MKB_BASE, printing: printingOf(80024)}));
     act(() => result.current.patch({number: '12'}));
     await act(async () => {
       expect(await result.current.publish()).toBe(false);
@@ -353,7 +347,7 @@ const REFUSALS: Record<RefusalKind, {files: Record<string, string>; open: Openin
   changed: {
     files: SNOW_WHITE_MOVED,
     open: async (result) => {
-      act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+      act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
       act(() => result.current.patch({number: '44'}));
     },
     says: "Someone changed 42/P2 on master after you opened it. The form now shows the branch's values: make your change again.",
@@ -369,7 +363,7 @@ const REFUSALS: Record<RefusalKind, {files: Record<string, string>; open: Openin
   taken: {
     files: FIXTURE_FILES,
     open: async (result) => {
-      act(() => result.current.openEdit({card: MKB_BASE, printing: printing(80024)}));
+      act(() => result.current.openEdit({card: MKB_BASE, printing: printingOf(80024)}));
       act(() => result.current.patch({number: '12'}));
     },
     says: '12/C3 is taken on master: Mickey Mouse - Brave Little Tailor has it.',
@@ -593,7 +587,7 @@ describe('a publish that settles after its form is gone', () => {
   it('reads the branch again after a refusal that arrives when its form is gone, and leaves the form opened since alone', async () => {
     stubRepo({files: SNOW_WHITE_MOVED});
     const {result, generations} = renderWithGenerations('240');
-    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printingOf(80049)}));
     act(() => result.current.patch({number: '44'}));
     const refused = startPublish(result);
     act(() => result.current.cancel());

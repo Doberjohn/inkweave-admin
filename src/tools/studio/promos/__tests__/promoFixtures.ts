@@ -1,8 +1,10 @@
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {MOTHER_KNOWS_BEST_ENTRY, allCardsText} from '../../finishes/__tests__/finishFixtures';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
-import {serializeCatalog, type BaseCard, type PromoCatalog} from '../promoCatalog';
+import {EMPTY_PRINTING_FORM, editValuesOf, type ScanState} from '../printingForm';
+import {findPrinting, serializeCatalog, type BaseCard, type CatalogPrinting, type PromoCatalog} from '../promoCatalog';
 import {mergeOver} from '../promoMerge';
+import type {OpenPrintingForm, PrintingFormController, PrintingOutcome} from '../usePrintingForm';
 
 /*
  * Fixtures for the promo printings' tests and stories (#77). The catalog is a small one: five groups,
@@ -10,7 +12,9 @@ import {mergeOver} from '../promoMerge';
  * rules read is in it: a Core card's group in `fold`; in `noBaseCard`, Sets 1 to 8 cards' groups with
  * Ravensburger's art, a scan language and two arts under one number (24A/P2, 24B/P2), and Hades -
  * Dark Usurper's, which has no base number and two printings under one code (28/C3). Beside it, the
- * files of a branch that holds it. Nothing here reads a file from disk (see pinned.ts): stories load it.
+ * files of a branch that holds it, and the builders of the printing form's states: the forms and the
+ * controller the tests and the stories put in front of it. Nothing here reads a file from disk (see
+ * pinned.ts) or imports vitest: stories load it.
  */
 
 /** Those groups as a catalog. Its `stats` are what `recountStats` makes of them, written out here. */
@@ -149,6 +153,16 @@ export const MKB_BASE: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setC
 /** Snow White - Unexpected Houseguest: the Sets 1 to 8 card FIXTURE_CATALOG's `noBaseCard` group for 41/P1 and 42/P2 is for. */
 export const SNOW_WHITE_BASE: BaseCard = {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false};
 
+/** Hiro Hamada - Armor Designer: the Sets 1 to 8 card FIXTURE_CATALOG's `noBaseCard` group for 24A/P2 and 24B/P2, two arts under one number, both Ravensburger's, is for. */
+export const HIRO_BASE: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
+
+/** The printing of FIXTURE_CATALOG with this id. It throws for an id the catalog lacks, so a test that names the wrong one fails here. */
+export function printingOf(id: number): CatalogPrinting {
+  const found = findPrinting(FIXTURE_CATALOG, id);
+  if (found === null) throw new Error(`FIXTURE_CATALOG has no printing ${id}.`);
+  return found.printing;
+}
+
 /**
  * Mickey Mouse - Brave Little Prince as allCards.json stores him (Set 9 #111, id 2047), trimmed from the
  * pinned file to what names the card (no text, art or hashes), with his Iconic under `variants` and no promo.
@@ -182,3 +196,57 @@ export function filesFor(catalog: PromoCatalog): Record<string, string> {
 
 /** The files of a branch that holds FIXTURE_CATALOG. */
 export const FIXTURE_FILES: Record<string, string> = filesFor(FIXTURE_CATALOG);
+
+/** A form that holds no scan: nothing chosen, and no error. */
+export const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
+
+/** What a form leaves behind once it is closed and nothing has been published: no commit, no failure, nothing to say. */
+export const NO_OUTCOME: PrintingOutcome = {result: null, error: null, note: ''};
+
+/** Mother Knows Best's add form, as it opens unless `held` changes it. */
+export function addForm(held: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
+  const opened = EMPTY_PRINTING_FORM;
+  return {kind: 'add', card: MKB_BASE, printing: null, values: opened, initial: opened, scan: NO_SCAN, error: null, ...held};
+}
+
+/** What a test or a story changes in an edit form it opens: the values the controller holds, the scan, the last failure. */
+type EditHeld = Partial<Pick<OpenPrintingForm, 'values' | 'scan' | 'error'>>;
+
+/** The edit form of `printing`, a printing of `card`, as it opens unless `held` changes it. */
+export function editFormOf({printing, card, ...held}: {printing: CatalogPrinting; card: BaseCard} & EditHeld): OpenPrintingForm {
+  const values = editValuesOf(printing);
+  return {kind: 'edit', card, printing, values, initial: values, scan: NO_SCAN, error: null, ...held};
+}
+
+/** The edit form of a printing of FIXTURE_CATALOG: Snow White's 42/P2 (80049, a Chinese scan) unless `id` and `card` say another. */
+export function editForm({id = 80049, card = SNOW_WHITE_BASE, ...held}: {id?: number; card?: BaseCard} & EditHeld = {}): OpenPrintingForm {
+  return editFormOf({printing: printingOf(id), card, ...held});
+}
+
+/**
+ * Makes one of a controller's actions from what it does. A test passes `vi.fn`, so that the action records
+ * its calls: this file can't import vitest. A story passes nothing, and its actions only do what they are given.
+ */
+export type MakeAction = <Args extends unknown[], Result>(does: (...args: Args) => Result) => (...args: Args) => Result;
+
+const AS_GIVEN: MakeAction = (does) => does;
+
+/**
+ * A controller holding `form`, with no publish under way and nothing said. Its actions do nothing, and a
+ * publish doesn't land; `rest` changes any of it, and `make` makes each action (`vi.fn` in a test).
+ */
+export function controllerOf(form: OpenPrintingForm | null, rest: Partial<PrintingFormController> = {}, make: MakeAction = AS_GIVEN): PrintingFormController {
+  return {
+    form,
+    dirty: false,
+    publishing: false,
+    outcome: NO_OUTCOME,
+    openAdd: make(() => {}),
+    openEdit: make(() => {}),
+    patch: make(() => {}),
+    chooseScan: make(() => Promise.resolve()),
+    cancel: make(() => {}),
+    publish: make(() => Promise.resolve(false)),
+    ...rest,
+  };
+}

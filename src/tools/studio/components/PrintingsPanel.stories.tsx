@@ -12,10 +12,19 @@ import {
 import {printingRowsFor} from '../finishes/printingRows';
 import type {BranchPrintings} from '../finishes/useBranchPrintings';
 import {EMPTY_BATCH, changeFor, withChange, type VersionBatch} from '../finishes/versionBatch';
-import {EMPTY_PRINTING_FORM, editValuesOf, outcomeNote, promoSetOptions, type ScanState} from '../promos/printingForm';
-import {findPrinting, type BaseCard, type CatalogPrinting} from '../promos/promoCatalog';
-import type {OpenPrintingForm, PrintingFormController, PrintingOutcome} from '../promos/usePrintingForm';
-import {FIXTURE_CATALOG, MKB_BASE} from '../promos/__tests__/promoFixtures';
+import {outcomeNote, promoSetOptions, type ScanState} from '../promos/printingForm';
+import type {BaseCard, CatalogPrinting} from '../promos/promoCatalog';
+import type {OpenPrintingForm, PrintingFormController} from '../promos/usePrintingForm';
+import {
+  FIXTURE_CATALOG,
+  MKB_BASE,
+  NO_OUTCOME,
+  NO_SCAN,
+  addForm,
+  controllerOf,
+  editFormOf,
+  printingOf,
+} from '../promos/__tests__/promoFixtures';
 import {PrintingsPanel, type PromoPrintingsProps} from './PrintingsPanel';
 
 /**
@@ -121,27 +130,9 @@ export const PhoneSlot: Story = {
 
 /** Mother Knows Best's rows, with the branch's catalog, which holds its 1/C3 and 13/C3. */
 const MKB_READY: BranchPrintings = {status: 'ready', rows: MKB_ROWS, catalog: FIXTURE_CATALOG};
-const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
-const NO_OUTCOME: PrintingOutcome = {result: null, error: null, note: ''};
 /** A commit, as GitHub links one. */
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/published';
 const noop = () => {};
-
-/** A controller holding `form` and `outcome`, whose actions do nothing: a story shows one state of the panel. */
-function controllerOf({form = null, outcome = NO_OUTCOME}: {form?: OpenPrintingForm | null; outcome?: PrintingOutcome}): PrintingFormController {
-  return {
-    form,
-    dirty: false,
-    publishing: false,
-    outcome,
-    openAdd: noop,
-    openEdit: noop,
-    patch: noop,
-    chooseScan: () => Promise.resolve(),
-    cancel: noop,
-    publish: () => Promise.resolve(false),
-  };
-}
 
 /** What the panel gets for Mother Knows Best's promos, with `controller`. */
 function promosOf(controller: PrintingFormController): PromoPrintingsProps {
@@ -150,8 +141,7 @@ function promosOf(controller: PrintingFormController): PromoPrintingsProps {
 
 /** A form as it opens: an add of `card`, or the edit of `printing`, filled in from the branch's catalog. */
 function formOf({card, printing}: {card: BaseCard; printing: CatalogPrinting | null}): OpenPrintingForm {
-  const values = printing === null ? EMPTY_PRINTING_FORM : editValuesOf(printing);
-  return {kind: printing === null ? 'add' : 'edit', card, printing, values, initial: values, scan: NO_SCAN, error: null};
+  return printing === null ? addForm({card}) : editFormOf({printing, card});
 }
 
 /** The scan a chosen file makes, as the studio's upload would once the file is read. */
@@ -177,7 +167,7 @@ function useStoryController(): PrintingFormController {
     return Promise.resolve(true);
   };
   return {
-    ...controllerOf({form, outcome}),
+    ...controllerOf(form, {outcome}),
     openAdd: (card) => open(formOf({card, printing: null})),
     openEdit: (opened) => open(formOf(opened)),
     patch: (patch) => setForm((held) => held && {...held, values: {...held.values, ...patch}}),
@@ -207,7 +197,7 @@ export const AddAPrinting: Story = {render: () => <LivePromos />};
 export const EditOpen: Story = {
   args: {
     view: MKB_READY,
-    promos: promosOf(controllerOf({form: formOf({card: MKB_BASE, printing: findPrinting(FIXTURE_CATALOG, 80024)!.printing})})),
+    promos: promosOf(controllerOf(formOf({card: MKB_BASE, printing: printingOf(80024)}))),
   },
 };
 
@@ -221,7 +211,7 @@ const URSULA_SET_3_ROWS = printingRowsFor({card: URSULA_SET_3, chunk: [URSULA_SE
 export const CoreCopy: Story = {
   args: {
     view: {status: 'ready', rows: URSULA_SET_3_ROWS, catalog: FIXTURE_CATALOG},
-    promos: {...promosOf(controllerOf({})), coreCopy: {id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'}},
+    promos: {...promosOf(controllerOf(null)), coreCopy: {id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'}},
   },
 };
 
@@ -230,7 +220,7 @@ export const Landed: Story = {
   args: {
     view: MKB_READY,
     promos: promosOf(
-      controllerOf({
+      controllerOf(null, {
         outcome: {result: {commitUrl: COMMIT_URL}, error: null, note: outcomeNote({scanSent: true, branch: 'master'})},
       }),
     ),

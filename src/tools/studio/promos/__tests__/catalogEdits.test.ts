@@ -3,7 +3,7 @@ import {CATALOG_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting} from '../catalogEdits';
 import {parseCatalog, printingCode, serializeCatalog, type BaseCard, type CatalogPrinting, type PromoCatalog} from '../promoCatalog';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, PRINCE} from './promoFixtures';
+import {FIXTURE_CATALOG, PRINCE, SNOW_WHITE_BASE} from './promoFixtures';
 
 const NEW_9_P4: NewPrinting = {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null};
 const snowWhite = (catalog: PromoCatalog) => catalog.noBaseCard.find((g) => g.fullName === 'Snow White - Unexpected Houseguest');
@@ -58,8 +58,7 @@ describe('catalogEdits', () => {
   });
 
   it("adds to a Sets 1 to 8 card's own group, found by its LorcanaJSON id, and starts none", () => {
-    const card: BaseCard = {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false};
-    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: NEW_9_P4, note: null});
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card: SNOW_WHITE_BASE, printing: NEW_9_P4, note: null});
     expect(snowWhite(catalog)?.variants.map(printingCode)).toEqual(['41/P1', '42/P2', '9/P4']);
     expect(catalog.stats.noBaseCardInAllCards).toEqual({printings: 13, cards: 4});
   });

@@ -24,39 +24,34 @@ import {
   type ScanFile,
 } from '../publishPrinting';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, PRINCE, filesFor} from './promoFixtures';
+import {FIXTURE_CATALOG, FIXTURE_FILES, HIRO_BASE, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor, printingOf} from './promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
-
 const SCAN: ScanFile = {ext: 'webp', base64: 'UklGRgAAAABXRUJQ'};
 const ADD_9_P4: PrintingChange = {kind: 'add', card: PRINCE, printing: {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null}, note: null, scan: SCAN};
-const EDIT_80024 = (edit: Partial<PrintingEdit>, from = factsOf(printing(80024))): Extract<PrintingChange, {kind: 'edit'}> =>
+const EDIT_80024 = (edit: Partial<PrintingEdit>, from = factsOf(printingOf(80024))): Extract<PrintingChange, {kind: 'edit'}> =>
   ({kind: 'edit', card: MKB_BASE, id: 80024, from, edit: {promoGrouping: 'C3', number: 13, scanLanguage: null, ...edit}, note: null, scan: null});
 
 /** Hades - Dark Usurper, whose card no dataset has yet: it has no base number. */
 const HADES: BaseCard = {id: 0, fullName: 'Hades - Dark Usurper', setCode: '15', number: 0, core: false};
 /** The Championship Hades, 80032: it has 28/C3 as the Challenge Top 8 Hades, 80031, does, and only its source tells them apart. */
-const NOTE_ON_80032: PrintingChange = {kind: 'edit', card: HADES, id: 80032, from: factsOf(printing(80032)),
+const NOTE_ON_80032: PrintingChange = {kind: 'edit', card: HADES, id: 80032, from: factsOf(printingOf(80032)),
   edit: {promoGrouping: 'C3', number: 28, scanLanguage: null}, note: 'Championship prize.', scan: null};
 /** Snow White's 42/P2, a Chinese scan, made Japanese: a printing of a Sets 1 to 8 card, which only promos.json lists. */
-const SNOW_WHITE_TO_JA: PrintingChange = {kind: 'edit', card: {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false},
-  id: 80049, from: factsOf(printing(80049)), edit: {promoGrouping: 'P2', number: 42, scanLanguage: 'ja'}, note: null, scan: null};
+const SNOW_WHITE_TO_JA: PrintingChange = {kind: 'edit', card: SNOW_WHITE_BASE, id: 80049, from: factsOf(printingOf(80049)),
+  edit: {promoGrouping: 'P2', number: 42, scanLanguage: 'ja'}, note: null, scan: null};
 
-/** Hiro Hamada - Armor Designer, whose 24A/P2 and 24B/P2 are two arts under one number. */
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
 /** A note on 24A/P2 (1661), which has Ravensburger's art: its code in the form is "24A/P2", art variant included. */
-const NOTE_ON_1661: Extract<PrintingChange, {kind: 'edit'}> = {kind: 'edit', card: HIRO, id: 1661, from: factsOf(printing(1661)),
+const NOTE_ON_1661: Extract<PrintingChange, {kind: 'edit'}> = {kind: 'edit', card: HIRO_BASE, id: 1661, from: factsOf(printingOf(1661)),
   edit: {promoGrouping: 'P2', number: 24, scanLanguage: null}, note: 'The first of the two arts.', scan: null};
 /** FIXTURE_CATALOG with a third art of Hiro's beside the others: 25B/P2, the only printing with that number. */
 const WITH_25B: PromoCatalog = {
   ...FIXTURE_CATALOG,
-  noBaseCard: FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.fullName === HIRO.fullName
+  noBaseCard: FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.fullName === HIRO_BASE.fullName
     ? {...group, variants: [...group.variants, {id: 1663, rarity: 'Special', number: 25, promoGrouping: 'P2', artVariant: 'B', finishes: ['foil']}]}
     : group)),
 };
@@ -86,15 +81,15 @@ describe('the fixture branch', () => {
 
 describe('factsOf', () => {
   it('reads what the form edits of a printing, and whether its art is Ravensburger\'s', () => {
-    expect(factsOf(printing(80049))).toEqual({promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false});
-    expect(factsOf(printing(1191))).toEqual({promoGrouping: 'D23', number: 1, scanLanguage: null, officialArt: true});
+    expect(factsOf(printingOf(80049))).toEqual({promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false});
+    expect(factsOf(printingOf(1191))).toEqual({promoGrouping: 'D23', number: 1, scanLanguage: null, officialArt: true});
   });
   it('reads a printing with no number as null', () => {
     expect(factsOf({id: 1, rarity: 'Special', promoGrouping: 'C1'})).toEqual({promoGrouping: 'C1', number: null, scanLanguage: null, officialArt: false});
   });
   it('copies the art variant of a printing that has one, and leaves the key out of one that has none', () => {
-    expect(factsOf(printing(1661))).toEqual({promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'});
-    expect(factsOf(printing(80049))).not.toHaveProperty('artVariant');
+    expect(factsOf(printingOf(1661))).toEqual({promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'});
+    expect(factsOf(printingOf(80049))).not.toHaveProperty('artVariant');
   });
 });
 
@@ -165,7 +160,7 @@ describe('the id an add takes', () => {
     // 80050 is one above the highest line, 80049's: the id the lines alone would issue again. Snow White
     // is a Sets 1 to 8 card, so the printing reaches promos.json only, where the app's merge checks no id.
     const lineless: CatalogPrinting = {id: 80050, rarity: 'Special', number: 43, promoGrouping: 'P2', finishes: ['foil']};
-    const withLineless = FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.lorcanaJsonBaseId === 240
+    const withLineless = FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.lorcanaJsonBaseId === SNOW_WHITE_BASE.id
       ? {...group, variants: [...group.variants, lineless]}
       : group));
     const repo = stubRepo({files: filesFor({...FIXTURE_CATALOG, noBaseCard: withLineless})});
@@ -197,7 +192,7 @@ describe('over the pinned app files', () => {
 describe('an edit onto the number of another art', () => {
   it('is free for a printing of another art: 24A moves beside 25B', async () => {
     const repo = stubRepo({files: filesFor(WITH_25B)});
-    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25A/P2'});
+    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO_BASE, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25A/P2'});
     expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH, PROMOS_PATH]);
     expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 25A/P2 Hiro Hamada - Armor Designer from Card studio');
   });
@@ -223,7 +218,7 @@ describe('a printing with an art variant', () => {
     expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 30A/P2 Hiro Hamada - Armor Designer from Card studio');
   });
   it.each<[string, PrintingChange, RefusalKind, string]>([
-    ['a stale form', {...NOTE_ON_1661, from: {...factsOf(printing(1661)), scanLanguage: 'ja'}}, 'changed',
+    ['a stale form', {...NOTE_ON_1661, from: {...factsOf(printingOf(1661)), scanLanguage: 'ja'}}, 'changed',
       "Someone changed 24A/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
     ['a form that opened it without the variant', {...NOTE_ON_1661, from: {promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true}}, 'changed',
       "Someone changed 24/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
@@ -302,7 +297,7 @@ describe('a publish the branch can\'t take', () => {
     ['art variant', {artVariant: 'A'}],
   ])('refuses an edit whose printing\'s %s changed since the form opened', async (_what, differs) => {
     const repo = stubRepo({files: FIXTURE_FILES});
-    const from = {...factsOf(printing(80024)), ...differs};
+    const from = {...factsOf(printingOf(80024)), ...differs};
     await expect(publishPrinting({token: 't', change: EDIT_80024({}, from)})).rejects.toMatchObject({kind: 'changed'});
     expect(repo.writes()).toEqual([]);
   });

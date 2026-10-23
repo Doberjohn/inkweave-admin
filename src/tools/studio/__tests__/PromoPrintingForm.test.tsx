@@ -15,14 +15,24 @@ import {
 } from '../promos/printingForm';
 import {findPrinting, type BaseCard, type CatalogPrinting} from '../promos/promoCatalog';
 import {usePrintingForm, type OpenPrintingForm, type PrintingFormController} from '../promos/usePrintingForm';
-import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, PRINCE, SNOW_WHITE_BASE} from '../promos/__tests__/promoFixtures';
+import {
+  FIXTURE_CATALOG,
+  FIXTURE_FILES,
+  HIRO_BASE,
+  MKB_BASE,
+  PRINCE,
+  addForm,
+  controllerOf as makeController,
+  editForm,
+  editFormOf,
+  printingOf,
+} from '../promos/__tests__/promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
-const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
 /** A scan that was read and passed its check. */
 const PNG: ScanState = {name: 'scan.png', dataUrl: imageDataUrl('scan.png'), error: null};
 /** A file chosen and still being read: named, with no bytes and no error yet. */
@@ -32,9 +42,8 @@ const REFUSED: ScanState = {name: 'x.png', dataUrl: null, error: 'x.png is not a
 /** The same failure with no name to go with it: the error alone holds Publish. */
 const REFUSED_UNNAMED: ScanState = {...REFUSED, name: null};
 
-/** Hiro Hamada - Armor Designer, whose 24A/P2 (id 1661) and 24B/P2 have Ravensburger's art. */
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
-const HIRO_24A = {id: 1661, card: HIRO};
+/** Hiro Hamada's 24A/P2 (id 1661), which has Ravensburger's art. */
+const HIRO_24A = {id: 1661, card: HIRO_BASE};
 /** The art a printing row shows for a printing that has some. */
 const ART = 'https://api.lorcana.ravensburger.com/images/en/promo2/24A_cc84f7fe9ea26d1ae15e97aa838b6f39b26c510b.jpg';
 const FORMATS = 'JPEG, PNG or WebP.';
@@ -47,50 +56,15 @@ const PROMO_OPTIONS = promoSetOptions(PROMO_SETS);
 /** 9/P4 for Foil only: all of an add the owner chooses before the scan. */
 const NINE_P4: PrintingFormValues = {...EMPTY_PRINTING_FORM, promoGrouping: 'P4', number: '9', versions: 'foil'};
 
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
-
 /** What an edit of printing `id` holds once the owner changed `changes`. */
 const changed = (id: number, changes: Partial<PrintingFormValues>): PrintingFormValues => ({
-  ...editValuesOf(printing(id)),
+  ...editValuesOf(printingOf(id)),
   ...changes,
 });
 
-/** What a test changes in a form it opens: the values the controller holds, the scan, the last failure. */
-type Held = Partial<Pick<OpenPrintingForm, 'values' | 'scan' | 'error'>>;
-
-/** Mother Knows Best's add form, as it opens unless `held` changes it. */
-function addForm(held: Held = {}): OpenPrintingForm {
-  const opened = EMPTY_PRINTING_FORM;
-  return {kind: 'add', card: MKB_BASE, printing: null, values: opened, initial: opened, scan: NO_SCAN, error: null, ...held};
-}
-
-/** The edit form of `edited`, a printing of `card`, as it opens unless `held` changes it. */
-function editFormOf({printing: edited, card, ...held}: {printing: CatalogPrinting; card: BaseCard} & Held): OpenPrintingForm {
-  const values = editValuesOf(edited);
-  return {kind: 'edit', card, printing: edited, values, initial: values, scan: NO_SCAN, error: null, ...held};
-}
-
-/** The edit form of a printing of FIXTURE_CATALOG: Snow White's 42/P2 (80049, a Chinese scan) unless `id` and `card` say another. */
-function editForm({id = 80049, card = SNOW_WHITE_BASE, ...held}: {id?: number; card?: BaseCard} & Held = {}): OpenPrintingForm {
-  return editFormOf({printing: printing(id), card, ...held});
-}
-
-/** A controller holding `form`, whose actions are spies. */
+/** A controller holding `form`, whose actions are spies. A publish lands, unless `rest` says otherwise. */
 function controllerOf(form: OpenPrintingForm | null, rest: Partial<PrintingFormController> = {}): PrintingFormController {
-  return {
-    form,
-    dirty: false,
-    publishing: false,
-    outcome: {result: null, error: null, note: ''},
-    openAdd: vi.fn(),
-    openEdit: vi.fn(),
-    patch: vi.fn(),
-    chooseScan: vi.fn(() => Promise.resolve()),
-    cancel: vi.fn(),
-    publish: vi.fn(() => Promise.resolve(true)),
-    ...rest,
-  };
+  return makeController(form, {publish: vi.fn(() => Promise.resolve(true)), ...rest}, vi.fn);
 }
 
 /** What a test says of the form it renders: the form, and any props or controller state it changes. */
@@ -256,7 +230,7 @@ describe('PromoPrintingForm: the promo set', () => {
   });
 
   it("keeps the code of an edit the app doesn't list as an extra option, last, so it can be chosen again", () => {
-    const odd: CatalogPrinting = {...printing(80017), promoGrouping: 'Q9'};
+    const odd: CatalogPrinting = {...printingOf(80017), promoGrouping: 'Q9'};
     renderForm({form: editFormOf({printing: odd, card: MKB_BASE, values: {...editValuesOf(odd), promoGrouping: 'P4'}})});
     expect(optionsOfSelect().at(-1)).toEqual(['Q9', 'Q9']);
     expect(optionsOfSelect()).toHaveLength(PROMO_OPTIONS.length + 2);

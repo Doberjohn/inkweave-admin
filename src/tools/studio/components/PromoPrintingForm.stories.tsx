@@ -4,10 +4,19 @@ import {PROMO_SETS, SPACING} from '../../../app-bridge';
 import {useFileDropGuard} from '../../../components/useFileDrop';
 import {imageDataUrl} from '../../../test/images';
 import {Panel} from '../../../ui/Panel';
-import {EMPTY_PRINTING_FORM, editValuesOf, promoSetOptions, type PrintingFormValues, type ScanState} from '../promos/printingForm';
-import {findPrinting, type BaseCard} from '../promos/promoCatalog';
+import {EMPTY_PRINTING_FORM, promoSetOptions, type PrintingFormValues, type ScanState} from '../promos/printingForm';
+import {findPrinting} from '../promos/promoCatalog';
 import type {OpenPrintingForm, PrintingFormController} from '../promos/usePrintingForm';
-import {FIXTURE_CATALOG, MKB_BASE, SNOW_WHITE_BASE} from '../promos/__tests__/promoFixtures';
+import {
+  FIXTURE_CATALOG,
+  HIRO_BASE,
+  NO_SCAN,
+  SNOW_WHITE_BASE,
+  addForm,
+  controllerOf,
+  editForm,
+  printingOf,
+} from '../promos/__tests__/promoFixtures';
 import {CURRENT_ART} from '../studioFixtures';
 import {PromoPrintingForm, type PromoPrintingFormProps} from './PromoPrintingForm';
 
@@ -19,50 +28,15 @@ const WIDE_SLOT = 624;
 const NARROW_SLOT = 400;
 const PHONE_SLOT = 224;
 
-const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
 /** A scan that was read and checked. Its bytes are only a PNG's signature, so its preview is a broken image: AddEmpty takes a real file. */
 const SCAN: ScanState = {name: 'scan.png', dataUrl: imageDataUrl('scan.png'), error: null};
 /** 9/P4 for Foil only, all of an add the owner chooses before the scan. */
 const NINE_P4: PrintingFormValues = {...EMPTY_PRINTING_FORM, promoGrouping: 'P4', number: '9', versions: 'foil'};
-/** Hiro Hamada - Armor Designer, whose 24A/P2 has Ravensburger's art. */
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
 
 const noop = () => {};
 
 /** What the branch says to a publish of 13/C3, which Mother Knows Best has. */
 const TAKEN_ON_MASTER = '13/C3 is taken on master: Mother Knows Best has it.';
-
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
-
-/** Mother Knows Best's add form, as it opens unless `rest` changes it. */
-function addForm(rest: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
-  const opened = EMPTY_PRINTING_FORM;
-  return {kind: 'add', card: MKB_BASE, printing: null, values: opened, initial: opened, scan: NO_SCAN, error: null, ...rest};
-}
-
-/** The edit form of a printing of FIXTURE_CATALOG, as it opens. */
-function editForm({id, card}: {id: number; card: BaseCard}): OpenPrintingForm {
-  const values = editValuesOf(printing(id));
-  return {kind: 'edit', card, printing: printing(id), values, initial: values, scan: NO_SCAN, error: null};
-}
-
-/** A controller holding `form`, whose actions do nothing: a story shows one state of the form. */
-function controllerOf(form: OpenPrintingForm | null, rest: Partial<PrintingFormController> = {}): PrintingFormController {
-  return {
-    form,
-    dirty: false,
-    publishing: false,
-    outcome: {result: null, error: null, note: ''},
-    openAdd: noop,
-    openEdit: noop,
-    patch: noop,
-    chooseScan: () => Promise.resolve(),
-    cancel: noop,
-    publish: () => Promise.resolve(false),
-    ...rest,
-  };
-}
 
 /**
  * The form where the studio puts it, in the Printings panel. A file dropped beside a control would open in
@@ -137,7 +111,7 @@ export const EditChineseScan: Story = {
 
 /** Hiro Hamada's 24A/P2, whose art is Ravensburger's: the form shows it, with no scan to replace, and can still save a note. */
 export const EditRavensburgerArt: Story = {
-  args: {controller: controllerOf(editForm({id: 1661, card: HIRO})), currentArt: printing(1661).images?.thumbnail},
+  args: {controller: controllerOf(editForm({id: 1661, card: HIRO_BASE})), currentArt: printingOf(1661).images?.thumbnail},
 };
 
 /** A publish under way: every field is held, the scan control takes no file, and Publish and Cancel are off. */

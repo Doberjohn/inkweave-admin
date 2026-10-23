@@ -17,9 +17,18 @@ import {COMMIT_URL, stubRepo} from '../finishes/__tests__/repoHarness';
 import type {PrintingRow} from '../finishes/printingRows';
 import type {BranchPrintings} from '../finishes/useBranchPrintings';
 import {EMPTY_PRINTING_FORM, editValuesOf, promoSetOptions} from '../promos/printingForm';
-import {findPrinting, type PromoCatalog} from '../promos/promoCatalog';
+import type {PromoCatalog} from '../promos/promoCatalog';
 import {usePrintingForm, type OpenPrintingForm, type PrintingFormController} from '../promos/usePrintingForm';
-import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, filesFor} from '../promos/__tests__/promoFixtures';
+import {
+  FIXTURE_CATALOG,
+  FIXTURE_FILES,
+  MKB_BASE,
+  addForm,
+  controllerOf as makeController,
+  editForm,
+  filesFor,
+  printingOf,
+} from '../promos/__tests__/promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -366,36 +375,9 @@ const WITHOUT_13_C3: PromoCatalog = {
   fold: [{...FIXTURE_CATALOG.fold[0], variants: FIXTURE_CATALOG.fold[0].variants.slice(0, 1)}],
 };
 
-/** The printing of FIXTURE_CATALOG with this id. */
-const printingWith = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
-
-/** Mother Knows Best's add form, as it opens unless `held` changes it. */
-function addForm(held: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
-  const opened = EMPTY_PRINTING_FORM;
-  return {kind: 'add', card: MKB_BASE, printing: null, values: opened, initial: opened, scan: {name: null, dataUrl: null, error: null}, error: null, ...held};
-}
-
-/** The edit form of Mother Knows Best's printing `id`, as it opens unless `held` changes it. */
-function editForm(id: number, held: Partial<OpenPrintingForm> = {}): OpenPrintingForm {
-  const values = editValuesOf(printingWith(id));
-  return {...addForm(), kind: 'edit', printing: printingWith(id), values, initial: values, ...held};
-}
-
 /** A controller holding `form`, whose actions are spies. */
 function controllerOf(form: OpenPrintingForm | null, rest: Partial<PrintingFormController> = {}): PrintingFormController {
-  return {
-    form,
-    dirty: false,
-    publishing: false,
-    outcome: {result: null, error: null, note: ''},
-    openAdd: vi.fn(),
-    openEdit: vi.fn(),
-    patch: vi.fn(),
-    chooseScan: vi.fn(() => Promise.resolve()),
-    cancel: vi.fn(),
-    publish: vi.fn(() => Promise.resolve(false)),
-    ...rest,
-  };
+  return makeController(form, rest, vi.fn);
 }
 
 /** What the panel gets for Mother Knows Best's promos: no form open and nothing said, unless `rest` says otherwise. */
@@ -454,7 +436,7 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     await user.click(addButton()!);
     expect(controller.openAdd).toHaveBeenCalledExactlyOnceWith(MKB_BASE);
     await user.click(screen.getByRole('button', {name: 'Edit Mother Knows Best 13/C3'}));
-    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
+    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingOf(80024)});
   });
 
   it('holds Add a printing and every Edit while the files are read again after a publish, as it holds the choices', async () => {
@@ -476,12 +458,12 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     for (const button of held) expect(button).not.toHaveAttribute('aria-disabled');
     expect(held[2]).toHaveFocus();
     await user.click(held[2]);
-    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
+    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingOf(80024)});
   });
 
   it('opens the edit form under its row, and hides Add and Edit meanwhile', () => {
     const rows = [MKB_99, MKB_1_C3, {...MKB_13_C3, thumbnail: ART}];
-    renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: controllerOf(editForm(80024))})});
+    renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: controllerOf(editForm({id: 80024, card: MKB_BASE}))})});
     const items = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(items).toHaveLength(4);
     expect(within(items[2]).getByText('13/C3')).toBeInTheDocument();
@@ -516,11 +498,11 @@ describe('PrintingsPanel: promo printings (#77)', () => {
   });
 
   it('holds an edit that moves its printing onto another’s code, never one that keeps its own', () => {
-    const moved = editForm(80017, {values: {...editValuesOf(printingWith(80017)), number: '13'}});
+    const moved = editForm({id: 80017, card: MKB_BASE, values: {...editValuesOf(printingOf(80017)), number: '13'}});
     const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(moved)})});
     expect(screen.getByText('13/C3 is taken: Mother Knows Best has it.')).toBeInTheDocument();
 
-    const noted = editForm(80024, {values: {...editValuesOf(printingWith(80024)), note: 'Foil twin of 1/C3.'}});
+    const noted = editForm({id: 80024, card: MKB_BASE, values: {...editValuesOf(printingOf(80024)), note: 'Foil twin of 1/C3.'}});
     update({promos: promosProps({controller: controllerOf(noted)})});
     expect(screen.queryByText(/is taken/)).toBeNull();
     expect(screen.getByRole('button', {name: 'Save 13/C3'})).toBeEnabled();
