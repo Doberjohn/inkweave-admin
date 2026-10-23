@@ -9,9 +9,9 @@ import {describe, expect, it} from 'vitest';
 // an import of one in code the browser loads passes lint, tsc, Vitest and `pnpm build`, and only
 // the page shows it, by failing to load or by throwing at the first call into the stub. Two doors
 // lead to it: the app's plain-JavaScript scripts that src/app-bridge.ts bundles, and the fixtures
-// that stories load (promoFixtures.ts). This walks everything src/main.tsx and each story load,
-// through their relative imports, and fails on an import of a builtin. It follows relative imports
-// only: a bare package, the synergy engine included, is not read.
+// that stories load (promoFixtures.ts). This walks everything src/main.tsx, the Storybook preview
+// and each story load, through their relative imports, and fails on an import of a builtin. It
+// follows relative imports only: a bare package, the synergy engine included, is not read.
 
 // What a bundler tries for a relative specifier, in order: the file as written, with an extension,
 // as a folder's index. Only code is read: CSS, JSON and images load nothing.
@@ -104,9 +104,10 @@ const inMemory = (files, entries) => ({
   exists: (file) => Object.hasOwn(files, file),
 });
 
-// What the site loads, and what Storybook loads for each story. fs.globSync gives the OS's separators.
-const stories = fs.globSync('src/**/*.stories.tsx').map((file) => file.split(path.sep).join('/'));
-const ENTRIES = ['src/main.tsx', ...stories];
+// What the site loads, and what Storybook loads: the preview every story runs in, and each story.
+// .storybook/main.ts runs in Node, so it is not an entry. fs.globSync gives the OS's separators.
+const stories = fs.globSync('src/**/*.stories.{ts,tsx}').map((file) => file.split(path.sep).join('/'));
+const ENTRIES = ['src/main.tsx', '.storybook/preview.tsx', ...stories];
 
 describe('what the browser loads', () => {
   // A walk that went nowhere would pass the next test, so this one pins what it must reach.
