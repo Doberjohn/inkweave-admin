@@ -157,13 +157,20 @@ function requireInStep(held: MergeInput): void {
 }
 
 /**
- * The printing an edit changes, as the branch holds it. A printing the branch lacks is gone. One whose
- * facts aren't those its form opened with was changed since, and the refusal hands back the branch's entry.
+ * The printing an edit changes, as the branch holds it. A printing the branch lacks is gone, and so is one
+ * filed under another card since its form opened: the form, the note and the commit message name the card
+ * it opened on. The app's merge holds a Core card's group to its card's name, and a waiting group carries
+ * its card's name too. One whose facts aren't those its form opened with was changed since, and the
+ * refusal hands back the branch's entry.
  */
 function entryToEdit({catalog, change}: {catalog: PromoCatalog; change: EditChange}): CatalogPrinting {
   const was = oldCodeOf(change.from);
   const found = findPrinting(catalog, change.id);
   if (!found) throw new PrintingRefusal({kind: 'gone', message: `${was} is no longer on ${targetBranch()}.`});
+  const holder = found.group.fullName;
+  if (holder !== change.card.fullName) {
+    throw new PrintingRefusal({kind: 'gone', message: `${was} moved to ${holder} on ${targetBranch()} after you opened it.`});
+  }
   if (sameFacts(factsOf(found.printing), change.from)) return found.printing;
   throw new PrintingRefusal({
     kind: 'changed',

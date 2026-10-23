@@ -145,22 +145,27 @@ const LEAVES_CARD_BOTH =
 const CARD_CHANGE: UnsavedWords = {title: 'Leave this card?', stay: 'Keep editing', leave: 'Drop changes'};
 
 /**
- * A held card change whose edits went with the card's save: it landed while
- * the dialog was open, so the change drops nothing (CARD_SAVED), or it is
- * still in flight, which leaving doesn't stop, and the change drops the edits
- * made since it started, and the save's own changes if it fails, as the
- * in-flight line says (IN_FLIGHT). The printing form's publish in flight is
- * the same (#77): leaving doesn't stop it, so the answer doesn't claim to drop
- * it. Its leave answer names only where it goes (R4-8f).
+ * A held card change that drops no draft outright: each draft it drops went
+ * with its own commit. Edit's save landed while the dialog was open, so the
+ * change drops nothing (CARD_CLEAN), or it is still in flight, which leaving
+ * doesn't stop, and the change drops the edits made since it started, and the
+ * save's own changes if it fails, as the in-flight line says (IN_FLIGHT). The
+ * printing form's publish in flight is the same (#77): leaving doesn't stop
+ * it. Its leave answer names only where it goes (R4-8f). A change that also
+ * drops a draft with no commit in flight drops that one outright, so it
+ * answers in CARD_CHANGE's words.
  */
 const CARD_KEPT: UnsavedWords = {...CARD_CHANGE, leave: 'Leave the card'};
 
 /**
- * A held card change whose Edit draft went clean meanwhile: its save landed.
- * The guard ends a hold only once no draft is dirty, so with New reveal
- * dirty the dialog stays open, and it shows what the message returns.
+ * A held card change whose card's drafts went clean meanwhile: Edit's save
+ * landed, or the printing form closed or went back to what it opened with, by
+ * a landed publish or a refusal (#77). A refusal saves nothing, so the line
+ * says only that nothing is left to drop. The guard ends a hold only once no
+ * draft is dirty, so with New reveal dirty the dialog stays open, and it shows
+ * what the message returns.
  */
-const CARD_SAVED = 'Your changes to this card are saved. Leaving the card drops nothing.';
+const CARD_CLEAN = 'Nothing on this card is unsaved now. Leaving the card drops nothing.';
 
 /** Whether the navigation stays in the studio: another card, or none, rather than another page. */
 function staysInStudio({from, to}: StudioLeave): boolean {
@@ -205,26 +210,27 @@ function sharedLine({dropped, leave}: {dropped: readonly Draft[]; leave: StudioL
  */
 export function studioUnsavedMessage(leave: StudioLeave): string {
   const dropped = draftsDropped(leave);
-  if (dropped.length === 0) return CARD_SAVED;
+  if (dropped.length === 0) return CARD_CLEAN;
   if (dropped.length > 1 && noneInFlight({dropped, busy: leave.busy})) return sharedLine({dropped, leave});
   return dropped.map((draft) => draftLine(draft, leave)).join(' ');
 }
 
 /**
- * Whether a card change drops edits outright: it drops the Edit draft's, the
- * printing form, or both, and neither has a commit in flight. While one does,
- * its line says what the change still drops (IN_FLIGHT).
+ * Whether a card change drops edits outright: it drops the Edit draft, the
+ * printing form, or both, and one it drops has no commit in flight to keep
+ * its edits. A draft whose commit is in flight keeps what it sent, and its
+ * line says what the change still drops (IN_FLIGHT).
  */
 function dropsOutright(leave: StudioLeave): boolean {
-  const dropped = draftsDropped(leave);
-  return dropped.length > 0 && noneInFlight({dropped, busy: leave.busy});
+  return draftsDropped(leave).some((draft) => !leave.busy[draft]);
 }
 
 /**
  * UnsavedChangesGuard's message for the studio: studioUnsavedMessage's line.
  * A card change stays on the page, so it asks about the card (CARD_CHANGE),
- * and says "Drop changes" only while it drops edits outright, with no commit
- * of theirs in flight (CARD_KEPT, R4-8f); leaving Card studio asks in the
+ * and says "Drop changes" whenever it drops a draft outright, one with no
+ * commit in flight, even beside another whose commit is in flight (R4-8f),
+ * and "Leave the card" otherwise (CARD_KEPT); leaving Card studio asks in the
  * guard's own words, "Leave this page?" (R4-8c).
  */
 export function studioUnsavedQuestion(leave: StudioLeave): string | UnsavedQuestion {
@@ -240,6 +246,12 @@ const DRAFT_NAMES: Readonly<Record<Draft, string>> = {
   printing: 'your printing form',
 };
 
+/** Names as a list: "A", "A and B", or "A, B, and C". */
+function listOf(names: readonly string[]): string {
+  if (names.length < 3) return names.join(' and ');
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 /**
  * What the in-page Forget token asks first (R-84), or null when no draft is
  * dirty: the workspace is keyed by the token, so forgetting it drops every
@@ -247,5 +259,5 @@ const DRAFT_NAMES: Readonly<Record<Draft, string>> = {
  */
 export function forgetTokenQuestion(drafts: StudioDrafts): string | null {
   const names = DRAFTS.filter((draft) => drafts[draft]).map((draft) => DRAFT_NAMES[draft]);
-  return names.length > 0 ? `Forget the token and drop ${names.join(' and ')}?` : null;
+  return names.length > 0 ? `Forget the token and drop ${listOf(names)}?` : null;
 }

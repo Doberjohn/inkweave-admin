@@ -551,6 +551,16 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     expect(follows(addButton()!, line)).toBe(true);
   });
 
+  it("keeps a landed publish's outcome in view when the read after it fails", () => {
+    const outcome = {result: {commitUrl: COMMIT_URL}, error: null, note: LANDED_NOTE};
+    renderPanel({view: {status: 'error', error: FAILED, retry: () => {}}, promos: promosProps({controller: controllerOf(null, {outcome})})});
+    const retry = screen.getByRole('button', {name: 'Read the files again'});
+    const line = screen.getByRole('status');
+    expect(line).toHaveTextContent(`Committed. View commit. ${LANDED_NOTE}`);
+    expect(within(line).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+    expect(follows(retry, line)).toBe(true);
+  });
+
   it('shows a refusal that closed the form under the rows, as an alert', () => {
     renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(null, {outcome: {result: null, error: GONE, note: ''}})})});
     expect(screen.getByRole('alert')).toHaveTextContent(GONE);

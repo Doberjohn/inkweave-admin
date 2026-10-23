@@ -278,12 +278,16 @@ export function usePrintingForm({token, cardId}: PrintingFormInput): PrintingFor
     await upload.choose(file);
   }
 
-  /** Applies what a publish came to, unless the form it was made for is gone. True when it landed. */
-  function settle({settled, started}: {settled: Settled; started: number}): boolean {
-    if (sawTheBranch(settled)) forgetBranchFiles();
-    if (epoch.current !== started) return false;
+  /** Applies what a publish came to to the form it was made for, while that form is open. */
+  function apply(settled: Settled) {
     if (endedTheForm(settled)) void upload.choose(null);
     setHeld((current) => settledHeld(current, settled));
+  }
+
+  /** Applies what a publish came to, unless the form it was made for is gone. True when it landed, whether or not that form is still open. */
+  function settle({settled, started}: {settled: Settled; started: number}): boolean {
+    if (sawTheBranch(settled)) forgetBranchFiles();
+    if (epoch.current === started) apply(settled);
     return settled.kind === 'landed';
   }
 

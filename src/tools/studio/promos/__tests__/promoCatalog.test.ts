@@ -72,11 +72,16 @@ describe('promoCatalog', () => {
     expect(JSON.stringify(recountStats(pinned))).toBe(JSON.stringify(pinned.stats));
     expect(recountStats(FIXTURE_CATALOG)).toEqual(FIXTURE_CATALOG.stats);
   });
-  it("keeps a count it doesn't know as it was, after the ones it recounts", () => {
+  it("keeps a count it doesn't know as it was, where the file keeps it", () => {
     // A count the app adds before admin's next pin bump, filed ahead of the others, beside a count gone stale.
     const stats = {byScanLanguage: {ja: 1, zh: 1}, ...FIXTURE_CATALOG.stats, promoPrintings: 99} as CatalogStats;
     const recounted = recountStats({...FIXTURE_CATALOG, stats});
-    expect(JSON.stringify(recounted)).toBe(JSON.stringify({...FIXTURE_CATALOG.stats, byScanLanguage: {ja: 1, zh: 1}}));
+    expect(JSON.stringify(recounted)).toBe(JSON.stringify({byScanLanguage: {ja: 1, zh: 1}, ...FIXTURE_CATALOG.stats}));
+  });
+  it('adds a count it knows that the file lacks, after the others', () => {
+    const {withOfficialArtUrl, ...rest} = FIXTURE_CATALOG.stats;
+    const recounted = recountStats({...FIXTURE_CATALOG, stats: rest as CatalogStats});
+    expect(JSON.stringify(recounted)).toBe(JSON.stringify({...rest, withOfficialArtUrl}));
   });
   it("counts an id from 80001 up as provisional and a lower one as LorcanaJSON's", () => {
     const printing = (id: number): CatalogPrinting => ({id, rarity: 'Special', number: 1, promoGrouping: 'P4'});

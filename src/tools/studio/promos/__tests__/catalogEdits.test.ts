@@ -103,7 +103,9 @@ describe('catalogEdits', () => {
     const changed = [...pinned.fold, ...pinned.noBaseCard]
       .flatMap((group) => group.variants)
       .filter(({id, promoGrouping, number, scanLanguage}) => {
-        const edit = {promoGrouping, number: number ?? 0, scanLanguage: scanLanguage ?? null};
+        // An edit always names a number, as the form won't save one without it, so a printing with none has no edit that changes nothing.
+        if (number === undefined) return false;
+        const edit = {promoGrouping, number, scanLanguage: scanLanguage ?? null};
         return serializeCatalog(withEditedPrinting({catalog: pinned, id, edit, note: null})) !== text;
       })
       .map(({id}) => id);

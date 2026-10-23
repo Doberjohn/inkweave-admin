@@ -334,14 +334,15 @@ describe('useBranchPrintings', () => {
       stubBranch({...YEN_SID_FILES, [CHUNK_4]: () => (asked++ === 0 ? new Response(SET_4_TEXT) : late.response)});
       const rendered = renderPrintings(YEN_SID);
       await whenReady(rendered);
-      const before = ready(rendered.result.current).rows;
+      const before = ready(rendered.result.current);
 
       act(() => forgetBranchFiles());
-      expect(rendered.result.current).toEqual({status: 'ready', rows: before, refreshing: true, catalog: expect.any(Object)});
+      expect(rendered.result.current).toEqual({status: 'ready', rows: before.rows, refreshing: true, catalog: before.catalog});
 
       const published = collectionText(withFinishes(SET_4_ENTRIES, {946: ['normal', 'foil']}));
       await act(async () => late.respond(new Response(published)));
-      expect(rendered.result.current).toEqual({status: 'ready', rows: expect.any(Array), catalog: expect.any(Object)});
+      const catalog = parseCatalog(EMPTY_CATALOG_TEXT);
+      expect(rendered.result.current).toEqual({status: 'ready', rows: expect.any(Array), catalog});
       expect(valuesOf(rendered.result.current)).toEqual([null, null, ['normal', 'foil']]);
     });
 

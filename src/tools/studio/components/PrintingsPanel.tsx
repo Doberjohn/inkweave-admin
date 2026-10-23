@@ -40,8 +40,9 @@ const THUMB_HEIGHT = 40;
 const IDENTITY_BASIS = 140;
 const CONTROL_BASIS = 280;
 
-// The rows over what the panel offers under them: Add a printing, its form, or the Core copy's note.
-const READY: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.md};
+// The ready view and the failed one: the rows over what the panel offers under them (Add a printing, its
+// form, or the Core copy's note), or the failure over the line the last publish left.
+const VIEW: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.md};
 const LIST: React.CSSProperties = {listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column'};
 const ITEM: React.CSSProperties = {
   display: 'flex',
@@ -374,15 +375,24 @@ function CoreCopyNote({coreCopy}: {coreCopy: NonNullable<PromoPrintingsProps['co
   );
 }
 
+/** The line that says what the last publish came to: its commit, or a refusal that closed its form. */
+function PublishOutcome({promos}: {promos: PromoPrintingsProps}) {
+  const {result, error, note} = promos.controller.outcome;
+  return (
+    <div data-outcome>
+      <CommitOutcome result={result} error={error} note={note} onForgetToken={promos.onForgetToken} />
+    </div>
+  );
+}
+
 /**
  * Add a printing, hidden while an edit form is open and held while the files are read again after a
- * publish (aria-disabled, as Edit is), and under it the line that says what the last publish came to:
- * its commit, or a refusal that closed its form. The press hands the focus to the add form, which takes
- * the button's place; a publish that closes its form hands it to the line.
+ * publish (aria-disabled, as Edit is), and under it the line that says what the last publish came to.
+ * The press hands the focus to the add form, which takes the button's place; a publish that closes its
+ * form hands it to the line.
  */
 function AddAndOutcome({kit}: {kit: FormKit}) {
-  const {controller, card, onForgetToken} = kit.promos;
-  const {result, error, note} = controller.outcome;
+  const {controller, card} = kit.promos;
   const {held} = kit;
   const add = () => {
     if (held) return;
@@ -396,9 +406,7 @@ function AddAndOutcome({kit}: {kit: FormKit}) {
           Add a printing
         </CtaButton>
       )}
-      <div data-outcome>
-        <CommitOutcome result={result} error={error} note={note} onForgetToken={onForgetToken} />
-      </div>
+      <PublishOutcome promos={kit.promos} />
     </div>
   );
 }
@@ -525,7 +533,7 @@ function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}
   const refreshing = view.refreshing === true;
   const kit = formKitOf({promos, catalog: view.catalog, held: refreshing, handTo});
   return (
-    <div ref={bodyRef} style={READY}>
+    <div ref={bodyRef} style={VIEW}>
       <PrintingRows
         rows={view.rows}
         changes={changes}
@@ -554,18 +562,38 @@ function ReadError({error, onRetry}: {error: string; onRetry: () => void}) {
   );
 }
 
+/** What the failed view reads: the read's failure, the panel's promos, if any, and the panel's way of asking for its handoff. */
+interface FailedProps {
+  view: Extract<BranchPrintings, {status: 'error'}>;
+  promos?: PromoPrintingsProps;
+  handTo: HandTo;
+}
+
+/**
+ * A read that failed and its way out, and under them, where the panel runs the printing form, the line
+ * that says what the last publish came to (#77): a publish lands and the read after it fails, so the
+ * commit stays in view until the files read again.
+ */
+function FailedBody({view, promos, handTo}: FailedProps) {
+  const onRetry = () => {
+    handTo(TO_PANEL);
+    view.retry();
+  };
+  return (
+    <div style={VIEW}>
+      <ReadError error={view.error} onRetry={onRetry} />
+      {promos && <PublishOutcome promos={promos} />}
+    </div>
+  );
+}
+
 /** The panel's body for each state of the read. */
 function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: HandTo}) {
   switch (view.status) {
     case 'loading':
       return <Notice>Loading the printings…</Notice>;
-    case 'error': {
-      const onRetry = () => {
-        handTo(TO_PANEL);
-        view.retry();
-      };
-      return <ReadError error={view.error} onRetry={onRetry} />;
-    }
+    case 'error':
+      return <FailedBody view={view} promos={rest.promos} handTo={handTo} />;
     case 'ready':
       return <ReadyBody view={view} handTo={handTo} {...rest} />;
   }

@@ -59,9 +59,9 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * Card studio with a token saved. It holds three drafts: New reveal's, Edit
  * card's, and Edit card's promo printing form (#77). So a mode switch keeps
  * them all (R-57), and the page's one guard counts each of them (R-58): a card
- * change asks about the Edit draft and the printing form, which are the
- * card's, leaving about every dirty draft. The guard needs the data router, so
- * no story renders this.
+ * change asks only about the Edit draft and the printing form, which are the
+ * card's, never New reveal's, and leaving the page asks about every dirty
+ * draft. The guard needs the data router, so no story renders this.
  *
  * The root under the header is the element useContainerWidth measures. It is
  * there in every mode and state, so the measure never stops: the hook watches

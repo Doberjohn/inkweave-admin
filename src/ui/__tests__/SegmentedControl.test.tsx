@@ -41,11 +41,11 @@ describe('SegmentedControl', () => {
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false']);
   });
 
-  it('reports a press on any option while nothing is chosen', async () => {
+  it.each(OPTIONS)('reports a press on $label while nothing is chosen', async ({value, label}) => {
     const onChange = vi.fn();
     render(<SegmentedControl ariaLabel="Sort rules" options={OPTIONS} value={null} onChange={onChange} />);
-    await userEvent.click(screen.getByRole('button', {name: '|Gap|'}));
-    expect(onChange).toHaveBeenCalledExactlyOnceWith('gap');
+    await userEvent.click(screen.getByRole('button', {name: label}));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(value);
   });
 
   it('reports a click on another option', async () => {

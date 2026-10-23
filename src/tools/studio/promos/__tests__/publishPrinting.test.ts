@@ -306,6 +306,14 @@ describe('a publish the branch can\'t take', () => {
     await expect(publishPrinting({token: 't', change: EDIT_80024({}, from)})).rejects.toMatchObject({kind: 'changed'});
     expect(repo.writes()).toEqual([]);
   });
+  it('refuses an edit whose printing was filed under another card since the form opened, as gone', async () => {
+    const repo = stubRepo({files: FIXTURE_FILES});
+    // The form opened on Prince's panel, and the branch files 13/C3 under Mother Knows Best now.
+    const change = {...EDIT_80024({}), card: PRINCE};
+    await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({kind: 'gone',
+      message: '13/C3 moved to Mother Knows Best on master after you opened it.'});
+    expect(repo.writes()).toEqual([]);
+  });
   it("hands a 'changed' refusal the branch's entry", async () => {
     stubRepo({files: FIXTURE_FILES});
     const refusal = await publishPrinting({token: 't', change: EDIT_80024({}, {promoGrouping: 'C3', number: 12, scanLanguage: null, officialArt: false})}).catch((e: unknown) => e);

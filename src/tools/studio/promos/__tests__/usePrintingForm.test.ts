@@ -531,7 +531,7 @@ describe('a publish that settles after its form is gone', () => {
     rerender({cardId: '2047'});
     await act(async () => {
       held.respond(moved());
-      expect(await landed).toBe(false);
+      expect(await landed).toBe(true);
     });
     expect(generations.at(-1)).toBe(1);
   });
@@ -545,7 +545,7 @@ describe('a publish that settles after its form is gone', () => {
     expect(result.current.publishing).toBe(false);
     await act(async () => {
       held.respond(moved());
-      expect(await landed).toBe(false);
+      expect(await landed).toBe(true);
     });
     expect(result.current.outcome).toEqual({result: null, error: null, note: ''});
     expect(result.current.form).toBeNull();
@@ -559,7 +559,7 @@ describe('a publish that settles after its form is gone', () => {
     act(() => result.current.patch({note: 'y'}));
     await act(async () => {
       held.respond(moved());
-      expect(await landed).toBe(false);
+      expect(await landed).toBe(true);
     });
     expect(result.current.form).toMatchObject({kind: 'add', values: {...EMPTY_PRINTING_FORM, note: 'y'}, error: null});
     expect(result.current.outcome).toEqual({result: null, error: null, note: ''});
@@ -573,7 +573,7 @@ describe('a publish that settles after its form is gone', () => {
     unmount();
     await act(async () => {
       held.respond(moved());
-      expect(await landed).toBe(false);
+      expect(await landed).toBe(true);
     });
   });
   it("drops a refusal that arrives after Cancel, so it can't close the next form", async () => {

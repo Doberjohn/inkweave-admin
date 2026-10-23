@@ -51,7 +51,7 @@ The owner wants Card studio to do this. The owner picks the base card, uploads t
 - A copy a player counted disappears, or moves to another printing.
 - A publish changes any entry besides the printing it adds or edits, or leaves a file other than the app's scripts would write it.
 - A publish overwrites a change made on the branch in the meantime.
-- Two printings share a promo set and number.
+- A publish gives a printing a code (its promo set and number) that another printing already has. Twins that already share one keep it (see "Settled during the build").
 - A printing lands in a promo set the app doesn't know. The binder would then file it as a standard set called "Set P5".
 - A form the owner has started is lost without the owner being asked.
 
@@ -201,7 +201,7 @@ The admin part can start before the app PR merges. Only its pin bump waits for t
 
 - The scan is required when adding.
 - Versions are always written out, Both included, as the Printings panel's choices are.
-- A note goes in as typed and is appended. Existing notes stay as they are.
+- A note goes in as typed, less any spaces at its ends, and is appended. A note of spaces adds none. Existing notes stay as they are.
 - `stats` is recounted from the entries, and `about` stays as it is.
 - Editing replaces a scan only where the art isn't Ravensburger's.
 - On the Sets 1 to 8 copy of a card Core reprints, the panel points to the Core copy instead of offering Add a printing.
@@ -218,7 +218,7 @@ The build settled these after the owner approved the design. They are for the ow
 - An edit is checked for a taken code only when it changes its promo set or number, and for an unknown promo set only when it changes its set. Twins share a code by right (26/P2's Moana and Vaiana printings, 28/C3's two Hades), so a note-only edit of one isn't refused for the state it found. An add is always checked.
 - An edit never sends a scan for a printing with Ravensburger's art.
 - Every refused publish reads the branch's files again, as a landed one does, so the panel shows the branch the publish saw.
-- When an edited printing changed on the branch since its form opened, the form shows the branch's values and keeps the note the owner typed, since a note is only ever appended. When the printing is gone, the form closes and the line under the rows says so.
+- When an edited printing changed on the branch since its form opened, the form shows the branch's values and keeps the note the owner typed, since a note is only ever appended. When the printing is gone, or now filed under another card, the form closes and the line under the rows says so.
 - The next provisional id is one above the highest in `provisionalIds` and among the catalog's entries, since a provisional printing can lack its line.
 
 ## Left to the builder

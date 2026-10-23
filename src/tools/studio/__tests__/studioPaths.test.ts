@@ -97,7 +97,9 @@ describe('draftsAtRisk', () => {
 const UNPUBLISHED = "Your New reveal card isn't published yet. Leaving Card studio drops it.";
 const UNSAVED = "Your Edit card changes aren't saved yet. Leaving Card studio drops them.";
 const UNSAVED_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
-const SAVED_CARD = 'Your changes to this card are saved. Leaving the card drops nothing.';
+// A card's drafts can go clean through a refusal of the printing form's (#77), which saves nothing, so the line says
+// only that nothing is left to drop.
+const CLEAN_CARD = 'Nothing on this card is unsaved now. Leaving the card drops nothing.';
 const PUBLISHING = "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
 // The form stays editable while a save runs, and a landed save makes only what it sent the baseline (useEditSave's
 // land), so Edit's in-flight line adds what leaving still drops: the edits made since, and a failed save's own,
@@ -157,7 +159,7 @@ describe('studioUnsavedMessage', () => {
     {why: 'a card change leaves a publish in flight out beside the printing form', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: ALL, busy: REVEAL, says: EDIT_PRINTING_CARD},
     // The guard ends a hold only once no draft is dirty: a card change held past Edit's save stays open
     // while New reveal is dirty, and the open dialog shows what this returns (R4-5s).
-    {why: 'a card change held past its save says nothing is left to drop', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: REVEAL, busy: CLEAN, says: SAVED_CARD},
+    {why: 'a card change held past its save says nothing is left to drop', from: '/studio?mode=edit&card=1', to: '/studio?mode=edit&card=2', drafts: REVEAL, busy: CLEAN, says: CLEAN_CARD},
   ])('$why', ({from, to, drafts, busy, says}) => {
     expect(studioUnsavedMessage({from: at(from), to: at(to), drafts, busy})).toBe(says);
   });
@@ -177,15 +179,17 @@ describe('studioUnsavedQuestion (R4-8c)', () => {
   // R4-8f: where the card's saved edits stay with its save, the leave answer doesn't say it drops changes. A save in
   // flight still drops the edits made since it started, and its own changes if it fails, and its line says so.
   // The printing form's publish (#77) is the same: leaving doesn't stop it, so "Drop changes" would claim too much.
+  // But a draft beside it with no commit in flight is dropped outright, so then the answer is "Drop changes".
   it.each([
-    {why: 'its save landed while the dialog was open', drafts: REVEAL, busy: CLEAN, says: SAVED_CARD, leave: 'Leave the card'},
+    {why: 'its save landed while the dialog was open', drafts: REVEAL, busy: CLEAN, says: CLEAN_CARD, leave: 'Leave the card'},
     {why: 'its own save is in flight', drafts: EDIT, busy: EDIT, says: SAVING, leave: 'Leave the card'},
     {why: "only New reveal's publish is in flight", drafts: REVEAL_EDIT, busy: REVEAL, says: UNSAVED_CARD, leave: 'Drop changes'},
     {why: 'the printing form is unpublished and no commit is in flight', drafts: PRINTING, busy: CLEAN, says: PRINTING_CARD, leave: 'Drop changes'},
     {why: 'the printing form and the Edit draft are unsaved and no commit is in flight', drafts: EDIT_PRINTING, busy: CLEAN, says: EDIT_PRINTING_CARD, leave: 'Drop changes'},
     {why: "the printing form's publish is in flight", drafts: PRINTING, busy: PRINTING, says: PUBLISHING, leave: 'Leave the card'},
-    {why: "the printing form's publish is in flight beside unsaved edits", drafts: EDIT_PRINTING, busy: PRINTING, says: `${UNSAVED_CARD} ${PUBLISHING}`, leave: 'Leave the card'},
-    {why: "Edit's save is in flight beside an unpublished printing form", drafts: EDIT_PRINTING, busy: EDIT, says: `${SAVING} ${PRINTING_CARD}`, leave: 'Leave the card'},
+    {why: "the printing form's publish is in flight beside unsaved edits", drafts: EDIT_PRINTING, busy: PRINTING, says: `${UNSAVED_CARD} ${PUBLISHING}`, leave: 'Drop changes'},
+    {why: "Edit's save is in flight beside an unpublished printing form", drafts: EDIT_PRINTING, busy: EDIT, says: `${SAVING} ${PRINTING_CARD}`, leave: 'Drop changes'},
+    {why: "both the save and the printing form's publish are in flight", drafts: EDIT_PRINTING, busy: EDIT_PRINTING, says: `${SAVING} ${PUBLISHING}`, leave: 'Leave the card'},
     {why: "only New reveal's publish is in flight beside the printing form", drafts: ALL, busy: REVEAL, says: EDIT_PRINTING_CARD, leave: 'Drop changes'},
   ])('answers a card change in words that fit when $why', ({drafts, busy, says, leave}) => {
     const change = {from: at('/studio?mode=edit&card=1'), to: at('/studio?mode=edit&card=2'), drafts, busy};
@@ -210,7 +214,7 @@ describe('forgetTokenQuestion', () => {
     [PRINTING, 'Forget the token and drop your printing form?'],
     [REVEAL_EDIT, 'Forget the token and drop your New reveal card and your Edit card changes?'],
     [EDIT_PRINTING, 'Forget the token and drop your Edit card changes and your printing form?'],
-    [ALL, 'Forget the token and drop your New reveal card and your Edit card changes and your printing form?'],
+    [ALL, 'Forget the token and drop your New reveal card, your Edit card changes, and your printing form?'],
   ])('asks before dropping %j (R-84)', (drafts, question) => {
     expect(forgetTokenQuestion(drafts)).toBe(question);
   });

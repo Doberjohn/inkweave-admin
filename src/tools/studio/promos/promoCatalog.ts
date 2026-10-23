@@ -209,12 +209,12 @@ function countsOf(catalog: PromoCatalog): CatalogStats {
 }
 
 /**
- * The catalog's counts: those admin knows, worked out from its entries in the order the file keeps
- * them, then any other the file holds, as it holds it. A count the app adds before admin's pin knows
- * of it is never dropped.
+ * The catalog's counts, in the order the file keeps them: each count admin knows worked out from the
+ * entries, and any other as the file holds it. A count admin knows that the file lacks comes after
+ * them. So a count the app adds before admin's pin knows of it is never dropped or moved, and the
+ * commit's diff shows only the counts that changed. The recount spreads over the file's counts, and a
+ * key that is already there keeps its place.
  */
 export function recountStats(catalog: PromoCatalog): CatalogStats {
-  const counts = countsOf(catalog);
-  const others = Object.entries(catalog.stats).filter(([key]) => !Object.hasOwn(counts, key));
-  return {...counts, ...Object.fromEntries(others)};
+  return {...catalog.stats, ...countsOf(catalog)};
 }

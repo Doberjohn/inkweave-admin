@@ -170,9 +170,10 @@ export const PRINCE_ENTRY: LorcanaJSONCard = {
 
 /**
  * The files of a branch that is in step with `catalog`: the catalog itself, and allCards.json and
- * collection/promos.json as the app's merge writes them from it over the two Core cards the fixture
- * catalogs' `fold` groups are for, Mother Knows Best and Mickey Mouse - Brave Little Prince. A test whose
- * branch has moved since a form opened builds its files with this: otherwise the out-of-step check refuses first.
+ * collection/promos.json as the app's merge writes them from it over two Core cards: Mother Knows Best,
+ * whose `fold` group FIXTURE_CATALOG holds, and Mickey Mouse - Brave Little Prince, which has no group
+ * until a test adds a printing of it. A test whose branch has moved since a form opened builds its files
+ * with this: otherwise the out-of-step check refuses first.
  */
 export function filesFor(catalog: PromoCatalog): Record<string, string> {
   const merged = mergeOver({catalog, files: {allCards: allCardsText([MOTHER_KNOWS_BEST_ENTRY, PRINCE_ENTRY]), promos: '[]\n'}});
