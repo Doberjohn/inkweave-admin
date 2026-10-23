@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {builtinModules} from 'node:module';
 import path from 'node:path';
 import ts from 'typescript';
-import {describe, expect, it} from 'vitest';
+import {beforeAll, describe, expect, it} from 'vitest';
 
 // Vite leaves a Node builtin out of the browser bundle: it gives the importer a stub and warns. So
 // an import of one in code the browser loads passes lint, tsc, Vitest and `pnpm build`, and only
@@ -110,21 +110,29 @@ const stories = fs.globSync('src/**/*.stories.{ts,tsx}').map((file) => file.spli
 const ENTRIES = ['src/main.tsx', '.storybook/preview.tsx', ...stories];
 
 describe('what the browser loads', () => {
+  let loaded;
+
+  // The walk parses every file the browser can load, on one thread: about 1.5s alone, and 8 to 10s inside
+  // the full suite on a loaded machine, which overran a test's own 5s. It runs once, with a budget of its
+  // own, and both tests read its result.
+  beforeAll(() => {
+    loaded = walk(onDisk(ENTRIES));
+  }, 120_000);
+
   // A walk that went nowhere would pass the next test, so this one pins what it must reach.
   it('reaches the bridged promo merge and the promo fixtures', () => {
-    const {visited} = walk(onDisk(ENTRIES));
     for (const file of [
       'upstream/inkweave/scripts/lib/promo-printings.mjs',
       'upstream/inkweave/scripts/lib/finishes.mjs',
       'upstream/inkweave/scripts/lib/fold-variants.mjs',
       'src/tools/studio/promos/__tests__/promoFixtures.ts',
     ]) {
-      expect(visited).toContain(file);
+      expect(loaded.visited).toContain(file);
     }
   });
 
   it('finds no Node builtin in anything the build or a story loads', () => {
-    expect(walk(onDisk(ENTRIES)).nodeImports).toEqual([]);
+    expect(loaded.nodeImports).toEqual([]);
   });
 });
 
