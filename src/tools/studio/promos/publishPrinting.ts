@@ -36,8 +36,8 @@ import {mergeOver, outOfStep, promosDiffer, type MergeInput} from './promoMerge'
  * "Publish again."). allCards.json and collection/promos.json are the merge's output, each sent only when
  * the merge changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits
  * their entries. Any other failure, an unreadable file or a catalog the merge can't take, passes through
- * as it is. A code that a message or a result names is the printing's own, its art variant included:
- * 24A/P2, not 24/P2.
+ * as it is. A code that a message or a result names is the printing's code as its form opened it: its art
+ * variant is included where the form had one (24A/P2).
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -220,11 +220,11 @@ function checkAdd({catalog, change}: {catalog: PromoCatalog; change: AddChange})
 }
 
 /**
- * An edit is held to what it moves. One that moves the printing to another promo set needs a set the app
- * knows, and one that moves it to another set or number needs a code nobody has. A note, a scan or a scan
- * language changes neither, so it is never refused for a code the printing has already: twins share one
- * (Moana and Vaiana's 26/P2, the two Hades of 28/C3), and so does a printing in a set the app learned of
- * before admin's pin did. The printing's art variant counts in its code, so 24A/P2 and 24B/P2 stay two.
+ * An edit is checked only for what it moves. One that moves the printing to another promo set needs a set
+ * the app knows, and one that moves it to another set or number needs a code nobody has. An edit that moves
+ * neither set nor number, such as a new note, scan or scan language, is checked for neither, so twins that
+ * share a code (Moana and Vaiana's 26/P2, the two Hades of 28/C3) can still be edited. The printing's art
+ * variant counts in its code, so 24A/P2 and 24B/P2 stay two.
  */
 function checkEdit({catalog, change}: {catalog: PromoCatalog; change: EditChange}): void {
   const entry = entryToEdit({catalog, change});
