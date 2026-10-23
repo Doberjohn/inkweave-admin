@@ -15,6 +15,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import {
   collectionPromos as appCollectionPromos,
   mergePromoPrintings as appMergePromoPrintings,
+  promoBaseProblems as appPromoBaseProblems,
 } from '../upstream/inkweave/scripts/lib/promo-printings.mjs';
 import {byPrintingOrder as appByPrintingOrder} from '../upstream/inkweave/scripts/lib/fold-variants.mjs';
 import {finishesById as appFinishesById} from '../upstream/inkweave/scripts/lib/finishes.mjs';
@@ -128,6 +129,9 @@ export const mergePromoPrintings: (cards: MergeCard[], catalog: MergeCatalog) =>
 export const collectionPromos: (catalog: MergeCatalog, kept?: Map<string, readonly string[]>) => object[] = appCollectionPromos;
 // The `finishes` already in entries and their variants, by id: what collectionPromos carries over.
 export const finishesById: (entries: readonly object[]) => Map<string, readonly string[]> = appFinishesById;
+// Why listed promos can't ship: one per promo whose card `cards` lacks or names otherwise, in the app's words.
+export const promoBaseProblems: (promos: readonly object[], cards: ReadonlyArray<{id: number | string; fullName: string}>) => string[] =
+  appPromoBaseProblems;
 // A card's printings in the switcher's order: the others by number, then the promos by set and number.
 export const byPrintingOrder: (a: object, b: object) => number = appByPrintingOrder;
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded

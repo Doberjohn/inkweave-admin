@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {RAW_DIR} from '../../../image/githubClient';
 import {BASE, BASE_TREE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
-import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../../finishes/finishFiles';
 import {withEditedPrinting, type PrintingEdit} from '../catalogEdits';
 import {
   findPrinting,
@@ -24,7 +24,19 @@ import {
   type ScanFile,
 } from '../publishPrinting';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, FIXTURE_FILES, HIRO_BASE, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor, printingOf} from './promoFixtures';
+import {
+  BALOO_BASE,
+  BALOO_ENTRY,
+  FIXTURE_CATALOG,
+  FIXTURE_FILES,
+  HIRO_BASE,
+  MKB_BASE,
+  PRINCE,
+  SNOW_WHITE_BASE,
+  filesFor,
+  printingOf,
+  withSet3Chunk,
+} from './promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -186,6 +198,39 @@ describe('the id an add takes', () => {
     const ids = (JSON.parse(repo.filesSent()[PROMOS_PATH]) as Array<{id: number}>).map(({id}) => id);
     expect(ids).toEqual(expect.arrayContaining([80050, 80051]));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("an add that starts a Sets 1 to 8 card's group", () => {
+  /** 9/P4 for Baloo - von Bruinwald XIII, whom FIXTURE_CATALOG has no group for. */
+  const ADD_TO_BALOO: PrintingChange = {...ADD_9_P4, card: BALOO_BASE};
+
+  it("adds to a Sets 1 to 8 card with no group once its set's data holds it", async () => {
+    const repo = stubRepo({files: withSet3Chunk()});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).resolves.toEqual({commitUrl: COMMIT_URL, id: 80050, code: '9/P4'});
+    expect(repo.reads()).toContainEqual({path: setChunkPath('3'), ref: BASE, token: 't'});
+  });
+  it("refuses an add whose set's data names the card otherwise, writing nothing", async () => {
+    const repo = stubRepo({files: withSet3Chunk([{...BALOO_ENTRY, version: 'Someone Else', fullName: 'Baloo - Someone Else'}])});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which is Baloo - Someone Else."});
+    expect(repo.writes()).toEqual([]);
+  });
+  it("refuses an add whose set's data lacks the card", async () => {
+    const repo = stubRepo({files: withSet3Chunk([])});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds."});
+    expect(repo.writes()).toEqual([]);
+  });
+  it('reads no set data for a Core card, or for a card the catalog has a group for', async () => {
+    const pathsReadFor = async (card: BaseCard) => {
+      const repo = stubRepo({files: FIXTURE_FILES});
+      await publishPrinting({token: 't', change: {...ADD_9_P4, card}});
+      return repo.reads().map(({path}) => path).sort();
+    };
+    const promoFiles = [ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH].sort();
+    expect(await pathsReadFor(PRINCE)).toEqual(promoFiles);
+    expect(await pathsReadFor(SNOW_WHITE_BASE)).toEqual(promoFiles);
   });
 });
 

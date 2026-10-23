@@ -1,3 +1,4 @@
+import {collectionPromos, promoBaseProblems} from '../../../app-bridge';
 import {
   commitFiles,
   readRepoFile,
@@ -7,7 +8,7 @@ import {
 } from '../../../github/githubCommit';
 import {RAW_DIR} from '../../image/githubClient';
 import {namingItsFile, type BranchFile} from '../finishes/branchFiles';
-import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../finishes/finishFiles';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting, type PrintingEdit} from './catalogEdits';
 import {
   findPrinting,
@@ -29,12 +30,14 @@ import {mergeOver, outOfStep, promosDiffer, type MergeInput} from './promoMerge'
  * owner's catalog, the card files the app's merge rewrites from it, and the scan. All of it is decided at
  * the commit the publish builds on. `commitFiles` hands that commit to a callback, which reads the catalog
  * and both card files there, checks the change against them, applies it and runs the app's merge over the
- * result (promoMerge.ts). A change the branch can't take is refused there, before anything is written
- * (PrintingRefusal), and so is a branch that moves meanwhile (commitFiles' own error, which ends "Publish
- * again."). allCards.json and collection/promos.json are the merge's output, each sent only when the merge
- * changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits their entries.
- * Any other failure, an unreadable file or a catalog the merge can't take, passes through as it is. A code
- * that a message or a result names is the printing's own, its art variant included: 24A/P2, not 24/P2.
+ * result (promoMerge.ts). An add that starts a Sets 1 to 8 card's group reads that card's set there too,
+ * and checks the card against it. A change the branch can't take is refused there, before anything is
+ * written (PrintingRefusal), and so is a branch that moves meanwhile (commitFiles' own error, which ends
+ * "Publish again."). allCards.json and collection/promos.json are the merge's output, each sent only when
+ * the merge changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits
+ * their entries. Any other failure, an unreadable file or a catalog the merge can't take, passes through
+ * as it is. A code that a message or a result names is the printing's own, its art variant included:
+ * 24A/P2, not 24/P2.
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -80,7 +83,7 @@ interface EditChange {
 export type PrintingChange = AddChange | EditChange;
 
 /** Why a publish was refused. */
-export type RefusalKind = 'outOfStep' | 'taken' | 'unknownSet' | 'changed' | 'gone';
+export type RefusalKind = 'outOfStep' | 'taken' | 'unknownSet' | 'changed' | 'gone' | 'unknownCard';
 
 /** A publish the branch can't take as it is. Nothing was written, and the message tells the owner what to do. */
 export class PrintingRefusal extends Error {
@@ -284,11 +287,60 @@ async function readHeld({token, base}: {token: string; base: string}): Promise<M
   return {catalog: catalogIn({path: CATALOG_PATH, text: catalog}), files: {allCards, promos}};
 }
 
-/** Reads the branch at `base`, checks the change against it and works out what to commit. */
+/**
+ * Whether the change is an add that starts its card's group in `noBaseCard`: one of a card that isn't Core,
+ * which the catalog at the base has no group for. The app's merge checks a `fold` group's card against
+ * allCards.json, but only the app's promoBaseProblems checks a waiting group's, and only its manual scripts
+ * run that.
+ */
+function startsAGroup({change, catalog}: {change: PrintingChange; catalog: PromoCatalog}): boolean {
+  const {kind, card} = change;
+  if (kind !== 'add' || card.core) return false;
+  return !catalog.noBaseCard.some((group) => group.lorcanaJsonBaseId === card.id);
+}
+
+/** A card of a set's chunk, as far as the check of a new group reads it. */
+interface ChunkCard {
+  id: number;
+  fullName: string;
+}
+
+/** The cards a set's chunk holds. One it can't read is named, as the catalog is. */
+const chunkCardsIn = namingItsFile(({text}: BranchFile) => JSON.parse(text) as ChunkCard[]);
+
+/**
+ * Refuses an add that starts a Sets 1 to 8 card's group when the app's data for the card's set, its chunk at
+ * `base`, lacks the card or names its id otherwise: the printing would wait in the binder for a card that
+ * never comes. It runs the app's own check (promoBaseProblems, which the app's merge CLI runs over every
+ * promo) over the one printing the add makes, so nothing else in the catalog can refuse it.
+ */
+async function requireCardInItsSet({token, base, card, catalog, id}: {
+  token: string;
+  base: string;
+  card: BaseCard;
+  catalog: PromoCatalog;
+  id: number;
+}): Promise<void> {
+  const path = setChunkPath(card.setCode);
+  const cards = chunkCardsIn({path, text: await readRepoFile(token, path, base)});
+  const promos = collectionPromos(catalog).filter((promo) => 'id' in promo && promo.id === id);
+  const problem = promoBaseProblems(promos, cards).at(0);
+  if (problem === undefined) return;
+  throw new PrintingRefusal({
+    kind: 'unknownCard',
+    message: `The app's set ${card.setCode} data on ${targetBranch()} doesn't match ${card.fullName}: ${problem}.`,
+  });
+}
+
+/**
+ * Reads the branch at `base`, checks the change against it and works out what to commit. An add that starts
+ * a Sets 1 to 8 card's group reads that card's set at `base` too, once every other check has passed.
+ */
 async function planAt({token, base, change}: {token: string; base: string; change: PrintingChange}): Promise<Plan> {
   const held = await readHeld({token, base});
   checkAtBase({change, held});
   const {catalog, id} = applied({change, catalog: held.catalog});
+  if (startsAGroup({change, catalog: held.catalog})) await requireCardInItsSet({token, base, card: change.card, catalog, id});
   return {files: filesToCommit({change, id, catalog, held}), id};
 }
 

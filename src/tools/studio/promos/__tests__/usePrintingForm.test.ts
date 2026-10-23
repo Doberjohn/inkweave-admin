@@ -10,7 +10,18 @@ import {EMPTY_PRINTING_FORM} from '../printingForm';
 import {parseCatalog, type CatalogPrinting} from '../promoCatalog';
 import {type RefusalKind} from '../publishPrinting';
 import {usePrintingForm} from '../usePrintingForm';
-import {FIXTURE_CATALOG, FIXTURE_FILES, HIRO_BASE, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor, printingOf} from './promoFixtures';
+import {
+  BALOO_BASE,
+  FIXTURE_CATALOG,
+  FIXTURE_FILES,
+  HIRO_BASE,
+  MKB_BASE,
+  PRINCE,
+  SNOW_WHITE_BASE,
+  filesFor,
+  printingOf,
+  withSet3Chunk,
+} from './promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -381,6 +392,15 @@ const REFUSALS: Record<RefusalKind, {files: Record<string, string>; open: Openin
     files: {...FIXTURE_FILES, [PROMOS_PATH]: '[]\n'},
     open: async (result) => startNoteOnMkb(result),
     says: 'The catalog and the card files are out of step on master: the merge would change collection/promos.json. Run pnpm merge-promos --write in the app, then publish again.',
+  },
+  unknownCard: {
+    files: withSet3Chunk([]),
+    open: async (result) => {
+      act(() => result.current.openAdd(BALOO_BASE));
+      act(() => result.current.patch({promoGrouping: 'P4', number: '9', versions: 'foil'}));
+      await act(() => result.current.chooseScan(pngFile('scan.png')));
+    },
+    says: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds.",
   },
 };
 

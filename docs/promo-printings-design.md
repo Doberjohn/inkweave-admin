@@ -119,6 +119,7 @@ Checked on 2026-10-22: master's `allCards.json` and `promos.json` are exactly wh
 - **The code is free.** No other printing has the promo set and number. An edit is checked only when it changes the promo set or number (see "Settled during the build").
 - **An edit's printing is unchanged.** The printing's catalog entry must still be what the form opened from. If it isn't, someone changed it, and the form shows the branch's values.
 - **The promo set is known.** It must be one the app knows. An edit is checked only when it changes the promo set (see "Settled during the build").
+- **A new group's card is in the app's data.** An add that starts a group in `noBaseCard`, for a Sets 1 to 8 card the catalog has none for, reads the card's set chunk (`collection/{set}.json`) at the base once the other checks pass. The app's `promoBaseProblems`, bridged, runs over the new printing: a chunk that lacks the card, or holds its id under another name, refuses the add. The app's merge checks only a `fold` group's card, and only the app's manual scripts run `promoBaseProblems`.
 - **The branch hasn't moved.** If it moves while the commit is built, `commitFiles` refuses it, as it already does ("Publish again.").
 - **The commit changes something.** If the branch already holds the files as they are, the commit would be empty, and `commitFiles` refuses it ("Nothing changed on …").
 

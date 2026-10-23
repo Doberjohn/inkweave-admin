@@ -109,8 +109,9 @@ interface Landed {
  * A publish that did not land. The branch refused it (a PrintingRefusal) after reading itself: a printing
  * it changed since the form opened comes with the branch's (`changed`), one it no longer has closes the
  * form (`gone`), and any other refusal leaves the form as it is (`refused`: files out of step, a taken
- * code, an unknown promo set). Anything else read nothing new of the branch and leaves the form as it
- * is too (`failed`: a branch that moved meanwhile, a rejected token, a file that can't be read).
+ * code, an unknown promo set, or a Sets 1 to 8 card whose set's data lacks it or names it otherwise).
+ * Anything else read nothing new of the branch and leaves the form as it is too (`failed`: a branch that
+ * moved meanwhile, a rejected token, a file that can't be read).
  */
 type Failure =
   | {kind: 'changed'; now: CatalogPrinting; message: string}

@@ -1,6 +1,6 @@
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
-import {MOTHER_KNOWS_BEST_ENTRY, allCardsText} from '../../finishes/__tests__/finishFixtures';
-import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
+import {MOTHER_KNOWS_BEST_ENTRY, allCardsText, collectionText} from '../../finishes/__tests__/finishFixtures';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../../finishes/finishFiles';
 import {EMPTY_PRINTING_FORM, editValuesOf, type ScanState} from '../printingForm';
 import {findPrinting, serializeCatalog, type BaseCard, type CatalogPrinting, type PromoCatalog} from '../promoCatalog';
 import {mergeOver} from '../promoMerge';
@@ -12,9 +12,10 @@ import type {OpenPrintingForm, PrintingFormController, PrintingOutcome} from '..
  * rules read is in it: a Core card's group in `fold`; in `noBaseCard`, Sets 1 to 8 cards' groups with
  * Ravensburger's art, a scan language and two arts under one number (24A/P2, 24B/P2), and Hades -
  * Dark Usurper's, which has no base number and two printings under one code (28/C3). Beside it, the
- * files of a branch that holds it, and the builders of the printing form's states: the forms and the
- * controller the tests and the stories put in front of it. Nothing here reads a file from disk (see
- * pinned.ts) or imports vitest: stories load it.
+ * files of a branch that holds it, a Sets 1 to 8 card it has no group for (Baloo) with his set's chunk,
+ * and the builders of the printing form's states: the forms and the controller the tests and the stories
+ * put in front of it. Nothing here reads a file from disk (see pinned.ts) or imports vitest: stories
+ * load it.
  */
 
 /** Those groups as a catalog. Its `stats` are what `recountStats` makes of them, written out here. */
@@ -196,6 +197,32 @@ export function filesFor(catalog: PromoCatalog): Record<string, string> {
 
 /** The files of a branch that holds FIXTURE_CATALOG. */
 export const FIXTURE_FILES: Record<string, string> = filesFor(FIXTURE_CATALOG);
+
+/**
+ * Baloo - von Bruinwald XIII as Set 3's chunk stores him (#1, id 433), trimmed from the pinned file to what
+ * names the card: a Sets 1 to 8 card FIXTURE_CATALOG has no group for.
+ */
+export const BALOO_ENTRY: LorcanaJSONCard = {
+  id: 433,
+  name: 'Baloo',
+  version: 'von Bruinwald XIII',
+  fullName: 'Baloo - von Bruinwald XIII',
+  cost: 3,
+  color: 'Amber',
+  inkwell: false,
+  type: 'Character',
+  setCode: '3',
+  number: 1,
+  rarity: 'Rare',
+};
+
+/** Baloo as a promo's card: a first printing of him starts his group in `noBaseCard`, which a publish checks against his set's chunk. */
+export const BALOO_BASE: BaseCard = {id: 433, fullName: 'Baloo - von Bruinwald XIII', setCode: '3', number: 1, core: false};
+
+/** The files of a branch that holds FIXTURE_CATALOG, and Set 3's chunk holding `cards`: Baloo's entry unless a test says otherwise. */
+export function withSet3Chunk(cards: readonly LorcanaJSONCard[] = [BALOO_ENTRY]): Record<string, string> {
+  return {...FIXTURE_FILES, [setChunkPath(BALOO_BASE.setCode)]: collectionText(cards)};
+}
 
 /** A form that holds no scan: nothing chosen, and no error. */
 export const NO_SCAN: ScanState = {name: null, dataUrl: null, error: null};
