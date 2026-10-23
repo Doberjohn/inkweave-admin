@@ -136,7 +136,9 @@ const LACKS = eachDraft(lacking);
 
 /**
  * What leaving Card studio drops, when one sentence names two of the drafts, or all of them: a word for
- * each count, so a draft added to DRAFTS fails to compile here until its count has one.
+ * each count. A fourth draft makes the key type's `(typeof DRAFTS)['length']` 4, so the keys become
+ * `2 | 4` and TypeScript rejects the `3` below as an unknown key (TS2353). That error is the reminder:
+ * whoever adds the draft must then give every count its word by hand.
  */
 const DROPS: Readonly<Record<2 | (typeof DRAFTS)['length'], string>> = {2: 'both', 3: 'all three'};
 
@@ -155,8 +157,12 @@ function leavesStudioTogether(dropped: readonly Draft[]): string {
   return `${capitalized(parts)}. Leaving Card studio drops ${drops}.`;
 }
 
-/** The card's drafts: Edit's, and the printing form, which belongs to the card as Edit's draft does (#77). */
-type CardDraft = Extract<Draft, 'edit' | 'printing'>;
+/**
+ * The card's drafts: every draft but New reveal's, which a card change leaves be (draftsAtRisk). Today that
+ * is Edit's, and the printing form, which belongs to the card as Edit's draft does (#77). A draft added to
+ * the studio counts as one, so LEAVES_CARD fails to compile until it has a line.
+ */
+type CardDraft = Exclude<Draft, 'reveal'>;
 
 /** A card draft's line when the navigation opens another card, or the search, in the studio. */
 const LEAVES_CARD: Readonly<Record<CardDraft, string>> = {

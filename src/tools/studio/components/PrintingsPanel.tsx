@@ -258,7 +258,11 @@ interface FormKit {
    * open its entry as it was before the publish, and its save would be refused as someone else's change.
    */
   held: boolean;
-  /** What PromoPrintingForm takes but the art: the controller, whose Cancel hands the focus back to what opened the form. */
+  /**
+   * What PromoPrintingForm takes but the art: the controller, whose Cancel hands the focus back to what
+   * opened the form. An edit form whose row a read dropped sat where Add a printing does, so its Cancel
+   * hands the focus to Add.
+   */
   form: Omit<PromoPrintingFormProps, 'currentArt'>;
   handTo: HandTo;
 }
@@ -682,10 +686,11 @@ function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: H
  * press takes it away (R-48), and says where the focus lands (usePanelHandoff): "Read the files
  * again" goes the moment the read starts, so the new button takes it if the files fail again, and
  * the heading once they are in; a form takes it from the button that opened it, and gives it back to
- * that button on Cancel; a publish that closes its form gives it to the line under the rows. It asks
- * for it, too, when the rows or what is under them go with the focus in them, as they do when the
- * read after a publish fails: the button then takes it. And an edit form that moves with the focus in
- * it, as a read drops its row or brings it back, gives it to its own heading (useHandoffOnMount).
+ * that button on Cancel (an edit form whose row a read dropped sat where Add a printing does, so its
+ * Cancel gives the focus to Add); a publish that closes its form gives it to the line under the rows.
+ * It asks for it, too, when the rows or what is under them go with the focus in them, as they do when
+ * the read after a publish fails: the button then takes it. And an edit form that moves with the focus
+ * in it, as a read drops its row or brings it back, gives it to its own heading (useHandoffOnMount).
  */
 export function PrintingsPanel(props: PrintingsPanelProps) {
   const {view, promos} = props;

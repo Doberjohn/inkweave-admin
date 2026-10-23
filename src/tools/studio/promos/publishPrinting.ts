@@ -9,7 +9,13 @@ import {
 import {RAW_DIR} from '../../image/githubClient';
 import {namingItsFile, type BranchFile} from '../finishes/branchFiles';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
-import {withEditedPrinting, withNewPrinting, type NewPrinting, type PrintingEdit} from './catalogEdits';
+import {
+  isWaitingGroupOf,
+  withEditedPrinting,
+  withNewPrinting,
+  type NewPrinting,
+  type PrintingEdit,
+} from './catalogEdits';
 import {
   findPrinting,
   hasOfficialArt,
@@ -36,8 +42,9 @@ import {mergeOver, outOfStep, promosDiffer, type MergeInput} from './promoMerge'
  * "Publish again."). allCards.json and collection/promos.json are the merge's output, each sent only when
  * the merge changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits
  * their entries. Any other failure, an unreadable file or a catalog the merge can't take, passes through
- * as it is. A code that a message or a result names is the printing's code as its form opened it: its art
- * variant is included where the form had one (24A/P2).
+ * as it is. A refusal of a printing that changed or went names its code as its form opened it (24A/P2,
+ * or 24/P2 where the form opened without its art variant); a taken code and the result name the code the
+ * change gives it, with the form's art variant (25A/P2).
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -296,7 +303,7 @@ async function readHeld({token, base}: {token: string; base: string}): Promise<M
 function startsAGroup({change, catalog}: {change: PrintingChange; catalog: PromoCatalog}): boolean {
   const {kind, card} = change;
   if (kind !== 'add' || card.core) return false;
-  return !catalog.noBaseCard.some((group) => group.lorcanaJsonBaseId === card.id);
+  return !catalog.noBaseCard.some((group) => isWaitingGroupOf(group, card));
 }
 
 /** A card of a set's chunk, as far as the check of a new group reads it. */
