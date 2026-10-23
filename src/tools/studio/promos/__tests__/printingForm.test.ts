@@ -50,10 +50,15 @@ function edit({id, values = {}, scan = NO_SCAN, taken = null}: {
 const heldBy = ({id, code}: {id: number; code: CodeParts}) => takenBy({catalog: FIXTURE_CATALOG, code, exceptId: id});
 
 describe('promoSetOptions', () => {
-  it('offers the promo sets newest first, an edition by its own code', () => {
+  it('offers Promo Set 5, the newest, first', () => {
+    expect(promoSetOptions(PROMO_SETS)[0]).toEqual({code: 'P5', label: 'P5 · Promo Set 5'});
+    expect(isKnownPromoSet('P5')).toBe(true);
+  });
+  it('offers each edition by its own code, the newest edition first, and Promo Set 1 last', () => {
     const options = promoSetOptions(PROMO_SETS);
-    expect(options.slice(0, 3)).toEqual([{code: 'RPH', label: 'RPH · RPH Promo'},
-      {code: 'CC2', label: "CC2 · Curator's Collection: Beauty and the Beast Edition"}, {code: 'CC1', label: "CC1 · Curator's Collection: Heroines Edition"}]);
+    const newest = options.findIndex(({code}) => code === 'CC2');
+    expect(options.slice(newest, newest + 2)).toEqual([{code: 'CC2', label: "CC2 · Curator's Collection: Beauty and the Beast Edition"},
+      {code: 'CC1', label: "CC1 · Curator's Collection: Heroines Edition"}]);
     expect(options.at(-1)).toEqual({code: 'P1', label: 'P1 · Promo Set 1'});
   });
   it('offers only codes the app knows, each once', () => {

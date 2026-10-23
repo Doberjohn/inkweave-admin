@@ -109,6 +109,9 @@ export function UnsavedChangesDialog({open, message, words = LEAVE_PAGE, onStay,
       ariaLabel={shown.title}
       size="sm"
       initialFocusRef={messageRef}
+      // Opts out of the shell's × (Doberjohn/inkweave#909): the stay answer is always
+      // on screen, so the dialog already shows a visible way out.
+      showClose={false}
       panelStyle={PANEL}>
       <h2 style={HEADING}>{shown.title}</h2>
       <p ref={messageRef} tabIndex={-1} style={MESSAGE}>
