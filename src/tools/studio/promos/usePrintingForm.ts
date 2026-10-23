@@ -207,10 +207,14 @@ function publishStarted(held: Held): Held {
   return {...held, form: {...form, error: null}, publishing: true};
 }
 
-/** The edit form once the branch's printing changed: its values and its baseline are the branch's, and the owner makes the change again. */
+/**
+ * The edit form once the branch's printing changed: its values and its baseline are the branch's, and the
+ * owner makes the change again. The note the owner typed stays: a note is only ever appended, so it can't
+ * clash with the branch's, and the baseline's is blank, so the form still counts it as unsaved.
+ */
 function reseeded({form, now, message}: {form: FormState; now: CatalogPrinting; message: string}): FormState {
-  const values = editValuesOf(now);
-  return {...form, printing: now, values, initial: values, error: message};
+  const initial = editValuesOf(now);
+  return {...form, printing: now, values: {...initial, note: form.values.note}, initial, error: message};
 }
 
 /** The held state once the publish `settled`: a landed one or a printing found gone closes the form, and the line under the rows says which. */

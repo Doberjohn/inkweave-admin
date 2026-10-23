@@ -211,13 +211,19 @@ export function publishLabel({kind, values, initialCode, publishing, artVariant}
 }
 
 /**
- * What the line under a landed publish says of when the printing shows. Its art needs the app's convert
- * workflow, which runs on master only: on another branch the data lands and the art doesn't.
+ * What the line under a landed publish says of when the printing shows. Only master deploys to
+ * inkweave.ink, and its art needs the app's convert workflow, which runs on master only: on another
+ * branch the data lands and the art doesn't.
  */
 export function outcomeNote({scanSent, branch}: {scanSent: boolean; branch: string}): string {
-  if (!scanSent) return 'It shows on inkweave.ink once the app has deployed.';
-  if (branch !== 'master') return `The scan converts to art on master only, so on ${branch} the printing has no art yet.`;
-  return 'Its art shows on inkweave.ink once the app has converted the scan and deployed.';
+  if (branch !== 'master') {
+    return scanSent
+      ? `The scan converts to art on master only, so on ${branch} the printing has no art yet.`
+      : `On ${branch}, it shows wherever that branch is deployed.`;
+  }
+  return scanSent
+    ? 'Its art shows on inkweave.ink once the app has converted the scan and deployed.'
+    : 'It shows on inkweave.ink once the app has deployed.';
 }
 
 /**

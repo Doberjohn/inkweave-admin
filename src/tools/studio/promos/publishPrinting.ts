@@ -5,6 +5,7 @@ import {
   utf8ToBase64,
   type CommitFile,
 } from '../../../github/githubCommit';
+import {RAW_DIR} from '../../image/githubClient';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting, type PrintingEdit} from './catalogEdits';
 import {
@@ -99,9 +100,6 @@ export interface PrintingPublished {
   id: number;
   code: string;
 }
-
-/** Where a scan is committed, as Edit card's image tool commits one: the app converts it to the printing's art. */
-export const RAW_SCAN_DIR = 'apps/web/public/card-images-raw';
 
 /** The facts an edit checks the branch's entry against: the fields its form edits, whether the entry has Ravensburger's art (`images`), and its art variant. */
 export function factsOf(printing: CatalogPrinting): PrintingFacts {
@@ -254,7 +252,8 @@ function filesToCommit({change, id, catalog, held}: {change: PrintingChange; id:
   const files = [textFile({path: CATALOG_PATH, text: serializeCatalog(catalog)})];
   if (merged.allCards !== held.files.allCards) files.push(textFile({path: ALL_CARDS_PATH, text: merged.allCards}));
   if (merged.promos !== held.files.promos) files.push(textFile({path: PROMOS_PATH, text: merged.promos}));
-  if (change.scan) files.push({path: `${RAW_SCAN_DIR}/${id}.${change.scan.ext}`, contentBase64: change.scan.base64});
+  // RAW_DIR is where Edit card's image tool commits a scan too: the app converts it to the printing's art.
+  if (change.scan) files.push({path: `${RAW_DIR}/${id}.${change.scan.ext}`, contentBase64: change.scan.base64});
   return files;
 }
 

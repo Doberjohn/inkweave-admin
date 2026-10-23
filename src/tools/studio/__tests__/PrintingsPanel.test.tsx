@@ -457,6 +457,28 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
   });
 
+  it('holds Add a printing and every Edit while the files are read again after a publish, as it holds the choices', async () => {
+    const controller = controllerOf(null);
+    const {user, update} = renderPanel({view: {...MKB_READY, refreshing: true}, promos: promosProps({controller})});
+    // The catalog is the last read's until the read lands: an Edit opened on it would open the entry as it was.
+    const held = [addButton()!, ...screen.getAllByRole('button', {name: /^Edit /})];
+    expect(held).toHaveLength(3);
+    for (const button of held) {
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      await user.click(button);
+    }
+    expect(controller.openAdd).not.toHaveBeenCalled();
+    expect(controller.openEdit).not.toHaveBeenCalled();
+    // A held button keeps the focus its press gave it.
+    expect(held[2]).toHaveFocus();
+
+    update({view: MKB_READY});
+    for (const button of held) expect(button).not.toHaveAttribute('aria-disabled');
+    expect(held[2]).toHaveFocus();
+    await user.click(held[2]);
+    expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingWith(80024)});
+  });
+
   it('opens the edit form under its row, and hides Add and Edit meanwhile', () => {
     const rows = [MKB_99, MKB_1_C3, {...MKB_13_C3, thumbnail: ART}];
     renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: controllerOf(editForm(80024))})});

@@ -2,7 +2,7 @@
 
 Status: approved by the owner on 2026-10-22, the day it was brainstormed. Two pieces of work follow from it:
 - the app part, Doberjohn/inkweave#904, opened from admin through the GitHub API, which adds Promo Set 5 to the app and documents admin's new path. It merged on 2026-10-22;
-- the admin part, Doberjohn/inkweave-admin#77, built on the branch `feature/77-promo-printings`, with no PR yet. Its pin bump, past #904's merge, is in. The plan is [docs/plans/77-promo-printings.md](plans/77-promo-printings.md).
+- the admin part, Doberjohn/inkweave-admin#77, built on the branch `feature/77-promo-printings`. Its pin bump, past #904's merge, is in. The plan is [docs/plans/77-promo-printings.md](plans/77-promo-printings.md).
 
 ## Why
 
@@ -81,7 +81,7 @@ The owner fills in (owner, 2026-10-22):
 
 The studio works out:
 - **The base card:** the card open in Edit card.
-- **The id:** the next provisional id, one above the highest key in the catalog's `provisionalIds` at the commit's base. That's 80056 today. An id is never issued twice (owner, 2026-10-22). A printing removed by hand keeps its line in `provisionalIds`, marked as removed (`"80056": "1/P5 Mickey Mouse - Brave Little Prince (removed)"`), so no later printing takes its id, along with any copies players counted on it. The P5 app PR documents this. The six printings the owner dropped on 18 Oct lost their lines before anyone could count them, so 80001, 80002, 80004 to 80006 and 80016 stay unused.
+- **The id:** the next provisional id, one above the highest key in the catalog's `provisionalIds` at the commit's base, and above any provisional id an entry holds without its line (see "Settled during the build"). That's 80056 today. An id is never issued twice (owner, 2026-10-22). A printing removed by hand keeps its line in `provisionalIds`, marked as removed (`"80056": "1/P5 Mickey Mouse - Brave Little Prince (removed)"`), so no later printing takes its id, along with any copies players counted on it. The P5 app PR documents this. The six printings the owner dropped on 18 Oct lost their lines before anyone could count them, so 80001, 80002, 80004 to 80006 and 80016 stay unused.
 - **Placement:** where each entry goes (see "Publishing").
 
 It refuses a promo set and number that another printing already has.
@@ -89,7 +89,7 @@ It refuses a promo set and number that another printing already has.
 ### The edit form
 
 The edit form is filled in from the printing's entry in the branch's catalog:
-- **Promo set and number:** checked against every other printing, the same way.
+- **Promo set and number:** checked against every other printing, the same way, when the edit changes them (see "Settled during the build").
 - **Scan and its language:** a new scan replaces the art, but only for a printing without Ravensburger's art (no `images` in its catalog entry). A Ravensburger promo shows its art without the replace control. The language can change on its own, for example to mark a scan as Japanese.
 - **Add a note:** a new note. The existing notes stay as written.
 
@@ -116,9 +116,9 @@ Checked on 2026-10-22: master's `allCards.json` and `promos.json` are exactly wh
 
 **What it checks at the base.** Each check stops the publish, writes nothing and says why:
 - **The files are in step.** The merge over the branch's files as they are must change nothing. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
-- **The code is free.** No other printing has the promo set and number.
+- **The code is free.** No other printing has the promo set and number. An edit is checked only when it changes the promo set or number (see "Settled during the build").
 - **An edit's printing is unchanged.** The printing's catalog entry must still be what the form opened from. If it isn't, someone changed it, and the form shows the branch's values.
-- **The promo set is known.** It must be one the app knows.
+- **The promo set is known.** It must be one the app knows. An edit is checked only when it changes the promo set (see "Settled during the build").
 - **The branch hasn't moved.** If it moves while the commit is built, `commitFiles` refuses it, as it already does ("Publish again.").
 
 The commit message names the printing and its card, for example "chore(collection): add 1/P5 Mickey Mouse - Brave Little Prince from Card studio", as #68's version commits are worded. The wording is the builder's.
@@ -210,6 +210,16 @@ The admin part can start before the app PR merges. Only its pin bump waits for t
 - One form is open at a time, a mode switch keeps it, and leaving asks.
 - The P5 PR also updates the app's docs: the pipeline doc and `CLAUDE.md`'s list of what admin bridges.
 - The promo set list comes from admin's pin, so a new promo set needs a pin bump as well as the app change.
+
+## Settled during the build
+
+The build settled these after the owner approved the design. They are for the owner to check too.
+
+- An edit is checked for a taken code only when it changes its promo set or number, and for an unknown promo set only when it changes its set. Twins share a code by right (26/P2's Moana and Vaiana printings, 28/C3's two Hades), so a note-only edit of one isn't refused for the state it found. An add is always checked.
+- An edit never sends a scan for a printing with Ravensburger's art.
+- Every refused publish reads the branch's files again, as a landed one does, so the panel shows the branch the publish saw.
+- When an edited printing changed on the branch since its form opened, the form shows the branch's values and keeps the note the owner typed, since a note is only ever appended. When the printing is gone, the form closes and the line under the rows says so.
+- The next provisional id is one above the highest in `provisionalIds` and among the catalog's entries, since a provisional printing can lack its line.
 
 ## Left to the builder
 

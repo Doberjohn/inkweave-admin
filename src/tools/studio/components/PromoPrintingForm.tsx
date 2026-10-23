@@ -89,6 +89,9 @@ const MISSING: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: AD
 /** The fields' errors: none. What is missing speaks under the buttons, in printingForm.ts's words. */
 const NO_ERRORS: Readonly<Record<string, string>> = {};
 
+/** What the promo set's select says under it: it offers only the app's promo sets, at admin's pin. */
+const PROMO_SET_HINT = "A promo set not listed here has to be added to the app's PROMO_SETS first.";
+
 /** The picture's frame: no art to show (dashed), the printing's art now (solid), or the scan the owner chose (gold). */
 type FrameState = 'empty' | 'current' | 'staged';
 
@@ -266,11 +269,14 @@ function unlistedSet({initial}: OpenPrintingForm, promoSets: readonly PromoSetOp
 /** What the fields read: each one's props, and the promo sets the select offers. */
 type FieldsProps = FieldProps & {promoSets: readonly PromoSetOption[]};
 
-/** The promo sets the app lists, newest first, after a blank choice. An edit of a printing in a set the app lacks keeps that code. */
+/**
+ * The promo sets the app lists, newest first, after a blank choice, and under them the line that says a
+ * set they lack needs the app first. An edit of a printing in a set the app lacks keeps that code.
+ */
 function PromoSetField({form, patch, locked, promoSets}: FieldsProps) {
   const unlisted = unlistedSet(form, promoSets);
   return (
-    <Field label="Promo set" name="printing-promoSet" errors={NO_ERRORS}>
+    <Field label="Promo set" name="printing-promoSet" errors={NO_ERRORS} hint={PROMO_SET_HINT}>
       {(control) => (
         <select
           {...control}

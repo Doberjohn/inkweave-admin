@@ -1,6 +1,6 @@
 import {Fragment, useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react';
 import {Link} from 'react-router-dom';
-import {CtaButton, LinkButton, SPACING} from '../../../app-bridge';
+import {CtaButton, DISABLED_STYLE, LinkButton, SPACING} from '../../../app-bridge';
 import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -70,6 +70,8 @@ const NAMES: React.CSSProperties = {
 const NAME: React.CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.text, overflowWrap: 'anywhere'};
 // A promo row's Edit, after its marker, in the size of the panel's other small actions.
 const EDIT: React.CSSProperties = {flexShrink: 0, fontSize: ADMIN_TYPE.small};
+// A held Edit looks off as a held Add a printing does: LinkButton dims only a native disabled, which would drop the focus.
+const HELD_EDIT: React.CSSProperties = {...EDIT, ...DISABLED_STYLE};
 const CONTROL: React.CSSProperties = {flex: `0 1 ${CONTROL_BASIS}px`, minWidth: 0};
 // An edit form hangs under its row with no rule between the two: the next row's rule closes it off.
 const FORM_ITEM: React.CSSProperties = {padding: `0 0 ${SPACING.sm}px`};
@@ -236,12 +238,19 @@ function usePanelHandoff(outcome: PrintingOutcome | null): PanelHandoff {
 
 /**
  * The printing form as the rows and the line under them run it, once the branch's catalog is in: the
- * panel's props for it, the catalog, the form's own props but its art, and the panel's handoff.
+ * panel's props for it, the catalog, whether its openers are held, the form's own props but its art,
+ * and the panel's handoff.
  */
 interface FormKit {
   promos: PromoPrintingsProps;
   /** The branch's promo catalog: the entry a row's Edit opens, and who has the code a form names. */
   catalog: PromoCatalog;
+  /**
+   * The files are read again after a publish, so the catalog is the last read's: Add a printing and
+   * every Edit are held until the read lands, as the rows' choices are. An Edit opened meanwhile would
+   * open its entry as it was before the publish, and its save would be refused as someone else's change.
+   */
+  held: boolean;
   /** What PromoPrintingForm takes but the art: the controller, whose Cancel hands the focus back to what opened the form. */
   form: Omit<PromoPrintingFormProps, 'currentArt'>;
   handTo: HandTo;
@@ -267,8 +276,16 @@ function takenFor({catalog, form}: {catalog: PromoCatalog; form: OpenPrintingFor
   return takenBy({catalog, code, exceptId: printing?.id});
 }
 
+/** What `formKitOf` reads: the panel's promos and the view's catalog, if it has them, whether the openers are held, and the handoff. */
+interface FormKitInput {
+  promos?: PromoPrintingsProps;
+  catalog?: PromoCatalog;
+  held: boolean;
+  handTo: HandTo;
+}
+
 /** The form kit, or null without the panel's promos, or before the view holds the branch's catalog. */
-function formKitOf({promos, catalog, handTo}: {promos?: PromoPrintingsProps; catalog?: PromoCatalog; handTo: HandTo}): FormKit | null {
+function formKitOf({promos, catalog, held, handTo}: FormKitInput): FormKit | null {
   if (promos === undefined || catalog === undefined) return null;
   const {controller} = promos;
   // Cancel takes the form and its own button away, and the button that opened the form is back.
@@ -283,7 +300,7 @@ function formKitOf({promos, catalog, handTo}: {promos?: PromoPrintingsProps; cat
     taken: takenFor({catalog, form: controller.form}),
     onForgetToken: promos.onForgetToken,
   };
-  return {promos, catalog, form, handTo};
+  return {promos, catalog, held, form, handTo};
 }
 
 /**
@@ -298,18 +315,28 @@ function printingToEdit({kit, row}: {kit: FormKit; row: PrintingRow}): CatalogPr
 
 /**
  * A promo row's Edit. It opens the edit form under the row, filled in from the branch's catalog, and
- * hides while any form is open, so its press hands the focus to the form. It is named by its row, so
- * the panel's Edits tell apart; the name starts with the word it shows (2.5.3).
+ * hides while any form is open, so its press hands the focus to the form. While the files are read
+ * again after a publish it is held (`kit.held`): aria-disabled, so it keeps a focus it has, and a press
+ * opens nothing. It is named by its row, so the panel's Edits tell apart; the name starts with the
+ * word it shows (2.5.3).
  */
 function EditButton({kit, row}: {kit: FormKit; row: PrintingRow}) {
   const printing = printingToEdit({kit, row});
   if (printing === null) return null;
+  const {held} = kit;
   const open = () => {
+    if (held) return;
     kit.promos.controller.openEdit({card: kit.promos.card, printing});
     kit.handTo(TO_FORM);
   };
   return (
-    <LinkButton type="button" aria-label={`Edit ${row.label}`} data-opens={row.ref.id} onClick={open} style={EDIT}>
+    <LinkButton
+      type="button"
+      aria-label={`Edit ${row.label}`}
+      aria-disabled={held || undefined}
+      data-opens={row.ref.id}
+      onClick={open}
+      style={held ? HELD_EDIT : EDIT}>
       Edit
     </LinkButton>
   );
@@ -348,21 +375,24 @@ function CoreCopyNote({coreCopy}: {coreCopy: NonNullable<PromoPrintingsProps['co
 }
 
 /**
- * Add a printing, hidden while an edit form is open, and under it the line that says what the last
- * publish came to: its commit, or a refusal that closed its form. The press hands the focus to the add
- * form, which takes the button's place; a publish that closes its form hands it to the line.
+ * Add a printing, hidden while an edit form is open and held while the files are read again after a
+ * publish (aria-disabled, as Edit is), and under it the line that says what the last publish came to:
+ * its commit, or a refusal that closed its form. The press hands the focus to the add form, which takes
+ * the button's place; a publish that closes its form hands it to the line.
  */
 function AddAndOutcome({kit}: {kit: FormKit}) {
   const {controller, card, onForgetToken} = kit.promos;
   const {result, error, note} = controller.outcome;
+  const {held} = kit;
   const add = () => {
+    if (held) return;
     controller.openAdd(card);
     kit.handTo(TO_FORM);
   };
   return (
     <div style={OFFER}>
       {controller.form === null && (
-        <CtaButton type="button" variant="neutral" data-opens={ADD_OPENER} onClick={add} style={ADD}>
+        <CtaButton type="button" variant="neutral" aria-disabled={held || undefined} data-opens={ADD_OPENER} onClick={add} style={ADD}>
           Add a printing
         </CtaButton>
       )}
@@ -486,13 +516,14 @@ interface ReadyProps extends Omit<PrintingsPanelProps, 'view'> {
 
 /**
  * The rows, and under them what the panel offers for the card's promos (#77). While the files are
- * read again after a publish, the rows are the last read's: held, and the list busy.
+ * read again after a publish, the rows are the last read's: held, and the list busy. So is the
+ * catalog, so Add a printing and every Edit are held too.
  */
 function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}: ReadyProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   useHandoffWhenGone(bodyRef, () => handTo(TO_PANEL));
-  const kit = formKitOf({promos, catalog: view.catalog, handTo});
   const refreshing = view.refreshing === true;
+  const kit = formKitOf({promos, catalog: view.catalog, held: refreshing, handTo});
   return (
     <div ref={bodyRef} style={READY}>
       <PrintingRows
@@ -553,9 +584,11 @@ function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: H
  *
  * Given `promos`, it adds and edits the card's promo printings too (#77): Add a printing under the
  * rows opens the add form there, a promo row's Edit opens the edit form under that row, filled in from
- * the branch's catalog, and one form is open at a time, so Add and every Edit hide while one is. A
- * Sets 1 to 8 copy of a card that Core reprints points to the Core copy instead. Each form publishes
- * alone, through the studio's controller; the line under the rows says what the last publish came to.
+ * the branch's catalog, and one form is open at a time, so Add and every Edit hide while one is. While
+ * the files are read again after a publish, Add and every Edit are held, as the choices are: until the
+ * read lands, an Edit would open its entry as it was. A Sets 1 to 8 copy of a card that Core reprints
+ * points to the Core copy instead. Each form publishes alone, through the studio's controller; the line
+ * under the rows says what the last publish came to.
  *
  * It outlives the swaps between its views, so it holds the focus handoff for each control whose
  * press takes it away (R-48), and says where the focus lands (usePanelHandoff): "Read the files

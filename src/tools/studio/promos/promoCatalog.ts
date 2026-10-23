@@ -164,13 +164,20 @@ export function isKnownPromoSet(code: string): boolean {
   return promoSetRank(code) !== -1;
 }
 
+/** The id of every printing the catalog holds, in both sections. */
+function heldIds(catalog: PromoCatalog): number[] {
+  return groupsOf(catalog).flatMap((group) => group.variants.map(({id}) => id));
+}
+
 /**
- * The id the next provisional printing takes: one above the highest the catalog has issued. A printing
- * removed by hand keeps its line in `provisionalIds`, marked "(removed)", so its id is never issued twice.
+ * The id the next provisional printing takes: one above the highest the catalog has issued, whether
+ * `provisionalIds` lists it or only an entry holds it. A printing removed by hand keeps its line there,
+ * marked "(removed)", and a provisional printing can lack its line (an edit writes it one), so neither
+ * id is issued twice. LorcanaJSON's ids, all below 80001, never raise it.
  */
 export function nextProvisionalId(catalog: PromoCatalog): number {
-  const issued = Object.keys(catalog.provisionalIds).map(Number);
-  return Math.max(PROVISIONAL_ID_BASE - 1, ...issued) + 1;
+  const listed = Object.keys(catalog.provisionalIds).map(Number);
+  return Math.max(PROVISIONAL_ID_BASE - 1, ...listed, ...heldIds(catalog)) + 1;
 }
 
 /** Whether the printing has a provisional id, not a LorcanaJSON one. */
@@ -185,8 +192,8 @@ function countBySet(printings: readonly CatalogPrinting[]): Record<string, numbe
   return Object.fromEntries([...counts].sort(([a], [b]) => a.localeCompare(b)));
 }
 
-/** The catalog's counts, worked out from its entries and in the order the file keeps them. */
-export function recountStats(catalog: PromoCatalog): CatalogStats {
+/** The counts admin works out from the entries, in the order the file keeps them. */
+function countsOf(catalog: PromoCatalog): CatalogStats {
   const folded = catalog.fold.flatMap((group) => group.variants);
   const waiting = catalog.noBaseCard.flatMap((group) => group.variants);
   const all = [...folded, ...waiting];
@@ -199,4 +206,15 @@ export function recountStats(catalog: PromoCatalog): CatalogStats {
     noBaseCardInAllCards: {printings: waiting.length, cards: catalog.noBaseCard.length},
     byPromoGrouping: countBySet(all),
   };
+}
+
+/**
+ * The catalog's counts: those admin knows, worked out from its entries in the order the file keeps
+ * them, then any other the file holds, as it holds it. A count the app adds before admin's pin knows
+ * of it is never dropped.
+ */
+export function recountStats(catalog: PromoCatalog): CatalogStats {
+  const counts = countsOf(catalog);
+  const others = Object.entries(catalog.stats).filter(([key]) => !Object.hasOwn(counts, key));
+  return {...counts, ...Object.fromEntries(others)};
 }

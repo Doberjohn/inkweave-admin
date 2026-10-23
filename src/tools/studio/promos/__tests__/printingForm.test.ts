@@ -205,6 +205,9 @@ describe('outcomeNote', () => {
     expect(outcomeNote({scanSent: true, branch: 'rehearse-77'})).toBe('The scan converts to art on master only, so on rehearse-77 the printing has no art yet.');
     expect(outcomeNote({scanSent: false, branch: 'master'})).toBe('It shows on inkweave.ink once the app has deployed.');
   });
+  it('names the branch a publish without a scan landed on, where that is not master', () => {
+    expect(outcomeNote({scanSent: false, branch: 'rehearse-77'})).toBe('On rehearse-77, it shows wherever that branch is deployed.');
+  });
 });
 
 describe('the card a form belongs to', () => {

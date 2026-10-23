@@ -1,11 +1,19 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import {RAW_DIR} from '../../../image/githubClient';
 import {BASE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting, type PrintingEdit} from '../catalogEdits';
-import {findPrinting, nextProvisionalId, parseCatalog, type BaseCard, type PromoCatalog, type WaitingGroup} from '../promoCatalog';
+import {
+  findPrinting,
+  nextProvisionalId,
+  parseCatalog,
+  type BaseCard,
+  type CatalogPrinting,
+  type PromoCatalog,
+  type WaitingGroup,
+} from '../promoCatalog';
 import {outOfStep} from '../promoMerge';
 import {
-  RAW_SCAN_DIR,
   factsOf,
   printingCommitMessage,
   publishPrinting,
@@ -94,8 +102,8 @@ describe('publishPrinting', () => {
   it('adds a printing in one commit: the catalog, both card files and the scan', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
     await expect(publishPrinting({token: 't', change: ADD_9_P4})).resolves.toEqual({commitUrl: COMMIT_URL, id: 80050, code: '9/P4'});
-    expect(Object.keys(repo.filesSent()).sort()).toEqual([ALL_CARDS_PATH, PROMOS_PATH, `${RAW_SCAN_DIR}/80050.webp`, CATALOG_PATH].sort());
-    expect(repo.base64Sent()[`${RAW_SCAN_DIR}/80050.webp`]).toBe(SCAN.base64);
+    expect(Object.keys(repo.filesSent()).sort()).toEqual([ALL_CARDS_PATH, PROMOS_PATH, `${RAW_DIR}/80050.webp`, CATALOG_PATH].sort());
+    expect(repo.base64Sent()[`${RAW_DIR}/80050.webp`]).toBe(SCAN.base64);
     expect(repo.commitMessage()).toBe('chore(collection): add 9/P4 Mickey Mouse - Brave Little Prince from Card studio');
     expect(outOfStep({catalog: parseCatalog(repo.filesSent()[CATALOG_PATH]), files: {allCards: repo.filesSent()[ALL_CARDS_PATH], promos: repo.filesSent()[PROMOS_PATH]}})).toEqual([]);
   });
@@ -136,8 +144,8 @@ describe('publishPrinting', () => {
   it('replaces a scan at the printing\'s id, with the catalog beside it', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
     await publishPrinting({token: 't', change: {...EDIT_80024({}), scan: {ext: 'png', base64: 'iVBORw0KGgo='}}});
-    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH, `${RAW_SCAN_DIR}/80024.png`]);
-    expect(repo.base64Sent()[`${RAW_SCAN_DIR}/80024.png`]).toBe('iVBORw0KGgo=');
+    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH, `${RAW_DIR}/80024.png`]);
+    expect(repo.base64Sent()[`${RAW_DIR}/80024.png`]).toBe('iVBORw0KGgo=');
   });
   it('lets a note-only edit through for a printing that shares its code with a twin', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
@@ -149,6 +157,22 @@ describe('publishPrinting', () => {
   it('says to publish again when the branch moved', async () => {
     stubRepo({files: FIXTURE_FILES, update: notAFastForward});
     await expect(publishPrinting({token: 't', change: ADD_9_P4})).rejects.toThrow('master changed while publishing, so nothing was published. Publish again.');
+  });
+});
+
+describe('the id an add takes', () => {
+  it('goes above a provisional printing that has no line, so the branch never holds an id twice', async () => {
+    // 80050 is one above the highest line, 80049's: the id the lines alone would issue again. Snow White
+    // is a Sets 1 to 8 card, so the printing reaches promos.json only, where the app's merge checks no id.
+    const lineless: CatalogPrinting = {id: 80050, rarity: 'Special', number: 43, promoGrouping: 'P2', finishes: ['foil']};
+    const withLineless = FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.lorcanaJsonBaseId === 240
+      ? {...group, variants: [...group.variants, lineless]}
+      : group));
+    const repo = stubRepo({files: filesFor({...FIXTURE_CATALOG, noBaseCard: withLineless})});
+    await expect(publishPrinting({token: 't', change: ADD_9_P4})).resolves.toMatchObject({id: 80051});
+    const ids = (JSON.parse(repo.filesSent()[PROMOS_PATH]) as Array<{id: number}>).map(({id}) => id);
+    expect(ids).toEqual(expect.arrayContaining([80050, 80051]));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 

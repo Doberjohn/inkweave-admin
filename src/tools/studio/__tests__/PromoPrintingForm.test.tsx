@@ -238,6 +238,17 @@ describe('PromoPrintingForm: the promo set', () => {
     expect(screen.getByLabelText('Promo set')).toHaveValue('');
   });
 
+  it.each([
+    ['an add', addForm()],
+    ['an edit', editForm()],
+  ])('says under the select of %s that a promo set it lacks needs the app first', (_case, form) => {
+    renderForm({form});
+    const hint = "A promo set not listed here has to be added to the app's PROMO_SETS first.";
+    const select = screen.getByLabelText('Promo set');
+    expect(select).toHaveAccessibleDescription(hint);
+    expect(select.compareDocumentPosition(screen.getByText(hint)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('shows the promo set an edit opened with, and adds no option for one the app lists', () => {
     renderForm({form: editForm()});
     expect(screen.getByLabelText('Promo set')).toHaveValue('P2');

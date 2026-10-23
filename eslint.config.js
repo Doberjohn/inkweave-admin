@@ -6,8 +6,10 @@ import reactCompiler from 'eslint-plugin-react-compiler';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import tseslint from 'typescript-eslint';
 // The app's design-token rules, loaded from the pinned submodule so admin UI is
-// held to the same design system. The plugin's ledger lists app paths only, so
-// admin files get the full rules, with no exception.
+// held to the same design system. Admin enables them by name below: every one
+// but inkweave/no-raw-spacing, which the app turned on later (inkweave#549), so
+// turning it on here is a follow-up. The plugin's ledger lists app paths only,
+// so admin files get the rules enabled here with no exception.
 import {inkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
 
 // Same ban as the app (#291): the React Compiler memoizes automatically.

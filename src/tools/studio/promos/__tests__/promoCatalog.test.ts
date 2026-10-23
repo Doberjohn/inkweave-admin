@@ -10,6 +10,7 @@ import {
   serializeCatalog,
   takenBy,
   type CatalogPrinting,
+  type CatalogStats,
 } from '../promoCatalog';
 import {readPinned} from './pinned';
 import {FIXTURE_CATALOG} from './promoFixtures';
@@ -54,12 +55,28 @@ describe('promoCatalog', () => {
     expect(nextProvisionalId({...FIXTURE_CATALOG, provisionalIds: removed})).toBe(80057);
   });
   it('starts the provisional ids at 80001 where the catalog names none', () => {
-    expect(nextProvisionalId({...FIXTURE_CATALOG, provisionalIds: {}})).toBe(80001);
+    // Hiro's 24A/P2 and 24B/P2 have LorcanaJSON's ids, which count for nothing here.
+    const hiro = FIXTURE_CATALOG.noBaseCard.filter((group) => group.fullName === 'Hiro Hamada - Armor Designer');
+    expect(nextProvisionalId({...FIXTURE_CATALOG, fold: [], noBaseCard: hiro, provisionalIds: {}})).toBe(80001);
+  });
+  it('issues the id above a provisional printing that has no line, in either section', () => {
+    const lineless: CatalogPrinting = {id: 80056, rarity: 'Special', number: 1, promoGrouping: 'P5', finishes: ['foil']};
+    const [mkb] = FIXTURE_CATALOG.fold;
+    expect(nextProvisionalId({...FIXTURE_CATALOG, fold: [{...mkb, variants: [...mkb.variants, lineless]}]})).toBe(80057);
+    const [tailor, ...others] = FIXTURE_CATALOG.noBaseCard;
+    const waiting = [{...tailor, variants: [...tailor.variants, {...lineless, id: 80060}]}, ...others];
+    expect(nextProvisionalId({...FIXTURE_CATALOG, noBaseCard: waiting})).toBe(80061);
   });
   it('recounts the stats as the pinned catalog holds them, key order included', () => {
     const pinned = parseCatalog(readPinned(CATALOG_PATH));
     expect(JSON.stringify(recountStats(pinned))).toBe(JSON.stringify(pinned.stats));
     expect(recountStats(FIXTURE_CATALOG)).toEqual(FIXTURE_CATALOG.stats);
+  });
+  it("keeps a count it doesn't know as it was, after the ones it recounts", () => {
+    // A count the app adds before admin's next pin bump, filed ahead of the others, beside a count gone stale.
+    const stats = {byScanLanguage: {ja: 1, zh: 1}, ...FIXTURE_CATALOG.stats, promoPrintings: 99} as CatalogStats;
+    const recounted = recountStats({...FIXTURE_CATALOG, stats});
+    expect(JSON.stringify(recounted)).toBe(JSON.stringify({...FIXTURE_CATALOG.stats, byScanLanguage: {ja: 1, zh: 1}}));
   });
   it("counts an id from 80001 up as provisional and a lower one as LorcanaJSON's", () => {
     const printing = (id: number): CatalogPrinting => ({id, rarity: 'Special', number: 1, promoGrouping: 'P4'});

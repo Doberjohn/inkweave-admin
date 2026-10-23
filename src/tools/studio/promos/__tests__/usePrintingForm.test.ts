@@ -7,7 +7,7 @@ import {useBranchFilesGeneration} from '../../finishes/branchFiles';
 import {CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting} from '../catalogEdits';
 import {EMPTY_PRINTING_FORM} from '../printingForm';
-import {findPrinting, type BaseCard, type CatalogPrinting} from '../promoCatalog';
+import {findPrinting, parseCatalog, type BaseCard, type CatalogPrinting} from '../promoCatalog';
 import {type RefusalKind} from '../publishPrinting';
 import {usePrintingForm} from '../usePrintingForm';
 import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, PRINCE, SNOW_WHITE_BASE, filesFor} from './promoFixtures';
@@ -269,6 +269,27 @@ describe('a publish the branch refuses or fails', () => {
     expect(result.current.publishing).toBe(false);
     expect(result.current.dirty).toBe(false);
     expect(repo.writes()).toEqual([]);
+  });
+  it('keeps the note the owner typed when it re-seeds the form, which stays unsaved until the note lands', async () => {
+    const repo = stubRepo({files: SNOW_WHITE_MOVED});
+    const {result} = renderFor('240');
+    act(() => result.current.openEdit({card: SNOW_WHITE_BASE, printing: printing(80049)}));
+    act(() => result.current.patch({number: '44', note: 'Seen at a store event.'}));
+    await act(async () => {
+      expect(await result.current.publish()).toBe(false);
+    });
+    const branchValues = {promoGrouping: 'P2', number: '43', versions: null, scanLanguage: 'zh', note: ''};
+    expect(result.current.form?.values).toEqual({...branchValues, note: 'Seen at a store event.'});
+    expect(result.current.form?.initial).toEqual(branchValues);
+    expect(result.current.dirty).toBe(true);
+
+    act(() => result.current.patch({number: '44'}));
+    await act(async () => {
+      expect(await result.current.publish()).toBe(true);
+    });
+    expect(parseCatalog(repo.filesSent()[CATALOG_PATH]).notes).toEqual([
+      {printing: '44/P2', card: 'Snow White - Unexpected Houseguest', note: 'Seen at a store event.'},
+    ]);
   });
   it('drops the scan it chose when it re-seeds the form', async () => {
     stubRepo({files: SNOW_WHITE_MOVED});
