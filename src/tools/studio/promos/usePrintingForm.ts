@@ -30,8 +30,9 @@ import {PrintingRefusal, factsOf, publishPrinting} from './publishPrinting';
  * A publish is told from the form it was made for by a count (`epoch`) of the times a form opened, was
  * cancelled or lost its card. One that settles after the count moved changes nothing here: not the
  * form the owner opened since, and not an outcome for a form that is gone. The branch's files still
- * read again, since a commit that landed (or a printing found gone) makes the ones kept out of date,
- * whoever is looking.
+ * read again after a commit that landed and after any refusal of the branch's, whoever is looking, so
+ * the panel shows the branch the publish saw (after a `changed` refusal, the values the re-seeded form
+ * shows). A failure that read nothing new, a lost race or a network error, leaves them be.
  */
 
 /** The printing form that is open: an add of a printing of `card`, or an edit of one. */
@@ -105,13 +106,16 @@ interface Landed {
 }
 
 /**
- * A publish that did not land. A printing the branch changed since the form opened comes with the
- * branch's (`changed`), a printing it no longer has closes the form (`gone`), and anything else leaves
- * the form as it is (`failed`: any other refusal, a branch that moved, a file that can't be read).
+ * A publish that did not land. The branch refused it (a PrintingRefusal) after reading itself: a printing
+ * it changed since the form opened comes with the branch's (`changed`), one it no longer has closes the
+ * form (`gone`), and any other refusal leaves the form as it is (`refused`: files out of step, a taken
+ * code, an unknown promo set). Anything else read nothing new of the branch and leaves the form as it
+ * is too (`failed`: a branch that moved meanwhile, a rejected token, a file that can't be read).
  */
 type Failure =
   | {kind: 'changed'; now: CatalogPrinting; message: string}
   | {kind: 'gone'; message: string}
+  | {kind: 'refused'; message: string}
   | {kind: 'failed'; message: string};
 
 /** What a publish came to. */
@@ -123,7 +127,22 @@ function failureOf(error: unknown): Failure {
   if (!(error instanceof PrintingRefusal)) return {kind: 'failed', message};
   if (error.kind === 'gone') return {kind: 'gone', message};
   if (error.kind === 'changed' && error.now !== null) return {kind: 'changed', now: error.now, message};
-  return {kind: 'failed', message};
+  return {kind: 'refused', message};
+}
+
+/**
+ * Whether the publish saw the branch as it is now: it landed, or the branch refused it, whatever the
+ * refusal. The files kept of the branch may differ from what it saw (a refusal can come of a change they
+ * lack), so they are read again. A failure that read nothing new, a lost race or a network error, says
+ * nothing of them.
+ */
+function sawTheBranch({kind}: Settled): boolean {
+  return kind !== 'failed';
+}
+
+/** Whether the publish closed the form or re-seeded it, so the scan it held goes: it landed, or the branch found the printing gone or changed. */
+function endedTheForm({kind}: Settled): boolean {
+  return kind === 'landed' || kind === 'gone' || kind === 'changed';
 }
 
 /** What `runPublish` reads. */
@@ -257,9 +276,9 @@ export function usePrintingForm({token, cardId}: PrintingFormInput): PrintingFor
 
   /** Applies what a publish came to, unless the form it was made for is gone. True when it landed. */
   function settle({settled, started}: {settled: Settled; started: number}): boolean {
-    if (settled.kind === 'landed' || settled.kind === 'gone') forgetBranchFiles();
+    if (sawTheBranch(settled)) forgetBranchFiles();
     if (epoch.current !== started) return false;
-    if (settled.kind !== 'failed') void upload.choose(null);
+    if (endedTheForm(settled)) void upload.choose(null);
     setHeld((current) => settledHeld(current, settled));
     return settled.kind === 'landed';
   }
