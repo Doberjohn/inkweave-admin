@@ -121,8 +121,12 @@ function sameCode(a: CodeValues, b: CodeValues): boolean {
   return number !== null && number === parseNumber(b.number);
 }
 
-/** Whether the two forms would publish the same thing: one code, versions and language, and notes that read alike once trimmed. */
-function sameValues(a: PrintingFormValues, b: PrintingFormValues): boolean {
+/**
+ * Whether the two forms would publish the same thing: one code, versions and language, and notes that read
+ * alike once trimmed. It is what "nothing to save" means for an edit, and what the form's controller counts
+ * as nothing entered.
+ */
+export function sameValues(a: PrintingFormValues, b: PrintingFormValues): boolean {
   return sameCode(a, b) && a.versions === b.versions && a.scanLanguage === b.scanLanguage && noteOf(a) === noteOf(b);
 }
 

@@ -146,6 +146,9 @@ export const PRINCE: BaseCard = {id: 2047, fullName: 'Mickey Mouse - Brave Littl
 /** Mother Knows Best: the Core card FIXTURE_CATALOG's `fold` group is for. */
 export const MKB_BASE: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setCode: '9', number: 99, core: true};
 
+/** Snow White - Unexpected Houseguest: the Sets 1 to 8 card FIXTURE_CATALOG's `noBaseCard` group for 41/P1 and 42/P2 is for. */
+export const SNOW_WHITE_BASE: BaseCard = {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false};
+
 /**
  * Mickey Mouse - Brave Little Prince as allCards.json stores him (Set 9 #111, id 2047), trimmed from the
  * pinned file to what names the card (no text, art or hashes), with his Iconic under `variants` and no promo.
