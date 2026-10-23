@@ -117,9 +117,14 @@ export const ADMIN_RADIUS = {
   pill: RADIUS.pill, // 999: pills
 } as const;
 
-/** Shell dimensions in px, from the handoff's shell spec. */
+/**
+ * Shell dimensions in px, from the handoff's shell spec, and `hairline`: the 1px
+ * seam between two columns and, negated, the margin of the visually-hidden idiom
+ * (SR_ONLY, useHiddenFileInput). SPACING has no step under 2, so 1px is named here.
+ */
 export const ADMIN_LAYOUT = {
   sidebarOpen: 240,
   sidebarCollapsed: 64,
   headerMinHeight: 64,
+  hairline: 1,
 } as const;

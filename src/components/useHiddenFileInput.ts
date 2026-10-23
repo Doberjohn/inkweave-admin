@@ -1,4 +1,5 @@
 import {useState, type ChangeEvent} from 'react';
+import {ADMIN_LAYOUT} from '../theme/adminTheme';
 
 // Visually hidden but still focusable, so keyboard users can tab to it and open
 // the picker with Space/Enter. display:none would drop it from the tab order,
@@ -8,7 +9,7 @@ const SR_ONLY_INPUT = {
   width: 1,
   height: 1,
   padding: 0,
-  margin: -1,
+  margin: -ADMIN_LAYOUT.hairline,
   overflow: 'hidden',
   clip: 'rect(0 0 0 0)',
   whiteSpace: 'nowrap',
