@@ -23,7 +23,7 @@ interface CalibrationCardProps {
  * from every raw accuracy answer (#30), so it carries the raw tag and its
  * answer count, as on the card page (R-32), and is left out without raw
  * votes. The verdict phrase is marked by colour only: the app ships no italic
- * Tinos face and sets font-synthesis: none, so an italic would render upright
+ * display face and sets font-synthesis: none, so an italic would render upright
  * anyway.
  */
 export function CalibrationCard({meanGap, accuracy}: CalibrationCardProps) {

@@ -42,7 +42,7 @@ const brandTile: React.CSSProperties = {
   background: ADMIN_COLORS.accent,
   color: ADMIN_COLORS.page,
   fontFamily: FONTS.hero,
-  fontWeight: 700,
+  fontWeight: 400,
   fontSize: ADMIN_TYPE.brand,
 };
 
@@ -145,7 +145,7 @@ function Brand({open}: {open: boolean}) {
       </span>
       {open && (
         <p style={{margin: 0, display: 'flex', alignItems: 'baseline', gap: SPACING.xs, whiteSpace: 'nowrap'}}>
-          <span style={{fontFamily: FONTS.hero, fontWeight: 700, fontSize: ADMIN_TYPE.brand}}>Inkweave</span>
+          <span style={{fontFamily: FONTS.hero, fontWeight: 400, fontSize: ADMIN_TYPE.brand}}>Inkweave</span>
           <span style={{fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted}}>admin</span>
         </p>
       )}

@@ -106,7 +106,7 @@ const TITLE_ROW: React.CSSProperties = {
   flexWrap: 'wrap',
   gap: SPACING.md,
 };
-// The handoff's 28px Tinos pair, the entry's name and the gap (R-14: Tinos on headline numbers).
+// The handoff's 28px display-face pair, the entry's name and the gap (R-14: the display face on headline numbers).
 const TITLE: React.CSSProperties = {
   margin: 0,
   fontFamily: FONTS.hero,

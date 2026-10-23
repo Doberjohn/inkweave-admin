@@ -98,7 +98,7 @@ const tierLegend = () =>
     .map((item) => item.textContent);
 
 describe('EnginePanels: the Engine view', () => {
-  it('counts every partner, the number in Tinos at the KPI size beside muted words, and splits them by tier', () => {
+  it('counts every partner, the number in the display face at the KPI size beside muted words, and splits them by tier', () => {
     renderPanels();
     expect(engineView()).toHaveTextContent('15 synergy partners');
     expect(within(engineView()).getByText('15')).toHaveStyle({fontFamily: FONTS.hero, fontSize: `${ADMIN_TYPE.kpi}px`});

@@ -107,18 +107,18 @@ export const Palette: Story = {
   ),
 };
 
-/** ADMIN_TYPE: body sizes in the body face, titles and numbers in Tinos. */
+/** ADMIN_TYPE: body sizes in the body face, titles and numbers in the display face. */
 export const Type: Story = {
   render: () => (
     <div style={{display: 'grid', gap: SPACING.md}}>
       {Object.entries(ADMIN_TYPE).map(([name, size]) => {
-        const tinos = size >= ADMIN_TYPE.sectionTitle;
+        const display = size >= ADMIN_TYPE.sectionTitle;
         return (
           <div key={name} style={{display: 'flex', alignItems: 'baseline', gap: SPACING.lg}}>
             <code style={{width: 120, fontSize: ADMIN_TYPE.label, color: ADMIN_COLORS.muted}}>
               {name} · {size}
             </code>
-            <span style={{fontSize: size, fontFamily: tinos ? FONTS.hero : FONTS.body}}>Engine calibration 2,054</span>
+            <span style={{fontSize: size, fontFamily: display ? FONTS.hero : FONTS.body}}>Engine calibration 2,054</span>
           </div>
         );
       })}

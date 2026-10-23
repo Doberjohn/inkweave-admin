@@ -38,7 +38,7 @@ export interface EnginePanelsProps {
 }
 
 const COUNT: React.CSSProperties = {margin: 0, color: ADMIN_COLORS.text};
-/** The count is a headline number: Tinos at the KPI size (R-14), as the prototype draws it (dc.html:654). */
+/** The count is a headline number: the display face at the KPI size (R-14), as the prototype draws it (dc.html:654). */
 const COUNT_NUMBER: React.CSSProperties = {fontFamily: FONTS.hero, fontSize: ADMIN_TYPE.kpi, lineHeight: 1};
 const COUNT_WORDS: React.CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.muted};
 /** The focus wrapper is the view's grid item, so it must shrink as the panel would. */
@@ -52,7 +52,7 @@ const EMPTY_TEXT =
   'The engine finds no synergies for this card (or its synergy file could not be read). ' +
   "A card revealed after the app's last deploy has no synergy file yet.";
 
-/** "At least 142 synergy partners": the number in Tinos, the words in muted body text. */
+/** "At least 142 synergy partners": the number in the display face, the words in muted body text. */
 function PartnerCount({summary}: {summary: EngineSummary}) {
   return (
     <p style={COUNT}>

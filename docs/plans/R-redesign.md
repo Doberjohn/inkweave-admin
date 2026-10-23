@@ -136,7 +136,7 @@ The R4 outline’s open questions, re-checked against R1 to R3 as built, main b4
 | R-7 | Mono text renders as `<code>` | `fontFamily` literals fail `no-literal-font-family`, and `/fonts/` forwards to the app. `<code>` gets the UA monospace with no font declaration, as the branch name does today. |
 | R-8 | Analytics artifacts are fetched once per session | Four insights routes replace one page. `fetchAdminData` caches each file's promise, so moving between pages doesn't refetch 0.5 MB of vote log. |
 | R-9 | Charts are windowed | The vote log spans months. Vote activity gets a range control (7 / 30 / 90 days / All, default 30) in its filter row, and the range scopes everything below it: KPIs, chart, log and side panels. Spans over 90 days chart per week, not per day. The Overview's weekly chart shows the last 12 weeks. Day labels always carry the month ("Sep 30"). Web analytics gets no range control: the export fixes one reporting window for both trends and breakdowns, so a control could only move the trend. The window is shown instead. |
-| R-14 | Tinos stays on headline numbers | The `dataviz` guidance puts hero and KPI figures in the sans. The owner's design uses Tinos (the brand's display face, the app's "hero numerals" tier), so it stays, with proportional figures. `tabular-nums` is only for columns and axis ticks. |
+| R-14 | The display face stays on headline numbers | The `dataviz` guidance puts hero and KPI figures in the sans. The owner's design uses the brand's display face (`FONTS.hero`, the app's "hero numerals" tier), so it stays, with proportional figures. `tabular-nums` is only for columns and axis ticks. The face was Tinos when this was decided; since Doberjohn/inkweave#912 it is Marcellus, one weight (400), and on 2026-10-23 the owner chose that admin follows the app. |
 | R-15 | Brand colours stay in charts | The validator (2026-10-01, dark, on the card surface) passes colour-blind and normal-vision separation for the inks, the score bands and the tiers. Their lightness band, and Steel's and the neutral band's chroma, fail. These are the app's fixed entity colours, and every use carries a second cue (ink icons, labels, the legend, the table view), so they stay. Task R1-3b records the validator output. |
 | R-16 | Bar charts print two totals, not every one | Votes per day and the Overview's weekly chart print totals on the newest and the busiest bar only (the kit's `capLabels: 'extremes'`), not the handoff's count over every bar (README §4: total and "N voters"). The `dataviz` rule is to label selectively. Every bar's numbers are in its tooltip, which is also its accessible name, and in the table view. |
 | R-10 | Old routes redirect | `/analytics` → `/` in R1; `/tuning` → `/calibration` in R2; `/reveal` and `/image` → `/studio` (with the right mode) in R4. Skills and runbooks are updated in the phase that moves their route. |
@@ -190,9 +190,9 @@ Each of these overrides the handoff README. The phase that builds the area appli
 | 13px | body, nav items | `FONT_SIZES.base` |
 | 14–15px | emphasised body | `FONT_SIZES.lg` |
 | 16–17px | brand word | `FONT_SIZES.xl` |
-| 22–24px | section headlines (Tinos) | `FONT_SIZES.xxxl` |
-| 26px / 30px / 34px | page titles, KPI values (Tinos) | `FONT_SIZES.displaySm` (28) |
-| 48px | hero number (Tinos) | `FONT_SIZES.displayMd` (38) |
+| 22–24px | section headlines (display face) | `FONT_SIZES.xxxl` |
+| 26px / 30px / 34px | page titles, KPI values (display face) | `FONT_SIZES.displaySm` (28) |
+| 48px | hero number (display face) | `FONT_SIZES.displayMd` (38) |
 | radius 3 | tags | `RADIUS.xs` |
 | radius 5–7 | controls, nav items, marks | `RADIUS.md` |
 | radius 8 | small panels, token box | `RADIUS.lg` |
