@@ -33,6 +33,14 @@ describe('promoCatalog', () => {
     const catalog = {...FIXTURE_CATALOG, [key]: [...others, {...group, variants: undefined}]};
     expect(() => parseCatalog(JSON.stringify(catalog))).toThrow(`a group in "${key}" has no "variants" list`);
   });
+  it.each(['fold', 'noBaseCard'] as const)('refuses a catalog with a printing in %s that is no object, naming it', (key) => {
+    const [group, ...others] = FIXTURE_CATALOG[key];
+    const catalog = {...FIXTURE_CATALOG, [key]: [...others, {...group, variants: [...group.variants, null]}]};
+    expect(() => parseCatalog(JSON.stringify(catalog))).toThrow(`a printing in "${key}" isn't an object`);
+  });
+  it.each(['[]', 'null', '"catalog"'])('refuses a file that is no JSON object (%s), saying so', (text) => {
+    expect(() => parseCatalog(text)).toThrow("it isn't a JSON object");
+  });
   it('names a printing by the code printed on it', () => {
     expect(printingCode({number: 1, promoGrouping: 'P5'})).toBe('1/P5');
     expect(printingCode({number: 24, artVariant: 'A', promoGrouping: 'P2'})).toBe('24A/P2');

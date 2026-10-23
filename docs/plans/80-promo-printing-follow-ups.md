@@ -15,7 +15,7 @@
 
 **Tech Stack:** React 19 (React Compiler), TypeScript, Vitest (`app` project under `src/`, jsdom; `scripts` project under `scripts/`, node), Testing Library, Storybook, ESLint flat config with the app's `inkweave/*` rules.
 
-**Spec:** Doberjohn/inkweave-admin#80's checklist. It was triaged against main 644f163 on 2026-10-23, item by item with file:line evidence, in `C:\Users\johnn\AppData\Roaming\Claude\side-session-notes\local_6246a2ff-8ce4-41cd-8a98-e22a37d398d3\triage-80a.md` and `triage-80b.md`. Read the rows for your task there. The feature itself is [`docs/promo-printings-design.md`](../promo-printings-design.md).
+**Spec:** Doberjohn/inkweave-admin#80's checklist. It was triaged against main 644f163 on 2026-10-23, item by item with file:line evidence. The triage tables stayed in the build session's notes: each task below carries what its rows found. The feature itself is [`docs/promo-printings-design.md`](../promo-printings-design.md).
 
 **The owner's picks (2026-10-23):**
 - Compare `collection/promos.json` without its `imageHash*` keys, as the app's `merge-promos` CLI does.
@@ -73,7 +73,7 @@ Covers:
 - "Nothing guards `promoFixtures.ts` against a `node:` import";
 - the `pinned.ts` comment.
 
-Today a `node:` import in the app's `scripts/lib/*.mjs` passes lint, typecheck, Vitest and `pnpm build` (one warning), then breaks every page (triage-80a, Appendix B).
+Today a `node:` import in the app's `scripts/lib/*.mjs` passes lint, typecheck, Vitest and `pnpm build` (one warning), then breaks every page, as the triage measured with an injected import.
 
 **Files:**
 - Create: `scripts/browser-safety.test.mjs`
@@ -107,7 +107,7 @@ Today a `node:` import in the app's `scripts/lib/*.mjs` passes lint, typecheck, 
   The tests:
 
   ```js
-  const ENTRIES = ['src/main.tsx', ...fs.globSync('src/**/*.stories.tsx')];
+  const ENTRIES = ['src/main.tsx', '.storybook/preview.tsx', ...fs.globSync('src/**/*.stories.{ts,tsx}')];
 
   it('reaches the bridged promo merge and the promo fixtures', () => {
     const {visited} = walk(onDisk(ENTRIES));
@@ -148,7 +148,7 @@ Today a `node:` import in the app's `scripts/lib/*.mjs` passes lint, typecheck, 
 
 ### Task 2: Turn on `inkweave/no-raw-spacing`
 
-Covers "Turn on `inkweave/no-raw-spacing`". It flags 13 places in 7 files. Ten are data keys named `gap`, and three are CSS: two `margin: -1` and a 1px `gap` (triage-80a, Appendix A). The rule reads keys named `padding*`, `margin*`, `gap`, `rowGap` and `columnGap`. Number literals other than 0 are raw; an identifier, or minus an identifier, is fine.
+Covers "Turn on `inkweave/no-raw-spacing`". It flags 13 places in 7 files. Ten are data keys named `gap`, and three are CSS: two `margin: -1` and a 1px `gap`. The rule reads keys named `padding*`, `margin*`, `gap`, `rowGap` and `columnGap`. Number literals other than 0 are raw; an identifier, or minus an identifier, is fine.
 
 **Files:**
 - Modify: `src/theme/adminTheme.ts` (`ADMIN_LAYOUT`)
@@ -226,7 +226,7 @@ Covers these items from "Tidying":
 
 ### Task 4: Share the promo test and story builders
 
-Covers "test and story builders, written twice". There are in fact 4 to 6 copies of each (triage-80b, D1c).
+Covers "test and story builders, written twice". There are in fact 4 to 6 copies of each.
 
 **Files:**
 - Modify: `src/tools/studio/promos/__tests__/promoFixtures.ts`

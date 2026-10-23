@@ -586,9 +586,9 @@ describe('PrintingsPanel: promo printings (#77)', () => {
  */
 describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)', () => {
   /** The panel on the studio's controller for Mother Knows Best; its view stays as given. */
-  function LivePanel({view}: {view: BranchPrintings}) {
+  function LivePanel({view, coreCopy = null}: {view: BranchPrintings; coreCopy?: PromoPrintingsProps['coreCopy']}) {
     const controller = usePrintingForm({token: 't', cardId: '2035'});
-    return <PrintingsPanel view={view} changes={[]} onChoose={() => {}} promos={promosProps({controller})} />;
+    return <PrintingsPanel view={view} changes={[]} onChoose={() => {}} promos={promosProps({controller, coreCopy})} />;
   }
 
   function renderLive(view: BranchPrintings = MKB_READY) {
@@ -715,6 +715,21 @@ describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)
     expect(screen.queryByRole('heading', {level: 3})).toBeNull();
     // No row's Edit opens 13/C3 now: Add a printing, which the form took the place of, takes the focus back.
     await waitFor(() => expect(addButton()).toHaveFocus());
+  });
+
+  it("keeps an edit form whose row went open on a Core copy, and gives its Cancel's focus to the Core copy's link", async () => {
+    const coreCopy = {id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'};
+    const user = userEvent.setup();
+    const {rerender} = render(routed(<LivePanel view={MKB_READY} coreCopy={coreCopy} />));
+    await user.click(edit13());
+    rerender(routed(<LivePanel view={WITHOUT_ROW_13} coreCopy={coreCopy} />));
+
+    // The form keeps its place, where the Core copy's note would be, with its Cancel.
+    expect(screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'Open the Core printing'})).toBeNull();
+    await user.click(screen.getByRole('button', {name: 'Cancel'}));
+    // The note is back, and its link takes the focus, as Add a printing would on a card that offers one.
+    await waitFor(() => expect(screen.getByRole('link', {name: 'Open the Core printing'})).toHaveFocus());
   });
 
   it('puts the edit form back under its row when a read brings the row back, its heading taking the focus that was in it', () => {

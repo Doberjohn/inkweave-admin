@@ -38,9 +38,17 @@ function declaredModule(node) {
   return typeOnly ? undefined : literalText(node.moduleSpecifier);
 }
 
+// TypeScript's `import x = require('…')`, unless it is type-only (`import type x = require('…')`).
+function requiredModule(node) {
+  const {moduleReference} = node;
+  if (node.isTypeOnly || !ts.isExternalModuleReference(moduleReference)) return undefined;
+  return literalText(moduleReference.expression);
+}
+
 // The module a node loads, if it names one with a literal: an import, a re-export, import() or require().
 function specifierOf(node) {
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return declaredModule(node);
+  if (ts.isImportEqualsDeclaration(node)) return requiredModule(node);
   return isLoadCall(node) ? literalText(node.arguments[0]) : undefined;
 }
 
@@ -162,6 +170,7 @@ describe('the walk', () => {
     ],
     ['a re-export', {'a.mjs': "export * from 'node:os';\n"}, [{file: 'a.mjs', specifier: 'node:os'}]],
     ['a require', {'a.js': "const m = require('node:module');\n"}, [{file: 'a.js', specifier: 'node:module'}]],
+    ["TypeScript's import-equals require", {'a.ts': "import fs = require('node:fs');\n"}, [{file: 'a.ts', specifier: 'node:fs'}]],
     [
       'a multi-line import with a comment between its names',
       {'a.mjs': "import {\n  readFileSync, // the sync one\n  writeFileSync,\n} from 'node:fs';\n"},
@@ -177,7 +186,9 @@ describe('the walk', () => {
   });
 
   it('leaves out type-only imports and exports', () => {
-    const files = {'a.ts': "import type {Stats} from 'node:fs';\nexport type {Dirent} from 'node:fs';\n"};
+    const files = {
+      'a.ts': "import type {Stats} from 'node:fs';\nexport type {Dirent} from 'node:fs';\nimport type fs = require('node:fs');\n",
+    };
     expect(walk(inMemory(files, ['a.ts'])).nodeImports).toEqual([]);
   });
 

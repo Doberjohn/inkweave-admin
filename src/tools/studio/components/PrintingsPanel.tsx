@@ -403,13 +403,14 @@ function EditFormItem({kit, row}: {kit: FormKit; row: PrintingRow}) {
 /**
  * On a Sets 1 to 8 copy of a card that Core reprints: the catalog files the card's promos under its
  * Core printing, whose panel adds and edits them, so this one offers no Add a printing and links
- * there. The link names another card, so the studio hands the focus on (useStudioHandoff).
+ * there. The link names another card, so the studio hands the focus on (useStudioHandoff). It sits
+ * where Add a printing does, so a Cancel that finds no Edit to give the focus back to gives it here.
  */
 function CoreCopyNote({coreCopy}: {coreCopy: NonNullable<PromoPrintingsProps['coreCopy']>}) {
   return (
     <p style={NOTE}>
       {`Its promos are filed under its Core printing, ${coreCopy.name}: add and edit them there.`}{' '}
-      <Link to={studioHref('edit', coreCopy.id)} className="adm-link">
+      <Link to={studioHref('edit', coreCopy.id)} className="adm-link" data-opens={ADD_OPENER}>
         Open the Core printing
       </Link>
     </p>
@@ -466,14 +467,23 @@ function Offered({kit, rows}: OfferProps) {
 }
 
 /**
- * What the panel offers under the rows: the Core copy's note; else Add a printing or the form open there,
- * over the line that says what the last publish came to. The line stays mounted, blank, under an open
- * form, so a landed add fills a live region that was there before it, and is heard (CommitOutcome's
- * StatusLine); a publish that closes its form hands the focus to the line.
+ * Whether an edit form is open whose printing no row shows. It stays open where Add a printing would be,
+ * even on a Core copy, where a read of out-of-step files can leave a form opened on one of the copy's rows.
+ */
+function strandsAnEdit({kit, rows}: OfferProps): boolean {
+  const {form} = kit.promos.controller;
+  return form !== null && form.kind === 'edit' && editsNoRow({form, rows});
+}
+
+/**
+ * What the panel offers under the rows: the Core copy's note, unless an edit form whose row went is open;
+ * else Add a printing or the form open there, over the line that says what the last publish came to. The
+ * line stays mounted, blank, under an open form, so a landed add fills a live region that was there before
+ * it, and is heard (CommitOutcome's StatusLine); a publish that closes its form hands the focus to the line.
  */
 function PromoOffer({kit, rows}: OfferProps) {
   const {coreCopy} = kit.promos;
-  if (coreCopy !== null) return <CoreCopyNote coreCopy={coreCopy} />;
+  if (coreCopy !== null && !strandsAnEdit({kit, rows})) return <CoreCopyNote coreCopy={coreCopy} />;
   return (
     <div style={OFFER}>
       <Offered kit={kit} rows={rows} />

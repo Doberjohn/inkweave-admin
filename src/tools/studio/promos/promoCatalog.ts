@@ -121,6 +121,11 @@ function listsItsPrintings(group: unknown): boolean {
   return isRecord(group) && Array.isArray(group.variants);
 }
 
+/** Whether each printing a group lists is an object. Asked only of groups that list their printings. */
+function printingsAreObjects(group: unknown): boolean {
+  return (group as {variants: unknown[]}).variants.every(isRecord);
+}
+
 /**
  * What is wrong with the shape of a parsed catalog, as far as admin reads it, or null where nothing is.
  * It doesn't check `about` or `stats`: nothing reads them as a shape.
@@ -130,18 +135,20 @@ function shapeProblem(file: Record<string, unknown>): string | null {
   if (notAList) return `its "${notAList}" isn't a list`;
   if (!isRecord(file.provisionalIds)) return `its "provisionalIds" isn't an object`;
   const ungrouped = GROUPED.find((key) => !(file[key] as unknown[]).every(listsItsPrintings));
-  return ungrouped ? `a group in "${ungrouped}" has no "variants" list` : null;
+  if (ungrouped) return `a group in "${ungrouped}" has no "variants" list`;
+  const malformed = GROUPED.find((key) => !(file[key] as unknown[]).every(printingsAreObjects));
+  return malformed ? `a printing in "${malformed}" isn't an object` : null;
 }
 
 /**
- * The catalog the text holds. Its shape is checked as far as admin reads it: `fold`, `noBaseCard` and
- * `notes` are lists, `provisionalIds` is an object, and each group lists its printings under `variants`.
- * One that isn't throws an Error that names what is wrong (`its "noBaseCard" isn't a list`), where a read
- * of it further on would throw a bare TypeError.
+ * The catalog the text holds. Its shape is checked as far as admin reads it: the file is a JSON object,
+ * `fold`, `noBaseCard` and `notes` are lists, `provisionalIds` is an object, and each group lists its
+ * printings, each an object, under `variants`. One that isn't throws an Error that names what is wrong
+ * (`its "noBaseCard" isn't a list`), where a read of it further on would throw a bare TypeError.
  */
 export function parseCatalog(text: string): PromoCatalog {
   const parsed: unknown = JSON.parse(text);
-  const problem = shapeProblem(isRecord(parsed) ? parsed : {});
+  const problem = isRecord(parsed) ? shapeProblem(parsed) : "it isn't a JSON object";
   if (problem !== null) throw new Error(problem);
   return parsed as PromoCatalog;
 }

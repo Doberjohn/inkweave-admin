@@ -450,8 +450,9 @@ export interface CatalogGroup {
 }
 
 /**
- * The promo catalog holding these groups: `JSON.stringify(x, null, 2)`, no newline. Its other sections are
- * there and empty, since Card studio's read of the catalog (`parseCatalog`) refuses one that lacks a section.
+ * The promo catalog holding these groups: `JSON.stringify(x, null, 2)`, no newline. The other sections that
+ * Card studio's read of the catalog (`parseCatalog`) checks are there and empty, since it refuses a catalog
+ * that lacks one. `stats` is left out: nothing reads it as a shape.
  */
 export function catalogText(fold: readonly CatalogGroup[] = []): string {
   return JSON.stringify({about: '', fold, noBaseCard: [], provisionalIds: {}, notes: []}, null, 2);
