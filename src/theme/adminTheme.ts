@@ -91,7 +91,7 @@ export const ADMIN_COLORS = {
 } as const;
 
 /**
- * The handoff's type sizes on the app's FONT_SIZES scale (R-5). Tinos sizes
+ * The handoff's type sizes on the app's FONT_SIZES scale (R-5). Display sizes
  * (sectionTitle and up) take FONTS.hero; everything else is the body face.
  */
 export const ADMIN_TYPE = {
