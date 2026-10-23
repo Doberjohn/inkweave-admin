@@ -1,8 +1,8 @@
 # Promo printings: adding and editing them from Card studio
 
 Status: approved by the owner on 2026-10-22, the day it was brainstormed. Two pieces of work follow from it:
-- the app part, Doberjohn/inkweave#904, opened from admin through the GitHub API, which adds Promo Set 5 to the app and documents admin's new path;
-- the admin part, Doberjohn/inkweave-admin#77, built here. Only its last step, the pin bump, needs #904 merged. The plan is [docs/plans/77-promo-printings.md](plans/77-promo-printings.md).
+- the app part, Doberjohn/inkweave#904, opened from admin through the GitHub API, which adds Promo Set 5 to the app and documents admin's new path. It merged on 2026-10-22;
+- the admin part, Doberjohn/inkweave-admin#77, built on the branch `feature/77-promo-printings`, with no PR yet. Its pin bump, past #904's merge, is in. The plan is [docs/plans/77-promo-printings.md](plans/77-promo-printings.md).
 
 ## Why
 
