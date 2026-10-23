@@ -443,7 +443,9 @@ describe('PromoPrintingForm: publishing and cancelling', () => {
     expect(screen.getByLabelText('Scan language')).toBeDisabled();
     for (const button of within(versions()).getAllByRole('button')) expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByLabelText('Click or drop to add the scan')).toBeDisabled();
-    expect(labelOf('Click or drop to add the scan')).toHaveStyle({opacity: '0.4'});
+    // The stylesheet holds a cover whose input is disabled (AdminStyles' :has(input:disabled)): it has no look of its own.
+    expect(labelOf('Click or drop to add the scan')).not.toHaveAttribute('style');
+    expect(labelOf('Click or drop to add the scan').style.opacity).toBe('');
   });
 
   it('reads Publishing…, holds Publish and keeps the form open: Cancel waits for the commit', () => {

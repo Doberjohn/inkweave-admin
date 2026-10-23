@@ -62,7 +62,7 @@ The owner wants Card studio to do this. The owner picks the base card, uploads t
 It lives in Edit card's Printings panel (#68), which every released card has, Sets 1 to 8 included (owner, 2026-10-22):
 
 - **Add a printing.** A button under the rows unfolds the add form under them.
-- **Edit.** Every promo row (`PrintingKind` `promo`) gets an Edit button. It unfolds the same form under that row, filled in from the branch.
+- **Edit.** Every promo row (`PrintingKind` `promo`) gets an Edit button. It unfolds the same form under that row, filled in from the branch. The rows come from `collection/promos.json` and the form from the catalog, so on a branch whose files are out of step a read can drop the row while its form is open: the form then stays open under the rows, where Add a printing sits.
 - The card's own row and its set printings get no Edit.
 - One form is open at a time.
 

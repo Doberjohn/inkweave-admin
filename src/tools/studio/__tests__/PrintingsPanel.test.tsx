@@ -3,7 +3,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
-import {PROMO_SETS} from '../../../app-bridge';
+import {COLORS, PROMO_SETS} from '../../../app-bridge';
 import {pngFile} from '../../../test/images';
 import {PrintingsPanel, type PrintingsPanelProps, type PromoPrintingsProps} from '../components/PrintingsPanel';
 import {
@@ -70,17 +70,18 @@ interface Reading {
 /**
  * The panel as the page runs it: its view is state, and "Read the files again" puts the view back to
  * loading in the press itself, as the hook's retry does, so the press and the loading are one render.
+ * Given `promos`, it runs the printing form too.
  */
-function ReadingPanel({first, ref}: {first: BranchPrintings; ref: Ref<Reading>}) {
+function ReadingPanel({first, promos, ref}: {first: BranchPrintings; promos?: PromoPrintingsProps; ref: Ref<Reading>}) {
   const [view, setView] = useState(first);
   useImperativeHandle(ref, () => ({land: setView}), []);
   const retry = () => setView(LOADING);
-  return <PrintingsPanel view={view.status === 'error' ? {...view, retry} : view} changes={[]} onChoose={vi.fn()} />;
+  return <PrintingsPanel view={view.status === 'error' ? {...view, retry} : view} changes={[]} onChoose={vi.fn()} promos={promos} />;
 }
 
-function renderReading(first: BranchPrintings) {
+function renderReading(first: BranchPrintings, promos?: PromoPrintingsProps) {
   const reading = createRef<Reading>();
-  render(<ReadingPanel first={first} ref={reading} />);
+  render(<ReadingPanel first={first} promos={promos} ref={reading} />);
   return {user: userEvent.setup(), land: (view: BranchPrintings) => act(() => reading.current?.land(view))};
 }
 
@@ -461,6 +462,16 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     expect(controller.openEdit).toHaveBeenCalledExactlyOnceWith({card: MKB_BASE, printing: printingOf(80024)});
   });
 
+  it('keeps a held Edit its resting colour on hover', () => {
+    const {update} = renderPanel({view: {...MKB_READY, refreshing: true}, promos: promosProps()});
+    const edit = screen.getByRole('button', {name: 'Edit Mother Knows Best 13/C3'});
+    fireEvent.mouseEnter(edit);
+    expect(edit).toHaveStyle({color: COLORS.primary});
+    // Once the read lands the Edit is live, and the pointer still on it brightens it.
+    update({view: MKB_READY});
+    expect(edit).toHaveStyle({color: COLORS.primaryHover});
+  });
+
   it('opens the edit form under its row, and hides Add and Edit meanwhile', () => {
     const rows = [MKB_99, MKB_1_C3, {...MKB_13_C3, thumbnail: ART}];
     renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: controllerOf(editForm({id: 80024, card: MKB_BASE}))})});
@@ -531,6 +542,22 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     expect(follows(screen.getByRole('list'), line)).toBe(true);
     // Another printing can be added at once.
     expect(follows(addButton()!, line)).toBe(true);
+  });
+
+  it('keeps the line for the last publish mounted, blank, under an open add form', () => {
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: controllerOf(addForm())})});
+    const form = screen.getByRole('region', {name: 'New printing of Mother Knows Best'});
+    // The form has a status line of its own: the panel's is the one in [data-outcome].
+    const line = document.querySelector('[data-outcome] [role="status"]');
+    expect(line).not.toBeNull();
+    expect(line).toBeEmptyDOMElement();
+    expect(follows(form, line!)).toBe(true);
+
+    // A landed add fills the live region that was there, so a screen reader hears it.
+    const outcome = {result: {commitUrl: COMMIT_URL}, error: null, note: LANDED_NOTE};
+    update({promos: promosProps({controller: controllerOf(null, {outcome})})});
+    expect(screen.getByRole('status')).toBe(line);
+    expect(line).toHaveTextContent(`Committed. View commit. ${LANDED_NOTE}`);
   });
 
   it("keeps a landed publish's outcome in view when the read after it fails", () => {
@@ -640,5 +667,59 @@ describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)
     act(() => addButton()!.focus());
     update({view: {status: 'error', error: FAILED, retry: () => {}}});
     expect(screen.getByRole('button', {name: 'Read the files again'})).toHaveFocus();
+  });
+
+  /*
+   * The rows come from collection/promos.json and an edit form's printing from the catalog, so on a branch
+   * whose files are out of step a read can drop the row of the printing an open form edits. The form stays
+   * open under the rows, where Add a printing sits, so its Cancel is still there.
+   */
+  /** Mother Knows Best's rows once a read of the branch lost 13/C3, which the catalog still has. */
+  const WITHOUT_ROW_13: BranchPrintings = {...MKB_READY, rows: [MKB_99, MKB_1_C3]};
+  const edit13Form = () => controllerOf(editForm({id: 80024, card: MKB_BASE}));
+
+  it('keeps an edit form open under the list when a read drops its row, and its heading takes the focus that was in it', () => {
+    const rows = [MKB_99, MKB_1_C3, {...MKB_13_C3, thumbnail: ART}];
+    const {update} = renderPanel({view: {...MKB_READY, rows}, promos: promosProps({controller: edit13Form()})});
+    act(() => screen.getByLabelText('Number').focus());
+
+    update({view: WITHOUT_ROW_13});
+    const form = screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'});
+    expect(within(screen.getByRole('list')).queryByRole('region')).toBeNull();
+    expect(follows(screen.getByRole('list'), form)).toBe(true);
+    // Where Add a printing would be, over the line for the last publish, and with no row's art to show.
+    expect(follows(form, document.querySelector('[data-outcome]')!)).toBe(true);
+    expect(form.querySelector('img')).toBeNull();
+    expect(screen.getByRole('button', {name: 'Cancel'})).toBeEnabled();
+    expect(heading('Edit 13/C3 · id 80024')).toHaveFocus();
+  });
+
+  it('leaves the focus where it was when a read drops the row of an edit form it was not in', () => {
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: edit13Form()})});
+    const both = within(versionsOf(MKB_99)).getByRole('button', {name: 'Both'});
+    act(() => both.focus());
+
+    update({view: WITHOUT_ROW_13});
+    expect(screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    expect(both).toHaveFocus();
+  });
+
+  it('puts the edit form back under its row when a read brings the row back, its heading taking the focus that was in it', () => {
+    const {update} = renderPanel({view: WITHOUT_ROW_13, promos: promosProps({controller: edit13Form()})});
+    act(() => screen.getByLabelText('Number').focus());
+
+    update({view: MKB_READY});
+    expect(within(itemOf(MKB_13_C3).nextElementSibling as HTMLElement).getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    expect(heading('Edit 13/C3 · id 80024')).toHaveFocus();
+  });
+
+  it('hands the focus to the Printings heading once "Read the files again" lands, though an edit form comes back with the rows', async () => {
+    const failed: BranchPrintings = {status: 'error', error: FAILED, retry: () => {}};
+    const {user, land} = renderReading(failed, promosProps({controller: edit13Form()}));
+    await user.click(screen.getByRole('button', {name: 'Read the files again'}));
+
+    land(MKB_READY);
+    expect(screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 2, name: 'Printings'})).toHaveFocus();
   });
 });

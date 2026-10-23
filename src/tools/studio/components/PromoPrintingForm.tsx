@@ -74,8 +74,6 @@ const CAPTION: CSSProperties = {
   color: ADMIN_COLORS.text,
   textAlign: 'center',
 };
-// A control that takes no file looks off, as the form's other held controls do (AdminStyles' .4).
-const LOCKED: CSSProperties = {opacity: 0.4, cursor: 'not-allowed'};
 // A file name has no break opportunity, and a long one would push the column wider than its 130px.
 const NOTES: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xs, overflowWrap: 'anywhere'};
 // An error in this box, the scan's or Number's, is told as Notice tells one, small: light text on the error fill.
@@ -156,7 +154,7 @@ interface ScanCoverProps {
   caption: string;
   describedBy: string;
   invalid: boolean;
-  /** A publish runs: the control takes no file. */
+  /** A publish runs: the control takes no file, and its input is disabled, which the stylesheet holds it by. */
   locked: boolean;
   onFile: (file: File | null) => void;
 }
@@ -164,7 +162,8 @@ interface ScanCoverProps {
 /**
  * The control over the picture, as the card panel builds its own (StudioCardPanel): a <label> round a
  * visually hidden file input, which carries the focus and rings the label, and takes a dropped file too
- * (useFileDrop). A pick and a drop hand the file to the same place.
+ * (useFileDrop). A pick and a drop hand the file to the same place. While its input is disabled it looks
+ * held, with no ring on hover or under a dragged file: AdminStyles' .adm-file-cover:has(input:disabled).
  */
 function ScanCover({caption, describedBy, invalid, locked, onFile}: ScanCoverProps) {
   const {focused, inputProps} = useHiddenFileInput(onFile);
@@ -174,7 +173,6 @@ function ScanCover({caption, describedBy, invalid, locked, onFile}: ScanCoverPro
       className="adm-file-cover"
       data-focused={focused || undefined}
       data-dragging={dragging || undefined}
-      style={locked ? LOCKED : undefined}
       {...dropProps}>
       <span style={CAPTION}>{caption}</span>
       <input
