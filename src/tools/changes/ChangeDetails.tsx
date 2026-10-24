@@ -2,6 +2,7 @@ import {Link} from 'react-router-dom';
 import {SPACING} from '../../app-bridge';
 import {REPO_URL} from '../../github/githubApi';
 import {FILES_LISTED} from '../../github/githubHistory';
+import {CardLink} from '../../shell/CardLink';
 import {studioHref} from '../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {Tag} from '../../ui/Tag';
@@ -51,13 +52,17 @@ function ValueLine({label, from, to}: Pick<ValueChange, 'label' | 'from' | 'to'>
   );
 }
 
-/** A card's or printing's name, linked to Edit card for the card it is or reprints. */
+/**
+ * A card's or printing's name, linked to Edit card for the card it is or
+ * reprints. The link shows the entry's own art, a printing's included, where
+ * the card list holds it (CardLink).
+ */
 function EntryName({entry}: {entry: EntryChange}) {
   if (entry.cardId === null) return entry.label;
   return (
-    <Link to={studioHref('edit', entry.cardId)} className="adm-link">
+    <CardLink cardId={entry.id} to={studioHref('edit', entry.cardId)}>
       {entry.label}
-    </Link>
+    </CardLink>
   );
 }
 

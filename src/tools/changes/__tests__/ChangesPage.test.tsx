@@ -1,8 +1,10 @@
 import {afterAll, afterEach, beforeAll, describe, expect, it, vi} from 'vitest';
-import {render, screen, waitFor, within} from '@testing-library/react';
+import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import {HISTORY_PAGE, type CommitFiles, type ListedCommit} from '../../../github/githubHistory';
+import {CardArtContext} from '../../../shell/knownCards';
+import {artLookup, shownArt, type ArtById} from '../../../test/cardLinks';
 import {ChangesPage} from '../ChangesPage';
 import {commitOf, listed, stubHistory, type FakeRepo} from './historyHarness';
 
@@ -50,12 +52,17 @@ const REPO: FakeRepo = {
   files: {[`p1:${CATALOG}`]: catalog(D23), [`v1:${CATALOG}`]: catalog({...D23, finishes: ['normal']})},
 };
 
-function renderPage({token = 'tok'}: {token?: string | null} = {}) {
+/** The page under the shell's card art (`art`), with `token` saved, or none for null. */
+function renderPage({token = 'tok', art = {}}: {token?: string | null; art?: ArtById} = {}) {
   if (token !== null) localStorage.setItem(TOKEN_KEY, token);
   const router = createMemoryRouter([{path: '/changes', element: <ChangesPage />}, {path: '*', element: null}], {
     initialEntries: ['/changes'],
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <CardArtContext value={artLookup(art)}>
+      <RouterProvider router={router} />
+    </CardArtContext>,
+  );
   return router;
 }
 
@@ -117,6 +124,17 @@ describe('ChangesPage', () => {
       'https://github.com/Doberjohn/inkweave/commit/v1',
     );
     expect(within(details).getByText(/^Doberjohn ·/)).toHaveTextContent('Doberjohn · 2026-10-22 17:13 · v1 on GitHub');
+  });
+
+  it("shows a printing's own art over its name, not its card's", async () => {
+    const user = userEvent.setup();
+    stubHistory(REPO);
+    renderPage({art: {'1194': '/card-images/1194.avif', '1936': '/card-images/1936.avif'}});
+    await user.click(await screen.findByRole('button', {name: /Set the versions of 1 printing/}));
+    const name = await screen.findByRole('link', {name: 'Bruno Madrigal - Undetected Uncle 4/D23'});
+    act(() => name.focus());
+    expect(shownArt('/card-images/1194.avif')).not.toBeNull();
+    expect(shownArt('/card-images/1936.avif')).toBeNull();
   });
 
   it('offers Forget token when GitHub rejects the token reading a change, and Forget token returns to the gate', async () => {

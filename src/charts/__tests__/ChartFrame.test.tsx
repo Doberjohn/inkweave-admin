@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {ChartFrame, type ChartTable, type ChartView} from '../ChartFrame';
@@ -103,6 +103,24 @@ describe('ChartFrame', () => {
       'Card 999',
     ]);
     expect(within(table).getAllByRole('link')).toHaveLength(1);
+  });
+
+  it("shows a linked cell's art, a card's, while the link has focus", () => {
+    const art = '/card-images/301.avif';
+    const linked: ChartTable = {
+      caption: 'Synergy partners',
+      columns: ['Partner', 'Score'],
+      rows: [[{text: 'Wren Ashdown - Keeper of Keys', href: '/cards/301', art}, '10']],
+    };
+    render(
+      <MemoryRouter>
+        <ChartFrame title="Strongest partners" table={linked} defaultView="table">
+          <div />
+        </ChartFrame>
+      </MemoryRouter>,
+    );
+    act(() => screen.getByRole('link', {name: 'Wren Ashdown - Keeper of Keys'}).focus());
+    expect(document.body.querySelector(`img[src="${art}"]`)).not.toBeNull();
   });
 
   it('scrolls a wide table inside its own box, never the page body', () => {

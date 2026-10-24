@@ -437,7 +437,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
 }) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
-  // A twin's number ends in its id on the banner, and its printings' labels too (#74).
+  // A twin's printings' labels end in its id (#74); the banner shows every card's id.
   const twin = edit.twinIds.has(ready.card.id);
   return (
     <>
@@ -446,7 +446,6 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
           card={ready.card}
           tag={edit.tag ?? 'Released'}
           deployed={edit.deployed}
-          twin={twin}
           handoff={outcomeShowing ? undefined : handoff}
         />
       </div>

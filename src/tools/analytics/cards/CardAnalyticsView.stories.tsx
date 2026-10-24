@@ -1,5 +1,6 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {MemoryRouter} from 'react-router-dom';
+import {CardArtContext} from '../../../shell/knownCards';
 import {studioHref} from '../../../shell/nav';
 import {PageLayout} from '../../../shell/PageLayout';
 import {DataAsOf} from '../../../ui/DataAsOf';
@@ -26,22 +27,28 @@ import {
 /** A phone-width column: every row stacks. */
 const NARROW = 375;
 
+/** Moana - Of Motunui's thumbnail: the one partner here that is a real card with art in the card list. */
+const MOANA_ART = '/card-images/en/set9/20_543357372cf43045db35b608d931b96db1918432.jpg';
+
 const meta: Meta<typeof CardAnalyticsView> = {
   title: 'Admin/Insights/Card analytics/View',
   component: CardAnalyticsView,
   tags: ['autodocs'],
   // The partner and rule links need a router. The view sits under the page's
   // header, as the card page puts it, so the meta line shows DataAsOf once
-  // vote analytics has loaded (R-54). .storybook/preview.tsx mounts AdminStyles.
+  // vote analytics has loaded (R-54), and under the shell's card art, so
+  // Moana's partner link shows her art. .storybook/preview.tsx mounts AdminStyles.
   decorators: [
     (Story, {args}) => (
       <MemoryRouter>
-        <PageLayout
-          title="Card analytics"
-          subtitle="Votes, calibration and engine data for one card"
-          meta={args.analytics?.data ? <DataAsOf generatedAt={args.analytics.data.generatedAt} /> : undefined}>
-          <Story />
-        </PageLayout>
+        <CardArtContext value={(id) => (id === '1012' ? MOANA_ART : undefined)}>
+          <PageLayout
+            title="Card analytics"
+            subtitle="Votes, calibration and engine data for one card"
+            meta={args.analytics?.data ? <DataAsOf generatedAt={args.analytics.data.generatedAt} /> : undefined}>
+            <Story />
+          </PageLayout>
+        </CardArtContext>
       </MemoryRouter>
     ),
   ],

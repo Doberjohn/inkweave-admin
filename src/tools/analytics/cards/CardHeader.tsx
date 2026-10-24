@@ -4,6 +4,7 @@ import {FONTS, InkIcon, RaritySymbol, SPACING, rarityConfigOf, smallImageUrl} fr
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {cardFacts} from '../../../ui/cardFacts';
+import {CardId} from '../../../ui/CardId';
 
 /** The thumbnail's box: the handoff's 64 × 90 (dc.html:578), a card's own proportions. */
 const THUMB_WIDTH = 64;
@@ -55,7 +56,10 @@ function CardRarity({rarity}: {rarity: string | undefined}) {
   );
 }
 
-/** The line under the name: inks (named for a screen reader), rarity, type, cost, inkwell and collector number. */
+/**
+ * The line under the name: inks (named for a screen reader), rarity, type,
+ * cost, inkwell, collector number and the card's id.
+ */
 function CardFacts({card}: {card: LorcanaCard}) {
   return (
     <p style={FACTS}>
@@ -66,6 +70,7 @@ function CardFacts({card}: {card: LorcanaCard}) {
       <CardRarity rarity={card.rarity} />
       <span>{cardFacts(card)}</span>
       {card.setNumber != null && <code>#{card.setNumber}</code>}
+      <CardId id={card.id} />
     </p>
   );
 }

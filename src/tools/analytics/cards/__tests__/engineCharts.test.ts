@@ -35,6 +35,11 @@ function modelOf(fixture: EngineFixture, names = namesOf(fixture)): EngineModel 
 /** One partner the engine names no rule for. */
 const bare = engineFixture([{id: '601', name: 'Quiet Partner', score: 6, rules: []}]);
 
+/** A card list that holds no art: a partner's link previews nothing. */
+const NO_ART = () => undefined;
+/** The card being viewed, as the table's caption names it. */
+const CARD = {fullName: 'Marlowe Finch - Clockmaker'};
+
 /** A full group: 100 partners at `score`, "Tied 001" to "Tied 100", whose names sort as they are numbered. */
 const hundredTied = ({score}: {score: number}) =>
   Array.from({length: 100}, (_, i) => ({id: String(3001 + i), name: `Tied ${String(i + 1).padStart(3, '0')}`, score}));
@@ -245,7 +250,7 @@ describe('networkSubtitle', () => {
 
 describe('partnerTable', () => {
   it('lists every partner, past the twelve drawn, strongest first, with all the tooltip shows', () => {
-    const table = partnerTable(modelOf(ENGINE_FIFTEEN).partners, {fullName: 'Marlowe Finch - Clockmaker'});
+    const table = partnerTable(modelOf(ENGINE_FIFTEEN).partners, CARD, NO_ART);
     expect(table.caption).toBe(
       'Synergy partners of Marlowe Finch - Clockmaker, strongest first (by engine score, then name)',
     );
@@ -264,12 +269,20 @@ describe('partnerTable', () => {
   it("links each partner to its card page, as its node does, so the table's names past the twelve open too (#34)", () => {
     const model = modelOf(ENGINE_FIFTEEN);
     const nodes = partnerNodes(model.partners, namesOf(ENGINE_FIFTEEN));
-    const links = partnerTable(model.partners, {fullName: 'Marlowe Finch - Clockmaker'}).rows.map((row) => row[0]);
+    const links = partnerTable(model.partners, CARD, NO_ART).rows.map((row) => row[0]);
     expect(links).toEqual(nodes.map((node) => ({text: expect.any(String), href: node.href})));
   });
 
   it('prints "—" for a pair with no named rule', () => {
-    const {rows} = partnerTable(modelOf(bare).partners, {fullName: 'Marlowe Finch - Clockmaker'});
+    const {rows} = partnerTable(modelOf(bare).partners, CARD, NO_ART);
     expect(rows).toEqual([[{text: 'Quiet Partner', href: '/cards/601'}, '6', 'Moderate', '—']]);
+  });
+
+  it("gives each partner's link the card list's art for it, and none where the list holds none", () => {
+    const artOf = (id: string) => (id === '301' ? '/card-images/301.avif' : undefined);
+    const links = partnerTable(modelOf(ENGINE_FIFTEEN).partners, CARD, artOf).rows.map((row) => row[0]);
+    const withArt = links.filter((link) => typeof link !== 'string' && link.art !== undefined);
+    expect(withArt).toEqual([{text: 'Wren Ashdown - Keeper of Keys', href: '/cards/301', art: '/card-images/301.avif'}]);
+    expect(links).toHaveLength(15);
   });
 });

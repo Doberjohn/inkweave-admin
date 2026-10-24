@@ -4,6 +4,7 @@ import type {ChartTable} from '../../../charts/ChartFrame';
 import type {TooltipContent, TooltipRow} from '../../../charts/ChartTooltip';
 import {NETWORK_MAX_NODES, type NetworkNode} from '../../../charts/NetworkDiagram';
 import {ringSizes} from '../../../charts/networkLayout';
+import type {CardArt} from '../../../shell/knownCards';
 import {cardsHref} from '../../../shell/nav';
 import {fmtInt, fmtScore} from '../../../ui/format';
 import type {SplitMeterPart} from '../../../ui/SplitMeter';
@@ -198,14 +199,19 @@ export function networkSubtitle(model: EngineModel): string {
 /**
  * The diagram's table view: every partner, not only the drawn ones, with all
  * its tooltip shows. Each name links to its card page, as its node does, so
- * "and K more in the table" leads to partners that open.
+ * "and K more in the table" leads to partners that open, and shows the
+ * partner's art (`artOf`, the card list's) while hovered or focused.
  */
-export function partnerTable(partners: readonly EnginePartner[], card: Pick<LorcanaCard, 'fullName'>): ChartTable {
+export function partnerTable(
+  partners: readonly EnginePartner[],
+  card: Pick<LorcanaCard, 'fullName'>,
+  artOf: CardArt,
+): ChartTable {
   return {
     caption: `Synergy partners of ${card.fullName}, strongest first (by engine score, then name)`,
     columns: ['Partner', 'Score', 'Tier', 'Rules'],
     rows: partners.map((p) => [
-      {text: p.name, href: cardsHref(p.id)},
+      {text: p.name, href: cardsHref(p.id), art: artOf(p.id)},
       engineScoreText(p.score),
       p.tier,
       RULE_LIST.format(p.ruleNames) || '—',

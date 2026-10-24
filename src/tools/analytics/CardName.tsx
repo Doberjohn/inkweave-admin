@@ -1,5 +1,5 @@
-import {Link} from 'react-router-dom';
 import {SPACING, TRUNCATE} from '../../app-bridge';
+import {CardLink} from '../../shell/CardLink';
 import {useIsKnownCard} from '../../shell/knownCards';
 import {cardsHref} from '../../shell/nav';
 
@@ -24,15 +24,16 @@ const LINE: React.CSSProperties = {...TRUNCATE, padding: RING_ROOM, margin: -RIN
  * A card's name: a link to its Card analytics page when the card list holds
  * the id (R-33), plain text otherwise. Most logged votes name a card outside
  * the list (rotated out of Core, or a preview id since released), and /cards
- * could only say it has no such card.
+ * could only say it has no such card. The link shows the card's art while a
+ * mouse rests on it or the keyboard focuses it (CardLink).
  */
 export function CardName({id, name}: {id: string; name: string}) {
   const isKnownCard = useIsKnownCard();
   if (!isKnownCard(id)) return name;
   return (
-    <Link to={cardsHref(id)} className="adm-link">
+    <CardLink cardId={id} to={cardsHref(id)}>
       {name}
-    </Link>
+    </CardLink>
   );
 }
 

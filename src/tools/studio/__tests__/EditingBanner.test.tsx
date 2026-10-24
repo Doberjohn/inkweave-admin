@@ -31,6 +31,16 @@ describe('EditingBanner', () => {
     expect(screen.getByText('preview')).toBeInTheDocument();
   });
 
+  it("shows the card's id after its collector number, selected whole by one click", () => {
+    renderBanner();
+    const id = screen.getByText(MEI.id);
+    expect(id.tagName).toBe('CODE');
+    expect(id.style.userSelect).toBe('all');
+    expect(id.parentElement).toHaveTextContent(`ID ${MEI.id}`);
+    const number = screen.getByText(`#${MEI.setNumber}`);
+    expect(number.compareDocumentPosition(id) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("links to the card's analytics and back to the search, as data links (adm-link)", () => {
     renderBanner();
     const analytics = screen.getByRole('link', {name: 'View card analytics'});
@@ -70,15 +80,13 @@ describe('EditingBanner', () => {
   });
 
   // Set 3's Dalmatian Puppy - Tail Wagger cards are all #4: only their ids tell them apart, as on their search rows (#74).
-  it("ends a twin's number with its id, and no other card's", () => {
+  // Every card's id follows its number here, so a twin's number doesn't end in it as well.
+  it('tells a twin by the id after its number, which the number leaves out', () => {
     const [puppy] = DALMATIANS;
-    renderBanner({card: puppy, tag: 'Released', twin: true});
-    expect(screen.getByText('Set 3 · #4 · id 436').tagName).toBe('CODE');
-    cleanup();
-
     renderBanner({card: puppy, tag: 'Released'});
     expect(screen.getByText('Set 3 · #4').tagName).toBe('CODE');
-    expect(screen.queryByText(/id 436/)).not.toBeInTheDocument();
+    expect(screen.getByText(puppy.id).parentElement).toHaveTextContent(`ID ${puppy.id}`);
+    expect(screen.queryByText(/· id /)).not.toBeInTheDocument();
   });
 
   it('tags a released card', () => {
