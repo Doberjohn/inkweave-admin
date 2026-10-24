@@ -16,7 +16,7 @@ export function artLookup(art: ArtById): CardArt {
  * decoration with no role to find it by, on document.body.
  */
 export function shownArt(art: string): HTMLImageElement | null {
-  return document.body.querySelector<HTMLImageElement>(`img[src="${art}"]`);
+  return [...document.body.querySelectorAll<HTMLImageElement>('img')].find((img) => img.getAttribute('src') === art) ?? null;
 }
 
 /**

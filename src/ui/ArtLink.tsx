@@ -15,6 +15,7 @@ import {useArtPreview} from './useArtPreview';
 const FRAME: CSSProperties = {
   position: 'fixed',
   zIndex: Z_INDEX.popover,
+  boxSizing: 'border-box',
   width: ART_WIDTH,
   height: ART_HEIGHT,
   overflow: 'hidden',
@@ -27,14 +28,29 @@ const FRAME: CSSProperties = {
 
 const IMAGE: CSSProperties = {display: 'block', width: '100%', height: '100%', objectFit: 'cover'};
 
-/** Where the preview of the link in `anchor` goes, kept up to date while the page scrolls or resizes. */
+/** The boxes round the link that clip what they hold: a page's body, a list or a table that scrolls. */
+function clippingBoxes(link: Element): Element[] {
+  const boxes: Element[] = [];
+  for (let box = link.parentElement; box; box = box.parentElement) {
+    const {overflowX, overflowY} = getComputedStyle(box);
+    if (overflowX !== 'visible' || overflowY !== 'visible') boxes.push(box);
+  }
+  return boxes;
+}
+
+/**
+ * Where the preview of the link in `anchor` goes, kept up to date while the
+ * page scrolls or resizes, and nowhere while the link is scrolled out of sight.
+ */
 function useArtPlace(anchor: RefObject<HTMLAnchorElement | null>): ArtPlace | null {
   const [place, setPlace] = useState<ArtPlace | null>(null);
   useLayoutEffect(() => {
     const link = anchor.current;
     if (!link) return;
+    const clips = clippingBoxes(link);
     const reposition = () => {
-      setPlace(artPlacement(link.getBoundingClientRect(), {width: window.innerWidth, height: window.innerHeight}));
+      const viewport = {width: window.innerWidth, height: window.innerHeight};
+      setPlace(artPlacement(link.getBoundingClientRect(), viewport, clips.map((box) => box.getBoundingClientRect())));
     };
     reposition();
     window.addEventListener('resize', reposition);

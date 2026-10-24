@@ -13,8 +13,8 @@ export interface ArtPlace {
   left: number;
 }
 
-/** The link's box, as getBoundingClientRect gives it. */
-type Anchor = Pick<DOMRect, 'top' | 'bottom' | 'left'>;
+/** A box in the window's coordinates, as getBoundingClientRect gives it: the link's, or one round it. */
+type Box = Pick<DOMRect, 'top' | 'bottom' | 'left' | 'right'>;
 
 /** The window's size. */
 interface Viewport {
@@ -25,6 +25,12 @@ interface Viewport {
 /** `value` kept from `min` to `max`, `min` winning when the two cross (a window narrower than the preview). */
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
+/** The window as a box. */
+const windowBox = ({width, height}: Viewport): Box => ({top: 0, bottom: height, left: 0, right: width});
+
+/** Whether boxes `a` and `b` overlap, or touch at an edge. */
+const meets = (a: Box, b: Box) => a.bottom >= b.top && a.top <= b.bottom && a.right >= b.left && a.left <= b.right;
+
 /**
  * Where a link's art preview goes: above the link when the window has room
  * for it there, else below it, kept inside the window; its left edge at the
@@ -32,8 +38,15 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
  * even where the link fills a table cell, so the art sits over the name, and
  * over the same column for every row of a table. It takes no pointer, so
  * where it can't fit either side it may cover its own link.
+ *
+ * Nowhere while none of the link shows: while it is out of the window, or out
+ * of a box that clips it (`clips`: a page's body, a list that scrolls), as a
+ * focused link scrolled away is, so the art never stays on the page without
+ * it. A link that shows even in part keeps its art, and the art above such a
+ * link ends inside the window.
  */
-export function artPlacement(anchor: Anchor, viewport: Viewport): ArtPlace {
+export function artPlacement(anchor: Box, viewport: Viewport, clips: readonly Box[] = []): ArtPlace | null {
+  if (![windowBox(viewport), ...clips].every((box) => meets(anchor, box))) return null;
   const above = anchor.top - GAP - ART_HEIGHT;
   const below = clamp(anchor.bottom + GAP, GAP, viewport.height - GAP - ART_HEIGHT);
   return {

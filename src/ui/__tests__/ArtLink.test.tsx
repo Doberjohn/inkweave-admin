@@ -8,6 +8,7 @@ import {ART_OPEN_DELAY_MS} from '../useArtPreview';
 
 const ART = '/card-images/en/set14/63_un-poco-loco.jpg';
 const MOUSE = {pointerType: 'mouse'};
+const TOUCH = {pointerType: 'touch'};
 
 /** `null` renders the link without art. */
 function renderLink(art: string | null = ART) {
@@ -74,7 +75,7 @@ describe('ArtLink', () => {
 
     it('shows nothing for a touch, whose tap follows the link', () => {
       renderLink();
-      fireEvent.pointerEnter(link(), {pointerType: 'touch'});
+      fireEvent.pointerEnter(link(), TOUCH);
       wait(ART_OPEN_DELAY_MS);
       expect(art()).toBeNull();
     });
@@ -114,6 +115,29 @@ describe('ArtLink', () => {
     expect(art()).not.toBeNull();
   });
 
+  // A browser sends a tap's mouse events, and with them its focus, after the touch ends.
+  it("doesn't show it for the focus a tap gives, which comes after the touch ends", () => {
+    renderLink();
+    fireEvent.pointerDown(link(), TOUCH);
+    fireEvent.pointerUp(link(), TOUCH);
+    act(() => link().focus());
+    expect(art()).toBeNull();
+
+    // The tap's click ends it: the next keyboard focus shows the art.
+    fireEvent.click(link());
+    act(() => link().blur());
+    act(() => link().focus());
+    expect(art()).not.toBeNull();
+  });
+
+  it('shows it on keyboard focus after a press the browser cancelled, as it does a touch that turns into a scroll', () => {
+    renderLink();
+    fireEvent.pointerDown(link(), TOUCH);
+    fireEvent.pointerCancel(link(), TOUCH);
+    act(() => link().focus());
+    expect(art()).not.toBeNull();
+  });
+
   it('hides it on Escape, leaving focus on the link, before anything under it hears the key', async () => {
     const user = userEvent.setup();
     renderLink();
@@ -137,7 +161,7 @@ describe('ArtLink', () => {
     await user.tab();
     expect(preview()?.parentElement).toBe(document.body);
     expect(preview()).toHaveAttribute('aria-hidden', 'true');
-    expect(preview()).toHaveStyle({position: 'fixed', pointerEvents: 'none'});
+    expect(preview()).toHaveStyle({position: 'fixed', pointerEvents: 'none', boxSizing: 'border-box'});
     expect(art()).toHaveAttribute('alt', '');
     expect(link()).toHaveAccessibleName('Un Poco Loco');
   });
@@ -154,6 +178,48 @@ describe('ArtLink', () => {
     box.mockReturnValue(DOMRect.fromRect({x: 300, y: 500, width: 80, height: 20}));
     fireEvent.scroll(container.firstElementChild!);
     expect(preview()).toHaveStyle({top: `${500 - 8 - ART_HEIGHT}px`});
+  });
+
+  it('takes the art away while its focused link is scrolled out of the window, and brings it back with the link', async () => {
+    const user = userEvent.setup();
+    const {container} = renderLink();
+    const box = vi.spyOn(link(), 'getBoundingClientRect');
+    box.mockReturnValue(DOMRect.fromRect({x: 300, y: 400, width: 80, height: 20}));
+    await user.tab();
+    expect(art()).not.toBeNull();
+
+    box.mockReturnValue(DOMRect.fromRect({x: 300, y: -100, width: 80, height: 20}));
+    fireEvent.scroll(container.firstElementChild!);
+    expect(art()).toBeNull();
+    expect(link()).toHaveFocus();
+
+    box.mockReturnValue(DOMRect.fromRect({x: 300, y: 400, width: 80, height: 20}));
+    fireEvent.scroll(container.firstElementChild!);
+    expect(art()).not.toBeNull();
+  });
+
+  it('takes the art away while a box that scrolls round the link hides it, though the window still holds it', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <div data-testid="page-body" style={{overflowY: 'auto'}}>
+          <ArtLink to="/cards/3328" art={ART}>
+            Un Poco Loco
+          </ArtLink>
+        </div>
+      </MemoryRouter>,
+    );
+    const body = screen.getByTestId('page-body');
+    vi.spyOn(body, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({x: 240, y: 64, width: 784, height: 704}));
+    const box = vi.spyOn(link(), 'getBoundingClientRect');
+    box.mockReturnValue(DOMRect.fromRect({x: 300, y: 400, width: 80, height: 20}));
+    await user.tab();
+    expect(art()).not.toBeNull();
+
+    // Scrolled up under the page's header: out of its body, in the window still.
+    box.mockReturnValue(DOMRect.fromRect({x: 300, y: 20, width: 80, height: 20}));
+    fireEvent.scroll(body);
+    expect(art()).toBeNull();
   });
 
   it('takes the preview away when its art fails to load', async () => {

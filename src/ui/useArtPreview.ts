@@ -7,6 +7,19 @@ import {useEffect, useRef, useState, type PointerEvent} from 'react';
 export const ART_OPEN_DELAY_MS = 150;
 
 /**
+ * The events that end a pointer press, after which a focus is the keyboard's
+ * again. A mouse's press ends at its release: the link takes focus as it is
+ * pressed, or never in Safari, so the press can't wait for that focus. A
+ * touch's focus comes after its release, with the mouse events a browser
+ * sends once the touch ends, so a touch's press, and a pen's, ends at its
+ * click. A press the browser cancels (a touch that turns into a scroll) ends
+ * at once.
+ */
+function pressEnds(pointerType: string): string[] {
+  return [pointerType === 'mouse' ? 'pointerup' : 'click', 'pointercancel'];
+}
+
+/**
  * An art preview's open state, the app's tooltip contract for a popover that
  * takes no pointer (the app's overlays.md, and its useTooltip): it opens once
  * a mouse or pen rests on the link for ART_OPEN_DELAY_MS, and at once on
@@ -40,10 +53,6 @@ export function useArtPreview() {
 
   useEffect(() => () => clearTimeout(openTimer.current), []);
 
-  const release = () => {
-    pressing.current = false;
-  };
-
   return {
     open,
     triggerProps: {
@@ -56,11 +65,14 @@ export function useArtPreview() {
         clearTimeout(openTimer.current);
         setHovered(false);
       },
-      // Safari doesn't focus a clicked link, so the flag clears on the pointer's
-      // release, not on a focus it may never get.
-      onPointerDown: () => {
+      onPointerDown: (e: PointerEvent) => {
         pressing.current = true;
-        document.addEventListener('pointerup', release, {once: true});
+        const ended = new AbortController();
+        const release = () => {
+          pressing.current = false;
+          ended.abort();
+        };
+        for (const type of pressEnds(e.pointerType)) document.addEventListener(type, release, {signal: ended.signal});
       },
       onFocus: () => {
         if (!pressing.current) setFocused(true);
