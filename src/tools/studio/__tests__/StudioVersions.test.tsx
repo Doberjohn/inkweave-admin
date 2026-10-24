@@ -5,6 +5,8 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {studioHref} from '../../../shell/nav';
 import {deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {
+  DALMATIANS,
+  DALMATIAN_ENTRIES,
   EMPTY_CATALOG_TEXT,
   NUMBER_223_TO_BOTH,
   NUMBER_223_TO_BOTH_CLASHED,
@@ -306,6 +308,61 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
     expect(within(tray).getByText(LINE_223)).toBeInTheDocument();
     expect(within(tray).queryByText(/#59/)).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Set 3's five Dalmatian Puppy - Tail Wagger cards are all #4, and share their name, version, ink and
+ * rarity (#74). The tray can hold a change for each, so their labels end in their ids: in the panel's
+ * groups, in the tray's lines, and in the names of the buttons that act on them.
+ */
+describe('StudioPage: twin cards in the panel and the tray (#74)', () => {
+  const [PUPPY_436, PUPPY_437] = DALMATIANS;
+  const CHUNK_3 = setChunkPath('3');
+  const LABEL_436 = 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436';
+  const LABEL_437 = 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 437';
+
+  /** The files the twins read: Set 3's chunk, which holds both, and an empty promos.json and catalog. */
+  const PUPPY_FILES: Record<string, Served> = {
+    [CHUNK_3]: collectionText(DALMATIAN_ENTRIES),
+    [PROMOS_PATH]: collectionText([]),
+    [CATALOG_PATH]: EMPTY_CATALOG_TEXT,
+  };
+
+  /** Stages `choice` for the printing `label` names, from its group in the open card's panel. */
+  async function stage({user, label, choice}: {user: UserEvent; label: string; choice: string}) {
+    await user.click(within(await screen.findByRole('group', {name: `Versions of ${label}`})).getByRole('button', {name: choice}));
+  }
+
+  it('names each twin by its id: its versions, its line in the tray and its Revert', async () => {
+    stubStudioRepo({branch: PUPPY_FILES, chunks: {'3': DALMATIAN_ENTRIES}});
+    const {user, router} = renderStudio({path: studioHref('edit', PUPPY_436.id)});
+    await stage({user, label: LABEL_436, choice: 'Foil only'});
+    await act(() => router.navigate(studioHref('edit', PUPPY_437.id)));
+    await stage({user, label: LABEL_437, choice: 'Normal only'});
+
+    const tray = screen.getByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByText(`${LABEL_436}: Both → Foil only`)).toBeInTheDocument();
+    expect(within(tray).getByText(`${LABEL_437}: Both → Normal only`)).toBeInTheDocument();
+    await user.click(within(tray).getByRole('button', {name: `Revert ${LABEL_436}`}));
+    expect(within(tray).queryByText(`${LABEL_436}: Both → Foil only`)).not.toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: `Revert ${LABEL_437}`})).toHaveFocus();
+  });
+
+  it("names a clashed twin's Keep mine and Drop by its id", async () => {
+    stubStudioRepo({
+      branch: PUPPY_FILES,
+      base: {...PUPPY_FILES, [CHUNK_3]: collectionText(withFinishes(DALMATIAN_ENTRIES, {436: ['normal']}))},
+      chunks: {'3': DALMATIAN_ENTRIES},
+    });
+    const {user} = renderStudio({path: studioHref('edit', PUPPY_436.id)});
+    await stage({user, label: LABEL_436, choice: 'Foil only'});
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    await within(tray).findByRole('alert');
+
+    expect(within(tray).getByRole('button', {name: `Keep mine for ${LABEL_436}`})).toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: `Drop ${LABEL_436}`})).toBeInTheDocument();
   });
 });
 

@@ -8,8 +8,9 @@ import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
-import type {SearchRow} from '../editSearch';
-import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {searchCards, twinIdsOf, type SearchRow} from '../editSearch';
+import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {pinnedChunk} from '../promos/__tests__/pinned';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -161,6 +162,33 @@ describe('EditSearch', () => {
       expect(width).toBeGreaterThanOrEqual(Math.ceil(7 * 0.6 * ADMIN_TYPE.small));
       // ...and at most 8px more of the names column than the 44px the number alone had.
       expect(width).toBeLessThanOrEqual(44 + 8);
+    });
+  });
+
+  // Set 3's five Dalmatian Puppy - Tail Wagger cards share name, version, ink, rarity and number, #4: only their ids
+  // tell their rows apart (#74).
+  describe('twins', () => {
+    const twinRow = (card: LorcanaCard): SearchRow => ({card, tag: 'Released', deployed: true, twin: true});
+
+    it('names each of the five by its id after its set and number, so the rows differ by name (the pinned data)', () => {
+      const cards = pinnedChunk('3').filter((card) => card.baseId === undefined);
+      renderSearch(searchCards({cards, query: 'Dalmatian Puppy - Tail Wagger', previewIds: new Set(), twinIds: twinIdsOf(cards)}));
+      const ids = ['436', '437', '438', '439', '440'];
+      const links = screen.getAllByRole('link');
+      expect(links.map((link) => link.getAttribute('href'))).toEqual(ids.map((id) => `/studio?mode=edit&card=${id}`));
+      links.forEach((link, i) => expect(link).toHaveAccessibleName(`Dalmatian Puppy released Tail Wagger Amber Set 3 · #4 · id ${ids[i]}`));
+    });
+
+    it('keeps the id whole, so the cell wraps "Set 3 ·" over "#4 ·" over "id 436", never parting "id" from its number', () => {
+      renderSearch({rows: DALMATIANS.map(twinRow), total: DALMATIANS.length});
+      const id = screen.getByText('id 436');
+      expect(id).toHaveStyle({whiteSpace: 'nowrap'});
+      expect(id.closest('code')).toHaveTextContent(/^Set 3 · #4 · id 436$/);
+    });
+
+    it('names the id alone where the card has no number', () => {
+      renderSearch({rows: [twinRow({...DALMATIANS[0], setNumber: undefined})], total: 1});
+      expect(screen.getByText('id 436').closest('code')).toHaveTextContent(/^id 436$/);
     });
   });
 

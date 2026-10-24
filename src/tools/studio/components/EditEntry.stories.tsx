@@ -7,8 +7,8 @@ import {REVEAL_SET_CODE, SPACING} from '../../../app-bridge';
 import {PageLayout} from '../../../shell/PageLayout';
 import {filterCards} from '../../image/filterCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
-import type {SearchRow} from '../editSearch';
-import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {twinIdsOf, type SearchRow} from '../editSearch';
+import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {
   CURLY_APOSTROPHE_CARD,
   DUAL_INK_ENTRY,
@@ -31,7 +31,8 @@ const PRIYA = cardOf(DUAL_INK_ENTRY);
  * holds), Ming (with an Epic printing) and Miriam (a Japanese scan), Peter Pan’s Shadow (a name
  * printed with ’, which "pan's" finds), the released Lantern Keeper, and Ursula - Deceiver of Set 9,
  * then of Set 3: the same name, version, ink, rarity and number, so the Set 3 row names its set,
- * "Set 3 ·" over "#90" (#68). Type "ursula" to see the two rows together.
+ * "Set 3 ·" over "#90" (#68). Type "ursula" to see the two rows together. Last, two of Set 3's
+ * Dalmatian Puppy - Tail Wagger cards, twins, which only their ids tell apart (#74): type "dalmatian".
  */
 const CARDS: LorcanaCard[] = [
   MEI,
@@ -42,7 +43,11 @@ const CARDS: LorcanaCard[] = [
   RELEASED_CARD,
   URSULA_SET_9,
   URSULA_SET_3,
+  ...DALMATIANS,
 ];
+
+/** The ids of the cards above that have a twin, as the page finds them (twinIdsOf). */
+const TWINS = twinIdsOf(CARDS);
 
 const READY: EditSearchList = {loading: false, error: null, onRetry: () => {}};
 const READ: EditSearchFile = {error: null, onRetry: () => {}};
@@ -53,7 +58,7 @@ const READ: EditSearchFile = {error: null, onRetry: () => {}};
  * has a preview id.
  */
 function rowOf({card, fileRead}: {card: LorcanaCard; fileRead: boolean}): SearchRow {
-  if (card.setCode !== REVEAL_SET_CODE) return {card, tag: 'Released', deployed: true};
+  if (card.setCode !== REVEAL_SET_CODE) return {card, tag: 'Released', deployed: true, twin: TWINS.has(card.id)};
   return {card, tag: fileRead ? 'Preview' : null, deployed: card !== PRIYA};
 }
 

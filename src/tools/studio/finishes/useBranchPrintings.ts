@@ -40,8 +40,11 @@ export type BranchPrintings =
 
 const LOADING: BranchPrintings = {status: 'loading'};
 
-/** What a card's rows are made from, but the card, and the catalog its promos are filed in: the files of its set, parsed. */
-type Files = Omit<PrintingSources, 'card'> & {catalog: PromoCatalog};
+/**
+ * What a card's rows are made from, but the card and whether it has a twin, and the catalog its
+ * promos are filed in: the files of its set, parsed.
+ */
+type Files = Omit<PrintingSources, 'card' | 'twin'> & {catalog: PromoCatalog};
 
 /** How a read of the files ended. */
 type Outcome = {files: Files} | {error: string};
@@ -117,18 +120,32 @@ function settledFromCache({setCode, generation}: {setCode: string; generation: n
   return files && {setCode, generation, outcome: {files}};
 }
 
+/** What the hook reads: the token the files are read with, the card, and whether it has a twin. */
+interface BranchPrintingsInput {
+  token: string;
+  card: LorcanaCard;
+  /** Another card of its set has its full name and number (`twinIdsOf`), so its rows' labels end in their ids (#74). */
+  twin?: boolean;
+}
+
+/** What the hook's view is made from: the read it settled on, how many drops it has seen, and the card it shows. */
+interface ViewInput extends Pick<BranchPrintingsInput, 'card' | 'twin'> {
+  settled: Settled | null;
+  generation: number;
+}
+
 /**
  * What the hook shows of the read it settled on. One of another set is loading. One made before
  * the latest drop of the files is a read under way again: its rows and its catalog stay, marked
  * refreshing, while one that failed has none to keep, so that is loading too.
  */
-function viewOf({settled, generation, card}: {settled: Settled | null; generation: number; card: LorcanaCard}): BranchPrintings {
+function viewOf({settled, generation, card, twin}: ViewInput): BranchPrintings {
   if (settled?.setCode !== (card.setCode ?? '')) return LOADING;
   const {outcome} = settled;
   const current = settled.generation === generation;
   if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
   const {catalog, ...sources} = outcome.files;
-  const rows = printingRowsFor({card, ...sources});
+  const rows = printingRowsFor({card, twin, ...sources});
   return current ? {status: 'ready', rows, catalog} : {status: 'ready', rows, catalog, refreshing: true};
 }
 
@@ -144,8 +161,10 @@ function viewOf({settled, generation, card}: {settled: Settled | null; generatio
  * Card studio mounts the panel anew for each card it opens, so a hook that mounts when the files
  * were read already starts with their rows, and never shows loading for the frame it takes the
  * read to answer from its cache. The read is made all the same, and settles on the same rows.
+ *
+ * A card with a twin (`twin`, #74) reads the same files: only its rows' labels differ.
  */
-export function useBranchPrintings({token, card}: {token: string; card: LorcanaCard}): BranchPrintings {
+export function useBranchPrintings({token, card, twin}: BranchPrintingsInput): BranchPrintings {
   const {setCode = ''} = card;
   const generation = useBranchFilesGeneration();
   const [settled, setSettled] = useState<Settled | null>(() => settledFromCache({setCode, generation}));
@@ -164,5 +183,5 @@ export function useBranchPrintings({token, card}: {token: string; card: LorcanaC
     };
   }, [token, setCode, generation]);
 
-  return viewOf({settled, generation, card});
+  return viewOf({settled, generation, card, twin});
 }

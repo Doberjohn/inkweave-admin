@@ -1,7 +1,7 @@
 import {vi} from 'vitest';
 import type {LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {askedOf, contentsAnswer, type Served} from '../finishes/__tests__/branchHarness';
-import {chunksOf} from '../finishes/__tests__/collectionHarness';
+import {chunksOf, type Chunks} from '../finishes/__tests__/collectionHarness';
 import {SET_4_ENTRIES} from '../finishes/__tests__/finishFixtures';
 import {BASE, stubRepo, type RepoAnswers, type RepoStub} from '../finishes/__tests__/repoHarness';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, VARIANTS_ENTRY, previewFileText} from '../studioFixtures';
@@ -34,21 +34,29 @@ function routeOf(call: Parameters<typeof fetch>): 'page' | 'branch' | 'git' {
   return ref === BASE ? 'git' : 'branch';
 }
 
-/** What the page's repo holds: the data files on the branch, those at the commit a publish builds on, and its ref update. */
+/** Sets 1 to 8 as inkweave.ink serves them, unless a test says otherwise: Set 4's chunk, which holds Yen Sid's entries. */
+const YEN_SID_CHUNKS: Chunks = {'4': SET_4_ENTRIES};
+
+/**
+ * What the page's repo holds: the data files on the branch, those at the commit a publish builds on,
+ * and its ref update; and beside it, the chunks of Sets 1 to 8 that inkweave.ink serves the search.
+ */
 export interface StudioRepo {
   branch: Record<string, Served>;
   base?: Record<string, Served>;
   update?: RepoAnswers['update'];
+  chunks?: Chunks;
 }
 
 /**
  * The page's fetch, and the app's repo besides. The panel reads the data files as `branch` holds
  * them; a publish reads them as `base` holds them, at the commit it builds on, which is how a test
  * has the branch move after the panel read it. The repo answers a commit's git calls, and its ref
- * update as `update` does: by default it moves the branch. Unstub in afterEach (`vi.unstubAllGlobals`).
+ * update as `update` does: by default it moves the branch. The search adds the cards of `chunks`.
+ * Unstub in afterEach (`vi.unstubAllGlobals`).
  */
-export function stubStudioRepo({branch, base = branch, update}: StudioRepo): RepoStub {
-  stubFetch(previewFile, chunksOf({'4': SET_4_ENTRIES}));
+export function stubStudioRepo({branch, base = branch, update, chunks = YEN_SID_CHUNKS}: StudioRepo): RepoStub {
+  stubFetch(previewFile, chunksOf(chunks));
   const page = globalThis.fetch;
   const repo = stubRepo({files: base, update});
   const git = globalThis.fetch;

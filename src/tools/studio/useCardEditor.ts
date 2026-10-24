@@ -8,7 +8,7 @@ import type {ValidationResult} from '../reveal/validateForm';
 import {branchLookup, deployedOf, editSources, isPrintingsOnly, withCollectionCards} from './branchCards';
 import {hasEdits, type ImageOnlyReason} from './cardEdit';
 import {changeRows, type ChangeRow} from './changeRows';
-import type {CardTag} from './editSearch';
+import {twinIdsOf, type CardTag} from './editSearch';
 import {reseeded} from './editSave';
 import {useCollectionOnlyCards, type CollectionOnlyCards} from './finishes/collectionCards';
 import {
@@ -116,6 +116,11 @@ export interface CardEditorController extends EditSave {
   searchCards: LorcanaCard[];
   /** R4-4d (R-66): the ids only the branch file holds, for searchCards' rows. */
   branchOnlyIds: ReadonlySet<number>;
+  /**
+   * #74: the ids of the cards of searchCards that have a twin (twinIdsOf), found once for the two
+   * that name them: the search's rows, and the labels of the open card's printings.
+   */
+  twinIds: ReadonlySet<string>;
   /** R4-4d (R-66): false while the open card is one only the branch file holds; true with none open. */
   deployed: boolean;
   /**
@@ -265,6 +270,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     revertImage: image.revertImage,
     searchCards: list.cards,
     branchOnlyIds: list.branchOnlyIds,
+    twinIds: twinIdsOf(list.cards),
     deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
     printingsOnly: isPrintingsOnly(openCard(lookup)),
     collection,

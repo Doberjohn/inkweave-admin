@@ -10,6 +10,7 @@ import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {numberLabel, type SearchRow} from '../editSearch';
+import {idName} from '../finishes/printingRows';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
@@ -97,8 +98,10 @@ const MARKS: React.CSSProperties = {display: 'flex', justifyContent: 'flex-end',
 // Muted, never dim: the number, and the set before it, tell two cards of one name apart (R-6).
 // It wraps, so a card of Sets 1 to 8 reads "Set 3 ·" over "#90" in NUMBER_WIDTH's 52px, 8px more
 // than a bare number's 44. The row is 64px tall at least, for its thumbnail, so the second line
-// costs no height.
+// costs no height. A twin's id takes a third, which makes its row 6px taller (#74).
 const NUMBER: React.CSSProperties = {textAlign: 'right', whiteSpace: 'normal', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+// A twin's id stays whole: the cell's wrap never parts "id" from the number it names.
+const TWIN_ID: React.CSSProperties = {whiteSpace: 'nowrap'};
 
 /** The card list (useCardDataContext): every row comes from it, so its failure takes the field's place. */
 export interface EditSearchList {
@@ -252,12 +255,34 @@ function Thumb({card}: {card: LorcanaCard}) {
 }
 
 /**
+ * The number's cell: numberLabel's text, then a twin's id (#74), which alone
+ * tells its row from its twins': "Set 3 · #4 · id 436", wrapping as "Set 3 ·"
+ * over "#4 ·" over "id 436".
+ */
+function NumberCell({row}: {row: SearchRow}) {
+  const {card} = row;
+  const number = numberLabel(card);
+  return (
+    <code style={NUMBER}>
+      {number}
+      {row.twin && (
+        <>
+          {number === '' ? '' : ' · '}
+          <span style={TWIN_ID}>{idName(card.id)}</span>
+        </>
+      )}
+    </code>
+  );
+}
+
+/**
  * One match: a link that opens the card in Edit card, drawn as the handoff
  * draws it (README §7): the thumbnail, name and version, inks, rarity and
  * collector number, plus the card's tags. A card of Sets 1 to 8 names its set
  * before the number (numberLabel), so it tells from a Core reprint of itself
- * (#68); the number's cell wraps, the set over the number. The spaces are text
- * nodes of their own, so the link's name reads
+ * (#68); the number's cell wraps, the set over the number. A twin names its id
+ * after the number, "Set 3 · #4 · id 436", as only its id tells it from its
+ * twins (#74). The spaces are text nodes of their own, so the link's name reads
  * "Mei preview Red Panda Ruby #31", or "Ursula released Deceiver Emerald
  * Set 3 · #90": a grid or a flex row draws none of them.
  */
@@ -277,7 +302,7 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
           <CardInks card={card} />
           <RarityMark rarity={card.rarity} />
         </span>{' '}
-        <code style={NUMBER}>{numberLabel(card)}</code>
+        <NumberCell row={row} />
       </Link>
     </li>
   );

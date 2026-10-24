@@ -168,8 +168,9 @@ function CollectionNotice({collection, listFailed, handoff}: CollectionNoticePro
  * the cards only the branch file holds (R-66), the file's first (R-76), and
  * then Sets 1 to 8 (#68), whose notice says when they failed to load, and why.
  * While they are still read, a query that matches nothing says it may match
- * once they are in (#74). The card list's Retry asks for nothing here:
- * StudioPage asks once its error clears. The file's asks once its read lands.
+ * once they are in (#74). A twin's row names its id (#74). The card list's
+ * Retry asks for nothing here: StudioPage asks once its error clears. The
+ * file's asks once its read lands.
  */
 function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: PartProps & {
   query: string;
@@ -182,6 +183,7 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
     query,
     previewIds: edit.previewFile.previewIds,
     branchOnlyIds: edit.branchOnlyIds,
+    twinIds: edit.twinIds,
   });
   return (
     <EditSearch
@@ -271,6 +273,8 @@ interface PrintingsSectionProps extends Pick<EditPaneProps, 'token' | 'printing'
   card: LorcanaCard;
   /** The card is one of Sets 1 to 8 (the controller's printingsOnly): where a Core card reprints it, its promos are that card's. */
   printingsOnly: boolean;
+  /** The card has a twin (the controller's twinIds), so its printings' labels end in their ids (#74). */
+  twin: boolean;
 }
 
 /**
@@ -299,7 +303,7 @@ function usePromoPrintings({card, printing, printingsOnly, onForgetToken}: Omit<
  * studio's printing form, each in a commit of its own (#77).
  */
 function PrintingsSection({token, ...section}: PrintingsSectionProps) {
-  const view = useBranchPrintings({token, card: section.card});
+  const view = useBranchPrintings({token, card: section.card, twin: section.twin});
   const batch = useVersionBatch();
   const promos = usePromoPrintings(section);
   return (
@@ -473,6 +477,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
               token={token}
               printing={printing}
               printingsOnly={edit.printingsOnly}
+              twin={edit.twinIds.has(ready.card.id)}
               onForgetToken={onForgetToken}>
               <EditForm
                 key={resets.formKey}
