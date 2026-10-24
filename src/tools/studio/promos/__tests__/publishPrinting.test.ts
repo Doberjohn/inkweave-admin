@@ -271,7 +271,11 @@ describe('over the pinned app files', () => {
     await expect(publishPrinting({token: 't', change})).resolves.toMatchObject({commitUrl: COMMIT_URL, id, code: '99/P4'});
     const sent = repo.filesSent();
     const all = JSON.parse(sent[ALL_CARDS_PATH]) as {cards: Array<{id: number; variants: Array<{id: number}>}>};
-    expect(all.cards.find((card) => card.id === 2047)?.variants.pop()).toMatchObject({id});
+    // The merge files the printing among the card's others in printing order, so it needn't be the last.
+    const variants = all.cards.find((card) => card.id === 2047)?.variants ?? [];
+    const at = variants.findIndex((variant) => variant.id === id);
+    expect(at).toBeGreaterThanOrEqual(0);
+    variants.splice(at, 1);
     expect(`${JSON.stringify(all, null, 2)}\n`).toBe(pinned[ALL_CARDS_PATH]);
     const promos = (JSON.parse(sent[PROMOS_PATH]) as Array<{id: number}>).filter((promo) => promo.id !== id);
     expect(`${JSON.stringify(promos)}\n`).toBe(pinned[PROMOS_PATH]);

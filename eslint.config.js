@@ -119,6 +119,9 @@ export default tseslint.config(
       'inkweave/no-dim-text': 'error',
       'inkweave/no-unloaded-font-weight': 'error',
       'inkweave/no-raw-spacing': 'error',
+      // Not a token rule: it fails a comment that turns off a react-hooks rule, or a 'use no memo'
+      // directive, either of which lets React Compiler skip code without a word (inkweave#937).
+      'inkweave/no-compiler-opt-out': 'error',
     },
   },
   {

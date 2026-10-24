@@ -18,6 +18,12 @@ importers:
       '@sentry/react':
         specifier: ^11.8.0
         version: 11.8.0(react-router@7.18.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      '@supabase/auth-js':
+        specifier: ^2.118.0
+        version: 2.118.0
+      '@supabase/postgrest-js':
+        specifier: ^2.118.0
+        version: 2.118.0
       '@supabase/supabase-js':
         specifier: ^2.118.0
         version: 2.118.0
