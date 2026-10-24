@@ -226,11 +226,37 @@ describe('VersionsTray: focus (R-48)', () => {
     expect(revertOf(NUMBER_59_TO_FOIL)).toHaveFocus();
   });
 
+  it('moves focus to the heading after Keep mine on a lone change, which stays: no other row is there to take it', async () => {
+    render(<LiveTray initial={[NUMBER_223_TO_BOTH_CLASHED]} />);
+    await userEvent.click(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`}));
+    // The change stays, built on what the branch has now, and its row has Revert in the place of the two.
+    // That Revert is new, so the press cannot hand the focus to it: the heading takes it, never <body>.
+    expect(revertOf(NUMBER_223_TO_BOTH)).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 1'})).toHaveFocus();
+  });
+
   it('leaves focus on Publish when it is pressed: the button stays', async () => {
     renderTray(batchView(THREE));
     const publish = screen.getByRole('button', {name: 'Publish 3 changes to master'});
     await userEvent.click(publish);
     expect(publish).toHaveFocus();
+  });
+
+  it.each([
+    ['the branch moved', RACE],
+    ['GitHub rejected the token', REJECTED],
+  ])('leaves focus on Publish when the publish fails because %s: the failure comes in above the same button', async (_why, error) => {
+    const publish = vi.fn(() => Promise.resolve());
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {publish}));
+    const button = screen.getByRole('button', {name: 'Publish 1 change to master'});
+    await userEvent.click(button);
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH], {publishing: true, publish})));
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH], {error, publish})));
+
+    // The change stays for another try. A rejected token's Forget token comes in too: the focus is not handed to it.
+    expect(screen.getByRole('alert')).toHaveTextContent(error);
+    expect(screen.getByRole('button', {name: 'Publish 1 change to master'})).toBe(button);
+    expect(button).toHaveFocus();
   });
 });
 

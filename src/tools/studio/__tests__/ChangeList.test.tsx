@@ -139,7 +139,7 @@ describe('ChangeList', () => {
     expect(onRevert).not.toHaveBeenCalled();
   });
 
-  // R2's tray (focusAfterRevert): a revert takes its own button with it, so focus moves to a row the list keeps.
+  // R2's tray (focusNearRow): a revert takes its own button with it, so focus moves to a row the list keeps.
   it.each<{name: string; rows: ChangeRow[]; revert: string; focus: string}>([
     {name: "the next row's Revert", rows: ROWS, revert: 'Version', focus: 'Revert Scan language'},
     {name: "the previous row's, for the last row", rows: ROWS, revert: 'Image', focus: 'Revert Scan language'},

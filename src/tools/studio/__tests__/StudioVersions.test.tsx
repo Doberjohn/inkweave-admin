@@ -17,7 +17,7 @@ import {
   collectionText,
   withFinishes,
 } from '../finishes/__tests__/finishFixtures';
-import {COMMIT_URL, moved} from '../finishes/__tests__/repoHarness';
+import {COMMIT_URL, moved, notAFastForward} from '../finishes/__tests__/repoHarness';
 import {CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {clashMessage, versionCommitMessage} from '../finishes/publishVersions';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
@@ -182,6 +182,22 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByText('No version changes')).toBeInTheDocument();
     expect(within(tray).getByRole('button', {name: 'Publish to master'})).toBe(publish);
     expect(publish).toHaveAttribute('aria-disabled', 'true');
+    expect(publish).toHaveFocus();
+  });
+
+  it('leaves the focus on Publish when the branch moves under the publish: the failure comes in above the same button', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES, update: notAFastForward});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+
+    const publish = within(tray).getByRole('button', {name: 'Publish 1 change to master'});
+    await user.click(publish);
+    expect(await within(tray).findByRole('alert')).toHaveTextContent(
+      'master changed while publishing, so nothing was published. Publish again.',
+    );
+    // The change stays for another try, and the button pressed is still the one in the tray, with the focus.
+    expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).toBe(publish);
     expect(publish).toHaveFocus();
   });
 

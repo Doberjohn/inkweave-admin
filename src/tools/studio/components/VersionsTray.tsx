@@ -4,6 +4,7 @@ import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
 import {isRejectedToken} from '../../../github/rejectedToken';
+import {focusNearRow} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {choiceLabel} from '../finishes/finishValues';
@@ -133,22 +134,20 @@ function holdsPublish(view: VersionBatchView): boolean {
 }
 
 /** The tray's heading, which takes focus when no row is left to take it (a press keeps it in the document). */
-function focusHeading(tray: HTMLElement | null) {
-  tray?.querySelector<HTMLElement>('h2')?.focus();
+function headingOf(tray: HTMLElement | null): HTMLElement | null {
+  return tray?.querySelector<HTMLElement>('h2') ?? null;
 }
 
 /**
  * Where focus goes once a row's button is pressed, since the button goes with its row (or, for
- * Keep mine, with the place it had in it), as PendingTray's does: the next row's first button,
- * else the previous row's, else the heading. Every row's buttons are still in the document: the
- * action renders once the click is done.
+ * Keep mine, with the place it had in it), as PendingTray's does (focusNearRow): the next row's
+ * first button, else the previous row's, else the heading. The pressed row is never one of the
+ * rows left, even where it stays: Keep mine's new Revert is not in the document yet. Every other
+ * row's buttons are, since the action renders once the click is done.
  */
 function focusAfterSettled({tray, index}: {tray: HTMLElement | null; index: number}) {
-  const rows = tray?.querySelector('ul')?.children;
-  const neighbour = rows?.[index + 1] ?? rows?.[index - 1];
-  const button = neighbour?.querySelector<HTMLElement>('button');
-  if (button) button.focus();
-  else focusHeading(tray);
+  const rows = Array.from(tray?.querySelector('ul')?.children ?? []).filter((_row, at) => at !== index);
+  focusNearRow({rows, index, fallback: headingOf(tray)});
 }
 
 interface ItemProps {
@@ -403,7 +402,7 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
   };
   const discard = () => {
     setPressed(true);
-    focusHeading(trayRef.current);
+    headingOf(trayRef.current)?.focus();
     view.discard();
   };
   const publish = () => {
