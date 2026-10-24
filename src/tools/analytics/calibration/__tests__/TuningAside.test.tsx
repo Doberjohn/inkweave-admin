@@ -665,6 +665,25 @@ function renderInScroller(selected: CalibrationRow) {
   };
 }
 
+/**
+ * Has the browser answer `:focus-visible` for `control` as `shown` says: true for a focus that came by
+ * keyboard, false for one a press of the mouse gave a control whose focus Chrome hides then (a button).
+ * The aside, as the studio's band does, moves the page only for a focus the browser shows (#86). jsdom
+ * answers by a heuristic (see StudioVersions.test.tsx's showsItsFocus), so each case here says which.
+ */
+function focusShows(control: Element, shown: boolean) {
+  const matches = control.matches.bind(control);
+  vi.spyOn(control, 'matches').mockImplementation((selectors: string) =>
+    selectors === ':focus-visible' ? shown : matches(selectors),
+  );
+}
+
+/** Focuses `control` as a Tab would, its focus shown. */
+function focusByKeyboard(control: HTMLElement) {
+  focusShows(control, true);
+  act(() => control.focus());
+}
+
 describe('TuningAside, the pinned tray', () => {
   it('brings a field that takes focus under the pinned tray up into view (WCAG 2.4.11)', () => {
     const {scrollBy, pin, place} = renderInScroller(RAMP);
@@ -674,13 +693,27 @@ describe('TuningAside, the pinned tray', () => {
     place(title(), 400, 476);
     place(tagline(), 580, 656);
 
-    act(() => title().focus());
+    focusByKeyboard(title());
     expect(scrollBy).not.toHaveBeenCalled();
 
-    act(() => tagline().focus());
+    focusByKeyboard(tagline());
     expect(scrollBy).toHaveBeenCalledOnce();
     // Centred between the header's bottom and the tray's top.
     expect(tagline().getBoundingClientRect()).toMatchObject({top: 322, bottom: 398});
+  });
+
+  it('leaves a field that a press of the mouse focuses half under the tray where it is, under the pointer (#86)', async () => {
+    const {scrollBy, pin, place} = renderInScroller(RAMP);
+    pin(pinnedHead('Playstyle · tuning.json'), 0, 120);
+    pin(pinnedFoot(), 600, 730);
+    place(tagline(), 580, 656);
+    // A focus the browser doesn't show, as Chrome's after a press on a button.
+    focusShows(tagline(), false);
+
+    await userEvent.click(tagline());
+    expect(tagline()).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+    expect(tagline().getBoundingClientRect()).toMatchObject({top: 580, bottom: 656});
   });
 });
 
@@ -713,15 +746,15 @@ describe('TuningAside, the pinned entry header', () => {
     place(title(), 90, 166);
     place(tagline(), 200, 276);
 
-    act(() => tagline().focus());
+    focusByKeyboard(tagline());
     expect(scrollBy).not.toHaveBeenCalled();
 
-    act(() => title().focus());
+    focusByKeyboard(title());
     expect(scrollBy).toHaveBeenCalledOnce();
     expect(title().getBoundingClientRect()).toMatchObject({top: 322, bottom: 398});
 
     // The heading takes focus from the Tune link and the handoffs: it is the header, never under it.
-    act(() => heading.focus());
+    focusByKeyboard(heading);
     expect(scrollBy).toHaveBeenCalledOnce();
   });
 
@@ -732,7 +765,7 @@ describe('TuningAside, the pinned entry header', () => {
     pin(pinnedFoot(), 580, 760);
     place(title(), 300, 380);
 
-    act(() => title().focus());
+    focusByKeyboard(title());
     expect(scrollBy).toHaveBeenCalledOnce();
     const {top, bottom} = title().getBoundingClientRect();
     expect(top).toBeGreaterThanOrEqual(380);
@@ -746,7 +779,7 @@ describe('TuningAside, the pinned entry header', () => {
     pin(pinnedFoot(), 580, 760);
     place(title(), 520, 800);
 
-    act(() => title().focus());
+    focusByKeyboard(title());
     expect(title().getBoundingClientRect()).toMatchObject({top: 380, bottom: 660});
   });
 });

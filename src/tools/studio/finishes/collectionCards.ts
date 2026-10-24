@@ -60,6 +60,24 @@ function snapshot(): Read {
   return read;
 }
 
+/**
+ * How long a chunk has to answer. One that hangs would keep an unknown id loading and the search's "yet"
+ * line up for good (#86), so past this the read fails, naming the chunk, and the search says so.
+ */
+export const CHUNK_TIME_LIMIT_MS = 30_000;
+
+/** What a chunk that hasn't answered in time says, after its address. */
+const NO_ANSWER = `no answer in ${CHUNK_TIME_LIMIT_MS / 1000} s`;
+
+/** `work`, or a failure once CHUNK_TIME_LIMIT_MS has passed without it settling. Its timer goes when it settles. */
+function withinTimeLimit<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(NO_ANSWER)), CHUNK_TIME_LIMIT_MS);
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
 /** A chunk's entries, as the app serves them at `url`. */
 async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
   const res = await fetch(url);
@@ -71,11 +89,12 @@ async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
  * One set's chunk as cards. The app's loader builds them (transformRawCards), so each has its art's
  * URL. A read that fails names the chunk before what it met (#74): "/data/collection/3.json: HTTP
  * 500", a fetch that couldn't reach it, the JSON parser's words where the app answered with its page,
- * or the loader's where the JSON isn't a list of cards.
+ * the loader's where the JSON isn't a list of cards, or "no answer in 30 s" where the chunk, its
+ * headers or its body, took longer than CHUNK_TIME_LIMIT_MS (#86).
  */
 function readChunk(set: string): Promise<LorcanaCard[]> {
   const url = `/data/collection/${set}.json`;
-  return chunkEntries(url)
+  return withinTimeLimit(chunkEntries(url))
     .then(transformRawCards)
     .catch((error: unknown) => {
       throw new Error(`${url}: ${messageOf(error)}`, {cause: error});

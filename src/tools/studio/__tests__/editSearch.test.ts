@@ -5,6 +5,7 @@ import {
   SEARCH_LIMIT,
   cardTag,
   idName,
+  idNameParts,
   namesSet,
   numberLabel,
   previewIdsOf,
@@ -85,6 +86,16 @@ describe('withIdName', () => {
   ])('ends %s with the id', (_, label, expected) => {
     expect(withIdName({label, id: '436'})).toBe(expected);
     expect(expected.endsWith(idName('436'))).toBe(true);
+  });
+});
+
+describe('idNameParts', () => {
+  it.each([
+    ['a number', 'Set 3 · #4', {prefix: 'Set 3 · #4 · ', idPart: 'id 436'}],
+    ['nothing', '', {prefix: '', idPart: 'id 436'}],
+  ])('splits %s and its id where withIdName joins them, so the two never differ', (_, label, parts) => {
+    expect(idNameParts({label, id: '436'})).toEqual(parts);
+    expect(`${parts.prefix}${parts.idPart}`).toBe(withIdName({label, id: '436'}));
   });
 });
 

@@ -2,6 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {act, renderHook, waitFor} from '@testing-library/react';
 import {isCoreSet, type LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {
+  CHUNK_TIME_LIMIT_MS,
   COLLECTION_ONLY_SETS,
   fetchCollectionOnlyCards,
   resetCollectionOnlyCards,
@@ -22,6 +23,7 @@ const askedOf = (fetchMock: {mock: {calls: unknown[][]}}) => fetchMock.mock.call
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('COLLECTION_ONLY_SETS', () => {
@@ -194,6 +196,38 @@ describe('useCollectionOnlyCards', () => {
     expect({status: result.current.status, error: result.current.error}).toEqual({status: 'loading', error: null});
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(result.current.error).toBeNull();
+  });
+
+  // #86: a chunk that hangs would keep an unknown id loading, and the search's "yet" line up, for good.
+  it('fails a chunk that has not answered in 30 s, naming it, and the search can say so', async () => {
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
+    const answer = chunksOf({'4': SET_4_ENTRIES});
+    stubChunks((set) => (set === '3' ? new Promise<Response>(() => {}) : answer(set)));
+    const {result} = renderHook(() => useCollectionOnlyCards());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHUNK_TIME_LIMIT_MS - 1);
+    });
+    expect(result.current.status).toBe('loading');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect({status: result.current.status, error: result.current.error}).toEqual({
+      status: 'error',
+      error: '/data/collection/3.json: no answer in 30 s',
+    });
+    expect(CHUNK_TIME_LIMIT_MS).toBe(30_000);
+  });
+
+  it('keeps a chunk that answers in time, and leaves no timer behind', async () => {
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
+    stubChunks(chunksOf({'4': SET_4_ENTRIES}));
+    const {result} = renderHook(() => useCollectionOnlyCards());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.status).toBe('ready');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('says error again when the retry fails too', async () => {

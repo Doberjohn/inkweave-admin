@@ -129,6 +129,11 @@ const COMMIT_LINK: CSSProperties = {color: ADMIN_COLORS.accent};
 /** What a landed publish tells the owner about when the printings show in the binder (on master: the app's deploy). */
 const LIVE_NOTE = 'They show in the binder once the app has deployed: on staging only, for now.';
 
+/** The words of Publish while a publish runs: how many changes it sent ("Publishing 2 changes…", #86). */
+function publishingLabel(sending: number): string {
+  return `Publishing ${numberOfChanges(sending)}…`;
+}
+
 /** What a clash says of a printing the branch no longer holds in its primary home. */
 const GONE = 'No longer in the data.';
 
@@ -423,7 +428,7 @@ function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: Publ
         aria-disabled={holdsPublish(view) || undefined}
         aria-describedby={describedBy}
         onClick={onPublish}>
-        {view.publishing ? 'Publishing…' : publishLabel(view.changes.length)}
+        {view.publishing ? publishingLabel(view.sending) : publishLabel(view.changes.length)}
       </CtaButton>
       <PublishStatus result={view.result} />
     </div>

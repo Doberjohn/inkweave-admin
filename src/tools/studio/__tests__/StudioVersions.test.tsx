@@ -445,7 +445,7 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
     const batch = renderHook(() => useVersionBatch());
     const tray = await publish223(user);
-    expect(within(tray).getByRole('button', {name: 'Publishing…'})).toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: 'Publishing 1 change…'})).toBeInTheDocument();
 
     for (const choice of choicesIn(panel())) expect(choice).toHaveAttribute('aria-disabled', 'true');
     const foil59 = within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'});

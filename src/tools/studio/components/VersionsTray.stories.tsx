@@ -69,7 +69,7 @@ export const Clash: Story = {args: {view: batchView([NUMBER_223_TO_BOTH_CLASHED,
 /** The branch no longer has #59 where the app keeps it: there is nothing to keep, so its row offers Drop alone. */
 export const Gone: Story = {args: {view: batchView([NUMBER_59_TO_FOIL_GONE, NUMBER_223_TO_BOTH])}};
 
-/** A publish is under way: Publish reads Publishing…, and no change can be taken back, as the publish has them. */
+/** A publish is under way: Publish reads Publishing 2 changes…, the count it sent, and no change can be taken back, as the publish has them. */
 export const Publishing: Story = {args: {view: batchView(TWO_CHANGES, {publishing: true})}};
 
 /** The publish landed: the batch is empty, and the line says how many changes went and links the commit. */

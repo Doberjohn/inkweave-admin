@@ -131,6 +131,8 @@ export function batchView(changes: readonly VersionChange[], rest: Partial<Versi
   return {
     changes,
     publishing: false,
+    // A publish under way sent the changes the view holds, unless `rest` says another count.
+    sending: rest.publishing === true ? changes.length : 0,
     result: null,
     error: null,
     unsaved: false,

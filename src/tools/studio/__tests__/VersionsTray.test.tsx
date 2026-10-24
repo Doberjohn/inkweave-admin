@@ -579,18 +579,24 @@ describe('VersionsTray: publishing', () => {
     expect(publish).toHaveBeenCalledExactlyOnceWith('token-abc');
   });
 
-  it('reads Publishing… and holds Publish while a publish is under way', async () => {
+  it('reads Publishing 1 change… and holds Publish while a publish is under way', async () => {
     const publish = vi.fn(() => Promise.resolve());
     renderTray(batchView([NUMBER_223_TO_BOTH], {publishing: true, publish}));
-    const button = screen.getByRole('button', {name: 'Publishing…'});
+    const button = screen.getByRole('button', {name: 'Publishing 1 change…'});
     expect(button).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(button);
     expect(publish).not.toHaveBeenCalled();
   });
 
+  it('names the count the publish sent, not what the batch holds since (#86)', () => {
+    // Another tab emptied the batch under the publish: it still writes the two it sent.
+    renderTray(batchView([], {publishing: true, sending: 2}));
+    expect(screen.getByRole('button', {name: 'Publishing 2 changes…'})).toBeInTheDocument();
+  });
+
   it('holds every other button while a publish is under way, as it has the changes it sent', () => {
     renderTray(batchView([NUMBER_209_TO_BOTH, NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL_GONE], {publishing: true}));
-    const held = screen.getAllByRole('button').filter((button) => button.textContent !== 'Publishing…');
+    const held = screen.getAllByRole('button').filter((button) => button.textContent !== 'Publishing 3 changes…');
     expect(held.map((button) => button.textContent)).toEqual(['Discard all', 'Revert', 'Keep mine', 'Drop', 'Drop']);
     held.forEach((button) => expect(button).toBeDisabled());
   });
