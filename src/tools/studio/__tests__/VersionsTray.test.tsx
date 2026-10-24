@@ -341,7 +341,7 @@ describe('VersionsTray: the landing in view (#86)', () => {
     land();
     expect(footOf()).toHaveStyle({position: 'sticky'});
 
-    act(() => (document.activeElement as HTMLElement).blur());
+    await act(async () => (document.activeElement as HTMLElement).blur());
     expect(footOf().style.position).toBe('');
   });
 
@@ -356,6 +356,26 @@ describe('VersionsTray: the landing in view (#86)', () => {
     expect(footOf()).toHaveStyle({position: 'sticky'});
     // Another tab publishes it, and this tab's last landing shows: nothing pressed here holds the foot.
     rerender(trayElement(batchView([], {result: LANDED})));
+    expect(footOf().style.position).toBe('');
+  });
+
+  it('keeps the hold while the window loses the focus: another app, or View commit in a new tab', async () => {
+    const user = userEvent.setup();
+    const {running, land} = renderPressed();
+    await user.click(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
+    running();
+    land();
+    // The window's blur fires a focusout with no related target, and the document keeps its active element.
+    const button = screen.getByRole('button', {name: /^Publish/});
+    await act(async () => button.dispatchEvent(new FocusEvent('focusout', {bubbles: true, relatedTarget: null})));
+    expect(button).toHaveFocus();
+    expect(footOf()).toHaveStyle({position: 'sticky'});
+  });
+
+  it('holds nothing for a press of a held Publish: it publishes nothing', async () => {
+    const user = userEvent.setup();
+    renderTray(batchView([], {result: LANDED}));
+    await user.click(screen.getByRole('button', {name: /^Publish/}));
     expect(footOf().style.position).toBe('');
   });
 

@@ -428,13 +428,19 @@ function stagedSince({view, pressedOver}: {view: VersionBatchView; pressedOver: 
  * Whether a press of Publish keeps the foot pinned as its publish lands (#86). It starts with the press,
  * holding the batch it was pressed over, and ends as the focus leaves the foot (a focusout to anywhere
  * outside it, the page's <body> included), or as a change is staged into another batch with no publish
- * running, which pins the foot again anyway. It never moves the focus (R-48).
+ * running, which pins the foot again anyway. The window losing the focus (another app, or View commit's
+ * new tab) is no leaving: the focus comes back to the foot. It never moves the focus (R-48).
  */
 function useLandingHold(view: VersionBatchView) {
   const [pressedOver, setPressedOver] = useState<readonly VersionChange[] | null>(null);
   if (pressedOver !== null && stagedSince({view, pressedOver})) setPressedOver(null);
+  // Where the focus went is the document's active element once the focusout is done: the window losing the
+  // focus leaves it where it was, in the foot.
   const onBlur = (event: FocusEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPressedOver(null);
+    const foot = event.currentTarget;
+    queueMicrotask(() => {
+      if (!foot.contains(document.activeElement)) setPressedOver(null);
+    });
   };
   return {held: pressedOver !== null, hold: () => setPressedOver(view.changes), onBlur};
 }
@@ -455,7 +461,8 @@ function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: Publ
   const landing = useLandingHold(view);
   const pinned = asksToPin({view, held: landing.held}) && fits;
   const press = () => {
-    landing.hold();
+    // A held Publish publishes nothing, so its press holds nothing either.
+    if (!holdsPublish(view)) landing.hold();
     onPublish();
   };
   return (

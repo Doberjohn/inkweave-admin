@@ -40,6 +40,11 @@ export interface FootRefs {
   page?: RefObject<HTMLElement | null>;
 }
 
+/** The last fit where the new one measures the same, else the new one. */
+function sameFit(last: FootFit, next: FootFit): FootFit {
+  return last.foot === next.foot && last.view === next.view ? last : next;
+}
+
 /**
  * Whether the foot fits under half its scroller's view (pinsInView), measured as the studio measures its
  * root: a ResizeObserver on the foot, as its notices come and go, and on its scroller, as the window or
@@ -52,7 +57,9 @@ export function useFootFits({own, page}: FootRefs): boolean {
     const foot = own.current ?? page?.current ?? null;
     if (foot === null || typeof ResizeObserver === 'undefined') return;
     const scroller = scrollerOf(foot);
-    const measure = () => setFit({foot: foot.getBoundingClientRect().height, view: viewHeightOf(scroller)});
+    // A measure that finds the same heights keeps the state it has, so it renders nothing again.
+    const measure = () =>
+      setFit((last) => sameFit(last, {foot: foot.getBoundingClientRect().height, view: viewHeightOf(scroller)}));
     // The observer reports each box as it starts observing, but only in a frame the page renders: a page
     // that isn't drawn (a hidden pane, a background tab) gets none, so the first measure is taken here.
     measure();
