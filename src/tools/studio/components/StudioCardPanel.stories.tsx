@@ -56,6 +56,13 @@ export const DualInk: Story = {args: {card: {...PANEL_CARD, ink2: 'Sapphire'}}};
 export const EditCurrent: Story = {args: {mode: 'edit', card: CURRENT, current: CURRENT}};
 
 /**
+ * Edit with no image control (#68), as a card of Sets 1 to 8 opens: its art is Ravensburger's, so the
+ * panel draws the art and the caption alone. As EditCurrent, but no pill over the preview, no Replace
+ * card image, no formats hint and no drop target.
+ */
+export const EditNoImageControl: Story = {args: {mode: 'edit', card: CURRENT, current: CURRENT, imageControl: false}};
+
+/**
  * Holds a scan from the desktop over the file control `selector` names, as a
  * drag that hasn't dropped: it shows the drop target (data-dragging). The held
  * drag never leaves, so the target stays lit until a drag ends: a file dropped
