@@ -40,6 +40,8 @@ const meta: Meta<typeof PrintingsPanel> = {
   title: 'Admin/Publish/Card studio/Printings panel',
   component: PrintingsPanel,
   tags: ['autodocs'],
+  // A builder the Edit entry stories share, not a story.
+  excludeStories: ['promosOf'],
   // In a router, as the studio renders it: a Core copy's note links to that card (#77).
   decorators: [
     (Story) => (
@@ -58,10 +60,10 @@ type Story = StoryObj<typeof meta>;
 /** Yen Sid - Powerful Sorcerer, a card of Set 4: #59 and the Enchanted follow their rarity, and the alt foil's data names Foil only. */
 export const YenSid: Story = {};
 
-/** The owner made the alt foil Both: its row shows the choice and "Pending", and the other rows are as they were. */
+/** The owner made the alt foil Both: its row shows the choice and "pending", and the other rows are as they were. */
 export const PendingChange: Story = {args: {changes: [NUMBER_223_TO_BOTH]}};
 
-/** A publish found the alt foil changed on the branch since the change was staged: it keeps the owner's choice, marked "Clash". */
+/** A publish found the alt foil changed on the branch since the change was staged: it keeps the owner's choice, marked "clash". */
 export const Clash: Story = {args: {changes: [NUMBER_223_TO_BOTH_CLASHED]}};
 
 /** A card of a Core set with two Challenge Set 3 promos: Normal only and Foil only, named by their promo codes. */
@@ -79,7 +81,7 @@ function ChoosingPanel() {
   );
 }
 
-/** The panel live: each choice joins the batch, as the studio's does, and shows "Pending" until the printing is back to what it showed. */
+/** The panel live: each choice joins the batch, as the studio's does, and shows "pending" until the printing is back to what it showed. */
 export const Choosing: Story = {render: () => <ChoosingPanel />};
 
 /** The branch's files are being read. The heading stays, so the panel does not jump when the rows come. */
@@ -134,9 +136,13 @@ const MKB_READY: BranchPrintings = {status: 'ready', rows: MKB_ROWS, catalog: FI
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/published';
 const noop = () => {};
 
-/** What the panel gets for Mother Knows Best's promos, with `controller`. */
-function promosOf(controller: PrintingFormController): PromoPrintingsProps {
-  return {controller, card: MKB_BASE, coreCopy: null, promoSets: promoSetOptions(PROMO_SETS), onForgetToken: noop};
+/**
+ * What the panel gets for a card's promos (#77), as EditPane hands them over: `controller`'s form, the
+ * card as the catalog files its promos (Mother Knows Best unless another is given), the app's promo
+ * sets at admin's pin, newest first, and a Forget token that does nothing. Edit entry's stories use it too.
+ */
+export function promosOf(controller: PrintingFormController, card: BaseCard = MKB_BASE): PromoPrintingsProps {
+  return {controller, card, coreCopy: null, promoSets: promoSetOptions(PROMO_SETS), onForgetToken: noop};
 }
 
 /** A form as it opens: an add of `card`, or the edit of `printing`, filled in from the branch's catalog. */

@@ -20,6 +20,9 @@ const ALT_FOIL_TO_BOTH = changeFor({row: ALT_FOIL_223, choice: 'both'});
 const CARD_TO_FOIL = changeFor({row: CARD_59, choice: 'foil'});
 const ENCHANTED_TO_BOTH = changeFor({row: ENCHANTED_209, choice: 'both'});
 
+/** What a publish of #223's change says once it landed: its commit, and the change it sent, which the panel shows until it reads the branch again. */
+const ALT_FOIL_LANDED = {commitUrl: COMMIT_URL, count: 1, published: [ALT_FOIL_TO_BOTH]};
+
 /** #223's change under another id, its ref's included, so a stored entry made from it fails only the check a test spoils. */
 const underId = (id: string) => ({...ALT_FOIL_TO_BOTH, id, ref: {...ALT_FOIL_TO_BOTH.ref, id}});
 
@@ -557,6 +560,9 @@ const ALT_FOIL_CLASH = {id: '946', now: ['normal'], shownNow: ['normal']};
 /** commitFiles' refusal when the branch moved under the publish. */
 const RACE = 'master changed while publishing, so nothing was published. Publish again.';
 
+/** What a publish that didn't land says once another tab published or reverted the changes first. */
+const NOTHING = 'Nothing was published: these changes were published or reverted in another tab.';
+
 /** What a test reads the batch through: renderHook's result. */
 type View = {readonly current: VersionBatchView};
 
@@ -607,7 +613,8 @@ describe('publishing', () => {
     await settled(publishing, held.moveBranch);
     expect(view.current.changes).toEqual([CARD_TO_FOIL]);
     expect(view.current.publishing).toBe(false);
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    // It says what it sent, not what was staged meanwhile: the panel shows that until it has read the branch again (#74).
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
     expect(view.current.error).toBeNull();
     expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL]});
     // It sent what was staged when it started, with the owner's token, and the panel reads the branch again.
@@ -625,7 +632,7 @@ describe('publishing', () => {
     await settled(publishing, held.moveBranch);
     // The branch holds Both for #223 now, so the change that asks for Normal only starts from there.
     expect(view.current.changes).toEqual([{...normal, from: BOTH, shownFrom: BOTH}]);
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
   });
 
   it('marks the clash of a change chosen again after the branch moved, on the first staging’s base, and holds the publish', async () => {
@@ -695,7 +702,8 @@ describe('publishing', () => {
     expect(result.current.changes).toBe(before);
     expect(result.current.publishing).toBe(false);
     expect(result.current.result).toBeNull();
-    // Only a publish that landed, or that found a clash, has the panel read the branch again.
+    // A publish that keeps its batch has the panel read nothing again: only one that landed, found a clash, or
+    // found its batch emptied by another tab does.
     expect(generation.result.current).toBe(0);
   });
 
@@ -729,7 +737,7 @@ describe('publishing', () => {
 
     await settled(publishing, held.moveBranch);
     expect(repo.writes()).toEqual(['POST git/blobs', 'POST git/trees', 'POST git/commits', 'PATCH git/refs/heads/master']);
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
   });
 
   it('does nothing with nothing staged, nor while a clash is open', async () => {
@@ -759,7 +767,7 @@ describe('publishing', () => {
 
     await settled(publishing, held.moveBranch);
     expect(result.current.changes).toEqual([]);
-    expect(result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(result.current.result).toEqual(ALT_FOIL_LANDED);
   });
 
   it('forgets the publish that landed once the next one starts', async () => {
@@ -776,7 +784,7 @@ describe('publishing', () => {
 
     await settled(again, second.moveBranch);
     expect(view.current.changes).toEqual([]);
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1, published: [CARD_TO_FOIL]});
   });
 });
 
@@ -808,7 +816,7 @@ describe('what the last publish said', () => {
 
   it.each(EDITS)('forgets the publish that landed once the owner %s', async (_what, edit) => {
     const view = await afterLanding();
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
     act(() => edit(view.current));
     expect(view.current.result).toBeNull();
   });
@@ -823,7 +831,7 @@ describe('what the last publish said', () => {
   it('keeps the publish that landed when the owner keeps a change', async () => {
     const view = await afterLanding();
     act(() => view.current.keep(CARD_TO_FOIL.id));
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
   });
 
   it('clears the mark and says nothing else when the owner keeps the clashed change', async () => {
@@ -895,8 +903,8 @@ describe('the outcome of a publish and the token that made it', () => {
     const {a, b, anyone} = readers();
     await publishWith('a', a.result);
 
-    expect(a.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
-    expect(anyone.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(a.result.current.result).toEqual(ALT_FOIL_LANDED);
+    expect(anyone.result.current.result).toEqual(ALT_FOIL_LANDED);
     expect(b.result.current.result).toBeNull();
   });
 
@@ -907,7 +915,7 @@ describe('the outcome of a publish and the token that made it', () => {
 
     stubRepo({files: SET_4_FILES});
     await act(() => b.result.current.publish('b'));
-    expect(b.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(b.result.current.result).toEqual(ALT_FOIL_LANDED);
     expect(a.result.current.result).toBeNull();
     expect(a.result.current.error).toBeNull();
   });
@@ -934,7 +942,7 @@ describe('the outcome of a publish and the token that made it', () => {
     await settled(publishing, held.moveBranch);
     expect(b.result.current.publishing).toBe(false);
     // It landed under 'a': the outcome is a's.
-    expect(a.result.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(a.result.current.result).toEqual(ALT_FOIL_LANDED);
     expect(b.result.current.result).toBeNull();
   });
 });
@@ -950,7 +958,7 @@ describe('a publish and other tabs', () => {
     act(() => view.current.stage(ENCHANTED_TO_BOTH));
     await settled(publishing, held.moveBranch);
     expect(view.current.changes).toEqual([CARD_TO_FOIL, ENCHANTED_TO_BOTH]);
-    expect(view.current.result).toEqual({commitUrl: COMMIT_URL, count: 1});
+    expect(view.current.result).toEqual(ALT_FOIL_LANDED);
     expect(saved()).toEqual({v: 1, changes: [CARD_TO_FOIL, ENCHANTED_TO_BOTH]});
   });
 
@@ -982,6 +990,32 @@ describe('a publish and other tabs', () => {
     expect(generation.result.current).toBe(1);
   });
 
+  it('says nothing was published when another tab emptied the batch while a publish failed', async () => {
+    const late = deferredResponse();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    // Another tab publishes #223's change, or reverts it, and saves the batch without it.
+    otherTabSaves([]);
+
+    // The branch moved under the publish. Its own words would ask to publish again a batch that holds nothing.
+    await settled(publishing, () => late.respond(notAFastForward()));
+    expect(view.current.error).toBe(NOTHING);
+    expect(view.current.changes).toEqual([]);
+    expect(view.current.result).toBeNull();
+    expect(view.current.publishing).toBe(false);
+  });
+
+  it('reads the branch again when another tab emptied the batch while a publish failed, as that tab’s publish moved it (#74)', async () => {
+    const late = deferredResponse();
+    const {publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    const generation = renderHook(() => useBranchFilesGeneration());
+    // Another tab publishes #223's change and saves the batch without it.
+    otherTabSaves([]);
+
+    await settled(publishing, () => late.respond(notAFastForward()));
+    // As after a clash: the panel's rows are from before that tab's publish.
+    expect(generation.result.current).toBe(1);
+  });
+
   it('marks the clashes it finds a change for, and says nothing else, when another tab took out only some', async () => {
     const late = deferredResponse();
     const files = {[CHUNK_4]: () => late.response};
@@ -1007,6 +1041,19 @@ describe('a publish and other tabs', () => {
 
     await settled(publishing, () => late.respond(new Response(SET_4_ALT_FOIL_NORMAL[CHUNK_4])));
     expect(saved()).toEqual({v: 1, changes: [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL]});
+  });
+
+  it('takes in what another tab saved while no component listened, before it says why a publish failed', async () => {
+    const late = deferredResponse();
+    const {page, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    page.unmount();
+    // Another tab publishes #223's change and saves the batch without it. No component listens here, so no event
+    // reaches the store.
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: []}));
+
+    await settled(publishing, () => late.respond(notAFastForward()));
+    const {result} = renderHook(() => useVersionBatch());
+    expect({error: result.current.error, changes: result.current.changes}).toEqual({error: NOTHING, changes: []});
   });
 
   it('keeps a change storage refused to save when the publish lands, rather than read storage back', async () => {

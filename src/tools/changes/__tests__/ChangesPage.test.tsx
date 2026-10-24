@@ -89,8 +89,8 @@ describe('ChangesPage', () => {
     ]);
     // A commit that changed two paths is one change with both tags.
     const reveal = screen.getByRole('button', {name: /Add Chemical Reaction/});
-    expect(within(reveal).getByText('Preview cards')).toBeInTheDocument();
-    expect(within(reveal).getByText('Scans')).toBeInTheDocument();
+    expect(within(reveal).getByText('preview cards')).toBeInTheDocument();
+    expect(within(reveal).getByText('scans')).toBeInTheDocument();
     expect(screen.getByText('4 changes')).toBeInTheDocument();
     // Each followed path's first page, from the branch admin writes to.
     expect(stub.asked().filter((asked) => asked.startsWith('/commits?'))).toHaveLength(6);

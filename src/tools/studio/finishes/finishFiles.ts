@@ -7,6 +7,8 @@ import type {PrintingFinishes} from 'inkweave-synergy-engine';
  * shows only the entries that changed. `finishes` is always an entry's last key, so a write
  * deletes the key before it assigns it. The round trip over the pinned app files, in the test
  * beside this, is what holds each format to the app's: a pin bump that changes one fails it.
+ * A file whose text has drifted from its format (a newline added or dropped at the end by hand)
+ * would come back rewritten all over, so a write refuses it first (`requireItsFormat`, #74).
  */
 
 /** The collection data: a chunk per set, promos.json and an index. */
@@ -35,7 +37,7 @@ export interface EntryFacts {
   rarity: string | undefined;
 }
 
-/** A path that is none of the four files, or an id the file doesn't hold, which `id` names. */
+/** A path that is none of the four files, a file whose text isn't in its format, or an id the file doesn't hold, which `id` names. */
 export class FinishFileError extends Error {
   name = 'FinishFileError';
   /** The id of the printing a file lacks, where that is what's wrong: a publish names its change by it. */
@@ -70,11 +72,13 @@ interface FileText {
   text: string;
 }
 
-/** A parsed file: its entries, and how to write it back out. */
+/** A parsed file: its entries, how to write it back out, and that format in words. */
 interface OpenFile {
   entries: Entry[];
   /** The file's text again, with its entries as they now stand, in the file's own format. */
   serialize: () => string;
+  /** The file's format, as a refusal names it: "JSON.stringify(x) and a newline". */
+  format: string;
 }
 
 /**
@@ -90,13 +94,14 @@ function openAllCards(parsed: unknown): OpenFile {
   return {
     entries: file.cards.flatMap((card) => [card, ...(card.variants ?? [])]),
     serialize: () => `${JSON.stringify(file, null, 2)}\n`,
+    format: 'JSON.stringify(x, null, 2) and a newline',
   };
 }
 
 /** A set's chunk or promos.json: `JSON.stringify(x)` and a newline. A bare array of entries. */
 function openCollectionFile(parsed: unknown): OpenFile {
   const file = parsed as Entry[];
-  return {entries: file, serialize: () => `${JSON.stringify(file)}\n`};
+  return {entries: file, serialize: () => `${JSON.stringify(file)}\n`, format: 'JSON.stringify(x) and a newline'};
 }
 
 /**
@@ -109,6 +114,7 @@ function openCatalog(parsed: unknown): OpenFile {
   return {
     entries: [...file.fold, ...(file.noBaseCard ?? [])].flatMap((group) => group.variants),
     serialize: () => JSON.stringify(file, null, 2),
+    format: 'JSON.stringify(x, null, 2), with no newline at the end',
   };
 }
 
@@ -133,13 +139,35 @@ export function readFinishes(file: FileText): FileValues {
   return new Map([...readEntryFacts(file)].map(([id, {finishes}]): [string, PrintingFinishes | null] => [id, finishes]));
 }
 
+/** Refuses `opened`, which `text` parsed to, where serializing it as it stands doesn't give `text` back. */
+function requireFormatOf({path, text, opened}: FileText & {opened: OpenFile}): void {
+  if (opened.serialize() === text) return;
+  throw new FinishFileError(
+    `${path} isn't in its format (${opened.format}), so a publish would rewrite all of it. Put it back in that format first.`,
+  );
+}
+
+/**
+ * Refuses a file whose text isn't what its own format makes of it: parsed and serialized again,
+ * unedited, it gives other text (a newline added or dropped at the end by hand, another indentation).
+ * A write serializes the whole file, so it would rewrite every line that drifted, not only the
+ * entries it sets. `writeFinishes` refuses such a file before it edits, and the promo publish its
+ * catalog before it applies the change (publishPrinting.ts). A path that is none of the four files
+ * is refused as a read refuses it.
+ */
+export function requireItsFormat(file: FileText): void {
+  requireFormatOf({...file, opened: openFile(file)});
+}
+
 /**
  * The file's text with `finishes` set, as the last key, on every entry whose id is in
- * `values`, and every other entry as it was, in the file's own format. An id the file
- * doesn't hold is refused outright, so a half-made edit never comes back.
+ * `values`, and every other entry as it was, in the file's own format. A file whose text isn't
+ * in that format (`requireItsFormat`) and an id the file doesn't hold are refused outright, so
+ * neither a file rewritten all over nor a half-made edit ever comes back.
  */
 export function writeFinishes({path, text, values}: FileText & {values: ReadonlyMap<string, PrintingFinishes>}): string {
   const file = openFile({path, text});
+  requireFormatOf({path, text, opened: file});
   const held = new Set(file.entries.map((entry) => String(entry.id)));
   const missing = [...values.keys()].find((id) => !held.has(id));
   if (missing !== undefined) throw new FinishFileError(`${missing} isn't in ${path}`, {id: missing});

@@ -130,26 +130,36 @@ export function editSources<L extends CardListView, F extends PreviewCardsFile>(
   return {list: withBranchCards({list: sources.list, file}), file};
 }
 
+/** What withCollectionCards adds to the card list. */
+export interface WithSets {
+  /**
+   * Sets 1 to 8 are still being read (#74). A card the list holds opens without them, but an id it
+   * lacks may be one of theirs, so it waits for them before it reads missing (branchLookup), and a
+   * query that matches nothing says it may match once they are in (searchStatus). A failed read
+   * isn't loading: the lookup and the search go on without them.
+   */
+  setsLoading: boolean;
+}
+
 /**
  * The card list with the cards of Sets 1 to 8 after it (#68): the ones it never holds, since they
  * rotated out of Core. They come last, so the branch file's cards lead the search (R-76) and a blank
- * query lists the Core cards before the rotated-out ones. It reads loading until they are in too, so
- * a deep link to one of their cards waits for them instead of reading missing; a failed read isn't
- * loading, and the lookup goes on without them. The error stays the card list's own: Sets 1 to 8
- * failing is not the card list failing. Where the card list and they hold one id, the card list wins:
- * the search lists its card alone, and the lookup finds it. Everything else the list carries, such
- * as retryLoad and branchOnlyIds, passes through.
+ * query lists the Core cards before the rotated-out ones. Its isLoading and its error stay the card
+ * list's own: a card the list holds opens while Sets 1 to 8 are still read (#74), and their failing
+ * is not the card list failing. While they are read, `setsLoading` says so. Where the card list and
+ * they hold one id, the card list wins: the search lists its card alone, and the lookup finds it.
+ * Everything else the list carries, such as retryLoad and branchOnlyIds, passes through.
  */
-export function withCollectionCards<L extends CardListView>({list, collection}: {list: L; collection: CollectionOnlyCards}): L {
-  const isLoading = list.isLoading || collection.status === 'loading';
+export function withCollectionCards<L extends CardListView>({list, collection}: {list: L; collection: CollectionOnlyCards}): L & WithSets {
+  const setsLoading = collection.status === 'loading';
   const unlisted = collection.cards.filter((card) => list.getCardById(card.id) === undefined);
-  if (unlisted.length === 0) return {...list, isLoading};
+  if (unlisted.length === 0) return {...list, setsLoading};
   const byId = new Map(unlisted.map((card) => [card.id, card]));
   return {
     ...list,
     cards: [...list.cards, ...unlisted],
     getCardById: (id: string) => list.getCardById(id) ?? byId.get(id),
-    isLoading,
+    setsLoading,
   };
 }
 
@@ -172,9 +182,15 @@ export function deployedOf({lookup, branchOnlyIds}: {lookup: EditLookup; branchO
   return lookup.kind !== 'ready' || isDeployed({card: lookup.card, branchOnlyIds});
 }
 
-/** An id the card list lacks may be one only the file holds: it waits for the file before it is missing. */
-function unlistedLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsFile}): EditLookup {
-  if (file.status === 'loading') return {kind: 'loading'};
+/** What branchLookup reads: editLookup's answer, the branch file, and whether Sets 1 to 8 are still being read. */
+type BranchLookupInput = {lookup: EditLookup; file: PreviewCardsFile} & WithSets;
+
+/**
+ * An id the card list lacks may be one of Sets 1 to 8, still being read, or one only the file holds:
+ * it waits for Sets 1 to 8 first (#74), then for the file, before it is missing.
+ */
+function unlistedLookup({lookup, file, setsLoading}: BranchLookupInput): EditLookup {
+  if (setsLoading || file.status === 'loading') return {kind: 'loading'};
   if (file.status === 'error') return {kind: 'fileFailed', error: file.error};
   return lookup;
 }
@@ -195,8 +211,10 @@ function leftFile({card, entry, file}: {card: LorcanaCard; entry: LorcanaJSONCar
  * Edit's lookup with what only the branch file can say (R-66), over
  * editLookup's answer from editSources' card list:
  * - an id neither source holds waits for the file before it reads missing, and
- *   a failed read is the file's error, with its Retry. A branch-only card the
- *   file loses reads missing too, since neither source holds it then;
+ *   a failed read is the file's error, with its Retry. Before that it waits
+ *   for Sets 1 to 8 while they are still read (`setsLoading`, #74): the id may
+ *   be one of theirs. A branch-only card the file loses reads missing too,
+ *   since neither source holds it then;
  * - a card under a preview id that the read file no longer holds is gone: the
  *   reveal set's, and another set's during a pin lag (R-65), which opens
  *   before the file is read and so reads gone only once a read lacks it.
@@ -207,8 +225,8 @@ function leftFile({card, entry, file}: {card: LorcanaCard; entry: LorcanaJSONCar
  * Neither gets a form or a save: an edit or an image would land on an id the
  * branch file no longer holds. needsSeed drops an open card's draft on either.
  */
-export function branchLookup({lookup, file}: {lookup: EditLookup; file: PreviewCardsFile}): EditLookup {
-  if (lookup.kind === 'missing') return unlistedLookup({lookup, file});
+export function branchLookup({lookup, file, setsLoading}: BranchLookupInput): EditLookup {
+  if (lookup.kind === 'missing') return unlistedLookup({lookup, file, setsLoading});
   if (lookup.kind === 'ready' && leftFile({...lookup, file})) return {kind: 'gone', card: lookup.card};
   return lookup;
 }

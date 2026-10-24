@@ -1,8 +1,19 @@
 import {describe, expect, it} from 'vitest';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE} from '../../reveal/constants';
-import {SEARCH_LIMIT, cardTag, namesSet, numberLabel, previewIdsOf, searchCards} from '../editSearch';
-import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {
+  SEARCH_LIMIT,
+  cardTag,
+  idName,
+  namesSet,
+  numberLabel,
+  previewIdsOf,
+  searchCards,
+  twinIdsOf,
+  withIdName,
+} from '../editSearch';
+import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {pinnedChunk} from '../promos/__tests__/pinned';
 
 /** A card-list card; ids are strings there, as the card list holds them. */
 function card(p: Partial<LorcanaCard>): LorcanaCard {
@@ -62,6 +73,41 @@ describe('numberLabel', () => {
 
   it('tells a Set 9 card from its Set 3 reprint', () => {
     expect(numberLabel(URSULA_SET_9)).not.toBe(numberLabel(URSULA_SET_3));
+  });
+});
+
+// Every label of a twin ends the same way, wherever it is named (#74).
+describe('withIdName', () => {
+  it.each([
+    ['a number, as the search and the Editing banner print it', 'Set 3 · #4', 'Set 3 · #4 · id 436'],
+    ['a label, as the Printings panel, the tray and the change history name it', 'Dalmatian Puppy - Tail Wagger #4 · Set 3', 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436'],
+    ['nothing, for a card with no number', '', 'id 436'],
+  ])('ends %s with the id', (_, label, expected) => {
+    expect(withIdName({label, id: '436'})).toBe(expected);
+    expect(expected.endsWith(idName('436'))).toBe(true);
+  });
+});
+
+// Set 3's five Dalmatian Puppy - Tail Wagger cards share their name, version, ink, rarity and number, #4: only their ids
+// tell their rows apart, in the search and in the Version changes tray (#74).
+describe('twinIdsOf', () => {
+  it("finds Set 3's five Dalmatian Puppies, and no other card of the set (the pinned data)", () => {
+    const cards = pinnedChunk('3').filter((entry) => entry.baseId === undefined);
+    expect(twinIdsOf(cards)).toEqual(new Set(['436', '437', '438', '439', '440']));
+  });
+
+  it.each([
+    ['another set', {setCode: '4'}],
+    ['another number', {setNumber: 5}],
+    ['another name', {fullName: 'Dalmatian Puppy - Wide-Eyed'}],
+  ])('finds no twin in a card of %s', (_, other) => {
+    const [puppy, twin] = DALMATIANS;
+    expect(twinIdsOf([puppy, {...twin, ...other}])).toEqual(new Set());
+  });
+
+  it('finds no twin in a card listed twice under its id', () => {
+    const [puppy] = DALMATIANS;
+    expect(twinIdsOf([puppy, puppy])).toEqual(new Set());
   });
 });
 
@@ -145,6 +191,20 @@ describe('searchCards', () => {
       rows: [],
       total: 0,
     });
+  });
+
+  it("marks a twin's row, and no other, so the row names its id (#74)", () => {
+    const cards = [...DALMATIANS, URSULA_SET_3];
+    const {rows} = searchCards({cards, query: '', previewIds: new Set(), twinIds: twinIdsOf(cards)});
+    expect(rows.map(({card: {id}, twin}) => ({id, twin}))).toEqual([
+      {id: '436', twin: true},
+      {id: '437', twin: true},
+      {id: '526', twin: false},
+    ]);
+  });
+
+  it('marks no row a twin when it is given no twin ids', () => {
+    expect(searchCards({cards: DALMATIANS, query: '', previewIds: new Set()}).rows.map((row) => row.twin)).toEqual([false, false]);
   });
 });
 

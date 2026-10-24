@@ -5,6 +5,8 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {studioHref} from '../../../shell/nav';
 import {deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {
+  DALMATIANS,
+  DALMATIAN_ENTRIES,
   EMPTY_CATALOG_TEXT,
   NUMBER_223_TO_BOTH,
   NUMBER_223_TO_BOTH_CLASHED,
@@ -15,7 +17,7 @@ import {
   collectionText,
   withFinishes,
 } from '../finishes/__tests__/finishFixtures';
-import {COMMIT_URL, moved} from '../finishes/__tests__/repoHarness';
+import {COMMIT_URL, moved, notAFastForward} from '../finishes/__tests__/repoHarness';
 import {CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
 import {clashMessage, versionCommitMessage} from '../finishes/publishVersions';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
@@ -58,6 +60,11 @@ const LINE_223 = 'Yen Sid - Powerful Sorcerer #223 · Set 4: Foil only → Both'
 const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
 
 const versionsTray = () => screen.queryByRole('region', {name: 'Version changes'});
+/**
+ * The page's body, PageLayout's flush scroller under its header. The studio's root, the grid that holds
+ * the panes, is its child, and the tray stays a child of the root: its foot sticks across the root (#74).
+ */
+const pageBody = () => screen.getByRole('main').lastElementChild;
 
 beforeEach(() => {
   // Wide, as StudioEdit's cases are, so every field of a form shows at once.
@@ -84,10 +91,11 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
     expect(within(tray).getByText(LINE_59)).toBeInTheDocument();
     expect(within(tray).getByText('Removes Normal. Copies counted in it will show under Foil.')).toBeInTheDocument();
-    // Under the panes: in the root they sit in, and after the printings in the tab order.
+    // Under the panes: a child of the studio's root, which holds them, and after the printings in the tab order.
     const printings = screen.getByRole('region', {name: 'Printings'});
     expect(printings.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tray.parentElement).toContainElement(printings);
+    expect(tray.parentElement?.parentElement).toBe(pageBody());
 
     await user.click(within(tray).getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59 · Set 4'}));
     // The store's revert clears the outcome too, so nothing but the press keeps the tray up: it is the same
@@ -96,7 +104,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
     expect(within(tray).getByText('No version changes')).toBeInTheDocument();
     expect(within(group).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    expect(screen.queryByText('pending')).not.toBeInTheDocument();
   });
 
   it('stays as an empty tray with focus on its heading after Discard all', async () => {
@@ -142,6 +150,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     const publish = screen.getByRole('complementary', {name: 'Publish'});
     expect(publish.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tray.parentElement).toContainElement(publish);
+    expect(tray.parentElement?.parentElement).toBe(pageBody());
   });
 
   it('asks nothing when the owner leaves the page with changes staged: the batch lives in the browser', async () => {
@@ -183,6 +192,22 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(publish).toHaveFocus();
   });
 
+  it('leaves the focus on Publish when the branch moves under the publish: the failure comes in above the same button', async () => {
+    stubStudioRepo({branch: YEN_SID_FILES, update: notAFastForward});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+
+    const publish = within(tray).getByRole('button', {name: 'Publish 1 change to master'});
+    await user.click(publish);
+    expect(await within(tray).findByRole('alert')).toHaveTextContent(
+      'master changed while publishing, so nothing was published. Publish again.',
+    );
+    // The change stays for another try, and the button pressed is still the one in the tray, with the focus.
+    expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).toBe(publish);
+    expect(publish).toHaveFocus();
+  });
+
   it('holds Publish for a clash, counts the changes marked, and says nothing of one once the owner keeps the last', async () => {
     // The branch moved after the panel read it: at the commit the publish builds on, #223 is Normal only.
     const repo = stubStudioRepo({
@@ -193,13 +218,16 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
     const tray = await screen.findByRole('region', {name: 'Version changes'});
 
-    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    const publish = within(tray).getByRole('button', {name: 'Publish 1 change to master'});
+    await user.click(publish);
     expect(await within(tray).findByRole('alert')).toHaveTextContent(clashMessage(1));
+    // The clash comes in above the button pressed, which keeps the focus while it holds.
+    expect(publish).toHaveFocus();
     expect(within(tray).getByText('Changed on master since: now Normal only.')).toBeInTheDocument();
     expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).toHaveAttribute('aria-disabled', 'true');
     expect(repo.writes()).toEqual([]);
     // The panel marks the printing too, once it has read the branch again.
-    expect(await screen.findByText('Clash')).toBeInTheDocument();
+    expect(await screen.findByText('clash')).toBeInTheDocument();
 
     await user.click(within(tray).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     // The change stays, built on what the branch has now, and no word of a clash is left on screen.
@@ -310,6 +338,67 @@ describe('StudioPage: the Version changes tray (#68)', () => {
 });
 
 /*
+ * Set 3's five Dalmatian Puppy - Tail Wagger cards are all #4, and share their name, version, ink and
+ * rarity (#74). The tray can hold a change for each, so their labels end in their ids: in the panel's
+ * groups, in the tray's lines, and in the names of the buttons that act on them.
+ */
+describe('StudioPage: twin cards in the panel and the tray (#74)', () => {
+  const [PUPPY_436, PUPPY_437] = DALMATIANS;
+  const CHUNK_3 = setChunkPath('3');
+  const LABEL_436 = 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436';
+  const LABEL_437 = 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 437';
+
+  /** The files the twins read: Set 3's chunk, which holds both, and an empty promos.json and catalog. */
+  const PUPPY_FILES: Record<string, Served> = {
+    [CHUNK_3]: collectionText(DALMATIAN_ENTRIES),
+    [PROMOS_PATH]: collectionText([]),
+    [CATALOG_PATH]: EMPTY_CATALOG_TEXT,
+  };
+
+  /** Stages `choice` for the printing `label` names, from its group in the open card's panel. */
+  async function stage({user, label, choice}: {user: UserEvent; label: string; choice: string}) {
+    await user.click(within(await screen.findByRole('group', {name: `Versions of ${label}`})).getByRole('button', {name: choice}));
+  }
+
+  it('names each twin by its id: its versions, its line in the tray and its Revert', async () => {
+    stubStudioRepo({branch: PUPPY_FILES, chunks: {'3': DALMATIAN_ENTRIES}});
+    const {user, router} = renderStudio({path: studioHref('edit', PUPPY_436.id)});
+    await stage({user, label: LABEL_436, choice: 'Foil only'});
+    await act(() => router.navigate(studioHref('edit', PUPPY_437.id)));
+    await stage({user, label: LABEL_437, choice: 'Normal only'});
+
+    const tray = screen.getByRole('region', {name: 'Version changes'});
+    expect(within(tray).getByText(`${LABEL_436}: Both → Foil only`)).toBeInTheDocument();
+    expect(within(tray).getByText(`${LABEL_437}: Both → Normal only`)).toBeInTheDocument();
+    await user.click(within(tray).getByRole('button', {name: `Revert ${LABEL_436}`}));
+    expect(within(tray).queryByText(`${LABEL_436}: Both → Foil only`)).not.toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: `Revert ${LABEL_437}`})).toHaveFocus();
+  });
+
+  it("ends the open twin's number on its banner with its id, as its search row does", async () => {
+    stubStudioRepo({branch: PUPPY_FILES, chunks: {'3': DALMATIAN_ENTRIES}});
+    renderStudio({path: studioHref('edit', PUPPY_437.id)});
+    expect(await screen.findByText('Set 3 · #4 · id 437')).toBeInTheDocument();
+  });
+
+  it("names a clashed twin's Keep mine and Drop by its id", async () => {
+    stubStudioRepo({
+      branch: PUPPY_FILES,
+      base: {...PUPPY_FILES, [CHUNK_3]: collectionText(withFinishes(DALMATIAN_ENTRIES, {436: ['normal']}))},
+      chunks: {'3': DALMATIAN_ENTRIES},
+    });
+    const {user} = renderStudio({path: studioHref('edit', PUPPY_436.id)});
+    await stage({user, label: LABEL_436, choice: 'Foil only'});
+    const tray = await screen.findByRole('region', {name: 'Version changes'});
+    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    await within(tray).findByRole('alert');
+
+    expect(within(tray).getByRole('button', {name: `Keep mine for ${LABEL_436}`})).toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: `Drop ${LABEL_436}`})).toBeInTheDocument();
+  });
+});
+
+/*
  * The Printings panel while a publish runs, and after it (#68): over the real batch, so the panel
  * holds its choices from the store's own `publishing`, and keeps its rows from the hook's own read
  * of the branch after the store drops the files.
@@ -404,6 +493,27 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     added.stop();
   });
 
+  it('shows on its row what the publish wrote, from the landing until the read after it lands (#74)', async () => {
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    await within(tray).findByText('Published 1 change.');
+    // Landed: the batch no longer holds the change, and the rows are the last read's, which name #223 Foil only.
+    const row223 = within(panel()).getByText('#223 · Alt foil').closest('li') as HTMLElement;
+    const both223 = within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
+    expect(within(panel()).getByRole('list')).toHaveAttribute('aria-busy', 'true');
+    expect(both223).toHaveAttribute('aria-pressed', 'true');
+    expect(within(row223).getByText('in the data')).toBeInTheDocument();
+    expect(within(panel()).queryByText('pending')).not.toBeInTheDocument();
+
+    await act(async () => reread.respond(new Response(PUBLISHED_CHUNK)));
+    // Read: the branch names Both for #223, so the row is unchanged.
+    await waitFor(() => expect(within(panel()).getByRole('list')).not.toHaveAttribute('aria-busy'));
+    expect(both223).toHaveAttribute('aria-pressed', 'true');
+    expect(within(row223).getByText('in the data')).toBeInTheDocument();
+  });
+
   it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', async () => {
     const reread = rereadHeld();
     stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
@@ -417,5 +527,129 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     const failure = `Could not read the printings: GitHub 502 on ${CHUNK_4}: Bad Gateway.`;
     expect(within(panel()).getByRole('alert')).toHaveTextContent(failure);
     await waitFor(() => expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toHaveFocus());
+  });
+
+  it('keeps what the publish came to, and its commit, in the tray when the read after it fails: the commit landed', async () => {
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    await within(tray).findByText('Published 1 change.');
+
+    await act(async () => reread.respond(new Response('Bad Gateway', {status: 502})));
+    expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toBeInTheDocument();
+    expect(within(tray).getByText('Published 1 change.')).toBeInTheDocument();
+    expect(within(tray).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+  });
+});
+
+/** A box from `top` to `bottom` in the view, all that getBoundingClientRect's callers here read. */
+const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+
+/**
+ * The page's scroller, PageLayout's flush body, as TuningAside.test.tsx's renderInScroller stubs the
+ * aside's: jsdom lays nothing out, so `pin` fixes a box in the view, and `place` puts a control there,
+ * which the scroller's scrollBy moves as a real scroll would (scrolling down by 100 lifts it by 100).
+ */
+function pageScroller() {
+  const scroller = pageBody() as HTMLElement;
+  let scrolled = 0;
+  const scrollBy = vi.fn((options: ScrollToOptions) => {
+    scrolled += options.top ?? 0;
+  });
+  Object.defineProperty(scroller, 'scrollBy', {value: scrollBy});
+  return {
+    scroller,
+    scrollBy,
+    pin: (el: Element, top: number, bottom: number) => vi.spyOn(el, 'getBoundingClientRect').mockReturnValue(box(top, bottom)),
+    place: (el: Element, top: number, bottom: number) =>
+      vi.spyOn(el, 'getBoundingClientRect').mockImplementation(() => box(top - scrolled, bottom - scrolled)),
+  };
+}
+
+/**
+ * Has the browser show `control`'s focus (`:focus-visible`), as Chrome does for a focus that came by
+ * keyboard. jsdom answers by a heuristic of dom-selector's that shows a Tab's focus from the body or a
+ * text field but, once a focus has shown, hides a Tab's from one button to the next, as it hides a
+ * press of the mouse's. So a case whose control takes keyboard focus says so with this, and a press
+ * of the mouse keeps jsdom's own answer, which is Chrome's.
+ */
+function showsItsFocus(control: Element) {
+  const matches = control.matches.bind(control);
+  vi.spyOn(control, 'matches').mockImplementation((selectors: string) => selectors === ':focus-visible' || matches(selectors));
+}
+
+/*
+ * While changes are staged the tray's foot is pinned to the bottom of the view (#74), and the browser
+ * scrolls a control that takes focus only as far as the view's edge, under it. So the studio's root
+ * keeps a control that takes keyboard focus clear of the pinned foot (WCAG 2.4.11), as the tuning aside
+ * keeps its fields clear of its pinned tray. One that a press of the mouse focuses stays where it is,
+ * under the pointer, so the press ends on it and clicks it. Here the scroller's view runs from 64 to
+ * 900, and the foot from 830 to 900.
+ */
+describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () => {
+  /** Yen Sid open, with #59 staged Foil only: the tray's foot is pinned. */
+  async function staged59() {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'}));
+    await screen.findByRole('button', {name: 'Publish 1 change to master'});
+    return user;
+  }
+
+  /** The page's boxes, laid out from here on: its scroller's view, and the tray's foot at the bottom of it. */
+  function laidOut() {
+    const publish = screen.getByRole('button', {name: /^Publish/});
+    const page = pageScroller();
+    page.pin(page.scroller, 64, 900);
+    page.pin(publish.parentElement as HTMLElement, 830, 900);
+    return {...page, publish};
+  }
+
+  /** #223's Both, a control of the Printings panel, which scrolls with the page. */
+  const choice223 = () => within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
+
+  it('scrolls a control that takes keyboard focus under the pinned foot up into the band above it', async () => {
+    await staged59();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 850, 882);
+    showsItsFocus(choice223());
+
+    act(() => choice223().focus());
+    expect(scrollBy).toHaveBeenCalledOnce();
+    // Centred between the scroller's top and the foot's.
+    expect(choice223().getBoundingClientRect()).toMatchObject({top: 431, bottom: 463});
+  });
+
+  it('leaves a control that a press of the mouse focuses half under the foot where it is, under the pointer', async () => {
+    const user = await staged59();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 810, 842);
+
+    await user.click(choice223());
+    expect(choice223()).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('leaves Publish where it is: the foot is pinned, so scrolling for it would move the page and never it', async () => {
+    await staged59();
+    const {scrollBy, pin, publish} = laidOut();
+    pin(publish, 842, 886);
+    showsItsFocus(publish);
+
+    act(() => publish.focus());
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('scrolls nothing once no change is staged: the foot then sits under the panel, pinned no more', async () => {
+    const user = await staged59();
+    await user.click(screen.getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59 · Set 4'}));
+    expect(screen.getByRole('button', {name: 'Publish to master'})).toBeInTheDocument();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 850, 882);
+    showsItsFocus(choice223());
+
+    act(() => choice223().focus());
+    expect(scrollBy).not.toHaveBeenCalled();
   });
 });

@@ -42,13 +42,14 @@ import {
  * (`afterPublish`). Storage that can't be read says nothing, so the batch stays.
  *
  * A publish sends the changes staged when it starts (publishVersions.ts), and the owner may stage
- * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch.
- * When it finds clashes it marks them on their changes, and the batch stays, as it does for any
+ * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch,
+ * and its result keeps them (`published`) for the Printings panel to show until it reads the branch
+ * again. When it finds clashes it marks them on their changes, and the batch stays, as it does for any
  * other failure; the marks are all it says of them, and `error` is for the other failures. Where
- * no change is left to mark (another tab published or reverted them first), `error` says that
- * nothing was published. A landing or a clash writes the batch, so it first takes in what is
- * saved, as the first component to listen does: no component may have listened while the publish
- * ran.
+ * no change is left to mark, or none is left at all after another failure (another tab published
+ * or reverted them first), `error` says that nothing was published. A landing or a clash writes
+ * the batch, and a failure words its error from it, so each first takes in what is saved, as the
+ * first component to listen does: no component may have listened while the publish ran.
  */
 
 /** Where a branch's batch is saved: this prefix, then the branch's name. Admin's own keys start `inkweave-admin.`. */
@@ -57,7 +58,11 @@ export const VERSION_BATCH_KEY_PREFIX = 'inkweave-admin.version-batch.';
 /** What a saved batch says its shape is, so a later shape can be told from this one. */
 const SAVED_VERSION = 1;
 
-/** Why a publish refused for clashes said nothing of them: no change was left in the batch to mark. */
+/**
+ * What a publish that didn't land says when another tab published or reverted its changes first: a
+ * refusal for clashes found no change left in the batch to mark, or another failure found the batch
+ * empty, where its own words ("Publish again.") would offer to publish nothing (#74).
+ */
 export const NOTHING_PUBLISHED = 'Nothing was published: these changes were published or reverted in another tab.';
 
 /** How a publish that landed ended. */
@@ -66,6 +71,11 @@ export interface PublishResult {
   commitUrl: string;
   /** How many changes it sent. */
   count: number;
+  /**
+   * The changes it sent (#74). Until the Printings panel has read the branch again, the rows it holds
+   * are the last read's, from before the publish, so a row with one of these shows what it wrote.
+   */
+  published: readonly VersionChange[];
 }
 
 /** What the Printings panel and the tray read, and what they do to it. */
@@ -84,7 +94,8 @@ export interface VersionBatchView {
    * publishes again. Only to a reader that names the token that made it, or names none. Never a
    * clash: that is the marks on the changes (`hasClash`), which the tray words from the ones still
    * marked, so no message of it outlives the last mark. A refusal for clashes that left no change
-   * to mark says that nothing was published (`NOTHING_PUBLISHED`).
+   * to mark, and any other failure that left the batch empty, say that nothing was published
+   * (`NOTHING_PUBLISHED`).
    */
   error: string | null;
   /**
@@ -305,10 +316,14 @@ function adoptUnheard(): void {
   if (!snapshot().unsaved) adoptSaved();
 }
 
-/** The publish landed: the changes it sent leave the batch, and the Printings panel reads the branch again. */
+/**
+ * The publish landed: the changes it sent leave the batch, and the Printings panel reads the branch
+ * again. Until that read lands, the panel's rows show what the publish wrote (`published`).
+ */
 function landed({sent, commitUrl}: {sent: readonly VersionChange[]; commitUrl: string}): void {
   adoptUnheard();
-  put({batch: afterPublish(snapshot().batch, sent), publishing: false, result: {commitUrl, count: sent.length}});
+  const result: PublishResult = {commitUrl, count: sent.length, published: sent};
+  put({batch: afterPublish(snapshot().batch, sent), publishing: false, result});
   forgetBranchFiles();
 }
 
@@ -326,9 +341,21 @@ function clashed({clashes}: VersionClashError): void {
   forgetBranchFiles();
 }
 
-/** The publish failed for another reason (the branch moved, the token was rejected): the batch stays as it is. */
+/** Why a publish failed, in its own words: an Error's message, or that it failed. */
+const failureOf = (error: unknown): string => (error instanceof Error ? error.message : 'Publish failed');
+
+/**
+ * The publish failed for another reason (the branch moved, the token was rejected): the batch stays
+ * as it is. It first takes in what other tabs saved, as a landing does. Where that leaves the batch
+ * empty, another tab published or reverted its changes first, so `error` says nothing was published
+ * (#74): the failure's own words would offer to publish again a batch that holds nothing. That tab's
+ * publish may have moved the branch, so the Printings panel reads it again, as after a clash.
+ */
 function failed(error: unknown): void {
-  put({publishing: false, error: error instanceof Error ? error.message : 'Publish failed'});
+  adoptUnheard();
+  const empty = snapshot().batch.changes.length === 0;
+  put({publishing: false, error: empty ? NOTHING_PUBLISHED : failureOf(error)});
+  if (empty) forgetBranchFiles();
 }
 
 /** The publish didn't land: it found clashes, or failed for another reason. */
@@ -360,7 +387,8 @@ function publish(token: string): Promise<void> {
  * The shared batch of the target branch, and what the panel and the tray do to it. Given a token,
  * it tells how the last publish ended only if that publish was made with the same one (by their
  * marks): a token the owner saved since has nothing to be told. With none (the Printings panel,
- * which has no use for the outcome) it tells the outcome as it is.
+ * which reads only what a landed publish wrote, whoever's token wrote it) it tells the outcome as
+ * it is.
  */
 export function useVersionBatch(token?: string): VersionBatchView {
   const {batch, publishing, result, error, unsaved, outcomeMark} = useSyncExternalStore(subscribe, snapshot);

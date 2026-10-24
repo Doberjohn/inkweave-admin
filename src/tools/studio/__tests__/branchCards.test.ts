@@ -12,7 +12,7 @@ import {
   withCollectionCards,
   type CardListView,
 } from '../branchCards';
-import type {EditLookup} from '../editorState';
+import {editLookup, type EditLookup} from '../editorState';
 import type {CollectionOnlyCards} from '../finishes/collectionCards';
 import {URSULA_SET_3, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import type {PreviewCardsFile} from '../previewCardsFile';
@@ -109,9 +109,16 @@ describe('editSources', () => {
   });
 });
 
-/** Sets 1 to 8 as the collection hook hands them over: `status` says whether `cards` are in. */
-function collectionOf({cards = [], status = 'ready'}: Partial<CollectionOnlyCards> = {}): CollectionOnlyCards {
-  return {cards, status, retry: vi.fn()};
+/** A failed read of Sets 1 to 8, in the words the collection hook hands it over in. */
+const CHUNK_FAILED = '/data/collection/3.json: HTTP 500';
+
+/** Sets 1 to 8 as the collection hook hands them over: `status` says whether `cards` are in, and a failed read alone says why. */
+function collectionOf({
+  cards = [],
+  status = 'ready',
+}: {cards?: readonly LorcanaCard[]; status?: CollectionOnlyCards['status']} = {}): CollectionOnlyCards {
+  const read = status === 'error' ? {status, error: CHUNK_FAILED} : {status, error: null};
+  return {cards, ...read, retry: vi.fn()};
 }
 
 describe('withCollectionCards', () => {
@@ -154,14 +161,33 @@ describe('withCollectionCards', () => {
     expect(list.cards[0]).toBe(impostor);
   });
 
-  it.each<{name: string; listed: Partial<CardListView>; status: CollectionOnlyCards['status']; isLoading: boolean}>([
-    {name: 'both are in', listed: {}, status: 'ready', isLoading: false},
-    {name: 'Sets 1 to 8 are loading', listed: {}, status: 'loading', isLoading: true},
-    {name: 'the card list is loading', listed: {isLoading: true}, status: 'ready', isLoading: true},
-    {name: 'Sets 1 to 8 failed, so the search goes on without them', listed: {}, status: 'error', isLoading: false},
-  ])('is loading until the card list and Sets 1 to 8 are both in: $name, $isLoading', ({listed, status, isLoading}) => {
-    expect(withCollectionCards({list: listOf(listed), collection: collectionOf({status})}).isLoading).toBe(isLoading);
-  });
+  // #74: a card the list holds opens without waiting for Sets 1 to 8, so only the list's own load is loading. An id
+  // the list lacks may be one of theirs, so setsLoading has it wait for them (branchLookup).
+  it.each<{
+    name: string;
+    listed: Partial<CardListView>;
+    status: CollectionOnlyCards['status'];
+    isLoading: boolean;
+    setsLoading: boolean;
+  }>([
+    {name: 'both are in', listed: {}, status: 'ready', isLoading: false, setsLoading: false},
+    {name: 'Sets 1 to 8 are loading', listed: {}, status: 'loading', isLoading: false, setsLoading: true},
+    {name: 'the card list is loading', listed: {isLoading: true}, status: 'ready', isLoading: true, setsLoading: false},
+    {name: 'both are loading', listed: {isLoading: true}, status: 'loading', isLoading: true, setsLoading: true},
+    {
+      name: 'Sets 1 to 8 failed, so the search goes on without them',
+      listed: {},
+      status: 'error',
+      isLoading: false,
+      setsLoading: false,
+    },
+  ])(
+    'is loading while the card list loads, and setsLoading until Sets 1 to 8 are in: $name',
+    ({listed, status, isLoading, setsLoading}) => {
+      const list = withCollectionCards({list: listOf(listed), collection: collectionOf({status})});
+      expect({isLoading: list.isLoading, setsLoading: list.setsLoading}).toEqual({isLoading, setsLoading});
+    },
+  );
 
   it('leaves the card list’s error as it is, and takes none from a failure of Sets 1 to 8', () => {
     const failed = new Error('Failed to fetch local cards: 500');
@@ -290,7 +316,37 @@ describe('branchLookup', () => {
     },
     {name: 'no card stays no card', lookup: {kind: 'none'}, file: readFile([]), expected: {kind: 'none'}},
   ])('$name', ({lookup, file, expected}) => {
-    expect(branchLookup({lookup, file})).toEqual(expected);
+    expect(branchLookup({lookup, file, setsLoading: false})).toEqual(expected);
+  });
+});
+
+/*
+ * #74: Edit's lookup over the card list with Sets 1 to 8 after it, as useCardEditor wires it. A card the list holds
+ * opens without them; an id it lacks may be one of theirs, so it waits for them, then for the branch file, before it
+ * reads missing.
+ */
+describe('the lookup while Sets 1 to 8 are read (#74)', () => {
+  const FILE_ERROR = 'GitHub 500 on apps/web/public/data/previewCards.json: Server error';
+
+  /** Edit's lookup for `cardId` over a card list that holds RELEASED_CARD, with Sets 1 to 8 as `collection` has them. */
+  function lookupOf({cardId, collection, file = readFile([])}: {cardId: string; collection: CollectionOnlyCards; file?: PreviewCardsFile}) {
+    const list = withCollectionCards({list: listOf({cards: [RELEASED_CARD]}), collection});
+    return branchLookup({lookup: editLookup({cardId, list, file}), file, setsLoading: list.setsLoading});
+  }
+
+  it('opens a Core card the list holds while Sets 1 to 8 still load', () => {
+    expect(lookupOf({cardId: RELEASED_CARD.id, collection: collectionOf({status: 'loading'})})).toEqual(ready({card: RELEASED_CARD}));
+  });
+
+  it('reads an id the list lacks as loading while Sets 1 to 8 load, and as missing once they failed', () => {
+    expect(lookupOf({cardId: YEN_SID.id, collection: collectionOf({status: 'loading'})})).toEqual({kind: 'loading'});
+    expect(lookupOf({cardId: YEN_SID.id, collection: collectionOf({status: 'error'})})).toEqual({kind: 'missing', cardId: YEN_SID.id});
+  });
+
+  it('waits for Sets 1 to 8 before the branch file has its say on an id the list lacks', () => {
+    const file: PreviewCardsFile = {status: 'error', error: FILE_ERROR};
+    expect(lookupOf({cardId: YEN_SID.id, collection: collectionOf({status: 'loading'}), file})).toEqual({kind: 'loading'});
+    expect(lookupOf({cardId: YEN_SID.id, collection: collectionOf({status: 'error'}), file})).toEqual({kind: 'fileFailed', error: FILE_ERROR});
   });
 });
 

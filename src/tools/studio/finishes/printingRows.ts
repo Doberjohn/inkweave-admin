@@ -7,6 +7,7 @@ import {
   type CollectionPromo,
   type Finish,
 } from '../../../app-bridge';
+import {withIdName} from '../editSearch';
 import type {PrintingKind, PrintingRef} from './printingHomes';
 
 /*
@@ -21,13 +22,18 @@ import type {PrintingKind, PrintingRef} from './printingHomes';
 /** One pocket of the binder, and the versions it comes in. */
 export interface PrintingRow {
   ref: PrintingRef;
-  /** What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil", "1/C3" or "26/P2 · Vaiana". */
+  /**
+   * What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil", "1/C3" or "26/P2 · Vaiana".
+   * Two pockets of the card with one label end it in their ids too, "1/C3 · id 80017" (#74).
+   */
   name: string;
   /**
    * The card's name and the pocket's code, with what tells it from a pocket that shares both: a
    * Sets 1 to 8 card's or printing's set, "Yen Sid - Powerful Sorcerer #223 · Set 4", since its Core
    * reprint has the same name and number, and the name printed on a promo where it has one,
-   * "Moana - Adventurer of Land and Sea 26/P2 · Vaiana". A change keeps the label it was staged with.
+   * "Moana - Adventurer of Land and Sea 26/P2 · Vaiana". Where that still leaves two alike, the
+   * pocket's id ends it (#74): "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". A change keeps
+   * the label it was staged with.
    */
   label: string;
   /** The pocket's own art, at the small size the binder uses. */
@@ -53,6 +59,12 @@ export interface PrintingSources {
   promos: readonly CollectionPromo[];
   /** The `finishes` the branch's files give a printing in its primary home, or null where they give none. */
   valueOf: (ref: PrintingRef) => PrintingFinishes | null;
+  /**
+   * Another card of the card's set has its full name and number (`twinIdsOf`), as Set 3's five
+   * Dalmatian Puppy - Tail Wagger cards are all #4 (#74), so every label of its rows ends in the row's
+   * id. Absent, it has no twin.
+   */
+  twin?: boolean;
 }
 
 /** What a name shows of a number or a promo set the data lacks: the app's own tools write an unknown number so. */
@@ -131,13 +143,53 @@ function printingPocket({card, entry}: {card: LorcanaCard; entry: LorcanaCard}):
 /**
  * A promo is named by the code printed on it: its number, its art if it has two, and its promo set,
  * then the name printed on it where it has one ("26/P2 · Vaiana"), which tells it from a promo of
- * the same code. Its code names its promo set already, so its label never adds the card's set.
+ * the same code. Its code names its promo set already, so its label never adds the card's set. Two
+ * promos that share a label still end it in their ids (`toldApart`).
  */
 function promoPocket({card, promo}: {card: LorcanaCard; promo: CollectionPromo}): Pocket {
   const {number, artVariant = '', promoGrouping = UNKNOWN, printedName} = promo;
   const printed = `${number ?? UNKNOWN}${artVariant}/${promoGrouping}`;
   const code = printedName === undefined ? printed : `${printed} · ${printedName}`;
   return pocketOf({card, entry: promo, kind: 'promo', code, name: code});
+}
+
+/** The pocket, its label ending in its id (withIdName): "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". */
+function withId(pocket: Pocket): Pocket {
+  return {...pocket, label: withIdName({label: pocket.label, id: pocket.ref.id})};
+}
+
+/** The pocket, its name ending in its id as well as its label: "1/C3 · id 80017". */
+function namedById(pocket: Pocket): Pocket {
+  return {...withId(pocket), name: withIdName({label: pocket.name, id: pocket.ref.id})};
+}
+
+/** The labels that two or more of the pockets have. */
+function sharedLabels(pockets: readonly Pocket[]): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const shared = new Set<string>();
+  for (const {label} of pockets) {
+    if (seen.has(label)) shared.add(label);
+    seen.add(label);
+  }
+  return shared;
+}
+
+/**
+ * The pockets, each label ending in its id where nothing else tells it from another pocket the tray
+ * can hold (#74): every pocket of a card with a twin, since the twin's pockets can carry the same
+ * labels, and any two of the card's own pockets that share one. In the app's data only promos can,
+ * two under one code, as Hades - Dark Usurper's 28/C3 pair would: nothing promos.json holds tells
+ * them apart. Those two would share their name on the panel too, so it ends in the id as well; a
+ * twin's own panel shows none of its twin's pockets, so its names stay as they are. The change history
+ * ends its entries' labels the same way, in dataEntries.ts's toldApart, where a file's shared labels
+ * are all it has to go by. A change to when either ends a label in its id belongs in both.
+ */
+function toldApart({pockets, twin}: {pockets: readonly Pocket[]; twin: boolean}): Pocket[] {
+  const shared = sharedLabels(pockets);
+  return pockets.map((pocket) => {
+    if (shared.has(pocket.label)) return namedById(pocket);
+    return twin ? withId(pocket) : pocket;
+  });
 }
 
 /** The pocket as a row: the versions the branch's files give it, and the ones it then shows. */
@@ -153,13 +205,14 @@ function printingsOf<T extends {baseId?: string}>(card: LorcanaCard, entries: re
 
 /**
  * The card's rows, in the order the panel lists them: the card itself, its printings by number,
- * then its promos by promo set and number. Each row asks `valueOf` once, in that order.
+ * then its promos by promo set and number. A label ends in its row's id where nothing else tells it
+ * apart (`toldApart`). Each row asks `valueOf` once, in that order.
  */
-export function printingRowsFor({card, chunk, promos, valueOf}: PrintingSources): PrintingRow[] {
+export function printingRowsFor({card, chunk, promos, valueOf, twin = false}: PrintingSources): PrintingRow[] {
   const pockets = [
     cardPocket(card),
     ...printingsOf(card, chunk).sort(byNumber).map((entry) => printingPocket({card, entry})),
     ...printingsOf(card, promos).sort(byPromoSet).map((promo) => promoPocket({card, promo})),
   ];
-  return pockets.map((pocket) => withVersions(pocket, valueOf));
+  return toldApart({pockets, twin}).map((pocket) => withVersions(pocket, valueOf));
 }

@@ -12,6 +12,7 @@ import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import {deferredResponse, type Served} from '../finishes/__tests__/branchHarness';
 import {chunksOf} from '../finishes/__tests__/collectionHarness';
 import {
+  DALMATIAN_ENTRIES,
   MOTHER_KNOWS_BEST,
   SET_4_ENTRIES,
   URSULA_SET_3,
@@ -23,7 +24,7 @@ import {
 import {setChunkPath} from '../finishes/finishFiles';
 import {loadAgainNote} from '../loadAgainNote';
 import {FIXTURE_FILES} from '../promos/__tests__/promoFixtures';
-import {PRINTINGS_ONLY_NOTE, newRevealNote} from '../studioCopy';
+import {PRINTINGS_ONLY_NOTE, collectionFailedNote, newRevealNote} from '../studioCopy';
 import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf, previewFileText} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {
@@ -76,8 +77,11 @@ const PRINTING_CARD = "Your printing form for this card isn't published yet. Lea
 const PRINTING_LEAVES = "Your printing form isn't published yet. Leaving Card studio drops it.";
 const PUBLISHING = "A publish to master is in progress. Leaving won't stop it, and you won't see whether it landed.";
 const RENAMED = 'Mei Lee';
-/** What the search says when the chunks of Sets 1 to 8 fail (#68), above its way out. */
-const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
+/**
+ * What the search says when the chunks of Sets 1 to 8 fail (#68), naming the read that failed (#74), above its way
+ * out, where every chunk fails, as most of these cases serve them: Set 1's is read first, so it fails first.
+ */
+const COLLECTION_FAILED = collectionFailedNote('/data/collection/1.json: HTTP 500');
 
 // The card list as inkweave.ink serves it: a released card, then the deployed preview cards (loader.ts:195-198).
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -421,10 +425,74 @@ describe('StudioPage: Sets 1 to 8 in Edit card (#68)', () => {
     renderStudio({path: studioHref('edit', YEN_SID.id)});
     expect(screen.getByText('Loading the card…')).toBeInTheDocument();
     expect(screen.queryByText(/^No card has the id/)).not.toBeInTheDocument();
+    // It waits for Sets 1 to 8 themselves, not only for previewCards.json: once the file is read, it still loads (#74).
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.getByText('Loading the card…')).toBeInTheDocument();
 
     held.respond(Response.json(SET_4_ENTRIES));
     expect(await banner(YEN_SID)).toBeInTheDocument();
     expect(screen.getByText(PRINTINGS_ONLY_NOTE)).toBeInTheDocument();
+  });
+
+  it('opens a deep link to a Core card before Sets 1 to 8 have loaded', async () => {
+    // Sets 1 to 8 never answer. The card list holds the card, so it opens without them (#74).
+    stubFetch(fileOf(FILE), never);
+    renderStudio({path: studioHref('edit', RELEASED_CARD.id)});
+    expect(await banner(RELEASED_CARD)).toBeInTheDocument();
+    expect(screen.getByLabelText('Replace card image')).toBeInTheDocument();
+    // A deep link is no one's action in the page, so nothing asks for the handoff (R-59).
+    expect(document.body).toHaveFocus();
+  });
+
+  it('says a query that matches nothing yet may match once Sets 1 to 8 are in, while they still load (#74)', async () => {
+    // Sets 1 to 8 never answer.
+    stubFetch(fileOf(FILE), never);
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'zzz');
+    expect(screen.getByRole('status')).toHaveTextContent('No cards match "zzz" yet: Sets 1 to 8 are still loading.');
+  });
+
+  it('lists the card a query missed once its set lands: the miss said "yet" (#74)', async () => {
+    const held = deferredResponse();
+    const empty = chunksOf();
+    stubFetch(fileOf(FILE), (set) => (set === '4' ? held.response : empty(set)));
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Yen Sid');
+    expect(screen.getByRole('status')).toHaveTextContent('No cards match "Yen Sid" yet: Sets 1 to 8 are still loading.');
+
+    held.respond(Response.json(SET_4_ENTRIES));
+    expect(await screen.findByRole('link', {name: 'Yen Sid released Powerful Sorcerer Amethyst Set 4 · #59'})).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('1 card matches');
+  });
+
+  it("names a twin's id on its row, as only its id tells it from the other: Set 3's Dalmatian Puppies are both #4 (#74)", async () => {
+    stubFetch(fileOf(FILE), chunksOf({'3': DALMATIAN_ENTRIES}));
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'dalmatian');
+    const rows = await screen.findAllByRole('link', {name: /^Dalmatian Puppy /});
+    expect(rows.map((row) => row.getAttribute('href'))).toEqual(['436', '437'].map((id) => studioHref('edit', id)));
+    expect(rows[0]).toHaveAccessibleName('Dalmatian Puppy released Tail Wagger Amber Set 3 · #4 · id 436');
+    expect(rows[1]).toHaveAccessibleName('Dalmatian Puppy released Tail Wagger Amber Set 3 · #4 · id 437');
+  });
+
+  it('says why Sets 1 to 8 did not load: the read that failed (#74)', async () => {
+    stubFetch(fileOf(FILE), (set) => (set === '3' ? new Response('Server Error', {status: 500}) : Response.json([])));
+    renderStudio({path: '/studio?mode=edit'});
+    expect(await screen.findByText(collectionFailedNote('/data/collection/3.json: HTTP 500'))).toHaveAttribute('role', 'alert');
+  });
+
+  it("shows only the card list's failure when Sets 1 to 8 fail too, and their notice once the list is in (#74)", async () => {
+    setCardList({cards: [], error: new Error('HTTP 503')});
+    stubFetch(fileOf(FILE), () => new Response('Server Error', {status: 500}));
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    // Give the failed read of Sets 1 to 8 time to land before looking.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    // The card list's own failure says the search holds nothing: a notice that it holds Sets 9 and up would say otherwise.
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load the card list (HTTP 503)');
+
+    await user.click(screen.getByRole('button', {name: 'Retry'}));
+    setCardList({cards: CARDS});
+    expect(await screen.findByText(COLLECTION_FAILED)).toHaveAttribute('role', 'alert');
   });
 
   it('says when Sets 1 to 8 did not load, searches Sets 9 and up all the same, and reads them again on Try again (R-48)', async () => {

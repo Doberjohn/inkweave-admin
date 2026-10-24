@@ -5,12 +5,15 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
-import {ADMIN_TYPE} from '../../../theme/adminTheme';
+import {SEARCH_STACK_BELOW} from '../../../theme/AdminStyles';
+import {ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
-import type {SearchRow} from '../editSearch';
-import {URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {searchCards, twinIdsOf, type SearchRow} from '../editSearch';
+import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {pinnedChunk} from '../promos/__tests__/pinned';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
+import {STUDIO_PADDING} from '../studioLayout';
 
 const MEI = cardOf(PREVIEW_ENTRY);
 const PRIYA = cardOf(DUAL_INK_ENTRY);
@@ -28,7 +31,7 @@ function props(overrides: Partial<EditSearchProps> = {}): EditSearchProps {
     total: ROWS.length,
     query: '',
     onQuery: vi.fn(),
-    list: {loading: false, error: null, onRetry: vi.fn()},
+    list: {loading: false, error: null, onRetry: vi.fn(), setsLoading: false},
     file: {error: null, onRetry: vi.fn()},
     ...overrides,
   };
@@ -48,6 +51,58 @@ function renderSearch(overrides: Partial<EditSearchProps> = {}) {
 function handoffOf(pending: boolean): FocusHandoff {
   return {pending, request: vi.fn(), done: vi.fn()};
 }
+
+/** An inline style's length on a viewport `width` px wide: px, or a clamp() of px and vw, as PAGE_GUTTER is; 0 for none. */
+function pxAt(length: string, width: number): number {
+  const clamp = /^clamp\((\d+)px, (\d+)vw, (\d+)px\)$/.exec(length);
+  if (clamp === null) return parseFloat(length) || 0;
+  const [min, vw, max] = clamp.slice(1).map(Number);
+  return Math.min(max, Math.max(min, (vw * width) / 100));
+}
+
+/** The elements whose styles take a search row's width. */
+interface SearchBoxes {
+  /** The search screen: its own gutter, if it has one. */
+  search: HTMLElement;
+  /** The list: its border. */
+  list: HTMLElement;
+  /** A row: its padding, its columns and the gaps between them. */
+  row: HTMLElement;
+}
+
+/** A row's fixed columns, in px and in order: the thumbnail's, the marks' and the number's. */
+function fixedColumns(row: HTMLElement): number[] {
+  return (row.style.gridTemplateColumns.replace(/minmax\([^)]*\)/, '').match(/\d+px/g) ?? []).map(parseFloat);
+}
+
+/**
+ * A row's names column in a list whose content box is `listWidth` px wide, worked out from the row's
+ * own styles as a browser would lay them out: the row's padding each side, its fixed columns, and the
+ * three gaps between its four.
+ */
+function namesColumnIn(listWidth: number, row: HTMLElement): number {
+  const columns = fixedColumns(row).reduce((sum, column) => sum + column, 0);
+  return listWidth - 2 * parseFloat(row.style.paddingLeft) - columns - 3 * parseFloat(row.style.gap);
+}
+
+/**
+ * The list's content box on a phone `width` px wide, since jsdom has no layout: the viewport less the
+ * 64px rail and the studio root's padding each side, the search's own gutter each side, and the
+ * list's border each side.
+ */
+function listWidthAt(width: number, {search, list}: Omit<SearchBoxes, 'row'>): number {
+  const sides = (length: string) => 2 * pxAt(length, width);
+  const frame = ADMIN_LAYOUT.sidebarCollapsed + 2 * STUDIO_PADDING;
+  return width - frame - sides(search.style.paddingLeft) - sides(list.style.borderLeftWidth);
+}
+
+/** The names column on a phone `width` px wide. */
+function namesColumnAt(width: number, boxes: SearchBoxes): number {
+  return namesColumnIn(listWidthAt(width, boxes), boxes.row);
+}
+
+/** The widest tag a search row shows, "not deployed yet", as Chrome draws it at the tags' size (measured, #74). */
+const WIDEST_TAG = 92;
 
 const ELSA = studioCard({id: '5001', name: 'Elsa', version: 'Snow Queen'});
 const ANNA = studioCard({id: '5002', name: 'Anna', version: 'Heir to Arendelle'});
@@ -139,13 +194,43 @@ describe('EditSearch', () => {
     });
 
     // jsdom has no layout, so these pin the rule the geometry rests on. On a phone the names column is the viewport less the
-    // 64px rail, 64px of gutters (the studio root's 16px padding and the search's own, each a side), 26px of border and
-    // padding and 138px of thumbnail, marks and gaps, less this column: 39px at 375px with the 44px column "#204" had, and
-    // 31px with this one. The set wraps over the number rather than widening the column.
+    // 64px rail, 32px of gutter (the studio root's 16px padding each side: the search adds none of its own, #74), 26px of
+    // border and padding and 138px of thumbnail, marks and gaps, less this column: 71px at 375px with the 44px column
+    // "#204" had, and 63px with this one. The set wraps over the number rather than widening the column.
     it('lets the number cell wrap, so "Set 3 ·" sits over "#90" instead of widening the column', () => {
       renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
       expect(screen.getByText('Set 3 · #90')).toHaveStyle({whiteSpace: 'normal'});
       expect(screen.getByText('#90')).toHaveStyle({whiteSpace: 'normal'});
+    });
+
+    it('leaves the names column 63px at 375px, as the studio root pads the search, which adds no gutter of its own (#74)', () => {
+      renderSearch({rows: [...ROWS, ...URSULA_ROWS], total: ROWS.length + URSULA_ROWS.length});
+      const search = screen.getByRole('region', {name: 'Find a card to edit'}).parentElement as HTMLElement;
+      const boxes = {search, list: screen.getByRole('list', {name: 'Cards'}), row: screen.getAllByRole('link')[0]};
+      // Room for the "released" chip, about 50px, beside a dual ink's marks: the 31px the search's own gutter left put
+      // it under the first ink's icon.
+      expect(namesColumnAt(375, boxes)).toBe(63);
+    });
+
+    // AdminStyles' rule moves a row's marks under its name, and lets the name take the marks' column too, in a list
+    // under SEARCH_STACK_BELOW: there the names column can't hold "not deployed yet" beside the marks. jsdom has no
+    // layout or container queries, so this pins the classes the rule reads and the arithmetic of its breakpoint.
+    it('stacks the marks under the name where the names column can’t hold "not deployed yet", as on a 375px phone (#74)', () => {
+      renderSearch();
+      const list = screen.getByRole('list', {name: 'Cards'});
+      const priya = screen.getByRole('link', {name: /^Priya /});
+      expect(list).toHaveClass('adm-search-list');
+      expect(within(priya).getByText('not deployed yet').closest('span.adm-search-names')).not.toBeNull();
+      expect(within(priya).getByRole('img', {name: 'Ruby'}).closest('span.adm-search-marks')).not.toBeNull();
+      // At the breakpoint the tag fits beside the marks, and a pixel under it, it doesn't.
+      expect(namesColumnIn(SEARCH_STACK_BELOW, priya)).toBeGreaterThanOrEqual(WIDEST_TAG);
+      expect(namesColumnIn(SEARCH_STACK_BELOW - 1, priya)).toBeLessThan(WIDEST_TAG);
+      // A 375px phone's list is under it, so its rows stack, and the name and its tags take 143px.
+      const search = screen.getByRole('region', {name: 'Find a card to edit'}).parentElement as HTMLElement;
+      const phone = listWidthAt(375, {search, list});
+      expect(phone).toBeLessThan(SEARCH_STACK_BELOW);
+      const [, marks] = fixedColumns(priya);
+      expect(namesColumnIn(phone, priya) + parseFloat(priya.style.gap) + marks).toBe(143);
     });
 
     it('gives every list one number column, mixed or Core-only, so the marks never jump while a query is typed', () => {
@@ -161,6 +246,33 @@ describe('EditSearch', () => {
       expect(width).toBeGreaterThanOrEqual(Math.ceil(7 * 0.6 * ADMIN_TYPE.small));
       // ...and at most 8px more of the names column than the 44px the number alone had.
       expect(width).toBeLessThanOrEqual(44 + 8);
+    });
+  });
+
+  // Set 3's five Dalmatian Puppy - Tail Wagger cards share name, version, ink, rarity and number, #4: only their ids
+  // tell their rows apart (#74).
+  describe('twins', () => {
+    const twinRow = (card: LorcanaCard): SearchRow => ({card, tag: 'Released', deployed: true, twin: true});
+
+    it('names each of the five by its id after its set and number, so the rows differ by name (the pinned data)', () => {
+      const cards = pinnedChunk('3').filter((card) => card.baseId === undefined);
+      renderSearch(searchCards({cards, query: 'Dalmatian Puppy - Tail Wagger', previewIds: new Set(), twinIds: twinIdsOf(cards)}));
+      const ids = ['436', '437', '438', '439', '440'];
+      const links = screen.getAllByRole('link');
+      expect(links.map((link) => link.getAttribute('href'))).toEqual(ids.map((id) => `/studio?mode=edit&card=${id}`));
+      links.forEach((link, i) => expect(link).toHaveAccessibleName(`Dalmatian Puppy released Tail Wagger Amber Set 3 · #4 · id ${ids[i]}`));
+    });
+
+    it('keeps the id whole, so the cell wraps "Set 3 ·" over "#4 ·" over "id 436", never parting "id" from its number', () => {
+      renderSearch({rows: DALMATIANS.map(twinRow), total: DALMATIANS.length});
+      const id = screen.getByText('id 436');
+      expect(id).toHaveStyle({whiteSpace: 'nowrap'});
+      expect(id.closest('code')).toHaveTextContent(/^Set 3 · #4 · id 436$/);
+    });
+
+    it('names the id alone where the card has no number', () => {
+      renderSearch({rows: [twinRow({...DALMATIANS[0], setNumber: undefined})], total: 1});
+      expect(screen.getByText('id 436').closest('code')).toHaveTextContent(/^id 436$/);
     });
   });
 
@@ -187,7 +299,7 @@ describe('EditSearch', () => {
   describe('the card list', () => {
     it('says it is loading, with the field ready to type in and no rows until it lands', () => {
       // The page may already hold the branch file's entries (R-66); without the card list they'd all read "not deployed yet".
-      renderSearch({list: {loading: true, error: null, onRetry: vi.fn()}});
+      renderSearch({list: {loading: true, error: null, onRetry: vi.fn(), setsLoading: false}});
       expect(screen.getByRole('status')).toHaveTextContent('Loading cards…');
       expect(screen.getByRole('searchbox', {name: 'Search cards'})).toBeInTheDocument();
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -195,7 +307,7 @@ describe('EditSearch', () => {
 
     it('puts a failure, with Retry, in place of the field and the rows', async () => {
       const onRetry = vi.fn();
-      renderSearch({list: {loading: false, error: new Error('HTTP 503'), onRetry}});
+      renderSearch({list: {loading: false, error: new Error('HTTP 503'), onRetry, setsLoading: false}});
       expect(screen.getByRole('alert')).toHaveTextContent('Could not load the card list (HTTP 503)');
       expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -250,7 +362,7 @@ describe('EditSearch', () => {
 
     it('gives it to Retry when the card list fails again', () => {
       const handoff = handoffOf(true);
-      renderSearch({handoff, list: {loading: false, error: new Error('HTTP 503'), onRetry: vi.fn()}});
+      renderSearch({handoff, list: {loading: false, error: new Error('HTTP 503'), onRetry: vi.fn(), setsLoading: false}});
       expect(screen.getByRole('button', {name: 'Retry'})).toHaveFocus();
     });
 
@@ -261,10 +373,10 @@ describe('EditSearch', () => {
           <EditSearch {...props({handoff, list})} />
         </MemoryRouter>
       );
-      const {rerender} = render(search({loading: true, error: null, onRetry: vi.fn()}));
+      const {rerender} = render(search({loading: true, error: null, onRetry: vi.fn(), setsLoading: false}));
       expect(screen.getByRole('searchbox', {name: 'Search cards'})).not.toHaveFocus();
       expect(handoff.done).not.toHaveBeenCalled();
-      rerender(search({loading: false, error: new Error('HTTP 503'), onRetry: vi.fn()}));
+      rerender(search({loading: false, error: new Error('HTTP 503'), onRetry: vi.fn(), setsLoading: false}));
       expect(screen.getByRole('button', {name: 'Retry'})).toHaveFocus();
       expect(handoff.done).toHaveBeenCalledOnce();
     });

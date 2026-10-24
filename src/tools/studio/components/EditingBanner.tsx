@@ -7,7 +7,7 @@ import {cardsHref, studioHref} from '../../../shell/nav';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {isPrintingsOnly} from '../branchCards';
-import {numberLabel, type CardTag} from '../editSearch';
+import {numberLabel, withIdName, type CardTag} from '../editSearch';
 import {CardTags} from './CardMarks';
 
 // A strip across the page under its header, in the panels' fill (README §7),
@@ -44,8 +44,19 @@ interface EditingBannerProps {
   tag: CardTag;
   /** False for a card only the branch file holds (R-66): it has no Card analytics page yet (R-33). */
   deployed: boolean;
+  /**
+   * The card has a twin (twinIdsOf), so its number ends in its id, "Set 3 · #4 · id 436", as its
+   * search row's does (#74). Absent, it has none.
+   */
+  twin?: boolean;
   /** The page's (R-59): it asks when the URL names a new card, and this h2 takes it. */
   handoff?: FocusHandoff;
+}
+
+/** The banner's number: numberLabel's, and a twin's id after it (withIdName). */
+function bannerNumber({card, twin}: Pick<EditingBannerProps, 'card' | 'twin'>): string {
+  const number = numberLabel(card);
+  return twin ? withIdName({label: number, id: card.id}) : number;
 }
 
 /**
@@ -53,16 +64,17 @@ interface EditingBannerProps {
  * name and version in the h2 the focus handoff lands on, its collector number
  * and tags, then the links out. A card of Sets 1 to 8 names its set before its
  * number, "Set 3 · #90", as its search row does (numberLabel), so it tells
- * from its Core reprint (#68). "View card analytics" shows only for a card the
- * card list holds (R-33), which a card of Sets 1 to 8 isn't (#68), and "Load a
- * different card" goes back to the search. Both are router Links, so the page
- * moves focus from the URL, never on a click (R-59).
+ * from its Core reprint (#68), and a twin ends it in its id (#74). "View card
+ * analytics" shows only for a card the card list holds (R-33), which a card of
+ * Sets 1 to 8 isn't (#68), and "Load a different card" goes back to the search.
+ * Both are router Links, so the page moves focus from the URL, never on a
+ * click (R-59).
  */
-export function EditingBanner({card, tag, deployed, handoff}: EditingBannerProps) {
+export function EditingBanner({card, tag, deployed, twin, handoff}: EditingBannerProps) {
   const ref = useRef<HTMLDivElement>(null);
   useTakeHandoff(handoff, ref, 'h2');
   const analytics = deployed && !isPrintingsOnly(card);
-  const number = numberLabel(card);
+  const number = bannerNumber({card, twin});
   return (
     <div ref={ref} style={BANNER}>
       <div style={IDENTITY}>

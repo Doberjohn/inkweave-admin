@@ -80,6 +80,36 @@ describe('readEntries', () => {
     ]);
   });
 
+  // Set 3's Dalmatian Puppy - Tail Wagger cards are all #4, so only their ids tell them apart, as in the Printings panel (#74).
+  it('ends the labels of entries that share one with their ids, as the Printings panel ends a twin’s, and no other label', () => {
+    const puppy = {fullName: 'Dalmatian Puppy - Tail Wagger', setCode: '3', number: 4, rarity: 'Common'};
+    const chunk = [
+      {...puppy, id: 436},
+      {...puppy, id: 437},
+      {id: 900, fullName: 'Yen Sid - Powerful Sorcerer', setCode: '3', number: 4, rarity: 'Legendary'},
+    ];
+    expect(named('apps/web/public/data/collection/3.json', chunk).map(({label}) => label)).toEqual([
+      'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436',
+      'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 437',
+      'Yen Sid - Powerful Sorcerer #4 · Set 3',
+    ]);
+  });
+
+  it('leaves the label of an entry a file holds twice as it is: it is one entry, not two alike', () => {
+    const entry = {id: 900, fullName: 'Yen Sid - Powerful Sorcerer', setCode: '4', number: 223, rarity: 'Legendary'};
+    expect(named(CHUNK, [entry, entry])).toEqual([{id: '900', cardId: '900', label: 'Yen Sid - Powerful Sorcerer #223 · Set 4'}]);
+  });
+
+  it("tells apart only the entries it keeps: a copy of an id it leaves out ends no other entry's label in its id", () => {
+    const yenSid = {fullName: 'Yen Sid - Powerful Sorcerer', setCode: '4', number: 223, rarity: 'Legendary'};
+    const mickey = {fullName: 'Mickey Mouse - Brave Little Tailor', setCode: '4', number: 223, rarity: 'Legendary'};
+    // 901's first copy shares 900's label, but its last copy, the one kept, doesn't.
+    expect(named(CHUNK, [{...yenSid, id: 900}, {...yenSid, id: 901}, {...mickey, id: 901}])).toEqual([
+      {id: '900', cardId: '900', label: 'Yen Sid - Powerful Sorcerer #223 · Set 4'},
+      {id: '901', cardId: '901', label: 'Mickey Mouse - Brave Little Tailor #223 · Set 4'},
+    ]);
+  });
+
   it("reads no file it doesn't know, and no layout it doesn't expect", () => {
     expect(readEntries({path: 'apps/web/public/data/other.json', text: '[]'})).toBeNull();
     expect(readEntries({path: ALL_CARDS, text: '[]'})).toBeNull();

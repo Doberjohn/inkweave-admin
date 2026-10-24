@@ -6,10 +6,9 @@ import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
-import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
-import {numberLabel, type SearchRow} from '../editSearch';
+import {idName, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
@@ -25,15 +24,18 @@ const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
  * card of Sets 1 to 8 names its set before its number (numberLabel) and the cell wraps there, "Set 8 ·"
  * over "#204", so the column holds the first line: seven characters of the 12px monospace at 0.6em
  * each, and a pixel to spare, 52px. "#204" alone had 44px, so this takes 8px of the names column. On
- * a phone that column is the viewport less the 64px rail, 64px of gutters (the studio root's 16px
- * padding, then the search's own PAGE_GUTTER, 16px there, each a side), 26px of border and padding,
- * 138px of thumbnail, marks and gaps, and this column: 31px at 375px, narrower than the "released"
- * chip (about 50px).
+ * a phone that column is the viewport less the 64px rail, 32px of gutter (the studio root's 16px
+ * padding each side: the search adds none of its own, #74), 26px of border and padding, 138px of
+ * thumbnail, marks and gaps, and this column: 63px at 375px. That holds the "released" chip (about
+ * 50px), but not "not deployed yet" (about 92px), so in a list that narrow, under AdminStyles'
+ * SEARCH_STACK_BELOW, a row moves its marks under its name, and the name and its tags take the
+ * marks' column and the gap before it too: 143px at 375px.
  */
 const NUMBER_WIDTH = Math.ceil(7 * 0.6 * ADMIN_TYPE.small) + 1;
 
-// The page body's padding (PageLayout's BODY), round the handoff's centred column.
-const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px ${PAGE_GUTTER}`};
+// The page body's padding above and below the handoff's centred column (PageLayout's BODY). Its sides are the studio
+// root's padding: a gutter of the search's own took 32px more from a phone's rows (#74).
+const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px 0`};
 const COLUMN: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -82,8 +84,10 @@ const THUMB: React.CSSProperties = {
   backgroundColor: ADMIN_COLORS.card,
 };
 const THUMB_IMAGE: React.CSSProperties = {display: 'block', width: '100%', height: '100%', objectFit: 'cover'};
+// The names and the marks carry adm-search-names and adm-search-marks, which stack the marks under the name in a list
+// too narrow to hold every tag beside them (AdminStyles, #74). A wider list keeps this grid as it is.
 const NAMES: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xxs, minWidth: 0};
-// The tags wrap under a long name rather than run into the marks at phone width.
+// The tags wrap under a long name rather than run into the marks.
 const NAME_LINE: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -97,8 +101,10 @@ const MARKS: React.CSSProperties = {display: 'flex', justifyContent: 'flex-end',
 // Muted, never dim: the number, and the set before it, tell two cards of one name apart (R-6).
 // It wraps, so a card of Sets 1 to 8 reads "Set 3 ·" over "#90" in NUMBER_WIDTH's 52px, 8px more
 // than a bare number's 44. The row is 64px tall at least, for its thumbnail, so the second line
-// costs no height.
+// costs no height. A twin's id takes a third, which makes its row 6px taller (#74).
 const NUMBER: React.CSSProperties = {textAlign: 'right', whiteSpace: 'normal', fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+// A twin's id stays whole: the cell's wrap never parts "id" from the number it names.
+const TWIN_ID: React.CSSProperties = {whiteSpace: 'nowrap'};
 
 /** The card list (useCardDataContext): every row comes from it, so its failure takes the field's place. */
 export interface EditSearchList {
@@ -106,6 +112,11 @@ export interface EditSearchList {
   error: Error | null;
   /** The card list's retryLoad. */
   onRetry: () => void;
+  /**
+   * The cards of Sets 1 to 8 are still being read (#68), so a query that matches nothing may match
+   * once they are in, and the status line says so (#74). False once they are in, or failed.
+   */
+  setsLoading: boolean;
 }
 
 /** previewCards.json, read from the target branch (R4-4a). It only tags the rows, so its failure leaves them open (R-71). */
@@ -247,14 +258,37 @@ function Thumb({card}: {card: LorcanaCard}) {
 }
 
 /**
+ * The number's cell: numberLabel's text, then a twin's id (#74), which alone
+ * tells its row from its twins': "Set 3 · #4 · id 436", wrapping as "Set 3 ·"
+ * over "#4 ·" over "id 436".
+ */
+function NumberCell({row}: {row: SearchRow}) {
+  const {card} = row;
+  const number = numberLabel(card);
+  return (
+    <code style={NUMBER}>
+      {number}
+      {row.twin && (
+        <>
+          {number === '' ? '' : ' · '}
+          <span style={TWIN_ID}>{idName(card.id)}</span>
+        </>
+      )}
+    </code>
+  );
+}
+
+/**
  * One match: a link that opens the card in Edit card, drawn as the handoff
  * draws it (README §7): the thumbnail, name and version, inks, rarity and
  * collector number, plus the card's tags. A card of Sets 1 to 8 names its set
  * before the number (numberLabel), so it tells from a Core reprint of itself
- * (#68); the number's cell wraps, the set over the number. The spaces are text
- * nodes of their own, so the link's name reads
- * "Mei preview Red Panda Ruby #31", or "Ursula released Deceiver Emerald
- * Set 3 · #90": a grid or a flex row draws none of them.
+ * (#68); the number's cell wraps, the set over the number. A twin names its id
+ * after the number, "Set 3 · #4 · id 436", as only its id tells it from its
+ * twins (#74). In a list too narrow for every tag beside the marks, the marks
+ * go under the name (#74). The spaces are text nodes of their own, so the
+ * link's name reads "Mei preview Red Panda Ruby #31", or "Ursula released
+ * Deceiver Emerald Set 3 · #90": a grid or a flex row draws none of them.
  */
 function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
   const {card} = row;
@@ -262,27 +296,27 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
     <li style={ruled ? RULED : undefined}>
       <Link to={studioHref('edit', card.id)} className="adm-row-btn" style={ROW}>
         <Thumb card={card} />{' '}
-        <span style={NAMES}>
+        <span className="adm-search-names" style={NAMES}>
           <span style={NAME_LINE}>
             <span style={NAME}>{card.name}</span> <CardTags tag={row.tag} deployed={row.deployed} />
           </span>{' '}
           <span style={VERSION}>{card.version}</span>
         </span>{' '}
-        <span style={MARKS}>
+        <span className="adm-search-marks" style={MARKS}>
           <CardInks card={card} />
           <RarityMark rarity={card.rarity} />
         </span>{' '}
-        <code style={NUMBER}>{numberLabel(card)}</code>
+        <NumberCell row={row} />
       </Link>
     </li>
   );
 }
 
-/** The matches, or nothing for none: the status line says so. */
+/** The matches, or nothing for none: the status line says so. The list is what a row's stacking measures (#74). */
 function ResultList({rows}: {rows: readonly SearchRow[]}) {
   if (rows.length === 0) return null;
   return (
-    <ul aria-label="Cards" style={LIST}>
+    <ul aria-label="Cards" className="adm-search-list" style={LIST}>
       {rows.map((row) => (
         <ResultRow key={row.card.id} row={row} ruled={row !== rows[0]} />
       ))}
@@ -301,7 +335,12 @@ function ResultList({rows}: {rows: readonly SearchRow[]}) {
 export function EditSearch({rows, total, query, onQuery, list, file, notice, handoff}: EditSearchProps) {
   const titleId = useId();
   const failed = list.error !== null;
-  const status = searchStatus({query, shown: rows.length, total, list: {loading: list.loading, failed}});
+  const status = searchStatus({
+    query,
+    shown: rows.length,
+    total,
+    list: {loading: list.loading, failed, setsLoading: list.setsLoading},
+  });
   // Rows only once the card list is in: while it loads, a card the branch file
   // also holds would read "not deployed yet" (R-66).
   const listed = !list.loading && !failed;

@@ -1,6 +1,8 @@
 import {Fragment, useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react';
 import {Link} from 'react-router-dom';
-import {COLORS, CtaButton, DISABLED_STYLE, LinkButton, SPACING} from '../../../app-bridge';
+import {COLORS, CtaButton, DISABLED_STYLE, LinkButton, SPACING, type Finish} from '../../../app-bridge';
+import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
+import {isRejectedToken} from '../../../github/rejectedToken';
 import {focusUnmoved, useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -97,7 +99,7 @@ const OFFER: React.CSSProperties = {display: 'flex', flexDirection: 'column', ga
 const ADD: React.CSSProperties = {alignSelf: 'flex-start'};
 const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, lineHeight: 1.5, color: ADMIN_COLORS.muted};
 
-/** What a row says about where its versions stand: one word, and what it means on hover. */
+/** What a row says about where its versions stand: its tag's words, lowercase as every Tag's are (#74), and what they mean on hover. */
 interface Marker {
   text: string;
   title: string;
@@ -105,19 +107,40 @@ interface Marker {
 
 const MARKERS = {
   clash: {
-    text: 'Clash',
+    text: 'clash',
     title: "The branch changed this printing's versions after you staged this change: keep it or drop it in Version changes",
   },
-  pending: {text: 'Pending', title: 'Staged in Version changes, not published yet'},
-  data: {text: 'In the data', title: "The branch's card data names this printing's versions"},
-  rarity: {text: 'By rarity', title: "The card data names none, so the printing's rarity gives them"},
+  pending: {text: 'pending', title: 'Staged in Version changes, not published yet'},
+  data: {text: 'in the data', title: "The branch's card data names this printing's versions"},
+  rarity: {text: 'by rarity', title: "The card data names none, so the printing's rarity gives them"},
 } as const satisfies Record<string, Marker>;
 
-/** The row's one marker: a clash, a staged change, or where its versions come from now. */
-function markerOf({row, pending}: {row: PrintingRow; pending: VersionChange | undefined}): Marker {
+/**
+ * A row, and the changes that speak for its printing: the one the batch holds for it, and the one the
+ * last publish that landed wrote, while the files are read again after it (#74).
+ */
+interface RowChanges {
+  row: PrintingRow;
+  /** The row's change in the batch, if it has one. */
+  pending: VersionChange | undefined;
+  /** The change the last publish that landed wrote for the row's printing, while the files are read again after it. */
+  wrote: VersionChange | undefined;
+}
+
+/**
+ * The row's one marker: a clash, a staged change, or where its versions come from now. What a publish
+ * wrote is in the branch's data, though the rows held while the files are read again are from before it.
+ */
+function markerOf({row, pending, wrote}: RowChanges): Marker {
   if (pending?.clash) return MARKERS.clash;
   if (pending) return MARKERS.pending;
+  if (wrote) return MARKERS.data;
   return row.value === null ? MARKERS.rarity : MARKERS.data;
+}
+
+/** The versions a row shows: what its staged change writes, else what the publish wrote, else what the branch's files give it. */
+function shownOf({row, pending, wrote}: RowChanges): readonly Finish[] {
+  return (pending ?? wrote)?.to ?? row.shown;
 }
 
 /** A printing's art, or its empty box. Decoration: the row's text names the printing. */
@@ -139,7 +162,10 @@ export interface PromoPrintingsProps {
   coreCopy: {id: string; name: string} | null;
   /** The promo sets a form offers, newest first. */
   promoSets: readonly PromoSetOption[];
-  /** R-26's Forget token, which a form offers when GitHub rejects the token. */
+  /**
+   * R-26's Forget token, which the panel offers wherever GitHub rejects the token: a form's publish,
+   * the line under the rows, and a failed read of the branch's files (#74).
+   */
   onForgetToken: () => void;
 }
 
@@ -153,6 +179,13 @@ export interface PrintingsPanelProps {
    * it ends: one made meanwhile could take back a change it is writing. Default false.
    */
   publishing?: boolean;
+  /**
+   * The changes the last publish that landed sent (#74). The panel reads them only while the view is
+   * refreshing, when its rows are the last read's, from before that publish: a row with one shows what
+   * it wrote, with the marker of versions the data names (`MARKERS.data`), until the read lands.
+   * Default none.
+   */
+  published?: readonly VersionChange[];
   /** The owner chose versions for a printing. The panel stages nothing itself: it shows what `changes` holds. */
   onChoose: (opts: {row: PrintingRow; choice: FinishChoice}) => void;
   /**
@@ -493,10 +526,7 @@ function PromoOffer({kit, rows}: OfferProps) {
   );
 }
 
-interface ItemProps {
-  row: PrintingRow;
-  /** The row's change in the batch, if it has one. */
-  pending: VersionChange | undefined;
+interface ItemProps extends RowChanges {
   /** Whether a row comes before it, which a rule then separates. */
   ruled: boolean;
   /** Its choices are held: a publish runs, or the files are read again after one. */
@@ -508,14 +538,16 @@ interface ItemProps {
 
 /**
  * One printing: its art, its name, its marker, and the choice of versions. A staged change shows
- * the versions it writes in place of the ones the row shows, and the marker "Pending", or "Clash"
+ * the versions it writes in place of the ones the row shows, and the marker "pending", or "clash"
  * where the printing changed on the branch since: a publish found it, or a choice made again from
  * a row read since did. Choosing again changes only what the change writes: it keeps its base, and
  * a clash its mark, which Keep mine or Drop in the tray settles. Once the branch has moved, a
  * choice of what it shows now takes the change out, and any other marks it clashed (`withChange`).
+ * A change the last publish wrote shows the same way while the files are read again after it, as
+ * the branch's data, unless the batch holds a change for the printing again (#74).
  */
-function PrintingItem({row, pending, ruled, held, onChoose, action}: ItemProps) {
-  const marker = markerOf({row, pending});
+function PrintingItem({row, pending, wrote, ruled, held, onChoose, action}: ItemProps) {
+  const marker = markerOf({row, pending, wrote});
   return (
     <li style={ruled ? {...ITEM, ...RULED} : ITEM}>
       <div style={IDENTITY}>
@@ -530,7 +562,7 @@ function PrintingItem({row, pending, ruled, held, onChoose, action}: ItemProps) 
       <div style={CONTROL}>
         <SegmentedControl
           options={CHOICE_OPTIONS}
-          value={choiceOf(pending ? pending.to : row.shown)}
+          value={choiceOf(shownOf({row, pending, wrote}))}
           onChange={(choice) => onChoose({row, choice})}
           ariaLabel={`Versions of ${row.label}`}
           fill
@@ -562,6 +594,8 @@ function useHandoffWhenGone(body: RefObject<HTMLElement | null>, onGone: () => v
 
 interface RowsProps extends Pick<PrintingsPanelProps, 'changes' | 'onChoose'> {
   rows: readonly PrintingRow[];
+  /** What the last publish that landed wrote, while the rows are the last read's, from before it; none otherwise. */
+  published: readonly VersionChange[];
   /** A publish runs, or the files are read again after one: the rows' choices are held. */
   held: boolean;
   /** The rows are the last read's, while the files are read again after a publish: the list is busy. */
@@ -570,14 +604,20 @@ interface RowsProps extends Pick<PrintingsPanelProps, 'changes' | 'onChoose'> {
   kit: FormKit | null;
 }
 
-function PrintingRows({rows, changes, onChoose, held, busy, kit}: RowsProps) {
+/** The change of `changes` for the row's printing, if there is one. */
+function changeOfRow(changes: readonly VersionChange[], row: PrintingRow): VersionChange | undefined {
+  return changes.find((change) => change.id === row.ref.id);
+}
+
+function PrintingRows({rows, changes, published, onChoose, held, busy, kit}: RowsProps) {
   return (
     <ul style={LIST} aria-busy={busy || undefined}>
       {rows.map((row, index) => (
         <Fragment key={row.ref.id}>
           <PrintingItem
             row={row}
-            pending={changes.find((change) => change.id === row.ref.id)}
+            pending={changeOfRow(changes, row)}
+            wrote={changeOfRow(published, row)}
             ruled={index > 0}
             held={held}
             onChoose={onChoose}
@@ -596,12 +636,16 @@ interface ReadyProps extends Omit<PrintingsPanelProps, 'view'> {
   handTo: HandTo;
 }
 
+/** No changes: what the rows take of a publish once the read after it has landed, and the panel's default. */
+const NO_CHANGES: readonly VersionChange[] = [];
+
 /**
  * The rows, and under them what the panel offers for the card's promos (#77). While the files are
- * read again after a publish, the rows are the last read's: held, and the list busy. So is the
- * catalog, so Add a printing and every Edit are held too.
+ * read again after a publish, the rows are the last read's: held, and the list busy, each row the
+ * publish wrote showing what it wrote (#74). So is the catalog, so Add a printing and every Edit are
+ * held too.
  */
-function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}: ReadyProps) {
+function ReadyBody({view, changes, publishing = false, published = NO_CHANGES, onChoose, promos, handTo}: ReadyProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   useHandoffWhenGone(bodyRef, () => handTo(TO_PANEL));
   const refreshing = view.refreshing === true;
@@ -611,6 +655,7 @@ function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}
       <PrintingRows
         rows={view.rows}
         changes={changes}
+        published={refreshing ? published : NO_CHANGES}
         onChoose={onChoose}
         held={publishing || refreshing}
         busy={refreshing}
@@ -621,17 +666,28 @@ function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}
   );
 }
 
+/** What a failed read shows: its error, the way to read the files again, and R-26's Forget token where the panel has it. */
+interface ReadErrorProps {
+  error: string;
+  onRetry: () => void;
+  /** Offered under the retry when GitHub rejected the token (isRejectedToken): a read with it would fail again. */
+  onForgetToken?: () => void;
+}
+
 /**
  * A read that failed, and its way out. Reading again swaps this for the loading line, taking its
  * own button with it, so the press asks for the handoff, which the panel's next view takes (R-48).
+ * Where GitHub rejected the token (a 401), it offers Forget token under that button too (R-26, #74),
+ * as the search does for previewCards.json; the handoff still lands on the button, the panel's first.
  */
-function ReadError({error, onRetry}: {error: string; onRetry: () => void}) {
+function ReadError({error, onRetry, onForgetToken}: ReadErrorProps) {
   return (
     <div style={FAILED}>
       <Notice tone="error">Could not read the printings: {error}.</Notice>
       <CtaButton type="button" variant="neutral" onClick={onRetry} style={RETRY}>
         Read the files again
       </CtaButton>
+      {onForgetToken && isRejectedToken(error) && <ForgetTokenOffer onForget={onForgetToken} />}
     </div>
   );
 }
@@ -644,9 +700,10 @@ interface FailedProps {
 }
 
 /**
- * A read that failed and its way out, and under them, where the panel runs the printing form, the line
- * that says what the last publish came to (#77): a publish lands and the read after it fails, so the
- * commit stays in view until the files read again.
+ * A read that failed and its way out, with the promos' Forget token where GitHub rejected the token
+ * (#74), and under them, where the panel runs the printing form, the line that says what the last
+ * publish came to (#77): a publish lands and the read after it fails, so the commit stays in view
+ * until the files read again.
  */
 function FailedBody({view, promos, handTo}: FailedProps) {
   const onRetry = () => {
@@ -655,7 +712,7 @@ function FailedBody({view, promos, handTo}: FailedProps) {
   };
   return (
     <div style={VIEW}>
-      <ReadError error={view.error} onRetry={onRetry} />
+      <ReadError error={view.error} onRetry={onRetry} onForgetToken={promos?.onForgetToken} />
       {promos && <PublishOutcome promos={promos} />}
     </div>
   );
@@ -681,8 +738,9 @@ function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: H
  *
  * While a publish runs every choice is held, and once it lands or clashes the rows stay, held, with
  * the list busy, until the branch's files are read again; then they show what was read, and are
- * live again. Held choices are aria-disabled, so one with the focus keeps it, and the list never
- * collapses to the loading line between the two.
+ * live again. Meanwhile a row the landed publish wrote shows what it wrote (`published`, #74): the
+ * rows are the last read's, from before it. Held choices are aria-disabled, so one with the focus
+ * keeps it, and the list never collapses to the loading line between the two.
  *
  * Given `promos`, it adds and edits the card's promo printings too (#77): Add a printing under the
  * rows opens the add form there, a promo row's Edit opens the edit form under that row, filled in from

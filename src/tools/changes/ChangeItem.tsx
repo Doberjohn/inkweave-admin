@@ -47,7 +47,7 @@ export function ChangeItem({change, source, divided, onForgetToken}: ChangeItemP
           <span style={TITLE}>{changeTitle(change.headline)}</span>
           <span style={TAGS}>
             {change.areas.map((area) => (
-              <Tag key={area}>{AREA_LABELS[area]}</Tag>
+              <Tag key={area}>{AREA_LABELS[area].toLowerCase()}</Tag>
             ))}
           </span>
         </button>

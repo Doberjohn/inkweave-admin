@@ -6,7 +6,7 @@ import {DeferredReader} from '../../../test/DeferredReader';
 import {imageDataUrl, pngFile} from '../../../test/images';
 import {resetCollectionOnlyCards} from '../finishes/collectionCards';
 import {chunksOf, heldChunks, loadCollection, stubChunks} from '../finishes/__tests__/collectionHarness';
-import {SET_4_ENTRIES, YEN_SID} from '../finishes/__tests__/finishFixtures';
+import {DALMATIAN_ENTRIES, SET_4_ENTRIES, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {useCardEditor} from '../useCardEditor';
 import {
   BRANCH_ENTRIES,
@@ -18,6 +18,7 @@ import {
   STUDIO_CARDS,
   UNNUMBERED_ENTRY,
   listCard,
+  studioCard,
 } from '../studioFixtures';
 
 /** What the editor reads from the shell's card list. */
@@ -465,6 +466,15 @@ describe('useCardEditor: Sets 1 to 8', () => {
     await act(async () => result.current.collection.retry());
     await waitFor(() => expect(result.current.collection.status).toBe('ready'));
     expect(ids(result.current.searchCards)).toContain(YEN_SID.id);
+  });
+
+  it('finds the twins among every card it searches, theirs and the card list’s, for the search and the panel to name (#74)', async () => {
+    await loadCollection({'3': DALMATIAN_ENTRIES, '4': SET_4_ENTRIES});
+    // Two cards of the list that share a set, a name and a number, as Set 3's Dalmatian Puppies do.
+    const listed = [5001, 5002].map((id) => studioCard({id: String(id), name: 'Rabbit', version: 'Twin', setCode: '9', setNumber: 12}));
+    setCardList({cards: [...STUDIO_CARDS, ...listed]});
+    const {result} = await renderEditor({cardId: null});
+    expect(result.current.twinIds).toEqual(new Set(['5001', '5002', '436', '437']));
   });
 
   it('scores a preview card against the card list alone, never against their cards', async () => {

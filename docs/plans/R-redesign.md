@@ -316,7 +316,12 @@ export const ADMIN_LAYOUT: {sidebarOpen: 240; sidebarCollapsed: 64; headerMinHei
 // (SegmentedControl's fill: the buttons share the row from a 4px pad), adm-seg-pair (a fill control's buttons two by two, never wrapped
 // apart, so a row that wraps goes two and two) and adm-scroll-region (a box that scrolls a table sideways: tabIndex 0, a named region,
 // the ring 2px out)
+// #74 adds three: adm-search-list (Edit card's search list, the container whose width its rows' rule asks) and adm-search-names
+// and adm-search-marks (a row's names and its marks: in a list narrower than SEARCH_STACK_BELOW only the marks move, down under
+// the names, which take the marks' columns too)
 export const INK_TILE_SIZE = 48; // R4-5x: the ink tile's largest size; PickerGroup's 'inks' grid caps its six columns at it
+// #74: the search list's width under which a row's marks stack under its names; the widest chip, "not deployed yet" (92px), sets it
+export const SEARCH_STACK_BELOW = 306;
 export function AdminStyles(): JSX.Element;
 
 // src/ui/format.ts

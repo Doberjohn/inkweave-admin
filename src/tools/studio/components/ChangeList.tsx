@@ -1,5 +1,6 @@
 import {useRef} from 'react';
 import {SPACING, LinkButton} from '../../../app-bridge';
+import {focusNearRow} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Panel} from '../../../ui/Panel';
 import {changeCount, type ChangeRow} from '../changeRows';
@@ -120,16 +121,21 @@ interface Reverted {
 
 /**
  * Where focus goes once a row is reverted, since its button goes with it, as
- * R2's tray does (focusAfterRevert): the next row's Revert, else the previous
+ * R2's tray does (focusNearRow): the next row's Revert, else the previous
  * row's, else the list's heading. Only a row the list keeps counts, so a row
- * the revert takes too never gets it. Every button is still in the document:
- * the revert renders once the click is done.
+ * the revert takes too never gets it: the rows left are the kept ones but the
+ * reverted one, and its place among them is the number of kept rows before it.
+ * Every button is still in the document: the revert renders once the click is
+ * done. It goes by the rows, each to the item at its place, so an item no row
+ * stands for is never read as one.
  */
 function focusAfterRevert(root: HTMLElement | null, {rows, index, kept}: Reverted) {
   const keeps = (row: ChangeRow) => kept.includes(row.id);
-  const next = rows.slice(index + 1).find(keeps) ?? rows.slice(0, index).reverse().find(keeps);
-  const item = next ? root?.querySelectorAll('li')[rows.indexOf(next)] : undefined;
-  (item?.querySelector<HTMLElement>('button') ?? root?.querySelector<HTMLElement>('h2'))?.focus();
+  const items = Array.from(root?.querySelectorAll('li') ?? []);
+  // The row's item, where the list has one at its place.
+  const left = rows.flatMap((row, at) => (at !== index && keeps(row) ? items.slice(at, at + 1) : []));
+  const place = rows.slice(0, index).filter(keeps).length;
+  focusNearRow({rows: left, index: place, fallback: root?.querySelector<HTMLElement>('h2') ?? null});
 }
 
 /**

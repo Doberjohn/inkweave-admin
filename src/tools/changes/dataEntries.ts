@@ -1,6 +1,7 @@
 import {isCoreSet} from 'inkweave-synergy-engine';
 import {isChaseRarity} from '../../app-bridge';
 import {PREVIEW_PATH} from '../reveal/githubClient';
+import {withIdName} from '../studio/editSearch';
 import {ALL_CARDS_PATH, CATALOG_PATH, COLLECTION_DIR} from '../studio/finishes/finishFiles';
 
 /*
@@ -19,7 +20,10 @@ export interface DataEntry {
   id: string;
   /** The card Edit card opens for it: the card itself, or the card a printing reprints; null for a promo of no card. */
   cardId: string | null;
-  /** "Elsa - Snow Queen #42", "Yen Sid - Powerful Sorcerer #223 · Set 4", "Bruno Madrigal - Undetected Uncle 4/D23". */
+  /**
+   * "Elsa - Snow Queen #42", "Yen Sid - Powerful Sorcerer #223 · Set 4", "Bruno Madrigal - Undetected Uncle 4/D23",
+   * or, where another entry of the file has the same, ended by its id: "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436".
+   */
   label: string;
   /** Its keys. A card of allCards.json leaves out its `variants`, which are entries of their own. */
   fields: Fields;
@@ -105,11 +109,42 @@ function entriesOf(path: string, parsed: unknown): DataEntry[] | null {
   return path === CATALOG_PATH ? catalogFile(parsed) : null;
 }
 
+/** The labels that two or more entries of different ids share. */
+function sharedLabels(entries: readonly DataEntry[]): ReadonlySet<string> {
+  const firstWith = new Map<string, string>();
+  const shared = new Set<string>();
+  for (const {label, id} of entries) {
+    const first = firstWith.get(label);
+    if (first === undefined) firstWith.set(label, id);
+    else if (first !== id) shared.add(label);
+  }
+  return shared;
+}
+
+/**
+ * The entries, each label ending in its id where another entry of the file has it too (withIdName), as
+ * the Printings panel ends a twin's (#74): Set 3's Dalmatian Puppy - Tail Wagger cards are all #4, so
+ * each reads "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". Every other label stays as it is.
+ * The panel tells its rows apart in printingRows.ts's toldApart, by a twin card (twinIdsOf: its set,
+ * number and full name) and by the labels one card's pockets share; a file here has only its labels to
+ * go by. A change to when either ends a label in its id belongs in both.
+ */
+function toldApart(entries: readonly DataEntry[]): DataEntry[] {
+  const shared = sharedLabels(entries);
+  return entries.map((entry) => (shared.has(entry.label) ? {...entry, label: withIdName(entry)} : entry));
+}
+
+/** Entries by their id: an id held twice keeps its last entry. */
+function byId(entries: readonly DataEntry[]): Map<string, DataEntry> {
+  return new Map(entries.map((entry): [string, DataEntry] => [entry.id, entry]));
+}
+
 /**
  * A card data file's entries by id, or null for a file this doesn't read. Throws on text
- * that isn't JSON. An id the file holds twice keeps its last entry.
+ * that isn't JSON. An id the file holds twice keeps its last entry, and only the entries kept
+ * are told apart, so a copy left out ends no other entry's label in its id.
  */
 export function readEntries({path, text: fileText}: {path: string; text: string}): EntryMap | null {
   const entries = entriesOf(path, JSON.parse(fileText));
-  return entries && new Map(entries.map((entry): [string, DataEntry] => [entry.id, entry]));
+  return entries && byId(toldApart([...byId(entries).values()]));
 }

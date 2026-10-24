@@ -9,6 +9,7 @@ import {isDeployed, isPrintingsOnly, isRevealPreview} from './branchCards';
 export const SEARCH_LIMIT = 40;
 
 const NO_IDS: ReadonlySet<number> = new Set();
+const NO_TWINS: ReadonlySet<string> = new Set();
 
 /**
  * Whether a card's data is still the branch file's (Preview) or LorcanaJSON's (Released). A released
@@ -23,6 +24,11 @@ export interface SearchRow {
   tag: CardTag | null;
   /** False for a card only the branch file holds: "not deployed yet", with no Card analytics link (R-66, R-33). */
   deployed: boolean;
+  /**
+   * The card has a twin (twinIdsOf), so the row names its id after its number, "Set 3 · #4 · id 436"
+   * (#74). Absent, it has none.
+   */
+  twin?: boolean;
 }
 
 export interface EditSearchInput {
@@ -37,6 +43,8 @@ export interface EditSearchInput {
   previewIds: ReadonlySet<number> | null;
   /** The ids only the branch file holds (editSources' branchOnlyIds); with none given, every row is deployed. */
   branchOnlyIds?: ReadonlySet<number>;
+  /** The ids of the cards with a twin (twinIdsOf); with none given, no row is a twin's. */
+  twinIds?: ReadonlySet<string>;
 }
 
 export interface EditSearchResult {
@@ -84,12 +92,55 @@ export function namesSet(card: Pick<LorcanaCard, 'setCode'>): card is Pick<Lorca
 
 /**
  * What a search row prints for a card's number: "#59", with the set before it where the row names
- * one (namesSet): "Set 3 · #90". Nothing for a card with no number.
+ * one (namesSet): "Set 3 · #90". Nothing for a card with no number. A twin's row adds its id after
+ * it (SearchRow's `twin`).
  */
 export function numberLabel(card: Pick<LorcanaCard, 'setCode' | 'setNumber'>): string {
   if (card.setNumber == null) return '';
   const number = `#${card.setNumber}`;
   return namesSet(card) ? `Set ${card.setCode} · ${number}` : number;
+}
+
+/**
+ * How a label names a card's or a printing's id where nothing else tells it from another's (#74):
+ * "id 436". A twin's search row prints it after its number.
+ */
+export const idName = (id: string) => `id ${id}`;
+
+/**
+ * `label`, ended by the id that alone tells it apart (#74): the one way every twin's label ends, so a
+ * twin reads the same wherever it is named. "Set 3 · #4 · id 436" on the Editing banner, as on its
+ * search row; "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436" in the Printings panel, the Version
+ * changes tray and the change history. An empty label gives the id alone.
+ */
+export function withIdName({label, id}: {label: string; id: string}): string {
+  return label === '' ? idName(id) : `${label} · ${idName(id)}`;
+}
+
+/**
+ * What twins share: their set, their collector number and their full name. Neither the set nor the
+ * number holds a "|", so no two cards' keys run together.
+ */
+function twinKey({setCode = '', setNumber, fullName}: Pick<LorcanaCard, 'setCode' | 'setNumber' | 'fullName'>): string {
+  return `${setCode}|${setNumber ?? ''}|${fullName}`;
+}
+
+/**
+ * The ids of the cards that have a twin: another card of their set with their full name and number,
+ * as Set 3's five Dalmatian Puppy - Tail Wagger cards are all #4, with the same version, ink and
+ * rarity too (#74). Only their ids tell apart their search rows, and their printings in the Version
+ * changes tray, so both name them. A card listed twice under one id is no twin of itself.
+ */
+export function twinIdsOf(cards: readonly LorcanaCard[]): ReadonlySet<string> {
+  const firstWith = new Map<string, string>();
+  const twins = new Set<string>();
+  for (const card of cards) {
+    const key = twinKey(card);
+    const first = firstWith.get(key);
+    if (first === undefined) firstWith.set(key, card.id);
+    else if (first !== card.id) twins.add(first).add(card.id);
+  }
+  return twins;
 }
 
 /**
@@ -110,15 +161,16 @@ function previewFirst(cards: readonly LorcanaCard[], previewIds: ReadonlySet<num
  * (R-30): fullName or id, either apostrophe style, prefix matches first. The
  * branch file's cards lead each rank, so a blank query lists them first (R-76).
  * One filterCards pass gives the rows and the total. Each row says whether
- * inkweave.ink serves it yet (R-66).
+ * inkweave.ink serves it yet (R-66), and whether its card has a twin (#74).
  */
-export function searchCards({cards, query, previewIds, branchOnlyIds = NO_IDS}: EditSearchInput): EditSearchResult {
+export function searchCards({cards, query, previewIds, branchOnlyIds = NO_IDS, twinIds = NO_TWINS}: EditSearchInput): EditSearchResult {
   const matches = filterCards(previewFirst(cards, previewIds), query, Infinity);
   return {
     rows: matches.slice(0, SEARCH_LIMIT).map((card) => ({
       card,
       tag: cardTag(card, previewIds),
       deployed: isDeployed({card, branchOnlyIds}),
+      twin: twinIds.has(card.id),
     })),
     total: matches.length,
   };

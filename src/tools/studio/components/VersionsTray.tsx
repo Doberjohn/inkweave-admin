@@ -1,16 +1,17 @@
-import {useId, useRef, useState, type CSSProperties} from 'react';
+import {useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject} from 'react';
 import {COLORS, CtaButton, LinkButton, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
 import {isRejectedToken} from '../../../github/rejectedToken';
+import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {choiceLabel} from '../finishes/finishValues';
 import {clashMessage} from '../finishes/publishVersions';
 import {clashCount, hasClash, removalNote, type VersionChange, type VersionClash} from '../finishes/versionBatch';
 import type {PublishResult, VersionBatchView} from '../finishes/versionBatchStore';
-import {STUDIO_PANEL} from '../studioStyles';
+import {STUDIO_GAP} from '../studioStyles';
 
 /*
  * The Version changes tray (#68): the studio's batch of version changes as rows, with the way out
@@ -19,18 +20,62 @@ import {STUDIO_PANEL} from '../studioStyles';
  * Forget token. Forgetting the token calls that and nothing else, so it never touches the batch.
  */
 
-// A row of its own across the studio's root, under whichever pane shows. grid-column spans the wide
-// grid's columns and flex fills a line of the narrow layout's wrapping row: each property applies
-// in its own layout only, so the tray needs to know neither.
-const TRAY: CSSProperties = {
-  ...STUDIO_PANEL,
-  gridColumn: '1 / -1',
-  flex: '1 1 100%',
+/*
+ * The tray is two boxes of the studio's root, its panel and its foot, in a region that draws no box of
+ * its own (display: contents; Chrome keeps the region, and all in it, in the accessibility tree). A
+ * sticky box sticks only inside its parent's box, so a foot inside the panel would stick only while the
+ * panel is in view. A box of the root, the foot sticks to the bottom of the view across the whole studio
+ * while changes are staged or a publish runs (#74): Publish, which counts them, and what the tray says
+ * of it (a failure, a clash, a batch this browser couldn't save) stay in view as the owner scrolls a
+ * tall Edit card, while the rows scroll with the page.
+ */
+const REGION: CSSProperties = {display: 'contents'};
+
+// A row of its own across the studio's root, under whichever pane shows, for the panel and for the foot.
+// grid-column spans the wide grid's columns and flex fills a line of the narrow layout's wrapping row:
+// each property applies in its own layout only, so the tray needs to know neither.
+const OWN_ROW: CSSProperties = {gridColumn: '1 / -1', flex: '1 1 100%', minWidth: 0};
+/** The edge of the tray's boxes: a studio panel's (STUDIO_PANEL). */
+const EDGE = `1px solid ${ADMIN_COLORS.border}`;
+// The heading and the rows: a studio panel, open at the bottom, where its foot closes it.
+const PANEL: CSSProperties = {
+  ...OWN_ROW,
   display: 'flex',
   flexDirection: 'column',
   gap: SPACING.md,
-  padding: SPACING.xl,
+  padding: `${SPACING.xl}px ${SPACING.xl}px ${SPACING.md}px`,
+  // A translucent fill under a border: clip it to the padding box (adminTheme.ts).
+  backgroundColor: ADMIN_COLORS.card,
+  backgroundClip: 'padding-box',
+  borderTop: EDGE,
+  borderRight: EDGE,
+  borderLeft: EDGE,
+  borderRadius: `${ADMIN_RADIUS.panel}px ${ADMIN_RADIUS.panel}px 0 0`,
 };
+/**
+ * The foot's fill, which hides what scrolls under it once it sticks: the panel's tint over the page,
+ * and the page under its border too, so the border lands where the panel's does (adminTheme.ts).
+ */
+export const TRAY_FOOT_FILL = `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}) padding-box, ${ADMIN_COLORS.page}`;
+// What the tray says of Publish, a line of its own when it says anything, then Publish and what the last
+// publish said on a line, the words wrapping under the button where they don't fit. The foot closes the
+// panel under a rule, the root's gap between the two taken back.
+const FOOT: CSSProperties = {
+  ...OWN_ROW,
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: `${SPACING.sm}px ${SPACING.lg}px`,
+  marginTop: -STUDIO_GAP,
+  padding: `${SPACING.md}px ${SPACING.xl}px`,
+  background: TRAY_FOOT_FILL,
+  border: EDGE,
+  borderRadius: `0 0 ${ADMIN_RADIUS.panel}px ${ADMIN_RADIUS.panel}px`,
+};
+// While changes are staged, or a publish runs, the foot sticks to the bottom of the view, as the tuning
+// aside's tray does. It comes after the panes, so it paints over them; its z-index keeps it over a card
+// tile the pointer raises (the app's .card-tile:hover), which would otherwise paint over it where they meet.
+const PINNED_FOOT: CSSProperties = {...FOOT, position: 'sticky', bottom: 0, zIndex: 1};
 const HEAD: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -47,12 +92,12 @@ const LIST: CSSProperties = {
   flexDirection: 'column',
   gap: SPACING.sm,
 };
-// A change and its buttons share a line; the buttons wrap under the change where the row is narrow.
+// A change and its buttons share a line, the buttons right after its words, so on a row as wide as the studio they
+// still sit by what they act on (#74); they wrap under the change where the row is narrow.
 const ROW: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: `${SPACING.xs}px ${SPACING.md}px`,
   padding: `${SPACING.sm}px ${SPACING.md}px`,
   // A translucent fill under a border: clip it to the padding box (adminTheme.ts).
@@ -61,11 +106,12 @@ const ROW: CSSProperties = {
   border: `1px solid ${ADMIN_COLORS.border}`,
   borderRadius: ADMIN_RADIUS.control,
 };
+// As wide as its words and no wider, so the buttons follow them; it shrinks to wrap them where they outrun the row.
 const TEXT: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: SPACING.xxs,
-  flex: '1 1 240px',
+  flex: '0 1 auto',
   minWidth: 0,
 };
 const CHANGE: CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.text, overflowWrap: 'anywhere'};
@@ -74,14 +120,9 @@ const MUTED_LINE: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color:
 const CLASH: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.error};
 const ACTIONS: CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.md, flex: 'none'};
 const ACTION: CSSProperties = {fontSize: ADMIN_TYPE.small};
+// The notices above Publish, across the foot's whole width.
+const NOTICES: CSSProperties = {flex: '1 1 100%', display: 'flex', flexDirection: 'column', gap: SPACING.md};
 const FAILURE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
-// Publish and what the last publish said sit on a line, the words wrapping under the button where they don't fit.
-const FOOT: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: `${SPACING.sm}px ${SPACING.lg}px`,
-};
 const STATUS: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.success};
 const COMMIT_LINK: CSSProperties = {color: ADMIN_COLORS.accent};
 
@@ -104,6 +145,11 @@ export interface VersionsTrayProps {
   token: string;
   /** Forgets the saved token. Offered when GitHub rejects it (a 401) only; the page asks first where it must. */
   onForgetToken: () => void;
+  /**
+   * Holds the foot while it is pinned to the bottom of the view, and null otherwise (#74): the page
+   * keeps a control that takes keyboard focus clear of it (keepClearOfFoot, StudioWorkspace).
+   */
+  pinnedFootRef?: RefObject<HTMLDivElement | null>;
 }
 
 /** "1 change", "2 changes". */
@@ -132,22 +178,19 @@ function holdsPublish(view: VersionBatchView): boolean {
 }
 
 /** The tray's heading, which takes focus when no row is left to take it (a press keeps it in the document). */
-function focusHeading(tray: HTMLElement | null) {
-  tray?.querySelector<HTMLElement>('h2')?.focus();
+function headingOf(tray: HTMLElement | null): HTMLElement | null {
+  return tray?.querySelector<HTMLElement>('h2') ?? null;
 }
 
 /**
  * Where focus goes once a row's button is pressed, since the button goes with its row (or, for
- * Keep mine, with the place it had in it), as PendingTray's does: the next row's first button,
- * else the previous row's, else the heading. Every row's buttons are still in the document: the
- * action renders once the click is done.
+ * Keep mine, with the place it had in it), as PendingTray's does (focusNearRow): the next row's
+ * first button, else the previous row's, else the heading. The pressed row is never one of the
+ * rows left, even where it stays: Keep mine's new Revert is not in the document yet. Every other
+ * row's buttons are, since the action renders once the click is done.
  */
 function focusAfterSettled({tray, index}: {tray: HTMLElement | null; index: number}) {
-  const rows = tray?.querySelector('ul')?.children;
-  const neighbour = rows?.[index + 1] ?? rows?.[index - 1];
-  const button = neighbour?.querySelector<HTMLElement>('button');
-  if (button) button.focus();
-  else focusHeading(tray);
+  focusNearRow({rows: rowsWithout(tray?.querySelector('ul'), index), index, fallback: headingOf(tray)});
 }
 
 interface ItemProps {
@@ -305,18 +348,29 @@ interface NoticesProps {
   onForgetToken: () => void;
 }
 
+/** What the tray has to say of Publish: each notice it shows, and whether it shows any. */
+function noticesOf({view, clashes}: Pick<NoticesProps, 'view' | 'clashes'>) {
+  const unsaved = view.unsaved && view.changes.length > 0;
+  const clash = clashes > 0;
+  const failure = view.error;
+  return {unsaved, clash, failure, any: unsaved || clash || failure !== null};
+}
+
 /**
- * What the tray says between its rows and Publish: that this browser couldn't save the changes it
- * lists, why Publish is held, and how the last publish failed. The first is an alert: a reload
- * would lose those changes, which the owner must know before it.
+ * What the tray says above Publish, in its foot, so a pinned Publish keeps it in view (#74): that this
+ * browser couldn't save the changes it lists, why Publish is held, and how the last publish failed.
+ * The first is an alert: a reload would lose those changes, which the owner must know before it.
+ * Nothing at all where there is nothing to say, so the foot is no taller then.
  */
 function TrayNotices({view, clashes, clashId, onForgetToken}: NoticesProps) {
+  const {unsaved, clash, failure, any} = noticesOf({view, clashes});
+  if (!any) return null;
   return (
-    <>
-      {view.unsaved && view.changes.length > 0 && <Notice tone="error">{UNSAVED}</Notice>}
-      {clashes > 0 && <ClashNotice count={clashes} id={clashId} />}
-      {view.error !== null && <PublishFailure error={view.error} onForgetToken={onForgetToken} />}
-    </>
+    <div style={NOTICES}>
+      {unsaved && <Notice tone="error">{UNSAVED}</Notice>}
+      {clash && <ClashNotice count={clashes} id={clashId} />}
+      {failure !== null && <PublishFailure error={failure} onForgetToken={onForgetToken} />}
+    </div>
   );
 }
 
@@ -340,8 +394,10 @@ function PublishStatus({result}: {result: PublishResult | null}) {
   );
 }
 
-interface PublishProps {
+interface PublishProps extends Pick<VersionsTrayProps, 'pinnedFootRef'> {
   view: VersionBatchView;
+  /** What the tray says of Publish (TrayNotices), above it. */
+  notices: ReactNode;
   /** The id of the line that says why Publish is held, where one does. */
   describedBy: string | undefined;
   /** Publish was pressed: the tray publishes, unless Publish is held (`holdsPublish`). */
@@ -349,12 +405,19 @@ interface PublishProps {
 }
 
 /**
- * Publish, and what the last publish said. It is aria-disabled where it is held, so it keeps the
- * focus a native disabled would drop; a click still arrives then, and the tray does nothing with it.
+ * The tray's foot: what the tray says of Publish, Publish, and what the last publish said. Publish is
+ * aria-disabled where it is held, so it keeps the focus a native disabled would drop; a click still
+ * arrives then, and the tray does nothing with it. The notices come and go above it, in a place of
+ * their own, so Publish stays the same button, with its focus. While changes are staged, or a publish
+ * runs (another tab can empty the batch under it), the foot is pinned: it sticks to the bottom of the
+ * view, and `pinnedFootRef` holds it for the page, which keeps a control that takes keyboard focus
+ * elsewhere clear of it.
  */
-function PublishBar({view, describedBy, onPublish}: PublishProps) {
+function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: PublishProps) {
+  const pinned = view.changes.length > 0 || view.publishing;
   return (
-    <div style={FOOT}>
+    <div ref={pinned ? pinnedFootRef : undefined} style={pinned ? PINNED_FOOT : FOOT}>
+      {notices}
       <CtaButton
         type="button"
         aria-disabled={holdsPublish(view) || undefined}
@@ -374,6 +437,12 @@ function PublishBar({view, describedBy, onPublish}: PublishProps) {
  * that landed. It renders nothing while there is nothing to say: no change, no publish under way,
  * nothing about the last one.
  *
+ * Everything after the rows is its foot, under the panel. While changes are staged, or a publish runs,
+ * the foot sticks to the bottom of the view, so Publish, which counts them, is in reach however far up
+ * the page the owner is (#74), and what a press of it came to shows beside it; the rows scroll with the
+ * page.
+ * Once a publish lands, the batch is empty and the foot goes back under the panel.
+ *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on
  * first and never falls to <body> (R-48): to the next row's first button, else the previous
  * row's, else the heading. The heading takes it from Discard all. Publish stays where it is.
@@ -388,7 +457,7 @@ function PublishBar({view, describedBy, onPublish}: PublishProps) {
  * A clash is told from the changes still marked, never from the store's `error`, which holds the
  * other failures only.
  */
-export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
+export function VersionsTray({view, token, onForgetToken, pinnedFootRef}: VersionsTrayProps) {
   const trayRef = useRef<HTMLElement>(null);
   const clashId = useId();
   // Set by the handlers of the buttons above, never by render.
@@ -402,7 +471,7 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
   };
   const discard = () => {
     setPressed(true);
-    focusHeading(trayRef.current);
+    headingOf(trayRef.current)?.focus();
     view.discard();
   };
   const publish = () => {
@@ -410,11 +479,18 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
     if (!holdsPublish(view)) void view.publish(token);
   };
   return (
-    <section ref={trayRef} aria-label="Version changes" style={TRAY}>
-      <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
-      <ChangeRows view={view} onSettle={settle} />
-      <TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />
-      <PublishBar view={view} describedBy={clashes > 0 ? clashId : undefined} onPublish={publish} />
+    <section ref={trayRef} aria-label="Version changes" style={REGION}>
+      <div style={PANEL}>
+        <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
+        <ChangeRows view={view} onSettle={settle} />
+      </div>
+      <PublishBar
+        view={view}
+        notices={<TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />}
+        describedBy={clashes > 0 ? clashId : undefined}
+        onPublish={publish}
+        pinnedFootRef={pinnedFootRef}
+      />
     </section>
   );
 }

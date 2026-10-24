@@ -152,12 +152,13 @@ It starts once the app's part has merged and admin's app pin has moved past it, 
    - Edit card's own Save still commits the open card's fields or image alone, as today. It never takes the batch with it.
 5. **Publishing.**
    - Publish makes one commit to `VITE_ADMIN_TARGET_BRANCH` through the existing GitHub commit layer. For every change in the batch, it writes the explicit value into every entry that holds the printing (the table above), with the files read at the commit's base. Only the edited entries change.
+   - A file whose text has drifted from its format (listed above), for example by a newline added at its end by hand, would be rewritten whole. The publish refuses such a file before it writes anything, and names the file and its format (#74).
    - Each change remembers the value its printing had when the change was made. If any printing's value on the branch no longer matches, the publish stops, and the studio reads the values from the branch again at once:
      - a change whose printing still matches stays as it is;
      - a change whose printing changed stays in the batch too, marked as a clash showing the branch's new value, until the owner keeps it (on top of the new value) or drops it.
    - Publish stays off while a clash is open. Unlike the tuning editor's reload (R-18), nothing leaves the batch without the owner choosing it (owner, 2026-10-21).
    - `allCards.json` is about 2 MB, more than the GitHub contents API's 1 MB JSON limit, so reading and writing it goes through the raw or blob routes.
-6. **After a publish,** the outcome links the commit and says the changes show in the binder once the app's deploy finishes. Today that's on staging only.
+6. **After a publish,** the outcome links the commit and says the changes show in the binder once the app's deploy finishes. Today that's on staging only. The Printings panel reads the branch's files again, and while that read runs, each published printing's row shows the value the publish wrote (#74). If the read fails, the panel shows its error and "Read the files again" in place of the rows, and the tray still shows the outcome and its commit.
 7. **Docs.** In `CLAUDE.md`, the Card studio paragraph covers the batch, the files a publish writes, and the collection data Edit card reads.
 
 ## Order of work

@@ -28,7 +28,7 @@ import {useVersionBatch} from './finishes/versionBatchStore';
 import {outcomeShows} from './outcomeShows';
 import {baseCardOf, coreCopyOf, promoSetOptions} from './promos/printingForm';
 import type {PrintingFormController} from './promos/usePrintingForm';
-import {PRINTINGS_ONLY_NOTE, editNote, saveLabel} from './studioCopy';
+import {PRINTINGS_ONLY_NOTE, collectionFailedNote, editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
 import type {CardEditorController} from './useCardEditor';
@@ -121,26 +121,33 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
   }
 }
 
-/** What the search says when Sets 1 to 8 couldn't be read (#68): the card list's cards are all it holds. */
-const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
+/** What CollectionNotice reads: Sets 1 to 8, whether the card list itself failed, and the page's handoff. */
+interface CollectionNoticeProps {
+  collection: CollectionOnlyCards;
+  /** The card list failed: the search holds no card at all, and its own error says so. */
+  listFailed: boolean;
+  handoff: FocusHandoff;
+}
 
 /**
- * Above the search, when the chunks of Sets 1 to 8 failed (#68), with a way to read them again. The
- * card list's cards search and open as ever. Try again takes its own notice with it (the read
- * starts at once), so it asks for the handoff on the click, as the card list's Retry does when its
- * error clears (useStudioHandoff): the search field takes it when no card is waiting, and the
- * card a URL names takes it, or its explanation does, once the read lands. Only the click asks:
- * a read that fails again leaves none waiting.
+ * Above the search, when the chunks of Sets 1 to 8 failed (#68), saying why (`error`, set exactly
+ * while their read has failed), with a way to read them again. The card list's cards search and
+ * open as ever. Nothing while the card list itself has failed (#74): its own error says the search
+ * holds nothing, so a line that it holds Sets 9 and up would be wrong. Try again takes its own
+ * notice with it (the read starts at once), so it asks for the handoff on the click, as the card
+ * list's Retry does when its error clears (useStudioHandoff): the search field takes it when no
+ * card is waiting, and the card a URL names takes it, or its explanation does, once the read lands.
+ * Only the click asks: a read that fails again leaves none waiting.
  */
-function CollectionNotice({collection, handoff}: {collection: CollectionOnlyCards; handoff: FocusHandoff}) {
-  if (collection.status !== 'error') return null;
+function CollectionNotice({collection, listFailed, handoff}: CollectionNoticeProps) {
+  if (collection.error === null || listFailed) return null;
   const tryAgain = () => {
     collection.retry();
     handoff.request();
   };
   return (
     <Notice tone="error">
-      {COLLECTION_FAILED}{' '}
+      {collectionFailedNote(collection.error)}{' '}
       <LinkButton type="button" onClick={tryAgain}>
         Try again
       </LinkButton>
@@ -151,9 +158,11 @@ function CollectionNotice({collection, handoff}: {collection: CollectionOnlyCard
 /**
  * Edit card's search (R4-5f) over the controller's cards: the card list plus
  * the cards only the branch file holds (R-66), the file's first (R-76), and
- * then Sets 1 to 8 (#68), whose notice says when they failed to load. The
- * card list's Retry asks for nothing here: StudioPage asks once its error
- * clears. The file's asks once its read lands.
+ * then Sets 1 to 8 (#68), whose notice says when they failed to load, and why.
+ * While they are still read, a query that matches nothing says it may match
+ * once they are in (#74). A twin's row names its id (#74). The card list's
+ * Retry asks for nothing here: StudioPage asks once its error clears. The
+ * file's asks once its read lands.
  */
 function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: PartProps & {
   query: string;
@@ -166,6 +175,7 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
     query,
     previewIds: edit.previewFile.previewIds,
     branchOnlyIds: edit.branchOnlyIds,
+    twinIds: edit.twinIds,
   });
   return (
     <EditSearch
@@ -173,12 +183,17 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
       total={total}
       query={query}
       onQuery={onQuery}
-      list={{loading: cardList.isLoading, error: cardList.error, onRetry: cardList.retryLoad}}
+      list={{
+        loading: cardList.isLoading,
+        error: cardList.error,
+        onRetry: cardList.retryLoad,
+        setsLoading: edit.setsLoading,
+      }}
       file={{error: edit.previewFile.error, onRetry: askWhenLanded(edit.retry, handoff), onForgetToken}}
       notice={
         <>
           {notice}
-          <CollectionNotice collection={edit.collection} handoff={handoff} />
+          <CollectionNotice collection={edit.collection} listFailed={cardList.error !== null} handoff={handoff} />
         </>
       }
       handoff={handoff}
@@ -250,6 +265,8 @@ interface PrintingsSectionProps extends Pick<EditPaneProps, 'token' | 'printing'
   card: LorcanaCard;
   /** The card is one of Sets 1 to 8 (the controller's printingsOnly): where a Core card reprints it, its promos are that card's. */
   printingsOnly: boolean;
+  /** The card has a twin (the controller's twinIds), so its printings' labels end in their ids (#74). */
+  twin: boolean;
 }
 
 /**
@@ -273,11 +290,12 @@ function usePromoPrintings({card, printing, printingsOnly, onForgetToken}: Omit<
  * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
  * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
  * a change staged for one card shows on it again whenever it is opened. While a publish runs, the
- * panel holds its choices. The panel also adds and edits the card's promo printings, through the
+ * panel holds its choices, and once it lands, the rows show what it wrote until the branch's files
+ * are read again (#74). The panel also adds and edits the card's promo printings, through the
  * studio's printing form, each in a commit of its own (#77).
  */
 function PrintingsSection({token, ...section}: PrintingsSectionProps) {
-  const view = useBranchPrintings({token, card: section.card});
+  const view = useBranchPrintings({token, card: section.card, twin: section.twin});
   const batch = useVersionBatch();
   const promos = usePromoPrintings(section);
   return (
@@ -285,6 +303,7 @@ function PrintingsSection({token, ...section}: PrintingsSectionProps) {
       view={view}
       changes={batch.changes}
       publishing={batch.publishing}
+      published={batch.result?.published}
       onChoose={(chosen) => batch.stage(changeFor(chosen))}
       promos={promos}
     />
@@ -418,6 +437,8 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
 }) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
+  // A twin's number ends in its id on the banner, and its printings' labels too (#74).
+  const twin = edit.twinIds.has(ready.card.id);
   return (
     <>
       <div style={WHOLE_ROW[layout]}>
@@ -425,6 +446,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
           card={ready.card}
           tag={edit.tag ?? 'Released'}
           deployed={edit.deployed}
+          twin={twin}
           handoff={outcomeShowing ? undefined : handoff}
         />
       </div>
@@ -450,6 +472,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
               token={token}
               printing={printing}
               printingsOnly={edit.printingsOnly}
+              twin={twin}
               onForgetToken={onForgetToken}>
               <EditForm
                 key={resets.formKey}

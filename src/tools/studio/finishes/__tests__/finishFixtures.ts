@@ -177,6 +177,39 @@ export const URSULA_SET_9: LorcanaCard = cardWithId(cardsOf([URSULA_SET_9_ENTRY]
 /** Ursula - Deceiver of Set 3, a card of Sets 1 to 8. */
 export const URSULA_SET_3: LorcanaCard = cardWithId(cardsOf([URSULA_SET_3_ENTRY]), '526');
 
+/** Dalmatian Puppy - Tail Wagger as Set 3's chunk stores the first of five: id 436, #4, its art the "4a". */
+const DALMATIAN_436_ENTRY: LorcanaJSONCard = {
+  id: 436,
+  name: 'Dalmatian Puppy',
+  version: 'Tail Wagger',
+  fullName: 'Dalmatian Puppy - Tail Wagger',
+  cost: 2,
+  color: 'Amber',
+  inkwell: true,
+  type: 'Character',
+  setCode: '3',
+  number: 4,
+  rarity: 'Common',
+  images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/set3/4a_aaf37cd8c393c2162bb79a8a43467e8994252743.jpg'},
+};
+
+/**
+ * Two of Set 3's five Dalmatian Puppy - Tail Wagger cards, ids 436 and 437, as its chunk stores them:
+ * each a card of its own, naming no base card, with the same name, version, ink, rarity and number,
+ * #4. Only their art (4a, 4b) and their ids tell them apart (#74).
+ */
+export const DALMATIAN_ENTRIES: LorcanaJSONCard[] = [
+  DALMATIAN_436_ENTRY,
+  {
+    ...DALMATIAN_436_ENTRY,
+    id: 437,
+    images: {thumbnail: 'https://api.lorcana.ravensburger.com/images/en/set3/4b_42a940905b91a20956c2ffee5fe241c64568c171.jpg'},
+  },
+];
+
+/** Those two, as cards of Sets 1 to 8. */
+export const DALMATIANS: LorcanaCard[] = cardsOf(DALMATIAN_ENTRIES);
+
 /** Mother Knows Best, as allCards.json stores it: Set 9 #99, with its two C3 promos under `variants`. */
 export const MOTHER_KNOWS_BEST_ENTRY: LorcanaJSONCard = {
   id: 2035,

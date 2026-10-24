@@ -4,6 +4,7 @@ import {CtaButton, FONTS, LETTER_SPACING, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {GithubTokenGate} from '../../../github/GithubTokenGate';
 import {targetBranch} from '../../../github/githubCommit';
+import {scrollIntoBand} from '../../../shell/clearBand';
 import {focusUnmoved, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
@@ -405,45 +406,19 @@ function DroppedNote({dropped, noteRef}: {dropped: number | null; noteRef: RefOb
   );
 }
 
-/** A stretch of the view, from its top to its bottom, in px. */
-type Span = Pick<DOMRect, 'top' | 'bottom'>;
-
-/**
- * How far to scroll, down being positive, so a field sits in the clear band:
- * 0 when it is inside already; else centred in the band, or with its top at
- * the band's top when it is taller than the band, so its start shows.
- */
-function clearScroll(field: Span, band: Span): number {
-  if (field.top >= band.top && field.bottom <= band.bottom) return 0;
-  const room = band.bottom - band.top;
-  const height = field.bottom - field.top;
-  return field.top - (height > room ? band.top : band.top + (room - height) / 2);
-}
-
-/** The nearest ancestor that scrolls, the one the header and tray pin to: PageLayout's body on the page. */
-function scrollerOf(field: Element): Element {
-  for (let node = field.parentElement; node; node = node.parentElement) {
-    const {overflowY} = getComputedStyle(node);
-    if (overflowY === 'auto' || overflowY === 'scroll') return node;
-  }
-  return document.scrollingElement ?? document.documentElement;
-}
-
 /**
  * The rows scroll under the pinned header and tray, which hide them, so a
  * field that takes focus outside the clear band between the header's bottom
- * and the tray's top scrolls into it (WCAG 2.4.11). Centring it in the view
- * isn't enough: a tall header (a wrapped "Shared by" line) and a tall tray can
- * leave the view's middle under one of them.
+ * and the tray's top scrolls into it (WCAG 2.4.11, scrollIntoBand). Centring it
+ * in the view isn't enough: a tall header (a wrapped "Shared by" line) and a
+ * tall tray can leave the view's middle under one of them.
  */
 function keepClear(field: Element, head: Element | null, foot: Element | null): void {
   // With no entry there is no header, and no field to focus.
   if (!head || !foot) return;
   // The header's own heading takes focus from the Tune link: it is the header, never under it.
   if (head.contains(field)) return;
-  const band = {top: head.getBoundingClientRect().bottom, bottom: foot.getBoundingClientRect().top};
-  const by = clearScroll(field.getBoundingClientRect(), band);
-  if (by !== 0) scrollerOf(field).scrollBy({top: by});
+  scrollIntoBand({field, band: {top: head.getBoundingClientRect().bottom, bottom: foot.getBoundingClientRect().top}});
 }
 
 /**

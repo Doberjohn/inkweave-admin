@@ -1,12 +1,15 @@
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {describe, expect, it, vi} from 'vitest';
 import {smallImageUrl, transformPromos} from '../../../../app-bridge';
+import {twinIdsOf} from '../../editSearch';
+import {pinnedChunk} from '../../promos/__tests__/pinned';
 import type {PrintingRef} from '../printingHomes';
 import {printingRowsFor, type PrintingRow, type PrintingSources} from '../printingRows';
 import {
   C2_PEGASUS,
   C3_MKB,
   C3_MKB_ENTRIES,
+  DALMATIANS,
   MICKEY,
   MICKEY_PROMOS,
   MOANA,
@@ -26,7 +29,7 @@ import {
  * object inherits from Object, and a source without it would fail to type.
  */
 function rowsOf(
-  sources: Pick<PrintingSources, 'card'> & Partial<Pick<PrintingSources, 'chunk' | 'promos'>>,
+  sources: Pick<PrintingSources, 'card'> & Partial<Pick<PrintingSources, 'chunk' | 'promos' | 'twin'>>,
   valueOf: PrintingSources['valueOf'] = () => null,
 ): PrintingRow[] {
   return printingRowsFor({chunk: [], promos: [], ...sources, valueOf});
@@ -89,6 +92,69 @@ describe('printingRowsFor', () => {
         'Moana - Adventurer of Land and Sea 26/P2 · Vaiana',
       ]);
       expect(rows.map((r) => r.ref.id)).toEqual(['1589', '1433', '1663']);
+    });
+  });
+
+  /*
+   * Where nothing else tells two pockets apart, a label ends in the pocket's id (#74): every pocket of
+   * a card with a twin, another card of its set with its name and number, whose pockets can carry the
+   * same labels, and two promos of one card under one code.
+   */
+  describe('how it tells twins apart (#74)', () => {
+    const labelsOf = (rows: readonly PrintingRow[]) => rows.map((row) => row.label);
+
+    it("ends the label of a card with a twin with its id: Set 3's Dalmatian Puppies are all #4", () => {
+      const labels = DALMATIANS.map((card) => rowsOf({card, chunk: DALMATIANS, twin: true})[0].label);
+      expect(labels).toEqual(['Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436', 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 437']);
+      expect(DALMATIANS.map((card) => rowsOf({card, twin: true})[0].name)).toEqual(['#4', '#4']);
+    });
+
+    it("ends the labels of a twin's printings and promos with their own ids, and leaves their names as they are", () => {
+      const rows = rowsOf({card: PEGASUS, chunk: SET_9, promos: C2_PEGASUS, twin: true});
+      expect(labelsOf(rows)).toEqual([
+        'Pegasus - Gift for Hercules #84 · id 2020',
+        'Pegasus - Gift for Hercules #212 · id 2166',
+        'Pegasus - Gift for Hercules 1/C2 · id 2451',
+        'Pegasus - Gift for Hercules 5/C2 · id 2455',
+      ]);
+      expect(namesOf(rows)).toEqual(['#84', '#212 · Epic', '1/C2', '5/C2']);
+    });
+
+    it('ends the labels and the names of two promos of one card under one code with their ids, and no others', () => {
+      // As Hades - Dark Usurper's two 28/C3 would be once his card is in: nothing promos.json holds tells them apart.
+      const promos = transformPromos([PROMO_1, {...PROMO_1, id: 90000}, PROMO_13]);
+      const rows = rowsOf({card: MOTHER_KNOWS_BEST, promos});
+      expect(labelsOf(rows)).toEqual([
+        'Mother Knows Best #99',
+        'Mother Knows Best 1/C3 · id 80017',
+        'Mother Knows Best 1/C3 · id 90000',
+        'Mother Knows Best 13/C3',
+      ]);
+      // The panel shows both rows at once, so what it prints of them tells them apart too.
+      expect(namesOf(rows)).toEqual(['#99', '1/C3 · id 80017', '1/C3 · id 90000', '13/C3']);
+    });
+
+    it('names no id on a card with no twin', () => {
+      expect(labelsOf(rowsOf({card: YEN_SID, chunk: SET_4, twin: false}))).toEqual([
+        'Yen Sid - Powerful Sorcerer #59 · Set 4',
+        'Yen Sid - Powerful Sorcerer #209 · Set 4',
+        'Yen Sid - Powerful Sorcerer #223 · Set 4',
+      ]);
+    });
+
+    it("gives Set 3's five Dalmatian Puppies five labels, and every other card of the set the one it had (the pinned data)", () => {
+      const chunk = pinnedChunk('3');
+      const cards = chunk.filter((card) => card.baseId === undefined);
+      const twins = twinIdsOf(cards);
+      const labels = cards.map((card) => printingRowsFor({card, chunk, promos: [], valueOf: () => null, twin: twins.has(card.id)})[0].label);
+      expect(labels.filter((label) => label.startsWith('Dalmatian Puppy - Tail Wagger'))).toEqual(
+        ['436', '437', '438', '439', '440'].map((id) => `Dalmatian Puppy - Tail Wagger #4 · Set 3 · id ${id}`),
+      );
+      expect(new Set(labels).size).toBe(cards.length);
+      const others = cards.filter((card) => !twins.has(card.id));
+      expect(labels.filter((label) => !label.includes(' · id '))).toEqual(
+        others.map((card) => `${card.fullName} #${card.setNumber} · Set 3`),
+      );
     });
   });
 

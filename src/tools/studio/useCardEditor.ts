@@ -8,7 +8,7 @@ import type {ValidationResult} from '../reveal/validateForm';
 import {branchLookup, deployedOf, editSources, isPrintingsOnly, withCollectionCards} from './branchCards';
 import {hasEdits, type ImageOnlyReason} from './cardEdit';
 import {changeRows, type ChangeRow} from './changeRows';
-import type {CardTag} from './editSearch';
+import {twinIdsOf, type CardTag} from './editSearch';
 import {reseeded} from './editSave';
 import {useCollectionOnlyCards, type CollectionOnlyCards} from './finishes/collectionCards';
 import {
@@ -116,6 +116,18 @@ export interface CardEditorController extends EditSave {
   searchCards: LorcanaCard[];
   /** R4-4d (R-66): the ids only the branch file holds, for searchCards' rows. */
   branchOnlyIds: ReadonlySet<number>;
+  /**
+   * #74: the ids of the cards of searchCards that have a twin (twinIdsOf), found once for the two
+   * that name them: the search's rows, and the labels of the open card's printings. A new Set on
+   * every render, so key an effect on card ids, never on it.
+   */
+  twinIds: ReadonlySet<string>;
+  /**
+   * #74: Sets 1 to 8 are still being read (withCollectionCards' `setsLoading`, the one place it is
+   * worked out). The lookup reads it, so an id the card list lacks waits for them, and so does the
+   * search, whose line for a query that matches nothing says they may hold a match.
+   */
+  setsLoading: boolean;
   /** R4-4d (R-66): false while the open card is one only the branch file holds; true with none open. */
   deployed: boolean;
   /**
@@ -126,9 +138,10 @@ export interface CardEditorController extends EditSave {
   printingsOnly: boolean;
   /**
    * #68: Sets 1 to 8, read from the app's collection chunks. The search adds
-   * their cards once `status` reads ready; a lookup waits for them while they
-   * load; and when they fail the search goes on without them, and the page
-   * offers `retry`.
+   * their cards once `status` reads ready; while they load, an id the card list
+   * lacks waits for them, but a card it holds opens at once (#74); and when
+   * they fail the search goes on without them, and the page names why
+   * (`error`) and offers `retry`.
    */
   collection: CollectionOnlyCards;
   /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
@@ -207,9 +220,9 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  * (withCollectionCards, #68), its entry and kind from previewCards.json on
  * the target branch (R-71: only a reveal-set card under a preview id waits for it), and
  * the draft from both. branchLookup refines the lookup with what only the file
- * can say: an id neither source holds waits for the file before it reads
- * missing, and a card under a preview id that the read file no longer holds
- * is gone, whatever its set.
+ * can say: an id neither source holds waits for Sets 1 to 8 while they are
+ * read (#74), then for the file, before it reads missing, and a card under a
+ * preview id that the read file no longer holds is gone, whatever its set.
  * Every rule lives in editorState.ts and branchCards.ts; this hook is wiring.
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
@@ -218,7 +231,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
   // #68: Sets 1 to 8 come last, for the search and the lookup. The engine scores a preview against Core cards alone: findSynergies keeps coreList.
   const collection = useCollectionOnlyCards();
   const list = withCollectionCards({list: coreList, collection});
-  const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file});
+  const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file, setsLoading: list.setsLoading});
   const [draft, setDraft] = useEditDraft({cardId, lookup, file});
   const image = useDraftImage(draft, setDraft);
   const {staged} = image;
@@ -264,6 +277,8 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     revertImage: image.revertImage,
     searchCards: list.cards,
     branchOnlyIds: list.branchOnlyIds,
+    twinIds: twinIdsOf(list.cards),
+    setsLoading: list.setsLoading,
     deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
     printingsOnly: isPrintingsOnly(openCard(lookup)),
     collection,

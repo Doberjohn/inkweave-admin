@@ -1,8 +1,9 @@
-import {useState} from 'react';
+import {createRef, useState} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
+import {ADMIN_COLORS} from '../../../theme/adminTheme';
+import {TRAY_FOOT_FILL, VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
 import {
   NUMBER_209_TO_BOTH,
   NUMBER_223_TO_BOTH,
@@ -14,6 +15,7 @@ import {
 import {clashMessage} from '../finishes/publishVersions';
 import {keptClash, type VersionChange} from '../finishes/versionBatch';
 import type {VersionBatchView} from '../finishes/versionBatchStore';
+import {STUDIO_GAP} from '../studioStyles';
 
 // vite.config.ts doesn't set unstubEnvs, so the rehearsal-branch cases unstub by hand.
 afterEach(() => vi.unstubAllEnvs());
@@ -25,7 +27,7 @@ afterEach(() => vi.unstubAllEnvs());
  */
 
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
-const LANDED = {commitUrl: COMMIT_URL, count: 2};
+const LANDED = {commitUrl: COMMIT_URL, count: 2, published: [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]};
 const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials';
 const RACE = 'master changed while publishing, so nothing was published. Publish again.';
 
@@ -64,6 +66,21 @@ const itemOf = (line: string) => screen.getByText(line).closest('li') as HTMLEle
 
 /** A change's Revert button. */
 const revertOf = (change: VersionChange) => screen.getByRole('button', {name: `Revert ${change.label}`});
+
+/** The box of the tray's region that holds `element`: its panel or its foot. */
+const boxOf = (element: HTMLElement) =>
+  Array.from(screen.getByRole('region', {name: 'Version changes'}).children).find((box) => box.contains(element)) as HTMLElement;
+/** The tray's panel: the box that holds its heading. */
+const panelOf = () => boxOf(screen.getByRole('heading', {level: 2}));
+/** The tray's foot: the box that holds Publish. */
+const footOf = () => boxOf(screen.getByRole('button', {name: /^Publish/}));
+
+/** A background as jsdom writes it back once set on an element. */
+function styledBackground(background: string): string {
+  const probe = document.createElement('div');
+  probe.style.background = background;
+  return probe.style.background;
+}
 
 /**
  * The tray once the owner's hand took its last change away: it stays, as PendingTray's empty state,
@@ -106,12 +123,106 @@ describe('VersionsTray: when it shows', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('is a row of its own across the studio’s root: every column of the wide grid, a whole line when narrow', () => {
+  it('is two rows of their own across the studio’s root, its panel and its foot, in a region that draws no box', () => {
     renderTray(batchView([NUMBER_223_TO_BOTH]));
     const tray = screen.getByRole('region', {name: 'Version changes'});
-    // Each property applies in its own layout only: grid-column in the grid, flex in the wrapping row.
-    expect(tray.style.gridColumn).toBe('1 / -1');
-    expect(tray.style.flex).toBe('1 1 100%');
+    // The foot is a box of the root, so it can stick across the whole studio (#74).
+    expect(tray).toHaveStyle({display: 'contents'});
+    const panel = panelOf();
+    const foot = footOf();
+    expect(Array.from(tray.children)).toEqual([panel, foot]);
+    for (const box of [panel, foot]) {
+      // Each property applies in its own layout only: grid-column in the grid, flex in the wrapping row.
+      expect(box.style.gridColumn).toBe('1 / -1');
+      expect(box.style.flex).toBe('1 1 100%');
+    }
+  });
+});
+
+/*
+ * The tray's foot (#74): what the tray says of Publish, Publish, and what the last publish said. While
+ * changes are staged it sticks to the bottom of the view, so Publish, which counts them, and what a
+ * press of it came to stay in view as the owner scrolls a tall Edit card; the rows scroll with the page.
+ * jsdom has no layout, so these pin the rules it rests on.
+ */
+describe('VersionsTray: the foot', () => {
+  it('pins Publish and what the last publish said to the bottom of the view while changes are staged, and not the rows', () => {
+    renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]));
+    const foot = footOf();
+    expect(foot).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(foot).toContainElement(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
+    expect(foot).toContainElement(screen.getByRole('status'));
+    // The heading and the rows are the panel's, which scrolls with the page.
+    expect(panelOf()).toContainElement(screen.getByRole('heading', {level: 2, name: 'Version changes · 2'}));
+    expect(panelOf()).toContainElement(screen.getByRole('list'));
+    expect(panelOf().style.position).toBe('');
+  });
+
+  it('stays pinned while a publish is under way, as the changes it sent are still staged', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH], {publishing: true}));
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+  });
+
+  it('stays pinned, and handed to the page, while a publish runs over a batch another tab emptied', () => {
+    const pinnedFootRef = createRef<HTMLDivElement>();
+    renderTray(batchView([], {publishing: true}), {pinnedFootRef});
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(pinnedFootRef.current).toBe(footOf());
+  });
+
+  it('sits in its place under the panel once no change is staged, with the publish that landed', () => {
+    renderTray(batchView([], {result: LANDED}));
+    const foot = footOf();
+    expect(foot.style.position).toBe('');
+    expect(foot).toContainElement(screen.getByRole('status'));
+  });
+
+  it.each([
+    ['how a publish failed', {error: RACE}, RACE],
+    ['why Publish is held', {changes: [NUMBER_223_TO_BOTH_CLASHED]}, clashMessage(1)],
+    ['that this browser couldn’t save the changes', {unsaved: true}, "This browser couldn't save these changes."],
+  ])('says %s above Publish, in the foot, so a pinned Publish keeps it in view', (_what, rest, words) => {
+    const {changes = [NUMBER_223_TO_BOTH], ...outcome} = rest as Partial<VersionBatchView>;
+    renderTray(batchView(changes, outcome));
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent(words);
+    const foot = footOf();
+    expect(foot).toContainElement(notice);
+    expect(foot).toHaveStyle({position: 'sticky'});
+    expect(notice.compareDocumentPosition(screen.getByRole('button', {name: /^Publish/})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts nothing above Publish when the tray has nothing to say of it, so the foot is no taller', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    expect(footOf().firstElementChild).toBe(screen.getByRole('button', {name: 'Publish 1 change to master'}));
+  });
+
+  it('hands the page its foot while it is pinned, and nothing once no change is staged', () => {
+    const pinnedFootRef = createRef<HTMLDivElement>();
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH]), {pinnedFootRef});
+    expect(pinnedFootRef.current).toBe(footOf());
+
+    rerender(trayElement(batchView([], {result: LANDED}), {pinnedFootRef}));
+    expect(footOf()).toBeInTheDocument();
+    expect(pinnedFootRef.current).toBeNull();
+  });
+
+  it('closes the panel under a rule, the root’s gap between the two taken back', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    expect(panelOf().style.borderBottomStyle).toBe('');
+    expect(footOf().style.borderTop).toBe(`1px solid ${ADMIN_COLORS.border}`);
+    expect(footOf()).toHaveStyle({marginTop: `-${STUDIO_GAP}px`});
+  });
+
+  it('paints the foot opaque, so what scrolls under it never shows through: the panel’s tint over the page, under its border too', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    const foot = footOf();
+    // jsdom writes a background's last colour back as "transparent", so the foot is held to TRAY_FOOT_FILL,
+    // and the fill to its layers: the tint, which alone is translucent, inside the border, over the page.
+    expect(foot.style.background).toBe(styledBackground(TRAY_FOOT_FILL));
+    expect(foot).toHaveStyle({backgroundColor: ADMIN_COLORS.page});
+    expect(foot.style.backgroundImage).toBe(`linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), none`);
+    expect(foot.style.backgroundClip).toBe('padding-box, border-box');
   });
 });
 
@@ -134,6 +245,17 @@ describe('VersionsTray: the changes', () => {
     expect(itemOf(LINE_59)).toContainElement(note);
     expect(line.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(itemOf(LINE_223)).queryByText(/^Removes /)).not.toBeInTheDocument();
+  });
+
+  // jsdom has no layout, so this pins the rule the geometry rests on (#74): a row is as wide as the tray, about 1500px
+  // in the widest studio, and its buttons sit by the words they act on there, not at the row's far end.
+  it('keeps a row’s buttons by its words: the row packs to its start, and its text takes no more room than its words', () => {
+    renderTray(batchView([NUMBER_59_TO_FOIL]));
+    const item = itemOf(LINE_59);
+    expect(item).not.toHaveStyle({justifyContent: 'space-between'});
+    expect(screen.getByText(LINE_59).parentElement).toHaveStyle({flexGrow: '0'});
+    // On a phone the buttons still wrap under the words.
+    expect(item).toHaveStyle({flexWrap: 'wrap'});
   });
 
   it('names the branch Publish writes to, and counts a single change in the singular', () => {
@@ -215,11 +337,37 @@ describe('VersionsTray: focus (R-48)', () => {
     expect(revertOf(NUMBER_59_TO_FOIL)).toHaveFocus();
   });
 
+  it('moves focus to the heading after Keep mine on a lone change, which stays: no other row is there to take it', async () => {
+    render(<LiveTray initial={[NUMBER_223_TO_BOTH_CLASHED]} />);
+    await userEvent.click(screen.getByRole('button', {name: `Keep mine for ${NUMBER_223_TO_BOTH.label}`}));
+    // The change stays, built on what the branch has now, and its row has Revert in the place of the two.
+    // That Revert is new, so the press cannot hand the focus to it: the heading takes it, never <body>.
+    expect(revertOf(NUMBER_223_TO_BOTH)).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 2, name: 'Version changes · 1'})).toHaveFocus();
+  });
+
   it('leaves focus on Publish when it is pressed: the button stays', async () => {
     renderTray(batchView(THREE));
     const publish = screen.getByRole('button', {name: 'Publish 3 changes to master'});
     await userEvent.click(publish);
     expect(publish).toHaveFocus();
+  });
+
+  it.each([
+    ['the branch moved', RACE],
+    ['GitHub rejected the token', REJECTED],
+  ])('leaves focus on Publish when the publish fails because %s: the failure comes in above the same button', async (_why, error) => {
+    const publish = vi.fn(() => Promise.resolve());
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH], {publish}));
+    const button = screen.getByRole('button', {name: 'Publish 1 change to master'});
+    await userEvent.click(button);
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH], {publishing: true, publish})));
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH], {error, publish})));
+
+    // The change stays for another try. A rejected token's Forget token comes in too: the focus is not handed to it.
+    expect(screen.getByRole('alert')).toHaveTextContent(error);
+    expect(screen.getByRole('button', {name: 'Publish 1 change to master'})).toBe(button);
+    expect(button).toHaveFocus();
   });
 });
 
@@ -497,7 +645,7 @@ describe('VersionsTray: the outcome', () => {
   });
 
   it('counts a single change in the singular', () => {
-    renderTray(batchView([], {result: {commitUrl: COMMIT_URL, count: 1}}));
+    renderTray(batchView([], {result: {commitUrl: COMMIT_URL, count: 1, published: [NUMBER_223_TO_BOTH]}}));
     expect(screen.getByRole('status')).toHaveTextContent('Published 1 change.');
   });
 

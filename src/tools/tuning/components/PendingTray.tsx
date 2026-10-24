@@ -4,6 +4,7 @@ import {COLORS, SPACING, CtaButton, LinkButton} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
+import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {tuningFailureKind} from '../tuningFailure';
@@ -82,17 +83,6 @@ function PendingEditRow({edit, onRevert}: {edit: PendingEdit; onRevert: () => vo
 }
 
 /**
- * Where focus goes once the row at `index` is reverted, since its button goes
- * with it: the next row's revert button, else the previous row's, else the
- * tray's heading.
- */
-function focusAfterRevert(edits: HTMLElement | null, index: number, heading: HTMLElement | null) {
-  const rows = edits?.children;
-  const neighbour = rows?.[index + 1] ?? rows?.[index - 1];
-  (neighbour?.querySelector<HTMLElement>('button') ?? heading)?.focus();
-}
-
-/**
  * A failed publish, and the way out its kind needs (tuningFailureKind): a
  * reload after a stale value (R-18), a new token after GitHub rejects this
  * one (R-26). Notice's error tone is the alert (R1-3), so nothing here wraps
@@ -136,9 +126,11 @@ export function PendingTray({
 }: PendingTrayProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const editsRef = useRef<HTMLDivElement>(null);
-  // Reverting or clearing unmounts the button pressed: focus moves on first, never to <body>.
+  // Reverting or clearing unmounts the button pressed: focus moves on first, never to <body>. A revert hands
+  // it on over the rows left once the row at `index` goes (focusNearRow): the next row's revert button,
+  // else the previous row's, else the heading.
   const revert = (index: number, pathKey: string) => {
-    focusAfterRevert(editsRef.current, index, headingRef.current);
+    focusNearRow({rows: rowsWithout(editsRef.current, index), index, fallback: headingRef.current});
     onRevert(pathKey);
   };
   const clearAll = () => {
