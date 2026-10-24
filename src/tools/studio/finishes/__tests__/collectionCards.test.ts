@@ -202,12 +202,14 @@ describe('useCollectionOnlyCards', () => {
   it('fails a chunk that has not answered in 30 s, naming it, and the search can say so', async () => {
     vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
     const answer = chunksOf({'4': SET_4_ENTRIES});
-    stubChunks((set) => (set === '3' ? new Promise<Response>(() => {}) : answer(set)));
+    const fetched = stubChunks((set) => (set === '3' ? new Promise<Response>(() => {}) : answer(set)));
     const {result} = renderHook(() => useCollectionOnlyCards());
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CHUNK_TIME_LIMIT_MS - 1);
     });
     expect(result.current.status).toBe('loading');
+    const hung = fetched.mock.calls.find(([url]) => url === urlOf('3')) as unknown as [string, RequestInit];
+    expect(hung[1].signal?.aborted).toBe(false);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
@@ -216,6 +218,8 @@ describe('useCollectionOnlyCards', () => {
       status: 'error',
       error: '/data/collection/3.json: no answer in 30 s',
     });
+    // The deadline stops the fetch itself, so a retry leaves no request running beside its own.
+    expect(hung[1].signal?.aborted).toBe(true);
     expect(CHUNK_TIME_LIMIT_MS).toBe(30_000);
   });
 

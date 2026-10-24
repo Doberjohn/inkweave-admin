@@ -185,12 +185,18 @@ interface CardDraftWords {
 }
 
 const CARD_WORDS: Readonly<Record<CardDraft, CardDraftWords>> = {
-  edit: {first: 'your changes to this card', after: 'your changes to it', notYet: "aren't saved yet", pronoun: 'them'},
+  // Each draft's commit and pronoun are the studio's own words for it (WORDS), so one change reaches both lines.
+  edit: {
+    first: 'your changes to this card',
+    after: 'your changes to it',
+    notYet: WORDS.edit.notYet,
+    pronoun: WORDS.edit.pronoun,
+  },
   printing: {
     first: 'your printing form for this card',
     after: 'your printing form for it',
-    notYet: "isn't published yet",
-    pronoun: 'it',
+    notYet: WORDS.printing.notYet,
+    pronoun: WORDS.printing.pronoun,
   },
 };
 

@@ -415,6 +415,16 @@ describe('StudioPage: promo printings in the Printings panel (#77)', () => {
     expect(within(panel).queryByRole('button', {name: /^Edit /})).not.toBeInTheDocument();
   });
 
+  it('keeps its rows over a catalog that lacks its fold, which its versions read too (#84)', async () => {
+    const catalog = JSON.stringify({...FIXTURE_CATALOG, fold: undefined}, null, 2);
+    stubStudioRepo({branch: {...MKB_FILES, [CATALOG_PATH]: catalog}});
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    renderStudio({path: studioHref('edit', '2035')});
+    const panel = await printings();
+    expect(await within(panel).findByRole('group', {name: 'Versions of Mother Knows Best 13/C3'})).toBeInTheDocument();
+    expect(within(panel).getByRole('alert')).toHaveTextContent(`${CATALOG_PATH} can't be read: its "fold" isn't a list.`);
+  });
+
   it("points Ursula's Set 3 copy to her Core printing, which holds her promos, and offers no Add a printing on it", async () => {
     const chunk3 = setChunkPath('3');
     stubStudio({[chunk3]: collectionText([URSULA_SET_3_ENTRY]), [PROMOS_PATH]: EMPTY_FILE, [CATALOG_PATH]: EMPTY_CATALOG_TEXT}, {'3': [URSULA_SET_3_ENTRY]});

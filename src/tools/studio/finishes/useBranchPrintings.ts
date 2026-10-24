@@ -71,8 +71,9 @@ const checkedCatalog = namingItsFile(({text}) => parseCatalog(text));
 /**
  * The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for
  * its versions: each parses a text once. A catalog whose shape the form can't read, a section missing,
- * fails only the form (#84): the versions read `fold` and `noBaseCard` as the app does, the second as
- * optional, so a read keeps its rows. A publish still checks the whole catalog (publishPrinting.ts).
+ * fails only the form (#84): where its versions can't be read either (no `fold`, a group of another
+ * kind), the panel reads them as none (catalogValuesIn), so a read keeps its rows. A publish still
+ * checks the whole catalog (publishPrinting.ts), and the version publish refuses it (finishFiles.ts).
  */
 const catalogIn = lastTextCached((file: BranchFile): CatalogRead => {
   try {
@@ -81,6 +82,15 @@ const catalogIn = lastTextCached((file: BranchFile): CatalogRead => {
     return {catalogError: messageOf(e)};
   }
 });
+
+/** The catalog's versions, or none where its shape can't give them: the printing form names what's wrong (catalogIn). */
+function catalogValuesIn(file: BranchFile): FileValues {
+  try {
+    return finishesIn(file);
+  } catch {
+    return new Map();
+  }
+}
 
 /**
  * The files a card's rows are made from. The entries come from the first two: its set's chunk,
@@ -99,7 +109,8 @@ function pathsOf(setCode: string): string[] {
  */
 function parsedFiles(files: readonly BranchFile[]): Files {
   const [chunk, promos, catalog] = files;
-  const values = new Map(files.map((file): [string, FileValues] => [file.path, finishesIn(file)]));
+  const valuesOf = (file: BranchFile) => (file === catalog ? catalogValuesIn(file) : finishesIn(file));
+  const values = new Map(files.map((file): [string, FileValues] => [file.path, valuesOf(file)]));
   return {
     chunk: cardsIn(chunk),
     promos: promosIn(promos),

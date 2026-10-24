@@ -209,14 +209,7 @@ function focusByKeyboard(control: HTMLElement): void {
  */
 async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
   const canvas = within(canvasElement);
-  // The page's flush body, which scrolls under its header.
-  const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
-  // The branch is the one the stories run against: a rehearsal's, when .env.local names one.
-  const publish = canvas.getByRole('button', {name: `Publish 2 changes to ${targetBranch()}`});
-  const foot = publish.parentElement as HTMLElement;
-  const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
-  body.scrollTop = 0;
-  const view = body.getBoundingClientRect();
+  const {body, publish, foot, panel, view} = laidOutTray(canvasElement);
   await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
   await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
 
@@ -262,12 +255,14 @@ export const PinnedWide: Story = {
 /** The page's flush body, the foot, the tray's panel, and the body's view, as the plays below read them. */
 function laidOutTray(canvasElement: HTMLElement) {
   const canvas = within(canvasElement);
+  // The page's flush body, which scrolls under its header.
   const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
+  // The branch is the one the stories run against: a rehearsal's, when .env.local names one.
   const publish = canvas.getByRole('button', {name: `Publish 2 changes to ${targetBranch()}`});
   const foot = publish.parentElement as HTMLElement;
   const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
   body.scrollTop = 0;
-  return {body, foot, panel, view: body.getBoundingClientRect()};
+  return {body, publish, foot, panel, view: body.getBoundingClientRect()};
 }
 
 /**

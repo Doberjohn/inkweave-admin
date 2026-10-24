@@ -69,18 +69,26 @@ export const CHUNK_TIME_LIMIT_MS = 30_000;
 /** What a chunk that hasn't answered in time says, after its address. */
 const NO_ANSWER = `no answer in ${CHUNK_TIME_LIMIT_MS / 1000} s`;
 
-/** `work`, or a failure once CHUNK_TIME_LIMIT_MS has passed without it settling. Its timer goes when it settles. */
-function withinTimeLimit<T>(work: Promise<T>): Promise<T> {
+/**
+ * What `work` comes to, or a failure once CHUNK_TIME_LIMIT_MS has passed without it settling. The deadline
+ * also aborts the signal `work` was handed, so its fetch stops too, and a retry starts none beside it.
+ * Its timer goes when it settles.
+ */
+function withinTimeLimit<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const deadline = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(NO_ANSWER)), CHUNK_TIME_LIMIT_MS);
+    timer = setTimeout(() => {
+      deadline.abort();
+      reject(new Error(NO_ANSWER));
+    }, CHUNK_TIME_LIMIT_MS);
   });
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+  return Promise.race([work(deadline.signal), late]).finally(() => clearTimeout(timer));
 }
 
-/** A chunk's entries, as the app serves them at `url`. */
-async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
-  const res = await fetch(url);
+/** A chunk's entries, as the app serves them at `url`; `signal` stops the fetch, its body included. */
+async function chunkEntries(url: string, signal: AbortSignal): Promise<LorcanaJSONCard[]> {
+  const res = await fetch(url, {signal});
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as LorcanaJSONCard[];
 }
@@ -94,7 +102,7 @@ async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
  */
 function readChunk(set: string): Promise<LorcanaCard[]> {
   const url = `/data/collection/${set}.json`;
-  return withinTimeLimit(chunkEntries(url))
+  return withinTimeLimit((signal) => chunkEntries(url, signal))
     .then(transformRawCards)
     .catch((error: unknown) => {
       throw new Error(`${url}: ${messageOf(error)}`, {cause: error});
