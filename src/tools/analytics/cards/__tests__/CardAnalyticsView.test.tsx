@@ -6,6 +6,8 @@ import {COLORS} from '../../../../app-bridge';
 import {ADMIN_COLORS} from '../../../../theme/adminTheme';
 import {AdminStyles} from '../../../../theme/AdminStyles';
 import type {FocusHandoff} from '../../../../shell/focusHandoff';
+import {CardArtContext} from '../../../../shell/knownCards';
+import {artLookup, shownArt, type ArtById} from '../../../../test/cardLinks';
 import {VotesFilterControl} from '../../VotesFilterControl';
 import {CardAnalyticsView, type CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {
@@ -64,11 +66,13 @@ const BASE: CardAnalyticsViewProps = {
   getCardById: viewCard,
 };
 
-/** The view under a router (its links need one), with any props overridden. */
-function renderView(overrides: Partial<CardAnalyticsViewProps> = {}) {
+/** The view under a router (its links need one), with any props overridden, and the card list's `art`. */
+function renderView(overrides: Partial<CardAnalyticsViewProps> = {}, art: ArtById = {}) {
   return render(
     <MemoryRouter>
-      <CardAnalyticsView {...BASE} {...overrides} />
+      <CardArtContext value={artLookup(art)}>
+        <CardAnalyticsView {...BASE} {...overrides} />
+      </CardArtContext>
     </MemoryRouter>,
   );
 }
@@ -369,6 +373,12 @@ describe('CardAnalyticsView', () => {
       expect(within(panel()).getByRole('link', {name: 'Moana - Of Motunui'})).toHaveAttribute('href', '/cards/1012');
       expect(within(panel()).queryByRole('link', {name: 'Gramma Tala - Storyteller'})).not.toBeInTheDocument();
       expect(within(panel()).getByText('Gramma Tala - Storyteller')).toBeInTheDocument();
+    });
+
+    it("shows a partner's art from the card list while its link has focus (CardLink)", () => {
+      renderView({}, {'1012': '/card-images/1012.avif'});
+      act(() => within(panel()).getByRole('link', {name: 'Moana - Of Motunui'}).focus());
+      expect(shownArt('/card-images/1012.avif')).not.toBeNull();
     });
 
     it("leaves the focus handoff to the page: a partner link doesn't ask for it (R-48, R3-7's useCardHandoff)", async () => {

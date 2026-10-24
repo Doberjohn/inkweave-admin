@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {MemoryRouter} from 'react-router-dom';
 import {FONTS, SPACING} from '../../../app-bridge';
-import {KnownCardsContext} from '../../../shell/knownCards';
+import {CardArtContext, KnownCardsContext} from '../../../shell/knownCards';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import type {VoteLog, VoteLogRow} from '../voteLogTypes';
 import {ActivityView} from './ActivityView';
@@ -129,10 +129,18 @@ export const NoRawVotes: Story = {
 /** Ariel's and Ursula's ids, which this story's card list lacks (rotated out of Core, say). */
 const ROTATED_OUT = ['1530', '1702'];
 
+/** The art the card list holds for the log's Core cards, by this story's ids: their thumbnails. */
+const LOG_ART: Readonly<Record<string, string>> = {
+  '1012': '/card-images/en/set9/43_aef7c93b44961368600650a545acfc7b05f5dd2e.jpg',
+  '0902': '/card-images/en/set9/20_543357372cf43045db35b608d931b96db1918432.jpg',
+  '0377': '/card-images/en/set9/3_8e23303ce8e562819b0df3e15ac4df1c614c629c.jpg',
+};
+
 /**
  * In the shell (R-33): a card the card list holds links to its card page, in
  * the log and in Most voted pairs. Ariel and Ursula aren't in the list, so
- * their names stay text.
+ * their names stay text. Elsa - Spirit of Winter, Moana and Stitch show their
+ * art on hover or focus.
  */
 export const CardLinks: Story = {
   args: {voteLog: LOG},
@@ -140,7 +148,9 @@ export const CardLinks: Story = {
     (Story) => (
       <MemoryRouter>
         <KnownCardsContext value={(id) => !ROTATED_OUT.includes(id)}>
-          <Story />
+          <CardArtContext value={(id) => LOG_ART[id]}>
+            <Story />
+          </CardArtContext>
         </KnownCardsContext>
       </MemoryRouter>
     ),

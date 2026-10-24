@@ -1,28 +1,42 @@
-import {render, screen, within} from '@testing-library/react';
+import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 import {CardName} from '../tools/analytics/CardName';
 import {StudioPage} from '../tools/studio/StudioPage';
 import {AdminShell} from './AdminShell';
+import {CardLink} from './CardLink';
 
-// The pages read a card list that holds one card, 2983, loaded and with no
-// error, as the bridged useCardDataContext reports one; the rest of the bridge
-// stays real. CardDataProvider still mounts, and its own load never settles.
+// The pages read a card list that holds one card, 2983, with its art and an
+// Enchanted printing's, loaded and with no error, as the bridged
+// useCardDataContext reports one; the rest of the bridge stays real.
+// CardDataProvider still mounts, and its own load never settles.
 vi.mock('../app-bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../app-bridge')>()),
   useCardDataContext: () => ({
-    cards: [],
+    cards: [
+      {
+        id: '2983',
+        imageUrl: '/card-images/2983.avif',
+        variants: [{id: '2990', rarity: 'Enchanted', imageUrl: '/card-images/2990.avif'}],
+      },
+    ],
     isLoading: false,
     error: null,
     getCardById: (id: string) => (id === '2983' ? {id} : undefined),
   }),
 }));
 
-/** A page that prints two card names: one the card list holds, one it doesn't. */
+/**
+ * A page that prints two card names, one the card list holds and one it
+ * doesn't, and a link to a printing, as Change history's are.
+ */
 function NamesPage() {
   return (
     <p>
-      <CardName id="2983" name="Elsa - Snow Queen" /> and <CardName id="17" name="Anna - Heir to Arendelle" />
+      <CardName id="2983" name="Elsa - Snow Queen" /> and <CardName id="17" name="Anna - Heir to Arendelle" />;{' '}
+      <CardLink cardId="2990" to="/studio?mode=edit&card=2983">
+        Elsa - Snow Queen #220
+      </CardLink>
     </p>
   );
 }
@@ -68,6 +82,17 @@ describe('AdminShell', () => {
     renderShellAt('/names');
     expect(screen.getByRole('link', {name: 'Elsa - Snow Queen'})).toHaveAttribute('href', '/cards/2983');
     expect(screen.queryByRole('link', {name: 'Anna - Heir to Arendelle'})).not.toBeInTheDocument();
-    expect(screen.getByText(/and Anna - Heir to Arendelle$/)).toBeInTheDocument();
+    expect(screen.getByText(/and Anna - Heir to Arendelle;/)).toBeInTheDocument();
+  });
+
+  it("shows a card name's art from the card list, and a printing's own", () => {
+    renderShellAt('/names');
+    const art = (src: string) => document.body.querySelector(`img[src="${src}"]`);
+    act(() => screen.getByRole('link', {name: 'Elsa - Snow Queen'}).focus());
+    expect(art('/card-images/2983.avif')).not.toBeNull();
+
+    act(() => screen.getByRole('link', {name: 'Elsa - Snow Queen #220'}).focus());
+    expect(art('/card-images/2990.avif')).not.toBeNull();
+    expect(art('/card-images/2983.avif')).toBeNull();
   });
 });

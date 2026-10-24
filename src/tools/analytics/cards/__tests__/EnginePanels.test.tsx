@@ -3,6 +3,8 @@ import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {RouterProvider, createMemoryRouter} from 'react-router-dom';
 import {CtaButton, FONTS, TIER_COLORS} from '../../../../app-bridge';
+import {CardArtContext} from '../../../../shell/knownCards';
+import {artLookup, shownArt, type ArtById} from '../../../../test/cardLinks';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../../theme/adminTheme';
 import {ANALYTICS} from '../../overview/overviewFixtures';
 import type {UseVoteAnalyticsReturn} from '../../useVoteAnalytics';
@@ -46,17 +48,21 @@ interface Setup {
   fixture?: EngineFixture;
   synergies?: Partial<UseCardSynergiesReturn>;
   analytics?: UseVoteAnalyticsReturn;
+  /** The card list's art, by id. */
+  art?: ArtById;
 }
 
 /** The panels on the card's page, under a data router, so a test can follow a node link and read the URL. */
-function renderPanels({fixture = ENGINE_FIFTEEN, synergies, analytics = NO_ANALYTICS}: Setup = {}) {
+function renderPanels({fixture = ENGINE_FIFTEEN, synergies, analytics = NO_ANALYTICS, art = {}}: Setup = {}) {
   const element = (
-    <EnginePanels
-      card={ENGINE_CARD}
-      synergies={{...settled(fixture), ...synergies}}
-      analytics={analytics}
-      getCardById={partnerLookup(fixture)}
-    />
+    <CardArtContext value={artLookup(art)}>
+      <EnginePanels
+        card={ENGINE_CARD}
+        synergies={{...settled(fixture), ...synergies}}
+        analytics={analytics}
+        getCardById={partnerLookup(fixture)}
+      />
+    </CardArtContext>
   );
   const router = createMemoryRouter([{path: '/cards/:cardId', element}], {initialEntries: ['/cards/300']});
   render(<RouterProvider router={router} />);
@@ -327,6 +333,13 @@ describe('EnginePanels: the network (R-39)', () => {
     // Yara Stormwick is the thirteenth: the cut leaves her out of the drawing.
     await userEvent.click(within(table).getByRole('link', {name: 'Yara Stormwick - Captain'}));
     expect(router.state.location.pathname).toBe('/cards/306');
+  });
+
+  it("shows a partner's art from the card list while its table link has focus, a thirteenth's too", async () => {
+    renderPanels({art: {'306': '/card-images/306.avif'}});
+    await userEvent.click(screen.getByRole('button', {name: 'and 3 more in the table'}));
+    act(() => within(network()).getByRole('link', {name: 'Yara Stormwick - Captain'}).focus());
+    expect(shownArt('/card-images/306.avif')).not.toBeNull();
   });
 
   it('follows a node link to that partner’s card page', async () => {

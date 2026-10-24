@@ -1,8 +1,12 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
+import {MemoryRouter} from 'react-router-dom';
+import {within} from 'storybook/test';
 import {FONTS, LinkButton, SPACING, TABULAR, TIER_COLORS} from '../app-bridge';
-import {ADMIN_COLORS} from '../theme/adminTheme';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {ArtLink} from './ArtLink';
 import {BiasBar} from './BiasBar';
+import {CardId} from './CardId';
 import {fmtGap, fmtInt} from './format';
 import {KpiCard} from './KpiCard';
 import {LowNTag} from './LowNTag';
@@ -288,4 +292,74 @@ export const Sparklines: Story = {
       </Panel>
     </Stack>
   ),
+};
+
+/**
+ * Cards from the card list with their thumbnails, at the paths admin's card
+ * list gives them (behind the /card-images/ proxy), and a card it holds no art
+ * for.
+ */
+const CARD_NAMES: readonly {id: string; name: string; art?: string}[] = [
+  {id: '1989', name: 'Elsa - Snow Queen', art: '/card-images/en/set9/53_87e3a777fb5850d8a7d76d8426c984c755246cb0.jpg'},
+  {id: '1956', name: 'Moana - Of Motunui', art: '/card-images/en/set9/20_543357372cf43045db35b608d931b96db1918432.jpg'},
+  {id: '1939', name: 'Stitch - Rock Star', art: '/card-images/en/set9/3_8e23303ce8e562819b0df3e15ac4df1c614c629c.jpg'},
+  {id: '301', name: 'Wren Ashdown - Keeper of Keys'},
+  {id: '2983', name: 'Pocahontas - Guiding the Tribe', art: '/card-images/en/set13/12_25a881827d54e9214c236aa95d2475a3dfd8ebce.jpg'},
+  {id: '2042', name: 'Maui - Whale', art: '/card-images/en/set9/106_dbde541ad67d9e466ee7dbb820d0dd5b7abfb547.jpg'},
+  {id: '3328', name: 'Un Poco Loco', art: '/card-images/en/set14/63_5d1d176f2213bf280ad6de168f2c514861dc72b2.jpg'},
+];
+
+const NAME_LIST: React.CSSProperties = {listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: SPACING.sm};
+
+/** The card header's facts line (CardHeader's FACTS), which ends with the id. */
+const FACTS_LINE: React.CSSProperties = {
+  margin: 0,
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: SPACING.md,
+  fontSize: ADMIN_TYPE.small,
+  color: ADMIN_COLORS.muted,
+};
+
+/**
+ * The open card's id as the card header and Edit card's banner print it
+ * (CardId), then card names as data links (ArtLink). Resting the pointer on a
+ * name for 150 ms, or tabbing to it, shows the card's art above it, or below
+ * it where the window's top leaves no room. The play focuses Un Poco Loco.
+ * Wren Ashdown has no art in the card list, so hers is a plain link.
+ */
+export const CardLinks: Story = {
+  decorators: [
+    (Story) => (
+      <MemoryRouter>
+        <Story />
+      </MemoryRouter>
+    ),
+  ],
+  render: () => (
+    <Stack>
+      <Panel title="Card id">
+        <p style={FACTS_LINE}>
+          <span>Action · cost 3 · inkable</span>
+          <code>#63</code>
+          <CardId id="3328" />
+        </p>
+      </Panel>
+      <Panel title="Card names">
+        <ul style={NAME_LIST}>
+          {CARD_NAMES.map(({id, name, art}) => (
+            <li key={id}>
+              <ArtLink to={`/cards/${id}`} art={art}>
+                {name}
+              </ArtLink>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </Stack>
+  ),
+  play: async ({canvasElement}) => {
+    within(canvasElement).getByRole('link', {name: 'Un Poco Loco'}).focus();
+  },
 };

@@ -1,5 +1,5 @@
-import {Link} from 'react-router-dom';
 import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {CardLink} from '../../../shell/CardLink';
 import {cardsHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap, fmtInt} from '../../../ui/format';
@@ -74,9 +74,10 @@ interface PartnerProps {
 }
 
 /**
- * The partner's name: a link to its own card page, or plain text when the
- * card list can't open it. The link's underline, not its colour, tells the two
- * apart (adm-link, WCAG 1.4.1).
+ * The partner's name: a link to its own card page, which shows the partner's
+ * art while a mouse rests on it or the keyboard focuses it (CardLink), or
+ * plain text when the card list can't open it. The link's underline, not its
+ * colour, tells the two apart (adm-link, WCAG 1.4.1).
  */
 function Partner({pair, listed}: PartnerProps) {
   if (!listed) {
@@ -87,9 +88,9 @@ function Partner({pair, listed}: PartnerProps) {
     );
   }
   return (
-    <Link to={cardsHref(pair.partnerId)} title={pair.partnerName} className="adm-link" style={CELL_LINK}>
+    <CardLink cardId={pair.partnerId} to={cardsHref(pair.partnerId)} title={pair.partnerName} style={CELL_LINK}>
       {pair.partnerName}
-    </Link>
+    </CardLink>
   );
 }
 

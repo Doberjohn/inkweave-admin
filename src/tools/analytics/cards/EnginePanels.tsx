@@ -5,6 +5,7 @@ import {ChartFrame, type ChartView} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import {NetworkDiagram} from '../../../charts/NetworkDiagram';
 import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
+import {useCardArt} from '../../../shell/knownCards';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {Notice} from '../../../ui/Notice';
@@ -126,17 +127,19 @@ function EngineViewPanel({state, analytics, ...body}: EngineBodyProps & {analyti
 /**
  * The strongest partners as a network, alone in an untitled Panel, as every
  * chart is (R-39). "and K more in the table" switches the frame to its table,
- * which lists every partner, and the frame then focuses it.
+ * which lists every partner, and the frame then focuses it. The table's names
+ * show their cards' art (the card list's, CardArtContext).
  */
 function NetworkPanel({card, model, names}: {card: LorcanaCard; model: EngineModel; names: PartnerNames}) {
   const [view, setView] = useState<ChartView>('chart');
+  const artOf = useCardArt();
   return (
     <Panel>
       <ChartFrame
         title="Strongest partners"
         subtitle={networkSubtitle(model)}
         legend={<ChartLegend series={TIER_SERIES} mark="line" />}
-        table={partnerTable(model.partners, card)}
+        table={partnerTable(model.partners, card, artOf)}
         view={view}
         onViewChange={setView}>
         <NetworkDiagram

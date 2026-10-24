@@ -1,6 +1,6 @@
-import {Link} from 'react-router-dom';
 import {MIN_CORE_SET, type LorcanaCard} from 'inkweave-synergy-engine';
 import {SPACING} from '../../../app-bridge';
+import {CardLink} from '../../../shell/CardLink';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {FocusNotice} from '../../../shell/FocusNotice';
 import {cardsHref, studioHref} from '../../../shell/nav';
@@ -47,13 +47,16 @@ const REVIEW_TRACK: React.CSSProperties = {
   gap: SPACING.xl,
 };
 
-/** A Cards to review row: the card's name, which opens its page, its bias bar and its mean gap. */
+/**
+ * A Cards to review row: the card's name, which opens its page and shows its
+ * art (CardLink), its bias bar and its mean gap.
+ */
 function ReviewRow({card}: {card: CardToReview}) {
   return (
     <li style={REVIEW_ROW}>
-      <Link to={cardsHref(card.cardId)} title={card.cardName} className="adm-link" style={CELL_LINK}>
+      <CardLink cardId={card.cardId} to={cardsHref(card.cardId)} title={card.cardName} style={CELL_LINK}>
         {card.cardName}
-      </Link>
+      </CardLink>
       {/* minWidth 0: the bar shrinks with its track, as on the Overview. */}
       <BiasBar gap={card.meanGap} minWidth={0} />
       <span style={{...NUMBER, color: gapColor(card.meanGap)}}>{fmtGap(card.meanGap)}</span>

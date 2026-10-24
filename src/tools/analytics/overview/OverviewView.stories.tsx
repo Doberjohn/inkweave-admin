@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {MemoryRouter} from 'react-router-dom';
 import {FONTS, SPACING} from '../../../app-bridge';
-import {KnownCardsContext} from '../../../shell/knownCards';
+import {CardArtContext, KnownCardsContext} from '../../../shell/knownCards';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {OverviewView} from './OverviewView';
 import {
@@ -105,12 +105,21 @@ export const VoteLogError: Story = {
   args: {voteLog: null, voteLogError: new Error('vote-log.json: HTTP 500')},
 };
 
-/** In the shell (R-33): Maui and Cogsworth are in the card list, so their names link to their card pages. */
+/** Elsa - Snow Queen's thumbnail, the art the card list holds for her. */
+const ELSA_ART = '/card-images/en/set9/53_87e3a777fb5850d8a7d76d8426c984c755246cb0.jpg';
+
+/**
+ * In the shell (R-33): Maui, Cogsworth and Elsa - Snow Queen are in the card
+ * list, so their names link to their card pages, and Elsa's shows her art on
+ * hover or focus.
+ */
 export const CardLinks: Story = {
   decorators: [
     (Story) => (
-      <KnownCardsContext value={(id) => id === 'crd-Maui' || id === 'crd-Cogsworth'}>
-        <Story />
+      <KnownCardsContext value={(id) => ['crd-Maui', 'crd-Cogsworth', 'crd-Elsa - Snow Queen'].includes(id)}>
+        <CardArtContext value={(id) => (id === 'crd-Elsa - Snow Queen' ? ELSA_ART : undefined)}>
+          <Story />
+        </CardArtContext>
       </KnownCardsContext>
     ),
   ],

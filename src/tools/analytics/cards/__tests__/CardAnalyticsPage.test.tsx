@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, Link, RouterProvider} from 'react-router-dom';
 import {MIN_CORE_SET} from 'inkweave-synergy-engine';
 import {COLORS, type useCardDataContext} from '../../../../app-bridge';
+import {CardArtContext} from '../../../../shell/knownCards';
+import {artLookup, shownArt, type ArtById} from '../../../../test/cardLinks';
 import type {PairStat, VoteAnalytics} from '../../voteAnalyticsTypes';
 import type {CardAnalyticsViewProps} from '../CardAnalyticsView';
 import {CardAnalyticsPage} from '../CardAnalyticsPage';
@@ -141,10 +143,10 @@ function setCardList({cards = [ELSA, ANNA], isLoading = false, error = null}: Pa
 
 /**
  * The page at `path` in a data router, so a test can read where a redirect
- * left it. /activity stands in for another page, with a card link as R3-8's
- * CardName draws one.
+ * left it, under the shell's card art (`art`). /activity stands in for
+ * another page, with a card link as R3-8's CardName draws one.
  */
-function renderPage(path: string) {
+function renderPage(path: string, art: ArtById = {}) {
   const router = createMemoryRouter(
     [
       {path: '/cards/:cardId?', element: <CardAnalyticsPage />},
@@ -152,7 +154,11 @@ function renderPage(path: string) {
     ],
     {initialEntries: [path]},
   );
-  render(<RouterProvider router={router} />);
+  render(
+    <CardArtContext value={artLookup(art)}>
+      <RouterProvider router={router} />
+    </CardArtContext>,
+  );
   return {router, user: userEvent.setup()};
 }
 
@@ -201,6 +207,14 @@ describe('CardAnalyticsPage: bare /cards', () => {
     // The link goes with the prompt, so the card's h2 takes focus (R-48).
     await user.click(list.getByRole('link', {name: 'Elsa - Snow Queen'}));
     expect(cardHeading('Elsa - Snow Queen')).toHaveFocus();
+  });
+
+  it("shows a listed card's art from the card list while its name has focus (CardLink)", async () => {
+    stubFetch(() => json(ANALYTICS));
+    renderPage('/cards', {[ANNA.id]: '/card-images/2984.avif'});
+    const list = within(await screen.findByRole('list', {name: 'Cards to review'}));
+    act(() => list.getByRole('link', {name: 'Anna - Heir to Arendelle'}).focus());
+    expect(shownArt('/card-images/2984.avif')).not.toBeNull();
   });
 
   it('prints each card’s mean gap in its verdict colour, beside a bias bar leaning the same way', async () => {

@@ -1,13 +1,18 @@
 import {useEffect, useId, useRef, useState} from 'react';
-import {Link} from 'react-router-dom';
 import {LETTER_SPACING, SPACING, TABULAR} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {ArtLink} from '../ui/ArtLink';
 import {SegmentedControl} from '../ui/SegmentedControl';
 
-/** A table cell that opens a page: its text, and the path its link goes to (a card's, on /cards). */
+/**
+ * A table cell that opens a page: its text, the path its link goes to (a
+ * card's, on /cards), and the image it shows while hovered or focused (the
+ * card's art), if any.
+ */
 export interface ChartTableLink {
   text: string;
   href: string;
+  art?: string;
 }
 
 /** One cell: its text, or a link where the chart's mark is one too (the network's nodes). */
@@ -53,13 +58,14 @@ function cellText(cell: ChartTableCell): string {
 /**
  * A cell's content. A link is a name inside data, so it takes adm-link's
  * underline, as CardName's do: the cell's padding leaves room for its ring.
+ * A link with art shows it while hovered or focused, as a card name does.
  */
 function CellContent({cell}: {cell: ChartTableCell}) {
   if (typeof cell === 'string') return cell;
   return (
-    <Link to={cell.href} className="adm-link">
+    <ArtLink to={cell.href} art={cell.art}>
       {cell.text}
-    </Link>
+    </ArtLink>
   );
 }
 

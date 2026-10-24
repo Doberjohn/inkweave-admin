@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import {render, screen} from '@testing-library/react';
-import {renderWithCards} from '../../../test/cardLinks';
+import {act, render, screen} from '@testing-library/react';
+import {renderWithCards, shownArt} from '../../../test/cardLinks';
 import {CardName, PairLine, PairNames} from '../CardName';
 
 // 2983 is in the card list; 17 isn't (rotated out of Core, say).
@@ -15,6 +15,13 @@ describe('CardName', () => {
     expect(links()).toEqual([['Elsa - Snow Queen', '/cards/2983']]);
     // adm-link: the muted underline, the gold hover and the focus ring (AdminStyles).
     expect(screen.getByRole('link')).toHaveClass('adm-link');
+  });
+
+  it("shows the card's art from the card list while its link has focus", () => {
+    renderWithCards(<CardName id="2983" name="Elsa - Snow Queen" />, ['2983'], {'2983': '/card-images/2983.avif'});
+    expect(shownArt('/card-images/2983.avif')).toBeNull();
+    act(() => screen.getByRole('link').focus());
+    expect(shownArt('/card-images/2983.avif')).not.toBeNull();
   });
 
   it('prints a card the card list lacks as plain text', () => {
@@ -40,6 +47,13 @@ describe('PairNames', () => {
     const {container} = renderWithCards(<PairNames pair={PAIR} />, ['2983']);
     expect(container).toHaveTextContent(/^Elsa - Snow Queen × Anna - Heir to Arendelle$/);
     expect(links()).toEqual([['Elsa - Snow Queen', '/cards/2983']]);
+  });
+
+  it("shows each name's own art", () => {
+    renderWithCards(<PairNames pair={PAIR} />, ['2983', '17'], {'2983': '/elsa.avif', '17': '/anna.avif'});
+    act(() => screen.getByRole('link', {name: 'Anna - Heir to Arendelle'}).focus());
+    expect(shownArt('/anna.avif')).not.toBeNull();
+    expect(shownArt('/elsa.avif')).toBeNull();
   });
 });
 
