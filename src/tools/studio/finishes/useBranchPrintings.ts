@@ -32,19 +32,24 @@ export type BranchPrintings =
    * the last read's, for the panel to hold until the read lands.
    *
    * `catalog`: the branch's promo catalog, the same read's, which the panel's printing form reads
-   * (#77): the entry a row's Edit opens, and who has the code a form names. The hook always sets it.
-   * It is optional only so that a view a test or a story builds without one still types: the panel
-   * then offers no form.
+   * (#77): the entry a row's Edit opens, and who has the code a form names. The hook sets it, or
+   * `catalogError` where the catalog's shape is wrong for the form (parseCatalog: a section it lacks,
+   * named with the file, #84). The rows and their versions don't read those sections, so they stay,
+   * and only the form is off. `catalog` is optional so that a view a test or a story builds without
+   * one still types: the panel then offers no form.
    */
-  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true; catalog?: PromoCatalog};
+  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true; catalog?: PromoCatalog; catalogError?: string};
 
 const LOADING: BranchPrintings = {status: 'loading'};
+
+/** The catalog as the printing form reads it, or what is wrong with its shape, naming the file (#84). */
+type CatalogRead = {catalog: PromoCatalog} | {catalogError: string};
 
 /**
  * What a card's rows are made from, but the card and whether it has a twin, and the catalog its
  * promos are filed in: the files of its set, parsed.
  */
-type Files = Omit<PrintingSources, 'card' | 'twin'> & {catalog: PromoCatalog};
+type Files = Omit<PrintingSources, 'card' | 'twin'> & {catalog: CatalogRead};
 
 /** How a read of the files ended. */
 type Outcome = {files: Files} | {error: string};
@@ -60,8 +65,22 @@ interface Settled {
 const finishesIn = lastTextCached(namingItsFile(readFinishes));
 const cardsIn = lastTextCached(namingItsFile(({text}) => transformRawCards(JSON.parse(text) as LorcanaJSONCard[])));
 const promosIn = lastTextCached(namingItsFile(({text}) => transformPromos(JSON.parse(text) as RawCollectionPromo[])));
-/** The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for its versions: each parses a text once. */
-const catalogIn = lastTextCached(namingItsFile(({text}) => parseCatalog(text)));
+/** The catalog checked as the printing form reads it (parseCatalog), where a problem is named and thrown. */
+const checkedCatalog = namingItsFile(({text}) => parseCatalog(text));
+
+/**
+ * The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for
+ * its versions: each parses a text once. A catalog whose shape the form can't read, a section missing,
+ * fails only the form (#84): the versions read `fold` and `noBaseCard` as the app does, the second as
+ * optional, so a read keeps its rows. A publish still checks the whole catalog (publishPrinting.ts).
+ */
+const catalogIn = lastTextCached((file: BranchFile): CatalogRead => {
+  try {
+    return {catalog: checkedCatalog(file)};
+  } catch (e) {
+    return {catalogError: messageOf(e)};
+  }
+});
 
 /**
  * The files a card's rows are made from. The entries come from the first two: its set's chunk,
@@ -146,7 +165,7 @@ function viewOf({settled, generation, card, twin}: ViewInput): BranchPrintings {
   if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
   const {catalog, ...sources} = outcome.files;
   const rows = printingRowsFor({card, twin, ...sources});
-  return current ? {status: 'ready', rows, catalog} : {status: 'ready', rows, catalog, refreshing: true};
+  return current ? {status: 'ready', rows, ...catalog} : {status: 'ready', rows, ...catalog, refreshing: true};
 }
 
 /**

@@ -191,7 +191,8 @@ export interface PrintingsPanelProps {
   /**
    * Adding and editing the card's promo printings (#77): Add a printing under the rows and an Edit on
    * each promo row, once the view holds the branch's catalog. Without it, or before the catalog is
-   * read, the panel offers neither.
+   * read, the panel offers neither; where the view says the catalog can't be read as the form reads it
+   * (`catalogError`, #84), it says why in their place.
    */
   promos?: PromoPrintingsProps;
 }
@@ -205,19 +206,21 @@ export interface PrintingsPanelProps {
  * Where the panel's handoff lands, on what took the place of the control that went:
  * - `panel`: the heading, or "Read the files again" where the read failed: after that button's press,
  *   and when the rows go with the focus in them;
- * - `form`: the heading of a printing form that just opened, in place of the button that opened it, or of
- *   an edit form that moved, as a read dropped its row or brought it back, with the focus in it;
+ * - `form`: the heading of a printing form that just opened, in place of the button that opened it;
+ * - `moved`: an edit form that moved with the focus in it, as a read dropped its row or brought it back:
+ *   its failure, where it has one (R-59, #84), else its heading;
  * - `opener`: the button that opened a form just cancelled: Add a printing, or a row's Edit. An edit form
  *   whose row a read dropped sat where Add a printing does, so its Cancel hands the focus to Add;
  * - `outcome`: the line under the rows, once a publish landed or a refusal closed its form.
  */
-type HandoffTarget = {to: 'panel'} | {to: 'form'} | {to: 'opener'; opener: string} | {to: 'outcome'};
+type HandoffTarget = {to: 'panel'} | {to: 'form'} | {to: 'moved'} | {to: 'opener'; opener: string} | {to: 'outcome'};
 
 /** Asks for the panel's handoff, to land on `target`. */
 type HandTo = (target: HandoffTarget) => void;
 
 const TO_PANEL: HandoffTarget = {to: 'panel'};
 const TO_FORM: HandoffTarget = {to: 'form'};
+const TO_MOVED: HandoffTarget = {to: 'moved'};
 const TO_OUTCOME: HandoffTarget = {to: 'outcome'};
 
 /** What Add a printing's `data-opens` names. A row's Edit names its printing's id. */
@@ -226,13 +229,25 @@ const ADD_OPENER = 'add';
 /** The first element of the line under the rows that takes focus: CommitOutcome's failure, else its status line. */
 const OUTCOME_TARGET = '[data-outcome] [tabindex="-1"]';
 
+/** The failure of the open printing form: the first element of its outcome that takes focus, while it has failed. */
+const FORM_FAILURE_TARGET = '[data-form-outcome] [tabindex="-1"]';
+
+/** What `selectorOf` reads: the target, whether the read failed, and whether the open printing form holds a failure. */
+interface SelectorInput {
+  target: HandoffTarget;
+  failed: boolean;
+  formFailed: boolean;
+}
+
 /** The first element of the panel that `target` names: the handoff focuses it. */
-function selectorOf({target, failed}: {target: HandoffTarget; failed: boolean}): string {
+function selectorOf({target, failed, formFailed}: SelectorInput): string {
   switch (target.to) {
     case 'panel':
       return failed ? 'button' : 'h2';
     case 'form':
       return 'h3';
+    case 'moved':
+      return formFailed ? FORM_FAILURE_TARGET : 'h3';
     case 'opener':
       // The rows come before Add a printing, so a row's Edit wins where it is; where the row went, Add takes it.
       return `[data-opens="${target.opener}"],[data-opens="${ADD_OPENER}"]`;
@@ -399,28 +414,54 @@ function editsNoRow({form, rows}: {form: OpenPrintingForm; rows: readonly Printi
 }
 
 /**
- * Asks for the panel's handoff to the form's heading as an edit form mounts while the focus is on <body>
- * (R-48). An open edit form mounts in another place when a read of the branch drops its row, and again
- * when one brings the row back: the form that went took a focus in it along, which fell to <body>. A
- * mount that finds the focus anywhere else asks for nothing. A row's Edit asks for the same handoff as its
- * press opens the form, so this then asks again for what is asked already; and a request still waiting
- * when the form comes back with the rows ("Read the files again") is taken first, where it was asked to
- * land. A layout effect, so it looks right after the old form's nodes go, before anything can move the focus.
+ * Whether an edit form just went with the focus in it. An open edit form mounts in another place when a
+ * read of the branch drops its row, and again when one brings the row back: the form that goes sets this as
+ * it unmounts, and the one that mounts in its place, in the same commit, reads it (useHandoffOnMount). A
+ * microtask clears it after that commit, so a form that went with no form in its place (a read that failed
+ * after a publish) leaves nothing for a form that mounts later.
  */
-function useHandoffOnMount(handTo: HandTo) {
+const formMove = {tookFocus: false};
+
+/**
+ * Asks for the panel's handoff to the moved form (R-48) as an edit form mounts in place of one that went
+ * with the focus in it, while that focus is still on <body>, where the form's going dropped it. Only then
+ * (#84): a focus that was on <body> before, or that the owner moved since, stays where it is. A row's Edit
+ * asks for the form's own handoff as its press opens it, and no form went then. A request still waiting
+ * when the form comes back with the rows ("Read the files again") is taken first, where it was asked to
+ * land. Layout effects, so the going form looks before React takes its nodes out, and the new one right
+ * after, before anything can move the focus.
+ */
+function useHandoffOnMount({handTo, root}: {handTo: HandTo; root: RefObject<HTMLElement | null>}) {
   const request = useRef(handTo);
   useLayoutEffect(() => {
     request.current = handTo;
   });
   useLayoutEffect(() => {
-    if (focusUnmoved()) request.current(TO_FORM);
-  }, []);
+    if (formMove.tookFocus && focusUnmoved()) request.current(TO_MOVED);
+    formMove.tookFocus = false;
+    const element = root.current;
+    return () => {
+      if (!element?.contains(document.activeElement)) return;
+      formMove.tookFocus = true;
+      queueMicrotask(() => {
+        formMove.tookFocus = false;
+      });
+    };
+  }, [root]);
 }
 
-/** An edit form, showing `currentArt`: its row's art under the row, none under the rows. It takes a focus its move dropped. */
+/**
+ * An edit form, showing `currentArt`: its row's art under the row, none under the rows. It takes a focus its
+ * move dropped: its failure, where it has one, else its heading.
+ */
 function EditForm({kit, currentArt}: {kit: FormKit; currentArt: string | undefined}) {
-  useHandoffOnMount(kit.handTo);
-  return <PromoPrintingForm {...kit.form} currentArt={currentArt} />;
+  const root = useRef<HTMLDivElement>(null);
+  useHandoffOnMount({handTo: kit.handTo, root});
+  return (
+    <div ref={root}>
+      <PromoPrintingForm {...kit.form} currentArt={currentArt} />
+    </div>
+  );
 }
 
 /** The edit form, in an item of its own right under the row whose printing it edits, showing the row's art. */
@@ -524,6 +565,30 @@ function PromoOffer({kit, rows}: OfferProps) {
       <PublishOutcome promos={kit.promos} />
     </div>
   );
+}
+
+/**
+ * In place of the printing form's controls, when the branch's catalog can't be read as the form reads it
+ * (#84): the problem, naming the file and the section, over the line that says what the last publish came
+ * to. The rows and their versions stay, and stage as ever: only Add a printing and every Edit are off. A
+ * Core copy keeps its note, which offers no form of its own.
+ */
+function CatalogProblem({promos, error}: {promos: PromoPrintingsProps; error: string}) {
+  const {coreCopy} = promos;
+  return (
+    <div style={OFFER}>
+      {coreCopy !== null && <CoreCopyNote coreCopy={coreCopy} />}
+      <Notice tone="error">{`Promo printings can't be added or edited: ${error}.`}</Notice>
+      <PublishOutcome promos={promos} />
+    </div>
+  );
+}
+
+/** What the panel offers for the card's promos under the rows: the form kit's controls, or why the catalog keeps them off. */
+function PromoPart({kit, promos, view}: {kit: FormKit | null; promos?: PromoPrintingsProps; view: ReadyProps['view']}) {
+  if (kit !== null) return <PromoOffer kit={kit} rows={view.rows} />;
+  if (promos === undefined || view.catalogError === undefined) return null;
+  return <CatalogProblem promos={promos} error={view.catalogError} />;
 }
 
 interface ItemProps extends RowChanges {
@@ -661,7 +726,7 @@ function ReadyBody({view, changes, publishing = false, published = NO_CHANGES, o
         busy={refreshing}
         kit={kit}
       />
-      {kit && <PromoOffer kit={kit} rows={view.rows} />}
+      <PromoPart kit={kit} promos={promos} view={view} />
     </div>
   );
 }
@@ -730,6 +795,12 @@ function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: H
   }
 }
 
+/** Whether the open printing form holds a failure, which a moved form gives the focus to. */
+function formFailedOf(promos: PromoPrintingsProps | undefined): boolean {
+  const form = promos?.controller.form ?? null;
+  return form !== null && form.error !== null;
+}
+
 /**
  * Edit card's Printings panel for a released card (#68): one row for each pocket the binder holds
  * for it, with the versions it shows and a choice of Both, Foil only or Normal only. A choice is
@@ -759,13 +830,15 @@ function PrintingsBody({view, handTo, ...rest}: PrintingsPanelProps & {handTo: H
  * Cancel gives the focus to Add); a publish that closes its form gives it to the line under the rows.
  * It asks for it, too, when the rows or what is under them go with the focus in them, as they do when
  * the read after a publish fails: the button then takes it. And an edit form that moves with the focus
- * in it, as a read drops its row or brings it back, gives it to its own heading (useHandoffOnMount).
+ * in it, as a read drops its row or brings it back, gives it to its failure, or its heading where it has
+ * none (useHandoffOnMount).
  */
 export function PrintingsPanel(props: PrintingsPanelProps) {
   const {view, promos} = props;
   const ref = useRef<HTMLDivElement>(null);
   const {handoff, target, handTo} = usePanelHandoff(promos?.controller.outcome ?? null);
-  useTakeHandoff(handoff, ref, selectorOf({target, failed: view.status === 'error'}), view.status !== 'loading');
+  const formFailed = formFailedOf(promos);
+  useTakeHandoff(handoff, ref, selectorOf({target, failed: view.status === 'error', formFailed}), view.status !== 'loading');
   return (
     <div ref={ref}>
       <Panel title="Printings" titleFocusable>

@@ -67,9 +67,9 @@ function specifiersOf(file, text) {
 }
 
 /**
- * What a module that `from` loads is to the walk: a Node builtin, a code file to read next, a relative
- * specifier that names no file (a miss: a TS-style "./x.js" for x.ts is one), or nothing to follow (a
- * bare package, or an asset).
+ * Sorts one specifier that `from` imports, for the walk: a Node builtin, a code file to read next, a
+ * relative specifier that names no file (a miss: a TS-style "./x.js" for x.ts is one), or nothing to
+ * follow (a bare package, or an asset).
  * @returns {{kind: 'builtin' | 'miss' | 'none'} | {kind: 'code', file: string}}
  */
 function loadOf({from, specifier, exists}) {

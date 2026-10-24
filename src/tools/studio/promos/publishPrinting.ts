@@ -333,10 +333,22 @@ function chunkCards({text}: BranchFile): ChunkCard[] {
 const chunkCardsIn = namingItsFile(chunkCards);
 
 /**
+ * The app's words for a card its datasets lack, which promoBaseProblems ends a problem with. It checks every
+ * dataset the app has, and admin hands it one set's chunk, so a refusal says what admin read instead.
+ */
+const NO_DATASET = /, which no dataset holds$/;
+
+/** What a problem promoBaseProblems found over `path` alone says: the file read, where the app's words say every dataset. */
+function problemIn({problem, path}: {problem: string; path: string}): string {
+  return problem.replace(NO_DATASET, `, which ${path} doesn't hold`);
+}
+
+/**
  * Refuses an add that starts a Sets 1 to 8 card's group when the app's data for the card's set, its chunk at
  * `base`, lacks the card or names its id otherwise: the printing would wait in the binder for a card that
  * never comes. It runs the app's own check (promoBaseProblems, which the app's merge CLI runs over every
- * promo) over the one printing the add makes, so nothing else in the catalog can refuse it.
+ * promo) over the one printing the add makes, so nothing else in the catalog can refuse it. The refusal
+ * names the chunk where the card is missing from it, and says what to do (#84).
  */
 async function requireCardInItsSet({token, base, card, catalog, id}: {
   token: string;
@@ -352,7 +364,7 @@ async function requireCardInItsSet({token, base, card, catalog, id}: {
   if (problem === undefined) return;
   throw new PrintingRefusal({
     kind: 'unknownCard',
-    message: `The app's set ${card.setCode} data on ${targetBranch()} doesn't match ${card.fullName}: ${problem}.`,
+    message: `The app's set ${card.setCode} data on ${targetBranch()} doesn't match ${card.fullName}: ${problemIn({problem, path})}. Fix the card in the app's set data first.`,
   });
 }
 

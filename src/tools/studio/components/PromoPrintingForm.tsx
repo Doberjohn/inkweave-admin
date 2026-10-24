@@ -6,6 +6,7 @@ import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, type FrameState, type ImageNoteIds} from '../cardPanel';
+import {fieldIds} from '../fieldWiring';
 import {CHOICE_OPTIONS} from '../finishes/finishValues';
 import {
   missingLine,
@@ -98,6 +99,9 @@ const MISSING: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: AD
  * owner typed that is wrong is marked on Number too (numberProblem, R-72).
  */
 const NO_ERRORS: Readonly<Record<string, string>> = {};
+
+/** Number's name, which names its ids (fieldIds): Publish points at its error when that says what the line would. */
+const NUMBER_FIELD = 'printing-number';
 
 /** What the promo set's select says under it: it offers only the app's promo sets, at admin's pin. */
 const PROMO_SET_HINT = "A promo set not listed here has to be added to the app's PROMO_SETS first.";
@@ -305,9 +309,9 @@ function PromoSetField({form, patch, locked, promoSets}: FieldsProps) {
  * (numberProblem): a number typed that is wrong marks the field invalid and says why under it.
  */
 function NumberField({form, patch, locked, numberError}: FieldProps & Pick<FieldsProps, 'numberError'>) {
-  const errors = numberError === null ? NO_ERRORS : {'printing-number': numberError};
+  const errors = numberError === null ? NO_ERRORS : {[NUMBER_FIELD]: numberError};
   return (
-    <Field label="Number" name="printing-number" errors={errors} errorStyle={TINT_ERROR}>
+    <Field label="Number" name={NUMBER_FIELD} errors={errors} errorStyle={TINT_ERROR}>
       {(control) => (
         <input
           {...control}
@@ -401,8 +405,11 @@ function Fields(props: FieldsProps) {
 /** What the buttons read. */
 interface ActionsProps {
   form: OpenPrintingForm;
-  /** What the form still lacks before Publish is on (missingLine), or null. */
-  line: string | null;
+  /**
+   * What describes Publish while it is off: the line under the buttons, with what the form still lacks
+   * (missingLine), or Number's error where that says it already (#84), or nothing.
+   */
+  gap: Gap;
   /** Publish is off: the form lacks something, its scan can't be published yet, or a publish runs. */
   held: boolean;
   publishing: boolean;
@@ -416,12 +423,35 @@ function initialCodeOf({printing}: OpenPrintingForm): string | null {
 }
 
 /**
- * Publish, named by the printing, and Cancel; under them, the first thing the form lacks, which describes
- * the button. Cancel waits for a publish that runs: the commit can't be called back, and a form closed
- * meanwhile would never say what came of it.
+ * What the form lacks, as Publish is described by it: the line under the buttons, Number's error where that
+ * is the same line (a taken code, which Number says already), or nothing.
  */
-function Actions({form, line, held, publishing, onPublish, onCancel}: ActionsProps) {
+type Gap = {line: string} | {field: string} | null;
+
+/**
+ * Where the form's first gap is said. A taken code is said on Number (numberProblem, in the line's words), so
+ * the line under Publish defers to the field (#84): Publish is described by Number's error, and the code is
+ * said once in each place that stays, Number and, after a refusal, its alert.
+ */
+function gapOf({line, numberError}: {line: string | null; numberError: string | null}): Gap {
+  if (line === null) return null;
+  return line === numberError ? {field: fieldIds({name: NUMBER_FIELD}).error} : {line};
+}
+
+/** The id that describes Publish: the line's under the buttons, Number's error, or none. */
+function describedByOf({gap, lineId}: {gap: Gap; lineId: string}): string | undefined {
+  if (gap === null) return undefined;
+  return 'field' in gap ? gap.field : lineId;
+}
+
+/**
+ * Publish, named by the printing, and Cancel; under them, the first thing the form lacks, which describes
+ * the button, unless Number says it already. Cancel waits for a publish that runs: the commit can't be
+ * called back, and a form closed meanwhile would never say what came of it.
+ */
+function Actions({form, gap, held, publishing, onPublish, onCancel}: ActionsProps) {
   const lineId = useId();
+  const describedBy = describedByOf({gap, lineId});
   const label = publishLabel({
     kind: form.kind,
     values: form.values,
@@ -436,7 +466,7 @@ function Actions({form, line, held, publishing, onPublish, onCancel}: ActionsPro
           type="button"
           onClick={onPublish}
           disabled={held}
-          aria-describedby={line === null ? undefined : lineId}
+          aria-describedby={describedBy}
           style={PUBLISH}>
           {label}
         </CtaButton>
@@ -444,9 +474,9 @@ function Actions({form, line, held, publishing, onPublish, onCancel}: ActionsPro
           Cancel
         </CtaButton>
       </div>
-      {line !== null && (
+      {gap !== null && 'line' in gap && (
         <p id={lineId} style={MISSING}>
-          {line}
+          {gap.line}
         </p>
       )}
     </>
@@ -477,6 +507,7 @@ function OpenForm({controller, form, promoSets, taken, currentArt, onForgetToken
   const {publishing} = controller;
   const rules = rulesOf({form, taken});
   const line = missingLine(rules);
+  const numberError = numberProblem(rules);
   const publish = () =>
     void controller.publish().then((landed) => {
       if (!landed) handoff.request();
@@ -492,16 +523,19 @@ function OpenForm({controller, form, promoSets, taken, currentArt, onForgetToken
       <div style={BODY}>
         <ScanColumn form={form} currentArt={currentArt} locked={publishing} onFile={chooseScan} />
         <div style={FIELDS}>
-          <Fields form={form} patch={controller.patch} locked={publishing} promoSets={promoSets} numberError={numberProblem(rules)} />
+          <Fields form={form} patch={controller.patch} locked={publishing} promoSets={promoSets} numberError={numberError} />
           <Actions
             form={form}
-            line={line}
+            gap={gapOf({line, numberError})}
             held={line !== null || publishing || scanUnusable(form.scan)}
             publishing={publishing}
             onPublish={publish}
             onCancel={controller.cancel}
           />
-          <CommitOutcome result={null} error={form.error} note="" onForgetToken={onForgetToken} handoff={handoff} />
+          {/* data-form-outcome: where the panel hands the focus of a form that moved with its failure (#84). */}
+          <div data-form-outcome>
+            <CommitOutcome result={null} error={form.error} note="" onForgetToken={onForgetToken} handoff={handoff} />
+          </div>
         </div>
       </div>
     </section>

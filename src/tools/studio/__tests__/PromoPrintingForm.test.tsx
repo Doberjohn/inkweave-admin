@@ -125,7 +125,7 @@ describe('PromoPrintingForm: what it asks for', () => {
     expect(screen.getByRole('button', {name})).toBeDisabled();
   });
 
-  it('says whose a taken code is, under Publish and on Number, and holds Publish', () => {
+  it('says whose a taken code is on Number, once, and holds Publish, which that line describes', () => {
     const taken = findPrinting(FIXTURE_CATALOG, 80024)!;
     renderForm({form: addForm({values: {...NINE_P4, promoGrouping: 'C3', number: '13'}, scan: PNG}), taken});
     const line = '13/C3 is taken: Mother Knows Best has it.';
@@ -133,6 +133,23 @@ describe('PromoPrintingForm: what it asks for', () => {
     expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toBeDisabled();
     expect(screen.getByLabelText('Number')).toHaveAccessibleDescription(line);
     expect(screen.getByLabelText('Number')).toBeInvalid();
+    // The line under Publish defers to Number's (#84): the page says it once.
+    expect(screen.getAllByText(line)).toHaveLength(1);
+  });
+
+  it("says a taken code once on Number and once in the refusal's alert, with no line under Publish (#84)", () => {
+    const taken = findPrinting(FIXTURE_CATALOG, 80024)!;
+    const error = '13/C3 is taken on master: Mother Knows Best has it.';
+    renderForm({form: addForm({values: {...NINE_P4, promoGrouping: 'C3', number: '13'}, scan: PNG, error}), taken});
+    expect(screen.getByRole('alert')).toHaveTextContent(error);
+    expect(screen.getAllByText(/^13\/C3 is taken/)).toHaveLength(2);
+    expect(screen.getByRole('button', {name: 'Publish 13/C3'})).toHaveAccessibleDescription('13/C3 is taken: Mother Knows Best has it.');
+  });
+
+  it('keeps the line under Publish for a gap Number does not say', () => {
+    renderForm({form: addForm({values: {...NINE_P4, versions: null}, scan: PNG})});
+    expect(screen.getByText('Choose its versions to publish.')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Publish 9/P4'})).toHaveAccessibleDescription('Choose its versions to publish.');
   });
 
   it('names the art variant in the code an edit would take: 25A/P2, not 25/P2', () => {

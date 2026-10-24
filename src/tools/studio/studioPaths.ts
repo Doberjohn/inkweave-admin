@@ -93,14 +93,16 @@ const IN_FLIGHT: Readonly<Record<Draft, () => string>> = {
   printing: publishInFlight,
 };
 
+/** What stands for a draft once a line has named it: "Leaving Card studio drops it." */
+type Pronoun = 'it' | 'them';
+
 /** How the studio's lines name a draft. */
 interface DraftWords {
   /** Its name, as a line says it mid-sentence: "your New reveal card". */
   name: string;
-  /** What it lacks, said after its name: "isn't published yet", or "aren't saved yet" after a plural one. */
-  lacks: string;
-  /** What stands for it once it is named: "Leaving Card studio drops it." */
-  pronoun: 'it' | 'them';
+  /** The commit it still waits for, said after its name: "isn't published yet", or "aren't saved yet" after a plural one. */
+  notYet: string;
+  pronoun: Pronoun;
 }
 
 /**
@@ -108,9 +110,9 @@ interface DraftWords {
  * and the confirm before Forget token, are built from them.
  */
 const WORDS: Readonly<Record<Draft, DraftWords>> = {
-  reveal: {name: 'your New reveal card', lacks: "isn't published yet", pronoun: 'it'},
-  edit: {name: 'your Edit card changes', lacks: "aren't saved yet", pronoun: 'them'},
-  printing: {name: 'your printing form', lacks: "isn't published yet", pronoun: 'it'},
+  reveal: {name: 'your New reveal card', notYet: "isn't published yet", pronoun: 'it'},
+  edit: {name: 'your Edit card changes', notYet: "aren't saved yet", pronoun: 'them'},
+  printing: {name: 'your printing form', notYet: "isn't published yet", pronoun: 'it'},
 };
 
 /** A line for each draft, put together from its words. */
@@ -123,16 +125,16 @@ function capitalized(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
-/** What a draft lacks, in the middle of a sentence: "your New reveal card isn't published yet". */
-const lacking = ({name, lacks}: DraftWords) => `${name} ${lacks}`;
+/** The clause that says a draft isn't committed yet, in the middle of a sentence: "your New reveal card isn't published yet". */
+const notYetClause = ({name, notYet}: DraftWords) => `${name} ${notYet}`;
 
-/** A dirty draft's line when the navigation leaves Card studio: what it lacks, then what leaving drops. */
+/** A dirty draft's line when the navigation leaves Card studio: that it isn't committed yet, then what leaving drops. */
 const LEAVES_STUDIO = eachDraft(
-  (words) => `${capitalized(lacking(words))}. Leaving Card studio drops ${words.pronoun}.`,
+  (words) => `${capitalized(notYetClause(words))}. Leaving Card studio drops ${words.pronoun}.`,
 );
 
-/** What each draft lacks, as the sentence that names several of them at once says it. */
-const LACKS = eachDraft(lacking);
+/** Each draft's clause, as the sentence that names several of them at once says it. */
+const NOT_YET_CLAUSES = eachDraft(notYetClause);
 
 /**
  * What leaving Card studio drops, when one sentence names two of the drafts, or all of them: a word for
@@ -143,39 +145,74 @@ const LACKS = eachDraft(lacking);
 const DROPS: Readonly<Record<2 | (typeof DRAFTS)['length'], string>> = {2: 'both', 3: 'all three'};
 
 /**
- * Two or three drafts' lines when the navigation leaves Card studio with none
- * of their commits in flight, as one sentence, so "Leaving Card studio drops"
- * isn't said twice (R4-8c): the parts in the order the studio names the
- * drafts, "A, and B" for two and "A, B, and C" for three.
+ * Two or more drafts' clauses as one sentence, so "Leaving … drops" isn't said twice (R4-8c): the clauses
+ * in the order given, "A, and B" for two and "A, B, and C" for three, then what leaving `place` drops.
  */
-function leavesStudioTogether(dropped: readonly Draft[]): string {
-  const lacks = dropped.map((draft) => LACKS[draft]);
-  const parts = `${lacks.slice(0, -1).join(', ')}, and ${lacks[lacks.length - 1]}`;
+function together({clauses, place}: {clauses: readonly string[]; place: string}): string {
+  const parts = `${clauses.slice(0, -1).join(', ')}, and ${clauses[clauses.length - 1]}`;
   // A sentence names two drafts at the least (studioUnsavedMessage) and every draft at the most,
   // so its count is one of DROPS' keys.
-  const drops = DROPS[dropped.length as keyof typeof DROPS];
-  return `${capitalized(parts)}. Leaving Card studio drops ${drops}.`;
+  const drops = DROPS[clauses.length as keyof typeof DROPS];
+  return `${capitalized(parts)}. Leaving ${place} drops ${drops}.`;
+}
+
+/**
+ * Two or three drafts' lines when the navigation leaves Card studio with none of their commits in flight,
+ * as one sentence, in the order the studio names the drafts.
+ */
+function leavesStudioTogether(dropped: readonly Draft[]): string {
+  return together({clauses: dropped.map((draft) => NOT_YET_CLAUSES[draft]), place: 'Card studio'});
 }
 
 /**
  * The card's drafts: every draft but New reveal's, which a card change leaves be (draftsAtRisk). Today that
  * is Edit's, and the printing form, which belongs to the card as Edit's draft does (#77). A draft added to
- * the studio counts as one, so LEAVES_CARD fails to compile until it has a line.
+ * the studio counts as one, so CARD_WORDS fails to compile until it has its words.
  */
 type CardDraft = Exclude<Draft, 'reveal'>;
 
-/** A card draft's line when the navigation opens another card, or the search, in the studio. */
-const LEAVES_CARD: Readonly<Record<CardDraft, string>> = {
-  edit: "Your changes to this card aren't saved yet. Leaving the card drops them.",
-  printing: "Your printing form for this card isn't published yet. Leaving the card drops it.",
+/**
+ * How a card change's lines name a card draft: by the card it belongs to, "this card" where a line names
+ * the card first and "it" after, then the commit it waits for, as DraftWords' `notYet` says it.
+ */
+interface CardDraftWords {
+  /** Its name where it names the card: "your changes to this card". */
+  first: string;
+  /** Its name once a draft before it has named the card: "your changes to it". */
+  after: string;
+  notYet: string;
+  pronoun: Pronoun;
+}
+
+const CARD_WORDS: Readonly<Record<CardDraft, CardDraftWords>> = {
+  edit: {first: 'your changes to this card', after: 'your changes to it', notYet: "aren't saved yet", pronoun: 'them'},
+  printing: {
+    first: 'your printing form for this card',
+    after: 'your printing form for it',
+    notYet: "isn't published yet",
+    pronoun: 'it',
+  },
 };
 
+/** A card draft's line when the navigation opens another card, or the search, in the studio. */
+function leavesCard(draft: CardDraft): string {
+  const {first, notYet, pronoun} = CARD_WORDS[draft];
+  return `${capitalized(first)} ${notYet}. Leaving the card drops ${pronoun}.`;
+}
+
+/** A card draft's clause in a sentence that names several: the first names the card, and each after it says "it" for it. */
+function cardClause(draft: CardDraft, index: number): string {
+  const {first, after, notYet} = CARD_WORDS[draft];
+  return `${index === 0 ? first : after} ${notYet}`;
+}
+
 /**
- * Both lines as one sentence, neither commit in flight (R4-8c). A card change
- * drops no other pair (draftsAtRisk), so "it" is the card the first part names.
+ * The lines of the card drafts a card change drops, none with its commit in flight, as one sentence (R4-8c),
+ * in the order the studio names them.
  */
-const LEAVES_CARD_BOTH =
-  "Your changes to this card aren't saved yet, and your printing form for it isn't published yet. Leaving the card drops both.";
+function leavesCardTogether(dropped: readonly CardDraft[]): string {
+  return together({clauses: dropped.map(cardClause), place: 'the card'});
+}
 
 /**
  * A held card change's title and answers (R4-8c): it stays on the page, so it
@@ -227,15 +264,16 @@ function draftLine(draft: Draft, leave: StudioLeave): string {
   if (leave.busy[draft]) return IN_FLIGHT[draft]();
   if (!staysInStudio(leave)) return LEAVES_STUDIO[draft];
   // The Edit draft and the printing form are the card's, so the only drafts a card change drops (draftsAtRisk).
-  return LEAVES_CARD[draft as CardDraft];
+  return leavesCard(draft as CardDraft);
 }
 
 /**
  * The sentence that two or more dropped drafts share, none with its commit in
- * flight: leaving names each, and a card change names the card's two.
+ * flight: leaving names each, and a card change each of the card's it drops,
+ * which are card drafts only (draftsAtRisk).
  */
 function sharedLine({dropped, leave}: {dropped: readonly Draft[]; leave: StudioLeave}): string {
-  return staysInStudio(leave) ? LEAVES_CARD_BOTH : leavesStudioTogether(dropped);
+  return staysInStudio(leave) ? leavesCardTogether(dropped as CardDraft[]) : leavesStudioTogether(dropped);
 }
 
 /**
