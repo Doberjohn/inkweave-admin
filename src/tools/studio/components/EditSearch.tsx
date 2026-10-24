@@ -6,7 +6,6 @@ import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
-import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {numberLabel, type SearchRow} from '../editSearch';
@@ -26,15 +25,16 @@ const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
  * card of Sets 1 to 8 names its set before its number (numberLabel) and the cell wraps there, "Set 8 ·"
  * over "#204", so the column holds the first line: seven characters of the 12px monospace at 0.6em
  * each, and a pixel to spare, 52px. "#204" alone had 44px, so this takes 8px of the names column. On
- * a phone that column is the viewport less the 64px rail, 64px of gutters (the studio root's 16px
- * padding, then the search's own PAGE_GUTTER, 16px there, each a side), 26px of border and padding,
- * 138px of thumbnail, marks and gaps, and this column: 31px at 375px, narrower than the "released"
- * chip (about 50px).
+ * a phone that column is the viewport less the 64px rail, 32px of gutter (the studio root's 16px
+ * padding each side: the search adds none of its own, #74), 26px of border and padding, 138px of
+ * thumbnail, marks and gaps, and this column: 63px at 375px, room for the "released" chip (about
+ * 50px) beside a dual ink's marks.
  */
 const NUMBER_WIDTH = Math.ceil(7 * 0.6 * ADMIN_TYPE.small) + 1;
 
-// The page body's padding (PageLayout's BODY), round the handoff's centred column.
-const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px ${PAGE_GUTTER}`};
+// The page body's padding above and below the handoff's centred column (PageLayout's BODY). Its sides are the studio
+// root's padding: a gutter of the search's own took 32px more from a phone's rows (#74).
+const SCREEN: React.CSSProperties = {padding: `${SPACING.xxl}px 0`};
 const COLUMN: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',

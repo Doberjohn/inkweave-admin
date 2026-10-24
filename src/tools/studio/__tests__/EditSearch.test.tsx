@@ -5,13 +5,14 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
-import {ADMIN_TYPE} from '../../../theme/adminTheme';
+import {ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
 import {searchCards, twinIdsOf, type SearchRow} from '../editSearch';
 import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {pinnedChunk} from '../promos/__tests__/pinned';
 import {DUAL_INK_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
+import {STUDIO_PADDING} from '../studioLayout';
 
 const MEI = cardOf(PREVIEW_ENTRY);
 const PRIYA = cardOf(DUAL_INK_ENTRY);
@@ -48,6 +49,39 @@ function renderSearch(overrides: Partial<EditSearchProps> = {}) {
 
 function handoffOf(pending: boolean): FocusHandoff {
   return {pending, request: vi.fn(), done: vi.fn()};
+}
+
+/** An inline style's length on a viewport `width` px wide: px, or a clamp() of px and vw, as PAGE_GUTTER is; 0 for none. */
+function pxAt(length: string, width: number): number {
+  const clamp = /^clamp\((\d+)px, (\d+)vw, (\d+)px\)$/.exec(length);
+  if (clamp === null) return parseFloat(length) || 0;
+  const [min, vw, max] = clamp.slice(1).map(Number);
+  return Math.min(max, Math.max(min, (vw * width) / 100));
+}
+
+/** The elements whose styles take a search row's width. */
+interface SearchBoxes {
+  /** The search screen: its own gutter, if it has one. */
+  search: HTMLElement;
+  /** The list: its border. */
+  list: HTMLElement;
+  /** A row: its padding, its columns and the gaps between them. */
+  row: HTMLElement;
+}
+
+/**
+ * The names column on a phone `width` px wide, worked out from the search's own styles as a browser
+ * would lay them out, since jsdom has no layout: the viewport less the 64px rail and the studio
+ * root's padding each side, the search's own gutter each side, the list's border and the row's
+ * padding each side, then the row's fixed columns and the three gaps between its four.
+ */
+function namesColumnAt(width: number, {search, list, row}: SearchBoxes): number {
+  const sides = (length: string) => 2 * pxAt(length, width);
+  const fixed = row.style.gridTemplateColumns.replace(/minmax\([^)]*\)/, '').match(/\d+px/g) ?? [];
+  const columns = fixed.reduce((sum, column) => sum + parseFloat(column), 0);
+  const frame = ADMIN_LAYOUT.sidebarCollapsed + 2 * STUDIO_PADDING;
+  const boxes = sides(search.style.paddingLeft) + sides(list.style.borderLeftWidth) + sides(row.style.paddingLeft);
+  return width - frame - boxes - columns - 3 * parseFloat(row.style.gap);
 }
 
 const ELSA = studioCard({id: '5001', name: 'Elsa', version: 'Snow Queen'});
@@ -140,13 +174,22 @@ describe('EditSearch', () => {
     });
 
     // jsdom has no layout, so these pin the rule the geometry rests on. On a phone the names column is the viewport less the
-    // 64px rail, 64px of gutters (the studio root's 16px padding and the search's own, each a side), 26px of border and
-    // padding and 138px of thumbnail, marks and gaps, less this column: 39px at 375px with the 44px column "#204" had, and
-    // 31px with this one. The set wraps over the number rather than widening the column.
+    // 64px rail, 32px of gutter (the studio root's 16px padding each side: the search adds none of its own, #74), 26px of
+    // border and padding and 138px of thumbnail, marks and gaps, less this column: 71px at 375px with the 44px column
+    // "#204" had, and 63px with this one. The set wraps over the number rather than widening the column.
     it('lets the number cell wrap, so "Set 3 ·" sits over "#90" instead of widening the column', () => {
       renderSearch({rows: URSULA_ROWS, total: URSULA_ROWS.length});
       expect(screen.getByText('Set 3 · #90')).toHaveStyle({whiteSpace: 'normal'});
       expect(screen.getByText('#90')).toHaveStyle({whiteSpace: 'normal'});
+    });
+
+    it('leaves the names column 63px at 375px, as the studio root pads the search, which adds no gutter of its own (#74)', () => {
+      renderSearch({rows: [...ROWS, ...URSULA_ROWS], total: ROWS.length + URSULA_ROWS.length});
+      const search = screen.getByRole('region', {name: 'Find a card to edit'}).parentElement as HTMLElement;
+      const boxes = {search, list: screen.getByRole('list', {name: 'Cards'}), row: screen.getAllByRole('link')[0]};
+      // Room for the "released" chip, about 50px, beside a dual ink's marks: the 31px the search's own gutter left put
+      // it under the first ink's icon.
+      expect(namesColumnAt(375, boxes)).toBe(63);
     });
 
     it('gives every list one number column, mixed or Core-only, so the marks never jump while a query is typed', () => {

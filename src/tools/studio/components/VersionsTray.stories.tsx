@@ -10,13 +10,17 @@ import {
   batchView,
 } from '../finishes/__tests__/finishFixtures';
 import {keptClash, type VersionChange} from '../finishes/versionBatch';
+import {STUDIO_PADDING} from '../studioLayout';
+import {STUDIO_MAX_WIDTH} from '../studioStyles';
 import {VersionsTray} from './VersionsTray';
 
 /**
  * The tray is a row of its own across the studio's root, which is 1600px at most. These stories give
- * it a stage that wide, and a phone's line for the narrowest.
+ * it a 1200px stage, Wide the widest root's line (its `parameters.stage`), and PhoneWidth a phone's.
  */
 const STAGE = 1200;
+/** The widest root's line, 1600px less its padding each side: Wide's stage. */
+const WIDEST = STUDIO_MAX_WIDTH - 2 * STUDIO_PADDING;
 /** A phone: the root's 320px less the 64px rail and 32px of padding, which the tray then fills. */
 const PHONE = 224;
 
@@ -28,8 +32,8 @@ const meta: Meta<typeof VersionsTray> = {
   component: VersionsTray,
   tags: ['autodocs'],
   decorators: [
-    (Story) => (
-      <div style={{maxWidth: STAGE, padding: SPACING.lg}}>
+    (Story, {parameters}) => (
+      <div style={{maxWidth: (parameters.stage as number | undefined) ?? STAGE, padding: SPACING.lg}}>
         <Story />
       </div>
     ),
@@ -69,6 +73,15 @@ export const TokenRejected: Story = {
       error: 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}',
     }),
   },
+};
+
+/**
+ * The tray across the widest studio, its rows about 1500px wide (#74): each row's Revert, or Keep mine
+ * and Drop, follows the words it acts on, rather than sitting at the row's far end.
+ */
+export const Wide: Story = {
+  args: {view: batchView([NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL, NUMBER_209_TO_BOTH])},
+  parameters: {stage: WIDEST},
 };
 
 /** On a phone the tray fills the line, and each row's buttons wrap under its text. */

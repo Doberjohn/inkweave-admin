@@ -47,12 +47,12 @@ const LIST: CSSProperties = {
   flexDirection: 'column',
   gap: SPACING.sm,
 };
-// A change and its buttons share a line; the buttons wrap under the change where the row is narrow.
+// A change and its buttons share a line, the buttons right after its words, so on a row as wide as the studio they
+// still sit by what they act on (#74); they wrap under the change where the row is narrow.
 const ROW: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: `${SPACING.xs}px ${SPACING.md}px`,
   padding: `${SPACING.sm}px ${SPACING.md}px`,
   // A translucent fill under a border: clip it to the padding box (adminTheme.ts).
@@ -61,11 +61,12 @@ const ROW: CSSProperties = {
   border: `1px solid ${ADMIN_COLORS.border}`,
   borderRadius: ADMIN_RADIUS.control,
 };
+// As wide as its words and no wider, so the buttons follow them; it shrinks to wrap them where they outrun the row.
 const TEXT: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: SPACING.xxs,
-  flex: '1 1 240px',
+  flex: '0 1 auto',
   minWidth: 0,
 };
 const CHANGE: CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.text, overflowWrap: 'anywhere'};

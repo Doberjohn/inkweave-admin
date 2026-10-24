@@ -5,10 +5,12 @@ import {expect, userEvent, waitFor, within} from 'storybook/test';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {REVEAL_SET_CODE, SPACING} from '../../../app-bridge';
 import {PageLayout} from '../../../shell/PageLayout';
+import {ADMIN_LAYOUT} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {IMAGE_ONLY_NOTES} from '../cardEdit';
 import {twinIdsOf, type SearchRow} from '../editSearch';
 import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
+import {STUDIO_PADDING} from '../studioLayout';
 import {
   CURLY_APOSTROPHE_CARD,
   DUAL_INK_ENTRY,
@@ -73,10 +75,13 @@ function LiveSearch({list = READY, file = READ}: {list?: EditSearchList; file?: 
   return <EditSearch rows={rows} total={rows.length} query={query} onQuery={setQuery} list={list} file={file} />;
 }
 
+/** The studio's root round the pane, as StudioWorkspace pads it: the search's only gutter (#74). */
+const STUDIO_ROOT: React.CSSProperties = {padding: STUDIO_PADDING};
+
 /**
  * Card studio's page in Edit card, as R4-6b lays it out: the page's header,
- * then its flush body. A MemoryRouter, since the rows and the banner's links
- * navigate; nothing here calls useBlocker.
+ * then its flush body, and the studio's root in it. A MemoryRouter, since the
+ * rows and the banner's links navigate; nothing here calls useBlocker.
  */
 function StudioFrame({children}: {children: React.ReactNode}) {
   return (
@@ -84,7 +89,7 @@ function StudioFrame({children}: {children: React.ReactNode}) {
       {/* As in the shell's main column: the layout fills the height, and only its body scrolls. */}
       <div style={{height: '100vh'}}>
         <PageLayout title="Card studio" writes flush>
-          {children}
+          <div style={STUDIO_ROOT}>{children}</div>
         </PageLayout>
       </div>
     </MemoryRouter>
@@ -93,6 +98,9 @@ function StudioFrame({children}: {children: React.ReactNode}) {
 
 /** Where the form would sit, for the facts list in place of it. */
 const FORM_SLOT: React.CSSProperties = {maxWidth: 640, padding: SPACING.lg};
+
+/** What a 375px phone leaves the page: the viewport less the rail the sidebar keeps there. */
+const PHONE_PAGE: React.CSSProperties = {width: 375 - ADMIN_LAYOUT.sidebarCollapsed};
 
 const meta: Meta = {title: 'Admin/Publish/Card studio/Edit entry'};
 export default meta;
@@ -107,6 +115,26 @@ export const Search: Story = {
     <StudioFrame>
       <LiveSearch />
     </StudioFrame>
+  ),
+};
+
+/**
+ * The search on a 375px phone (#74), in the studio's root as the phone lays it out: the viewport less
+ * the rail, and no scrollbar beside it, as a phone's overlays the page (a desktop's would take its
+ * width here). The root's padding is the search's only gutter, so each row's names column is 63px:
+ * a "preview" or "released" chip sits beside a dual ink's marks, and "not deployed yet", wider than
+ * the column, on a line of its own under them, its corner meeting the first ink's. Type "dalmatian"
+ * for the twins, whose set, number and id take three lines.
+ */
+export const PhoneWidth: Story = {
+  render: () => (
+    <MemoryRouter initialEntries={['/studio?mode=edit']}>
+      <div style={PHONE_PAGE}>
+        <div style={STUDIO_ROOT}>
+          <LiveSearch />
+        </div>
+      </div>
+    </MemoryRouter>
   ),
 };
 

@@ -136,6 +136,17 @@ describe('VersionsTray: the changes', () => {
     expect(within(itemOf(LINE_223)).queryByText(/^Removes /)).not.toBeInTheDocument();
   });
 
+  // jsdom has no layout, so this pins the rule the geometry rests on (#74): a row is as wide as the tray, about 1500px
+  // in the widest studio, and its buttons sit by the words they act on there, not at the row's far end.
+  it('keeps a row’s buttons by its words: the row packs to its start, and its text takes no more room than its words', () => {
+    renderTray(batchView([NUMBER_59_TO_FOIL]));
+    const item = itemOf(LINE_59);
+    expect(item).not.toHaveStyle({justifyContent: 'space-between'});
+    expect(screen.getByText(LINE_59).parentElement).toHaveStyle({flexGrow: '0'});
+    // On a phone the buttons still wrap under the words.
+    expect(item).toHaveStyle({flexWrap: 'wrap'});
+  });
+
   it('names the branch Publish writes to, and counts a single change in the singular', () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'rehearse-68');
     renderTray(batchView([NUMBER_223_TO_BOTH]));

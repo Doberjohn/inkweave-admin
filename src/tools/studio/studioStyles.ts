@@ -15,8 +15,8 @@ import {STUDIO_PADDING, type StudioLayout, type StudioSlot} from './studioLayout
 /** The gap between the studio's panels, across and down (12px). */
 export const STUDIO_GAP = SPACING.md;
 
-// The handoff's widest studio, padding included.
-const STUDIO_MAX_WIDTH = 1600;
+/** The handoff's widest studio, padding included. */
+export const STUDIO_MAX_WIDTH = 1600;
 
 // The same box in both layouts, so a layout switch never moves the measured
 // width across STUDIO_WIDE_MIN and back.
