@@ -126,9 +126,10 @@ export interface CardEditorController extends EditSave {
   printingsOnly: boolean;
   /**
    * #68: Sets 1 to 8, read from the app's collection chunks. The search adds
-   * their cards once `status` reads ready; a lookup waits for them while they
-   * load; and when they fail the search goes on without them, and the page
-   * offers `retry`.
+   * their cards once `status` reads ready; while they load, an id the card list
+   * lacks waits for them, but a card it holds opens at once (#74); and when
+   * they fail the search goes on without them, and the page names why
+   * (`error`) and offers `retry`.
    */
   collection: CollectionOnlyCards;
   /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
@@ -207,9 +208,9 @@ function useDraftImage(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) 
  * (withCollectionCards, #68), its entry and kind from previewCards.json on
  * the target branch (R-71: only a reveal-set card under a preview id waits for it), and
  * the draft from both. branchLookup refines the lookup with what only the file
- * can say: an id neither source holds waits for the file before it reads
- * missing, and a card under a preview id that the read file no longer holds
- * is gone, whatever its set.
+ * can say: an id neither source holds waits for Sets 1 to 8 while they are
+ * read (#74), then for the file, before it reads missing, and a card under a
+ * preview id that the read file no longer holds is gone, whatever its set.
  * Every rule lives in editorState.ts and branchCards.ts; this hook is wiring.
  */
 export function useCardEditor({token, cardId}: CardEditorInput): CardEditorController {
@@ -218,7 +219,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
   // #68: Sets 1 to 8 come last, for the search and the lookup. The engine scores a preview against Core cards alone: findSynergies keeps coreList.
   const collection = useCollectionOnlyCards();
   const list = withCollectionCards({list: coreList, collection});
-  const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file});
+  const lookup = branchLookup({lookup: editLookup({cardId, list, file}), file, setsLoading: list.setsLoading});
   const [draft, setDraft] = useEditDraft({cardId, lookup, file});
   const image = useDraftImage(draft, setDraft);
   const {staged} = image;

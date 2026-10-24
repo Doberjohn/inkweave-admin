@@ -106,6 +106,11 @@ export interface EditSearchList {
   error: Error | null;
   /** The card list's retryLoad. */
   onRetry: () => void;
+  /**
+   * The cards of Sets 1 to 8 are still being read (#68), so a query that matches nothing may match
+   * once they are in, and the status line says so (#74). Absent, they are in, or failed.
+   */
+  setsLoading?: boolean;
 }
 
 /** previewCards.json, read from the target branch (R4-4a). It only tags the rows, so its failure leaves them open (R-71). */
@@ -301,7 +306,12 @@ function ResultList({rows}: {rows: readonly SearchRow[]}) {
 export function EditSearch({rows, total, query, onQuery, list, file, notice, handoff}: EditSearchProps) {
   const titleId = useId();
   const failed = list.error !== null;
-  const status = searchStatus({query, shown: rows.length, total, list: {loading: list.loading, failed}});
+  const status = searchStatus({
+    query,
+    shown: rows.length,
+    total,
+    list: {loading: list.loading, failed, setsLoading: list.setsLoading === true},
+  });
   // Rows only once the card list is in: while it loads, a card the branch file
   // also holds would read "not deployed yet" (R-66).
   const listed = !list.loading && !failed;

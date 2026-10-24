@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {searchStatus, type SearchStatusState} from '../searchStatus';
 
-const READY = {loading: false, failed: false};
+const READY = {loading: false, failed: false, setsLoading: false};
 
 describe('searchStatus', () => {
   it.each<[string, Omit<SearchStatusState, 'list'>, string]>([
@@ -17,10 +17,24 @@ describe('searchStatus', () => {
   });
 
   it('says the card list is loading, whatever the query', () => {
-    expect(searchStatus({query: 'elsa', shown: 0, total: 0, list: {loading: true, failed: false}})).toBe('Loading cards…');
+    expect(searchStatus({query: 'elsa', shown: 0, total: 0, list: {...READY, loading: true}})).toBe('Loading cards…');
   });
 
   it("says nothing once the card list failed: the error is an alert of its own", () => {
-    expect(searchStatus({query: '', shown: 0, total: 0, list: {loading: false, failed: true}})).toBe('');
+    expect(searchStatus({query: '', shown: 0, total: 0, list: {...READY, failed: true}})).toBe('');
+  });
+
+  // #74: the search adds the cards of Sets 1 to 8 once they are read, so a miss before then may match after.
+  it('says a query that finds nothing may match once Sets 1 to 8 are in, and names the miss plainly once they are', () => {
+    const miss = {query: ' zzz ', shown: 0, total: 0};
+    expect(searchStatus({...miss, list: {...READY, setsLoading: true}})).toBe('No cards match "zzz" yet: Sets 1 to 8 are still loading.');
+    expect(searchStatus({...miss, list: READY})).toBe('No cards match "zzz".');
+  });
+
+  it.each<[string, Omit<SearchStatusState, 'list'>, string]>([
+    ['the matches of a typed query', {query: 'elsa', shown: 7, total: 7}, '7 cards match'],
+    ['every card for a blank query', {query: '', shown: 0, total: 0}, '0 cards'],
+  ])('counts %s as ever while Sets 1 to 8 load', (_, search, expected) => {
+    expect(searchStatus({...search, list: {...READY, setsLoading: true}})).toBe(expected);
   });
 });

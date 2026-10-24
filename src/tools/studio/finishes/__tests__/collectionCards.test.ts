@@ -152,6 +152,22 @@ describe('useCollectionOnlyCards', () => {
     expect(fetchMock).toHaveBeenCalledTimes(16);
   });
 
+  // #74: the search's notice names it, so the owner can tell which chunk failed, and how.
+  it('carries a failed read’s message, and none while the chunks are read again or once they are in', async () => {
+    let failing = true;
+    const answer = chunksOf({'4': SET_4_ENTRIES});
+    stubChunks((set) => (failing && set === '3' ? new Response('Server Error', {status: 500}) : answer(set)));
+    const {result} = renderHook(() => useCollectionOnlyCards());
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.error).toBe('/data/collection/3.json: HTTP 500');
+
+    failing = false;
+    act(() => result.current.retry());
+    expect({status: result.current.status, error: result.current.error}).toEqual({status: 'loading', error: null});
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.error).toBeNull();
+  });
+
   it('says error again when the retry fails too', async () => {
     const fetchMock = stubChunks(() => new Response('Unavailable', {status: 503}));
     const {result} = renderHook(() => useCollectionOnlyCards());

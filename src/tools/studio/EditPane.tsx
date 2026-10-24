@@ -121,26 +121,41 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
   }
 }
 
-/** What the search says when Sets 1 to 8 couldn't be read (#68): the card list's cards are all it holds. */
-const COLLECTION_FAILED = "Sets 1 to 8 didn't load, so the search holds Sets 9 and up only.";
+/**
+ * What the search says when Sets 1 to 8 couldn't be read (#68), naming the read that failed (#74):
+ * the card list's cards are all it holds.
+ */
+function collectionFailed(error: string): string {
+  return `Sets 1 to 8 didn't load (${error}), so the search holds Sets 9 and up only.`;
+}
+
+/** What CollectionNotice reads: Sets 1 to 8, whether the card list itself failed, and the page's handoff. */
+interface CollectionNoticeProps {
+  collection: CollectionOnlyCards;
+  /** The card list failed: the search holds no card at all, and its own error says so. */
+  listFailed: boolean;
+  handoff: FocusHandoff;
+}
 
 /**
- * Above the search, when the chunks of Sets 1 to 8 failed (#68), with a way to read them again. The
- * card list's cards search and open as ever. Try again takes its own notice with it (the read
- * starts at once), so it asks for the handoff on the click, as the card list's Retry does when its
- * error clears (useStudioHandoff): the search field takes it when no card is waiting, and the
- * card a URL names takes it, or its explanation does, once the read lands. Only the click asks:
- * a read that fails again leaves none waiting.
+ * Above the search, when the chunks of Sets 1 to 8 failed (#68), saying why (`error`, set exactly
+ * while their read has failed), with a way to read them again. The card list's cards search and
+ * open as ever. Nothing while the card list itself has failed (#74): its own error says the search
+ * holds nothing, so a line that it holds Sets 9 and up would be wrong. Try again takes its own
+ * notice with it (the read starts at once), so it asks for the handoff on the click, as the card
+ * list's Retry does when its error clears (useStudioHandoff): the search field takes it when no
+ * card is waiting, and the card a URL names takes it, or its explanation does, once the read lands.
+ * Only the click asks: a read that fails again leaves none waiting.
  */
-function CollectionNotice({collection, handoff}: {collection: CollectionOnlyCards; handoff: FocusHandoff}) {
-  if (collection.status !== 'error') return null;
+function CollectionNotice({collection, listFailed, handoff}: CollectionNoticeProps) {
+  if (collection.error === null || listFailed) return null;
   const tryAgain = () => {
     collection.retry();
     handoff.request();
   };
   return (
     <Notice tone="error">
-      {COLLECTION_FAILED}{' '}
+      {collectionFailed(collection.error)}{' '}
       <LinkButton type="button" onClick={tryAgain}>
         Try again
       </LinkButton>
@@ -151,9 +166,10 @@ function CollectionNotice({collection, handoff}: {collection: CollectionOnlyCard
 /**
  * Edit card's search (R4-5f) over the controller's cards: the card list plus
  * the cards only the branch file holds (R-66), the file's first (R-76), and
- * then Sets 1 to 8 (#68), whose notice says when they failed to load. The
- * card list's Retry asks for nothing here: StudioPage asks once its error
- * clears. The file's asks once its read lands.
+ * then Sets 1 to 8 (#68), whose notice says when they failed to load, and why.
+ * While they are still read, a query that matches nothing says it may match
+ * once they are in (#74). The card list's Retry asks for nothing here:
+ * StudioPage asks once its error clears. The file's asks once its read lands.
  */
 function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: PartProps & {
   query: string;
@@ -173,12 +189,17 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
       total={total}
       query={query}
       onQuery={onQuery}
-      list={{loading: cardList.isLoading, error: cardList.error, onRetry: cardList.retryLoad}}
+      list={{
+        loading: cardList.isLoading,
+        error: cardList.error,
+        onRetry: cardList.retryLoad,
+        setsLoading: edit.collection.status === 'loading',
+      }}
       file={{error: edit.previewFile.error, onRetry: askWhenLanded(edit.retry, handoff), onForgetToken}}
       notice={
         <>
           {notice}
-          <CollectionNotice collection={edit.collection} handoff={handoff} />
+          <CollectionNotice collection={edit.collection} listFailed={cardList.error !== null} handoff={handoff} />
         </>
       }
       handoff={handoff}

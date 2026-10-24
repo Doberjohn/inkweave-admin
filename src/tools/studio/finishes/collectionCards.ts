@@ -1,6 +1,7 @@
 import {useEffect, useSyncExternalStore} from 'react';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {transformRawCards} from '../../../app-bridge';
+import {messageOf} from './branchFiles';
 
 /*
  * The cards of Sets 1 to 8 (#68). The app's card list leaves them out: they rotated out of Core, so
@@ -19,16 +20,23 @@ export interface CollectionOnlyCards {
   cards: readonly LorcanaCard[];
   /** `error`: a chunk couldn't be read, so Edit card goes on without these cards until `retry` reads them again. */
   status: 'loading' | 'ready' | 'error';
+  /**
+   * Why the read failed, in its own words ("/data/collection/3.json: HTTP 500"), for the search's
+   * notice to name (#74); null unless `status` reads error.
+   */
+  error: string | null;
   /** Reads the chunks again after a failure. It does nothing while a read is under way, or once one has landed. */
   retry: () => void;
 }
 
 /** What the hook shows of the session's read. */
-type Read = Pick<CollectionOnlyCards, 'cards' | 'status'>;
+type Read = Pick<CollectionOnlyCards, 'cards' | 'status' | 'error'>;
 
 const NO_CARDS: readonly LorcanaCard[] = [];
-const LOADING: Read = {cards: NO_CARDS, status: 'loading'};
-const FAILED: Read = {cards: NO_CARDS, status: 'error'};
+const LOADING: Read = {cards: NO_CARDS, status: 'loading', error: null};
+
+/** A read that failed: no cards, and why. */
+const failed = (error: unknown): Read => ({cards: NO_CARDS, status: 'error', error: messageOf(error)});
 
 /** The session's read: the promise itself, so a second ask shares a read that is under way. A failed read leaves it. */
 let kept: Promise<LorcanaCard[]> | null = null;
@@ -72,7 +80,8 @@ async function readChunks(): Promise<LorcanaCard[]> {
 /**
  * The cards of Sets 1 to 8, read once for the session: the chunks change only when the app
  * deploys, and every Edit card mounts its own hook. A caller that asks while a read is under way
- * shares it. A failed read leaves the session, so the next ask reads again.
+ * shares it. A failed read leaves the session, so the next ask reads again, and says why it failed:
+ * the first chunk to fail, and how (#74).
  */
 export function fetchCollectionOnlyCards(): Promise<LorcanaCard[]> {
   if (kept) return kept;
@@ -81,13 +90,13 @@ export function fetchCollectionOnlyCards(): Promise<LorcanaCard[]> {
   announce(LOADING);
   attempt.then(
     (cards) => {
-      if (kept === attempt) announce({cards, status: 'ready'});
+      if (kept === attempt) announce({cards, status: 'ready', error: null});
     },
-    () => {
+    (error: unknown) => {
       // Evict only this attempt: after resetCollectionOnlyCards() a newer one may hold the slot.
       if (kept !== attempt) return;
       kept = null;
-      announce(FAILED);
+      announce(failed(error));
     },
   );
   return attempt;
