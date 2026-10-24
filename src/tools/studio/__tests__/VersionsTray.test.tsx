@@ -1,6 +1,6 @@
 import {createRef, useState} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {TRAY_FOOT_FILL, VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
@@ -17,8 +17,13 @@ import {keptClash, type VersionChange} from '../finishes/versionBatch';
 import type {VersionBatchView} from '../finishes/versionBatchStore';
 import {STUDIO_GAP} from '../studioStyles';
 
-// vite.config.ts doesn't set unstubEnvs, so the rehearsal-branch cases unstub by hand.
-afterEach(() => vi.unstubAllEnvs());
+// vite.config.ts doesn't set unstubEnvs, so the rehearsal-branch cases unstub by hand; the measured foot's cases stub
+// ResizeObserver and the boxes they read.
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 /*
  * The Version changes tray on plain views (#68): it takes `view` as a prop, so a test hands it an
@@ -223,6 +228,142 @@ describe('VersionsTray: the foot', () => {
     expect(foot).toHaveStyle({backgroundColor: ADMIN_COLORS.page});
     expect(foot.style.backgroundImage).toBe(`linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), none`);
     expect(foot.style.backgroundClip).toBe('padding-box, border-box');
+  });
+});
+
+/*
+ * A pinned foot covers the page by its own height, so it pins only while it takes at most half of its
+ * scroller's view (#86, footPin.ts). jsdom has no ResizeObserver and lays nothing out, so these stub the
+ * observer and the two heights it reads: the foot's box, and the scroller's view.
+ */
+describe('VersionsTray: a foot too tall for the view (#86)', () => {
+  /** The observers the tray made, which `resize` calls as a browser does once a box it watches changes. */
+  let observers: Array<() => void> = [];
+
+  /** The tray in a scroller `view` px tall, as PageLayout's flush body holds it, with ResizeObserver stubbed. */
+  function renderMeasured(view: VersionBatchView, {height}: {height: number}) {
+    observers = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          observers.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const pinnedFootRef = createRef<HTMLDivElement>();
+    render(
+      <div data-testid="scroller" style={{overflowY: 'auto'}}>
+        {trayElement(view, {pinnedFootRef})}
+      </div>,
+    );
+    Object.defineProperty(screen.getByTestId('scroller'), 'clientHeight', {value: height, configurable: true});
+    return {pinnedFootRef};
+  }
+
+  /** The foot is now `height` px tall, and the observer reports it. */
+  function footMeasures(height: number) {
+    vi.spyOn(footOf(), 'getBoundingClientRect').mockReturnValue({top: 0, bottom: height, height} as DOMRect);
+    act(() => observers.forEach((report) => report()));
+  }
+
+  it('keeps a rejected-token foot in its place under the panel at 400% zoom, and hands the page none', () => {
+    const {pinnedFootRef} = renderMeasured(batchView([NUMBER_223_TO_BOTH], {error: REJECTED}), {height: 150});
+    footMeasures(277);
+    expect(footOf().style.position).toBe('');
+    expect(pinnedFootRef.current).toBeNull();
+  });
+
+  it('pins a clash foot on a 375px phone, which takes under half the view', () => {
+    const {pinnedFootRef} = renderMeasured(batchView([NUMBER_223_TO_BOTH_CLASHED]), {height: 564});
+    footMeasures(186);
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(pinnedFootRef.current).toBe(footOf());
+  });
+
+  it('pins again once the notice that made it too tall goes', () => {
+    renderMeasured(batchView([NUMBER_223_TO_BOTH], {error: REJECTED}), {height: 150});
+    footMeasures(277);
+    expect(footOf().style.position).toBe('');
+
+    footMeasures(70);
+    expect(footOf()).toHaveStyle({position: 'sticky'});
+  });
+});
+
+/*
+ * After a press of Publish lands, the batch is empty, but the foot stays pinned while the focus is in it,
+ * so "Published N changes · View commit" stays in view by the Publish the owner pressed (#86). Focus
+ * leaving the foot ends it. Nothing moves the focus (R-48).
+ */
+describe('VersionsTray: the landing in view (#86)', () => {
+  /** The tray over two changes; `land` hands it the view a publish that landed leaves. */
+  function renderPressed() {
+    const publish = vi.fn(() => Promise.resolve());
+    const {rerender} = renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {publish}));
+    return {
+      publish,
+      rerender,
+      running: () => rerender(trayElement(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH], {publishing: true}))),
+      land: () => rerender(trayElement(batchView([], {result: LANDED}))),
+    };
+  }
+
+  it('stays pinned after a landing while Publish keeps the focus, and unpins once the focus leaves the foot', async () => {
+    const user = userEvent.setup();
+    const {publish, running, land} = renderPressed();
+    const button = screen.getByRole('button', {name: 'Publish 2 changes to master'});
+    await user.click(button);
+    expect(publish).toHaveBeenCalledOnce();
+    running();
+    land();
+    expect(button).toHaveFocus();
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(within(footOf()).getByRole('status')).toHaveTextContent('Published 2 changes. View commit.');
+
+    // The commit's link is the foot's own, so the hold stays.
+    await user.tab();
+    expect(screen.getByRole('link', {name: 'View commit'})).toHaveFocus();
+    expect(footOf()).toHaveStyle({position: 'sticky'});
+
+    // Out of the foot: it goes back under the panel, and the focus stays where it went.
+    await user.tab();
+    expect(footOf().style.position).toBe('');
+  });
+
+  it('unpins at once when the focus leaves the foot to <body>', async () => {
+    const user = userEvent.setup();
+    const {running, land} = renderPressed();
+    await user.click(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
+    running();
+    land();
+    expect(footOf()).toHaveStyle({position: 'sticky'});
+
+    act(() => (document.activeElement as HTMLElement).blur());
+    expect(footOf().style.position).toBe('');
+  });
+
+  it('ends the hold once a change is staged, so a later landing unpins the foot', async () => {
+    const user = userEvent.setup();
+    const {running, land, rerender} = renderPressed();
+    await user.click(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
+    running();
+    land();
+    // The owner stages again, with the focus still in the foot: the foot pins for the change, and the hold ends.
+    rerender(trayElement(batchView([NUMBER_223_TO_BOTH])));
+    expect(footOf()).toHaveStyle({position: 'sticky'});
+    // Another tab publishes it, and this tab's last landing shows: nothing pressed here holds the foot.
+    rerender(trayElement(batchView([], {result: LANDED})));
+    expect(footOf().style.position).toBe('');
+  });
+
+  it('holds nothing for a landing Publish was never pressed for here', () => {
+    const {land} = renderPressed();
+    act(() => screen.getByRole('button', {name: 'Publish 2 changes to master'}).focus());
+    land();
+    expect(footOf().style.position).toBe('');
   });
 });
 

@@ -1,4 +1,4 @@
-import {useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject} from 'react';
+import {useId, useRef, useState, type CSSProperties, type FocusEvent, type ReactNode, type RefObject} from 'react';
 import {COLORS, CtaButton, LinkButton, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
@@ -11,6 +11,7 @@ import {choiceLabel} from '../finishes/finishValues';
 import {clashMessage} from '../finishes/publishVersions';
 import {clashCount, hasClash, removalNote, type VersionChange, type VersionClash} from '../finishes/versionBatch';
 import type {PublishResult, VersionBatchView} from '../finishes/versionBatchStore';
+import {useFootFits} from '../footPin';
 import {STUDIO_GAP} from '../studioStyles';
 
 /*
@@ -410,24 +411,61 @@ interface PublishProps extends Pick<VersionsTrayProps, 'pinnedFootRef'> {
 }
 
 /**
+ * Whether the foot asks to pin: while changes are staged, or a publish runs (another tab can empty the
+ * batch under it), or once a publish pressed here has landed, while the focus stays in the foot (`held`,
+ * #86), so "Published N changes · View commit" stays in view beside the Publish the owner pressed.
+ */
+function asksToPin({view, held}: {view: VersionBatchView; held: boolean}): boolean {
+  return view.changes.length > 0 || view.publishing || (held && view.result !== null);
+}
+
+/** Whether a change was staged since the press that `pressedOver` holds the batch of, with no publish running. */
+function stagedSince({view, pressedOver}: {view: VersionBatchView; pressedOver: readonly VersionChange[]}): boolean {
+  return view.changes.length > 0 && view.changes !== pressedOver && !view.publishing;
+}
+
+/**
+ * Whether a press of Publish keeps the foot pinned as its publish lands (#86). It starts with the press,
+ * holding the batch it was pressed over, and ends as the focus leaves the foot (a focusout to anywhere
+ * outside it, the page's <body> included), or as a change is staged into another batch with no publish
+ * running, which pins the foot again anyway. It never moves the focus (R-48).
+ */
+function useLandingHold(view: VersionBatchView) {
+  const [pressedOver, setPressedOver] = useState<readonly VersionChange[] | null>(null);
+  if (pressedOver !== null && stagedSince({view, pressedOver})) setPressedOver(null);
+  const onBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPressedOver(null);
+  };
+  return {held: pressedOver !== null, hold: () => setPressedOver(view.changes), onBlur};
+}
+
+/**
  * The tray's foot: what the tray says of Publish, Publish, and what the last publish said. Publish is
  * aria-disabled where it is held, so it keeps the focus a native disabled would drop; a click still
  * arrives then, and the tray does nothing with it. The notices come and go above it, in a place of
- * their own, so Publish stays the same button, with its focus. While changes are staged, or a publish
- * runs (another tab can empty the batch under it), the foot is pinned: it sticks to the bottom of the
- * view, and `pinnedFootRef` holds it for the page, which keeps a control that takes keyboard focus
- * elsewhere clear of it.
+ * their own, so Publish stays the same button, with its focus. While it asks to pin (asksToPin) and
+ * takes at most half its scroller's view (useFootFits, #86), the foot is pinned: it sticks to the bottom
+ * of the view, and `pinnedFootRef` holds it for the page, which keeps a control that takes keyboard focus
+ * elsewhere clear of it. Taller, its notices would cover the page, so it stays in its place under the
+ * panel, and the page has no foot to keep clear of.
  */
 function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: PublishProps) {
-  const pinned = view.changes.length > 0 || view.publishing;
+  const ownRef = useRef<HTMLDivElement>(null);
+  const fits = useFootFits({own: ownRef, page: pinnedFootRef});
+  const landing = useLandingHold(view);
+  const pinned = asksToPin({view, held: landing.held}) && fits;
+  const press = () => {
+    landing.hold();
+    onPublish();
+  };
   return (
-    <div ref={pinned ? pinnedFootRef : undefined} style={pinned ? PINNED_FOOT : FOOT}>
+    <div ref={pinned && pinnedFootRef ? pinnedFootRef : ownRef} style={pinned ? PINNED_FOOT : FOOT} onBlur={landing.onBlur}>
       {notices}
       <CtaButton
         type="button"
         aria-disabled={holdsPublish(view) || undefined}
         aria-describedby={describedBy}
-        onClick={onPublish}>
+        onClick={press}>
         {view.publishing ? publishingLabel(view.sending) : publishLabel(view.changes.length)}
       </CtaButton>
       <PublishStatus result={view.result} />
@@ -445,8 +483,10 @@ function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: Publ
  * Everything after the rows is its foot, under the panel. While changes are staged, or a publish runs,
  * the foot sticks to the bottom of the view, so Publish, which counts them, is in reach however far up
  * the page the owner is (#74), and what a press of it came to shows beside it; the rows scroll with the
- * page.
- * Once a publish lands, the batch is empty and the foot goes back under the panel.
+ * page. A foot taller than half its scroller's view stays under the panel instead (#86).
+ * Once a publish lands, the batch is empty and the foot goes back under the panel, unless the publish
+ * was pressed here and the focus is still in the foot: it stays pinned until the focus leaves, so the
+ * line that says it landed stays in view (#86).
  *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on
  * first and never falls to <body> (R-48): to the next row's first button, else the previous

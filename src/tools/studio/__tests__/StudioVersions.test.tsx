@@ -190,6 +190,11 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('button', {name: 'Publish to master'})).toBe(publish);
     expect(publish).toHaveAttribute('aria-disabled', 'true');
     expect(publish).toHaveFocus();
+    // The foot stays pinned while the focus is in it, so the line that says it landed stays in view (#86).
+    expect(publish.parentElement).toHaveStyle({position: 'sticky'});
+    await user.tab();
+    await user.tab();
+    expect(publish.parentElement?.style.position).toBe('');
   });
 
   it('leaves the focus on Publish when the branch moves under the publish: the failure comes in above the same button', async () => {
