@@ -112,13 +112,13 @@ describe('editSources', () => {
 /** A failed read of Sets 1 to 8, in the words the collection hook hands it over in. */
 const CHUNK_FAILED = '/data/collection/3.json: HTTP 500';
 
-/** Sets 1 to 8 as the collection hook hands them over: `status` says whether `cards` are in, and a failed read says why. */
+/** Sets 1 to 8 as the collection hook hands them over: `status` says whether `cards` are in, and a failed read alone says why. */
 function collectionOf({
   cards = [],
   status = 'ready',
-  error = status === 'error' ? CHUNK_FAILED : null,
-}: Partial<CollectionOnlyCards> = {}): CollectionOnlyCards {
-  return {cards, status, error, retry: vi.fn()};
+}: {cards?: readonly LorcanaCard[]; status?: CollectionOnlyCards['status']} = {}): CollectionOnlyCards {
+  const read = status === 'error' ? {status, error: CHUNK_FAILED} : {status, error: null};
+  return {cards, ...read, retry: vi.fn()};
 }
 
 describe('withCollectionCards', () => {

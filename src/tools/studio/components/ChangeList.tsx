@@ -126,12 +126,14 @@ interface Reverted {
  * the revert takes too never gets it: the rows left are the kept ones but the
  * reverted one, and its place among them is the number of kept rows before it.
  * Every button is still in the document: the revert renders once the click is
- * done.
+ * done. It goes by the rows, each to the item at its place, so an item no row
+ * stands for is never read as one.
  */
 function focusAfterRevert(root: HTMLElement | null, {rows, index, kept}: Reverted) {
   const keeps = (row: ChangeRow) => kept.includes(row.id);
   const items = Array.from(root?.querySelectorAll('li') ?? []);
-  const left = items.filter((_item, at) => at !== index && keeps(rows[at]));
+  // The row's item, where the list has one at its place.
+  const left = rows.flatMap((row, at) => (at !== index && keeps(row) ? items.slice(at, at + 1) : []));
   const place = rows.slice(0, index).filter(keeps).length;
   focusNearRow({rows: left, index: place, fallback: root?.querySelector<HTMLElement>('h2') ?? null});
 }

@@ -14,23 +14,24 @@ import {messageOf} from './branchFiles';
 /** The sets below the Core floor (isCoreSet): the ones whose cards only their chunks hold. */
 export const COLLECTION_ONLY_SETS: readonly string[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
-/** What Edit card has of Sets 1 to 8. */
-export interface CollectionOnlyCards {
+/**
+ * Where the read of Sets 1 to 8 stands. `error`: a chunk couldn't be read, so Edit card goes on
+ * without their cards until `retry` reads them again, and that read alone says why, in its own words
+ * ("/data/collection/3.json: HTTP 500"), for the search's notice to name (#74).
+ */
+type ReadStatus = {status: 'loading' | 'ready'; error: null} | {status: 'error'; error: string};
+
+/** What the hook shows of the session's read: where it stands, and the cards it holds. */
+type Read = ReadStatus & {
   /** Their cards, in the order of their sets and each chunk's own; none until `status` reads ready. */
   cards: readonly LorcanaCard[];
-  /** `error`: a chunk couldn't be read, so Edit card goes on without these cards until `retry` reads them again. */
-  status: 'loading' | 'ready' | 'error';
-  /**
-   * Why the read failed, in its own words ("/data/collection/3.json: HTTP 500"), for the search's
-   * notice to name (#74); null unless `status` reads error.
-   */
-  error: string | null;
+};
+
+/** What Edit card has of Sets 1 to 8. */
+export type CollectionOnlyCards = Read & {
   /** Reads the chunks again after a failure. It does nothing while a read is under way, or once one has landed. */
   retry: () => void;
-}
-
-/** What the hook shows of the session's read. */
-type Read = Pick<CollectionOnlyCards, 'cards' | 'status' | 'error'>;
+};
 
 const NO_CARDS: readonly LorcanaCard[] = [];
 const LOADING: Read = {cards: NO_CARDS, status: 'loading', error: null};
@@ -59,12 +60,23 @@ function snapshot(): Read {
   return read;
 }
 
-/** One set's chunk as cards. The app's loader builds them (transformRawCards), so each has its art's URL. */
-async function readChunk(set: string): Promise<LorcanaCard[]> {
-  const url = `/data/collection/${set}.json`;
+/** A chunk's entries, as the app serves them at `url`. */
+async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return transformRawCards((await res.json()) as LorcanaJSONCard[]);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as LorcanaJSONCard[];
+}
+
+/**
+ * One set's chunk as cards. The app's loader builds them (transformRawCards), so each has its art's
+ * URL. A read that fails names the chunk before what it met (#74): "/data/collection/3.json: HTTP
+ * 500", a fetch that couldn't reach it, or the JSON parser's words where the app answered with its page.
+ */
+function readChunk(set: string): Promise<LorcanaCard[]> {
+  const url = `/data/collection/${set}.json`;
+  return chunkEntries(url).then(transformRawCards, (error: unknown) => {
+    throw new Error(`${url}: ${messageOf(error)}`, {cause: error});
+  });
 }
 
 /**

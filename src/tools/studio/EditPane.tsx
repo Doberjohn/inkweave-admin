@@ -28,7 +28,7 @@ import {useVersionBatch} from './finishes/versionBatchStore';
 import {outcomeShows} from './outcomeShows';
 import {baseCardOf, coreCopyOf, promoSetOptions} from './promos/printingForm';
 import type {PrintingFormController} from './promos/usePrintingForm';
-import {PRINTINGS_ONLY_NOTE, editNote, saveLabel} from './studioCopy';
+import {PRINTINGS_ONLY_NOTE, collectionFailedNote, editNote, saveLabel} from './studioCopy';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GAP} from './studioStyles';
 import type {CardEditorController} from './useCardEditor';
@@ -121,14 +121,6 @@ function EntryNotice({lookup, cardId, handoff}: {lookup: EntryLookup; cardId: st
   }
 }
 
-/**
- * What the search says when Sets 1 to 8 couldn't be read (#68), naming the read that failed (#74):
- * the card list's cards are all it holds.
- */
-function collectionFailed(error: string): string {
-  return `Sets 1 to 8 didn't load (${error}), so the search holds Sets 9 and up only.`;
-}
-
 /** What CollectionNotice reads: Sets 1 to 8, whether the card list itself failed, and the page's handoff. */
 interface CollectionNoticeProps {
   collection: CollectionOnlyCards;
@@ -155,7 +147,7 @@ function CollectionNotice({collection, listFailed, handoff}: CollectionNoticePro
   };
   return (
     <Notice tone="error">
-      {collectionFailed(collection.error)}{' '}
+      {collectionFailedNote(collection.error)}{' '}
       <LinkButton type="button" onClick={tryAgain}>
         Try again
       </LinkButton>
@@ -195,7 +187,7 @@ function SearchView({edit, handoff, onForgetToken, query, onQuery, notice}: Part
         loading: cardList.isLoading,
         error: cardList.error,
         onRetry: cardList.retryLoad,
-        setsLoading: edit.collection.status === 'loading',
+        setsLoading: edit.setsLoading,
       }}
       file={{error: edit.previewFile.error, onRetry: askWhenLanded(edit.retry, handoff), onForgetToken}}
       notice={
@@ -445,6 +437,8 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
 }) {
   const resets = useFormResets(edit);
   const outcomeShowing = outcomeShows({result: edit.result, error: edit.saveError, dropped: edit.dropped});
+  // A twin's number ends in its id on the banner, and its printings' labels too (#74).
+  const twin = edit.twinIds.has(ready.card.id);
   return (
     <>
       <div style={WHOLE_ROW[layout]}>
@@ -452,6 +446,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
           card={ready.card}
           tag={edit.tag ?? 'Released'}
           deployed={edit.deployed}
+          twin={twin}
           handoff={outcomeShowing ? undefined : handoff}
         />
       </div>
@@ -477,7 +472,7 @@ function CardEditor({edit, ready, layout, handoff, onForgetToken, token, printin
               token={token}
               printing={printing}
               printingsOnly={edit.printingsOnly}
-              twin={edit.twinIds.has(ready.card.id)}
+              twin={twin}
               onForgetToken={onForgetToken}>
               <EditForm
                 key={resets.formKey}

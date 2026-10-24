@@ -200,6 +200,14 @@ describe('publishVersions', () => {
     expect(repo.writes()).toEqual([]);
   });
 
+  it('publishes over a drifted file it doesn’t touch: it reads only the homes of its changes (#74)', async () => {
+    // The catalog has a newline at the end, but #223 is a printing of Set 4, which only Set 4's chunk holds.
+    const repo = stubRepo({files: {...BASE_FILES, [CATALOG_PATH]: `${catalogWith()}\n`}});
+    await expect(publish(YEN_SID_223_TO_BOTH)).resolves.toEqual({commitUrl: COMMIT_URL});
+    expect(repo.reads().map(({path}) => path)).toEqual([CHUNK_4]);
+    expect(Object.keys(repo.filesSent())).toEqual([CHUNK_4]);
+  });
+
   it.each([
     [CHUNK_4, 'text that is not JSON', '<<<<<<< HEAD\n'],
     [PROMOS_PATH, 'JSON of another shape', '{"promos": []}\n'],

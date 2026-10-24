@@ -102,6 +102,22 @@ export function numberLabel(card: Pick<LorcanaCard, 'setCode' | 'setNumber'>): s
 }
 
 /**
+ * How a label names a card's or a printing's id where nothing else tells it from another's (#74):
+ * "id 436". A twin's search row prints it after its number.
+ */
+export const idName = (id: string) => `id ${id}`;
+
+/**
+ * `label`, ended by the id that alone tells it apart (#74): the one way every twin's label ends, so a
+ * twin reads the same wherever it is named. "Set 3 · #4 · id 436" on the Editing banner, as on its
+ * search row; "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436" in the Printings panel, the Version
+ * changes tray and the change history. An empty label gives the id alone.
+ */
+export function withIdName({label, id}: {label: string; id: string}): string {
+  return label === '' ? idName(id) : `${label} · ${idName(id)}`;
+}
+
+/**
  * What twins share: their set, their collector number and their full name. Neither the set nor the
  * number holds a "|", so no two cards' keys run together.
  */

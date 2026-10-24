@@ -1,6 +1,14 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
-import {PRINTINGS_ONLY_NOTE, editNote, newRevealNote, publishLabel, saveLabel, studioDocumentTitle} from '../studioCopy';
+import {
+  PRINTINGS_ONLY_NOTE,
+  collectionFailedNote,
+  editNote,
+  newRevealNote,
+  publishLabel,
+  saveLabel,
+  studioDocumentTitle,
+} from '../studioCopy';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -77,5 +85,14 @@ describe('PRINTINGS_ONLY_NOTE (#68)', () => {
   // What Edit card prints under a Set 1 to 8 card's facts: the card rotated out of Core, so its data and art are not admin's to change.
   it('says only the versions of such a card’s printings change in Edit card', () => {
     expect(PRINTINGS_ONLY_NOTE).toBe('A Set 1 to 8 card: only its printings’ versions change here.');
+  });
+});
+
+describe('collectionFailedNote (#68, #74)', () => {
+  // What the search says above itself when the chunks of Sets 1 to 8 couldn't be read: the read that failed, and what it holds.
+  it('names the read that failed, and says the search holds Sets 9 and up only', () => {
+    expect(collectionFailedNote('/data/collection/3.json: HTTP 500')).toBe(
+      "Sets 1 to 8 didn't load (/data/collection/3.json: HTTP 500), so the search holds Sets 9 and up only.",
+    );
   });
 });

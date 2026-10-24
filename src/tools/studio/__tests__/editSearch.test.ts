@@ -1,7 +1,17 @@
 import {describe, expect, it} from 'vitest';
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE} from '../../reveal/constants';
-import {SEARCH_LIMIT, cardTag, namesSet, numberLabel, previewIdsOf, searchCards, twinIdsOf} from '../editSearch';
+import {
+  SEARCH_LIMIT,
+  cardTag,
+  idName,
+  namesSet,
+  numberLabel,
+  previewIdsOf,
+  searchCards,
+  twinIdsOf,
+  withIdName,
+} from '../editSearch';
 import {DALMATIANS, URSULA_SET_3, URSULA_SET_9} from '../finishes/__tests__/finishFixtures';
 import {pinnedChunk} from '../promos/__tests__/pinned';
 
@@ -63,6 +73,18 @@ describe('numberLabel', () => {
 
   it('tells a Set 9 card from its Set 3 reprint', () => {
     expect(numberLabel(URSULA_SET_9)).not.toBe(numberLabel(URSULA_SET_3));
+  });
+});
+
+// Every label of a twin ends the same way, wherever it is named (#74).
+describe('withIdName', () => {
+  it.each([
+    ['a number, as the search and the Editing banner print it', 'Set 3 · #4', 'Set 3 · #4 · id 436'],
+    ['a label, as the Printings panel, the tray and the change history name it', 'Dalmatian Puppy - Tail Wagger #4 · Set 3', 'Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436'],
+    ['nothing, for a card with no number', '', 'id 436'],
+  ])('ends %s with the id', (_, label, expected) => {
+    expect(withIdName({label, id: '436'})).toBe(expected);
+    expect(expected.endsWith(idName('436'))).toBe(true);
   });
 });
 

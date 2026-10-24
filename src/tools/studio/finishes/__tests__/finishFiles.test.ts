@@ -1,10 +1,11 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {describe, expect, it} from 'vitest';
 import {
   ALL_CARDS_PATH,
   CATALOG_PATH,
+  COLLECTION_DIR,
   FinishFileError,
   PROMOS_PATH,
   readEntryFacts,
@@ -13,6 +14,21 @@ import {
   setChunkPath,
   writeFinishes,
 } from '../finishFiles';
+
+/** A file as the pinned app holds it. */
+const pinnedText = (path: string) => readFileSync(resolve('upstream/inkweave', path), 'utf8');
+
+/**
+ * Every file of the pinned app a publish may write: allCards.json, every collection file but the index (each
+ * set's chunk and promos.json), read from the pinned directory, so a chunk a pin bump adds is in, and the catalog.
+ */
+const PINNED_FILES = [
+  ALL_CARDS_PATH,
+  ...readdirSync(resolve('upstream/inkweave', COLLECTION_DIR))
+    .filter((name) => name.endsWith('.json') && name !== 'index.json')
+    .map((name) => `${COLLECTION_DIR}/${name}`),
+  CATALOG_PATH,
+];
 
 const chunk = JSON.stringify([{id: 946, rarity: 'Legendary', baseId: 750}, {id: 750, rarity: 'Legendary'}]) + '\n';
 const all = JSON.stringify({metadata: {}, sets: {}, cards: [{id: 2035, rarity: 'Uncommon', variants: [{id: 80017, rarity: 'Special', finishes: ['normal']}]}]}, null, 2) + '\n';
@@ -40,10 +56,15 @@ describe('finishFiles', () => {
   it('refuses an id the file does not hold', () => {
     expect(() => writeFinishes({path: PROMOS_PATH, text: '[]\n', values: new Map([['80017', ['foil']]])})).toThrow("80017 isn't in apps/web/public/data/collection/promos.json");
   });
-  it('round-trips the pinned app files byte for byte, every set’s chunk included', () => {
-    const chunks = Array.from({length: 14}, (_, i) => setChunkPath(String(i + 1)));
-    for (const path of [ALL_CARDS_PATH, ...chunks, PROMOS_PATH, CATALOG_PATH]) {
-      const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
+  it('finds every set’s chunk and promos.json in the pinned collection directory', () => {
+    expect(PINNED_FILES).toEqual(expect.arrayContaining([setChunkPath('1'), setChunkPath('14'), PROMOS_PATH]));
+    expect(PINNED_FILES).not.toContain(`${COLLECTION_DIR}/index.json`);
+  });
+
+  it('round-trips the pinned app files byte for byte, each in its format, every collection file included', () => {
+    for (const path of PINNED_FILES) {
+      const text = pinnedText(path);
+      expect(() => requireItsFormat({path, text}), path).not.toThrow();
       expect(writeFinishes({path, text, values: new Map()}), path).toBe(text);
     }
   });
@@ -113,7 +134,7 @@ describe('finishFiles', () => {
     expect(() => writeFinishes({path, text: '[]', values: new Map()})).toThrow(FinishFileError);
   });
   it.each([ALL_CARDS_PATH, setChunkPath('4'), PROMOS_PATH, CATALOG_PATH])('reads every finishes value the pinned %s holds', (path) => {
-    const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
+    const text = pinnedText(path);
     const keys = text.match(/"finishes":/g)?.length ?? 0;
     expect([...readFinishes({path, text}).values()].filter((finishes) => finishes !== null)).toHaveLength(keys);
   });
@@ -139,13 +160,10 @@ describe('a file whose text drifted from its format', () => {
     expect(() => requireItsFormat({path, text})).toThrow(expect.objectContaining({name: 'FinishFileError', message}));
   });
 
-  it('passes each file that is in its format, every pinned app file included', () => {
+  // The pinned app files pass too: the round trip above checks each.
+  it('passes each file that is in its format', () => {
     for (const [path, text] of [[ALL_CARDS_PATH, all], [setChunkPath('4'), chunk], [CATALOG_PATH, catalog]]) {
       expect(() => requireItsFormat({path, text}), path).not.toThrow();
-    }
-    const chunks = Array.from({length: 14}, (_, i) => setChunkPath(String(i + 1)));
-    for (const path of [ALL_CARDS_PATH, ...chunks, PROMOS_PATH, CATALOG_PATH]) {
-      expect(() => requireItsFormat({path, text: readFileSync(resolve('upstream/inkweave', path), 'utf8')}), path).not.toThrow();
     }
   });
 });
@@ -176,7 +194,7 @@ describe('readEntryFacts', () => {
   it.each([ALL_CARDS_PATH, setChunkPath('4'), PROMOS_PATH, CATALOG_PATH])(
     'reads the versions readFinishes reads, and a rarity for every entry, from the pinned %s',
     (path) => {
-      const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
+      const text = pinnedText(path);
       const facts = readEntryFacts({path, text});
       expect(new Map([...facts].map(([id, {finishes}]) => [id, finishes]))).toEqual(readFinishes({path, text}));
       expect([...facts.values()].filter(({rarity}) => typeof rarity !== 'string')).toEqual([]);

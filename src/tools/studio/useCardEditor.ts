@@ -118,9 +118,16 @@ export interface CardEditorController extends EditSave {
   branchOnlyIds: ReadonlySet<number>;
   /**
    * #74: the ids of the cards of searchCards that have a twin (twinIdsOf), found once for the two
-   * that name them: the search's rows, and the labels of the open card's printings.
+   * that name them: the search's rows, and the labels of the open card's printings. A new Set on
+   * every render, so key an effect on card ids, never on it.
    */
   twinIds: ReadonlySet<string>;
+  /**
+   * #74: Sets 1 to 8 are still being read (withCollectionCards' `setsLoading`, the one place it is
+   * worked out). The lookup reads it, so an id the card list lacks waits for them, and so does the
+   * search, whose line for a query that matches nothing says they may hold a match.
+   */
+  setsLoading: boolean;
   /** R4-4d (R-66): false while the open card is one only the branch file holds; true with none open. */
   deployed: boolean;
   /**
@@ -271,6 +278,7 @@ export function useCardEditor({token, cardId}: CardEditorInput): CardEditorContr
     searchCards: list.cards,
     branchOnlyIds: list.branchOnlyIds,
     twinIds: twinIdsOf(list.cards),
+    setsLoading: list.setsLoading,
     deployed: deployedOf({lookup, branchOnlyIds: list.branchOnlyIds}),
     printingsOnly: isPrintingsOnly(openCard(lookup)),
     collection,

@@ -40,6 +40,8 @@ const meta: Meta<typeof PrintingsPanel> = {
   title: 'Admin/Publish/Card studio/Printings panel',
   component: PrintingsPanel,
   tags: ['autodocs'],
+  // A builder the Edit entry stories share, not a story.
+  excludeStories: ['promosOf'],
   // In a router, as the studio renders it: a Core copy's note links to that card (#77).
   decorators: [
     (Story) => (
@@ -134,9 +136,13 @@ const MKB_READY: BranchPrintings = {status: 'ready', rows: MKB_ROWS, catalog: FI
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/published';
 const noop = () => {};
 
-/** What the panel gets for Mother Knows Best's promos, with `controller`. */
-function promosOf(controller: PrintingFormController): PromoPrintingsProps {
-  return {controller, card: MKB_BASE, coreCopy: null, promoSets: promoSetOptions(PROMO_SETS), onForgetToken: noop};
+/**
+ * What the panel gets for a card's promos (#77), as EditPane hands them over: `controller`'s form, the
+ * card as the catalog files its promos (Mother Knows Best unless another is given), the app's promo
+ * sets at admin's pin, newest first, and a Forget token that does nothing. Edit entry's stories use it too.
+ */
+export function promosOf(controller: PrintingFormController, card: BaseCard = MKB_BASE): PromoPrintingsProps {
+  return {controller, card, coreCopy: null, promoSets: promoSetOptions(PROMO_SETS), onForgetToken: noop};
 }
 
 /** A form as it opens: an add of `card`, or the edit of `printing`, filled in from the branch's catalog. */

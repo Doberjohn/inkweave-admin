@@ -89,11 +89,26 @@ describe('fetchCollectionOnlyCards', () => {
   });
 
   // inkweave.ink answers an address it has no file for with its page, and a 200 (the SPA rewrite).
-  it('reads a chunk that comes back as the app’s page, not JSON, as a failure', async () => {
+  it('reads a chunk that comes back as the app’s page, not JSON, as a failure that names the chunk (#74)', async () => {
     stubChunks((set) =>
       set === '2' ? new Response('<!doctype html><title>Inkweave</title>', {headers: {'content-type': 'text/html'}}) : Response.json([]),
     );
-    await expect(fetchCollectionOnlyCards()).rejects.toMatchObject({name: 'SyntaxError'});
+    const failure = await fetchCollectionOnlyCards().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(Error);
+    const {message, cause} = failure as Error;
+    // The chunk, then what the JSON parser met there. Here fetch's JSON is parsed in Node's realm, whose error
+    // isn't an Error of this one, so its words come with its name before them; a browser's come alone.
+    expect(cause).toMatchObject({name: 'SyntaxError'});
+    expect(message.startsWith('/data/collection/2.json: ')).toBe(true);
+    expect(message).toContain((cause as Error).message);
+  });
+
+  it('names the chunk a fetch could not reach (#74)', async () => {
+    stubChunks((set) => (set === '5' ? Promise.reject(new TypeError('Failed to fetch')) : Response.json([])));
+    await expect(fetchCollectionOnlyCards()).rejects.toThrow(new Error('/data/collection/5.json: Failed to fetch'));
   });
 });
 

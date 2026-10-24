@@ -120,7 +120,7 @@ describe('printingRowsFor', () => {
       expect(namesOf(rows)).toEqual(['#84', '#212 · Epic', '1/C2', '5/C2']);
     });
 
-    it('ends the labels of two promos of one card under one code with their ids, and no other label', () => {
+    it('ends the labels and the names of two promos of one card under one code with their ids, and no others', () => {
       // As Hades - Dark Usurper's two 28/C3 would be once his card is in: nothing promos.json holds tells them apart.
       const promos = transformPromos([PROMO_1, {...PROMO_1, id: 90000}, PROMO_13]);
       const rows = rowsOf({card: MOTHER_KNOWS_BEST, promos});
@@ -130,7 +130,8 @@ describe('printingRowsFor', () => {
         'Mother Knows Best 1/C3 · id 90000',
         'Mother Knows Best 13/C3',
       ]);
-      expect(namesOf(rows)).toEqual(['#99', '1/C3', '1/C3', '13/C3']);
+      // The panel shows both rows at once, so what it prints of them tells them apart too.
+      expect(namesOf(rows)).toEqual(['#99', '1/C3 · id 80017', '1/C3 · id 90000', '13/C3']);
     });
 
     it('names no id on a card with no twin', () => {

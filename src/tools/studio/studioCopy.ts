@@ -75,3 +75,11 @@ export function editNote(result: Pick<EditResult, 'withImage'> | null): string {
  * versions of its printings are.
  */
 export const PRINTINGS_ONLY_NOTE = 'A Set 1 to 8 card: only its printings’ versions change here.';
+
+/**
+ * What Edit card's search says when the chunks of Sets 1 to 8 couldn't be read (#68), naming the read
+ * that failed (#74): the card list's cards are all it holds.
+ */
+export function collectionFailedNote(error: string): string {
+  return `Sets 1 to 8 didn't load (${error}), so the search holds Sets 9 and up only.`;
+}

@@ -123,24 +123,24 @@ interface RowChanges {
   row: PrintingRow;
   /** The row's change in the batch, if it has one. */
   pending: VersionChange | undefined;
-  /** What the last publish that landed wrote for the row's printing, while the files are read again after it. */
-  published: VersionChange | undefined;
+  /** The change the last publish that landed wrote for the row's printing, while the files are read again after it. */
+  wrote: VersionChange | undefined;
 }
 
 /**
  * The row's one marker: a clash, a staged change, or where its versions come from now. What a publish
  * wrote is in the branch's data, though the rows held while the files are read again are from before it.
  */
-function markerOf({row, pending, published}: RowChanges): Marker {
+function markerOf({row, pending, wrote}: RowChanges): Marker {
   if (pending?.clash) return MARKERS.clash;
   if (pending) return MARKERS.pending;
-  if (published) return MARKERS.data;
+  if (wrote) return MARKERS.data;
   return row.value === null ? MARKERS.rarity : MARKERS.data;
 }
 
 /** The versions a row shows: what its staged change writes, else what the publish wrote, else what the branch's files give it. */
-function shownOf({row, pending, published}: RowChanges): readonly Finish[] {
-  return (pending ?? published)?.to ?? row.shown;
+function shownOf({row, pending, wrote}: RowChanges): readonly Finish[] {
+  return (pending ?? wrote)?.to ?? row.shown;
 }
 
 /** A printing's art, or its empty box. Decoration: the row's text names the printing. */
@@ -546,8 +546,8 @@ interface ItemProps extends RowChanges {
  * A change the last publish wrote shows the same way while the files are read again after it, as
  * the branch's data, unless the batch holds a change for the printing again (#74).
  */
-function PrintingItem({row, pending, published, ruled, held, onChoose, action}: ItemProps) {
-  const marker = markerOf({row, pending, published});
+function PrintingItem({row, pending, wrote, ruled, held, onChoose, action}: ItemProps) {
+  const marker = markerOf({row, pending, wrote});
   return (
     <li style={ruled ? {...ITEM, ...RULED} : ITEM}>
       <div style={IDENTITY}>
@@ -562,7 +562,7 @@ function PrintingItem({row, pending, published, ruled, held, onChoose, action}: 
       <div style={CONTROL}>
         <SegmentedControl
           options={CHOICE_OPTIONS}
-          value={choiceOf(shownOf({row, pending, published}))}
+          value={choiceOf(shownOf({row, pending, wrote}))}
           onChange={(choice) => onChoose({row, choice})}
           ariaLabel={`Versions of ${row.label}`}
           fill
@@ -617,7 +617,7 @@ function PrintingRows({rows, changes, published, onChoose, held, busy, kit}: Row
           <PrintingItem
             row={row}
             pending={changeOfRow(changes, row)}
-            published={changeOfRow(published, row)}
+            wrote={changeOfRow(published, row)}
             ruled={index > 0}
             held={held}
             onChoose={onChoose}

@@ -348,12 +348,14 @@ const failureOf = (error: unknown): string => (error instanceof Error ? error.me
  * The publish failed for another reason (the branch moved, the token was rejected): the batch stays
  * as it is. It first takes in what other tabs saved, as a landing does. Where that leaves the batch
  * empty, another tab published or reverted its changes first, so `error` says nothing was published
- * (#74): the failure's own words would offer to publish again a batch that holds nothing.
+ * (#74): the failure's own words would offer to publish again a batch that holds nothing. That tab's
+ * publish may have moved the branch, so the Printings panel reads it again, as after a clash.
  */
 function failed(error: unknown): void {
   adoptUnheard();
   const empty = snapshot().batch.changes.length === 0;
   put({publishing: false, error: empty ? NOTHING_PUBLISHED : failureOf(error)});
+  if (empty) forgetBranchFiles();
 }
 
 /** The publish didn't land: it found clashes, or failed for another reason. */

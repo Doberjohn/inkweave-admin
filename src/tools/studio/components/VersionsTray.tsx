@@ -4,7 +4,7 @@ import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
 import {isRejectedToken} from '../../../github/rejectedToken';
-import {focusNearRow} from '../../../shell/rowFocus';
+import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {choiceLabel} from '../finishes/finishValues';
@@ -182,8 +182,7 @@ function headingOf(tray: HTMLElement | null): HTMLElement | null {
  * row's buttons are, since the action renders once the click is done.
  */
 function focusAfterSettled({tray, index}: {tray: HTMLElement | null; index: number}) {
-  const rows = Array.from(tray?.querySelector('ul')?.children ?? []).filter((_row, at) => at !== index);
-  focusNearRow({rows, index, fallback: headingOf(tray)});
+  focusNearRow({rows: rowsWithout(tray?.querySelector('ul'), index), index, fallback: headingOf(tray)});
 }
 
 interface ItemProps {

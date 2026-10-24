@@ -7,6 +7,7 @@ import {
   type CollectionPromo,
   type Finish,
 } from '../../../app-bridge';
+import {withIdName} from '../editSearch';
 import type {PrintingKind, PrintingRef} from './printingHomes';
 
 /*
@@ -21,7 +22,10 @@ import type {PrintingKind, PrintingRef} from './printingHomes';
 /** One pocket of the binder, and the versions it comes in. */
 export interface PrintingRow {
   ref: PrintingRef;
-  /** What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil", "1/C3" or "26/P2 · Vaiana". */
+  /**
+   * What the pocket is called: "#59", "#209 · Enchanted", "#223 · Alt foil", "1/C3" or "26/P2 · Vaiana".
+   * Two pockets of the card with one label end it in their ids too, "1/C3 · id 80017" (#74).
+   */
   name: string;
   /**
    * The card's name and the pocket's code, with what tells it from a pocket that shares both: a
@@ -149,15 +153,14 @@ function promoPocket({card, promo}: {card: LorcanaCard; promo: CollectionPromo})
   return pocketOf({card, entry: promo, kind: 'promo', code, name: code});
 }
 
-/**
- * How a label names its pocket's id where nothing else tells it from another's, and a twin's search
- * row its card's, after its number (#74): "id 436".
- */
-export const idName = (id: string) => `id ${id}`;
-
-/** The pocket, its label ending in its id: "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". */
+/** The pocket, its label ending in its id (withIdName): "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". */
 function withId(pocket: Pocket): Pocket {
-  return {...pocket, label: `${pocket.label} · ${idName(pocket.ref.id)}`};
+  return {...pocket, label: withIdName({label: pocket.label, id: pocket.ref.id})};
+}
+
+/** The pocket, its name ending in its id as well as its label: "1/C3 · id 80017". */
+function namedById(pocket: Pocket): Pocket {
+  return {...withId(pocket), name: withIdName({label: pocket.name, id: pocket.ref.id})};
 }
 
 /** The labels that two or more of the pockets have. */
@@ -176,12 +179,15 @@ function sharedLabels(pockets: readonly Pocket[]): ReadonlySet<string> {
  * can hold (#74): every pocket of a card with a twin, since the twin's pockets can carry the same
  * labels, and any two of the card's own pockets that share one. In the app's data only promos can,
  * two under one code, as Hades - Dark Usurper's 28/C3 pair would: nothing promos.json holds tells
- * them apart.
+ * them apart. Those two would share their name on the panel too, so it ends in the id as well; a
+ * twin's own panel shows none of its twin's pockets, so its names stay as they are.
  */
 function toldApart({pockets, twin}: {pockets: readonly Pocket[]; twin: boolean}): Pocket[] {
-  if (twin) return pockets.map(withId);
   const shared = sharedLabels(pockets);
-  return pockets.map((pocket) => (shared.has(pocket.label) ? withId(pocket) : pocket));
+  return pockets.map((pocket) => {
+    if (shared.has(pocket.label)) return namedById(pocket);
+    return twin ? withId(pocket) : pocket;
+  });
 }
 
 /** The pocket as a row: the versions the branch's files give it, and the ones it then shows. */

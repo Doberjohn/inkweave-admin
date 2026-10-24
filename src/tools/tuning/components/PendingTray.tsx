@@ -4,7 +4,7 @@ import {COLORS, SPACING, CtaButton, LinkButton} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
-import {focusNearRow} from '../../../shell/rowFocus';
+import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
 import {tuningFailureKind} from '../tuningFailure';
@@ -130,8 +130,7 @@ export function PendingTray({
   // it on over the rows left once the row at `index` goes (focusNearRow): the next row's revert button,
   // else the previous row's, else the heading.
   const revert = (index: number, pathKey: string) => {
-    const rows = Array.from(editsRef.current?.children ?? []).filter((_row, at) => at !== index);
-    focusNearRow({rows, index, fallback: headingRef.current});
+    focusNearRow({rows: rowsWithout(editsRef.current, index), index, fallback: headingRef.current});
     onRevert(pathKey);
   };
   const clearAll = () => {

@@ -702,7 +702,8 @@ describe('publishing', () => {
     expect(result.current.changes).toBe(before);
     expect(result.current.publishing).toBe(false);
     expect(result.current.result).toBeNull();
-    // Only a publish that landed, or that found a clash, has the panel read the branch again.
+    // A publish that keeps its batch has the panel read nothing again: only one that landed, found a clash, or
+    // found its batch emptied by another tab does.
     expect(generation.result.current).toBe(0);
   });
 
@@ -1001,6 +1002,18 @@ describe('a publish and other tabs', () => {
     expect(view.current.changes).toEqual([]);
     expect(view.current.result).toBeNull();
     expect(view.current.publishing).toBe(false);
+  });
+
+  it('reads the branch again when another tab emptied the batch while a publish failed, as that tab’s publish moved it (#74)', async () => {
+    const late = deferredResponse();
+    const {publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    const generation = renderHook(() => useBranchFilesGeneration());
+    // Another tab publishes #223's change and saves the batch without it.
+    otherTabSaves([]);
+
+    await settled(publishing, () => late.respond(notAFastForward()));
+    // As after a clash: the panel's rows are from before that tab's publish.
+    expect(generation.result.current).toBe(1);
   });
 
   it('marks the clashes it finds a change for, and says nothing else, when another tab took out only some', async () => {

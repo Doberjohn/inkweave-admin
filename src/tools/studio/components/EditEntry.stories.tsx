@@ -3,7 +3,7 @@ import {useState} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {expect, userEvent, waitFor, within} from 'storybook/test';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {LinkButton, PROMO_SETS, REVEAL_SET_CODE, SPACING} from '../../../app-bridge';
+import {LinkButton, REVEAL_SET_CODE, SPACING} from '../../../app-bridge';
 import {PageLayout} from '../../../shell/PageLayout';
 import {ADMIN_LAYOUT} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
@@ -14,8 +14,8 @@ import {twinIdsOf, type SearchRow} from '../editSearch';
 import {DALMATIANS, URSULA_SET_3, URSULA_SET_9, YEN_SID, YEN_SID_ROWS} from '../finishes/__tests__/finishFixtures';
 import {printingRowsFor, type PrintingRow} from '../finishes/printingRows';
 import {FIXTURE_CATALOG, controllerOf} from '../promos/__tests__/promoFixtures';
-import {baseCardOf, promoSetOptions} from '../promos/printingForm';
-import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
+import {baseCardOf} from '../promos/printingForm';
+import {PRINTINGS_ONLY_NOTE, collectionFailedNote} from '../studioCopy';
 import {STUDIO_PADDING} from '../studioLayout';
 import {STUDIO_GAP} from '../studioStyles';
 import {
@@ -30,7 +30,8 @@ import {
 } from '../studioFixtures';
 import {EditingBanner} from './EditingBanner';
 import {EditSearch, type EditSearchFile, type EditSearchList} from './EditSearch';
-import {PrintingsPanel, type PromoPrintingsProps} from './PrintingsPanel';
+import {PrintingsPanel} from './PrintingsPanel';
+import {promosOf} from './PrintingsPanel.stories';
 import {ReleasedCardFacts} from './ReleasedCardFacts';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -63,7 +64,7 @@ const TWINS = twinIdsOf(CARDS);
 const WITHOUT_SETS_ONE_TO_EIGHT = CARDS.filter((card) => !isPrintingsOnly(card));
 
 const noop = () => {};
-const READY: EditSearchList = {loading: false, error: null, onRetry: () => {}};
+const READY: EditSearchList = {loading: false, error: null, onRetry: () => {}, setsLoading: false};
 const READ: EditSearchFile = {error: null, onRetry: () => {}};
 
 /**
@@ -123,9 +124,6 @@ const FORM_SLOT: React.CSSProperties = {maxWidth: 640, padding: SPACING.lg};
 /** The form slot of a released card, as EditPane lays out its facts over its printings (#68): a studio gap apart. */
 const FORM_COLUMN: React.CSSProperties = {...FORM_SLOT, display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
 
-/** The promo sets a printing form offers, newest first: the app's, at admin's pin, as EditPane hands them to the panel (#77). */
-const PROMO_SET_OPTIONS = promoSetOptions(PROMO_SETS);
-
 /** Lantern Keeper's one row in the Printings panel: a card of a Core set, with no promo and no versions in the data, so its rarity gives them. */
 const RELEASED_ROWS = printingRowsFor({card: RELEASED_CARD, chunk: [], promos: [], valueOf: () => null});
 
@@ -140,16 +138,11 @@ interface ReleasedFormSlotProps {
 /**
  * A released card's form slot as EditPane's FormSlot lays it out (#68): its facts, and why its fields
  * can't change here, with the Printings panel under them. The panel is handed its rows and the branch's
- * catalog instead of reading the branch's files, and its printing form does nothing.
+ * catalog instead of reading the branch's files, and its printing form does nothing (the panel's
+ * stories' promosOf, for this card).
  */
 function ReleasedFormSlot({card, note, rows}: ReleasedFormSlotProps) {
-  const promos: PromoPrintingsProps = {
-    controller: controllerOf(null),
-    card: baseCardOf(card),
-    coreCopy: null,
-    promoSets: PROMO_SET_OPTIONS,
-    onForgetToken: noop,
-  };
+  const promos = promosOf(controllerOf(null), baseCardOf(card));
   return (
     <div style={FORM_COLUMN}>
       <ReleasedCardFacts card={card} note={note} />
@@ -272,11 +265,11 @@ export const TokenRejected: Story = {
 /**
  * What EditPane's CollectionNotice shows above the search when the chunks of Sets 1 to 8 failed to read
  * (#68): the read that failed (#74), and Try again. The page's reads don't run in a story, so this
- * builds the same notice with the same words (collectionFailed's), and a Try again that does nothing.
+ * builds the same notice with the page's words (collectionFailedNote), and a Try again that does nothing.
  */
 const SETS_ONE_TO_EIGHT_FAILED = (
   <Notice tone="error">
-    Sets 1 to 8 didn't load (/data/collection/3.json: HTTP 500), so the search holds Sets 9 and up only.{' '}
+    {collectionFailedNote('/data/collection/3.json: HTTP 500')}{' '}
     <LinkButton type="button" onClick={noop}>
       Try again
     </LinkButton>

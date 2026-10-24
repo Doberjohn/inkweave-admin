@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it} from 'vitest';
 import {within} from '@testing-library/react';
-import {focusNearRow} from './rowFocus';
+import {focusNearRow, rowsWithout} from './rowFocus';
 
 afterEach(() => document.body.replaceChildren());
 
@@ -68,5 +68,27 @@ describe('focusNearRow', () => {
     buttonOf(row, 'Revert A').focus();
     focusNearRow({rows: [], index: 0, fallback: null});
     expect(buttonOf(row, 'Revert A')).toHaveFocus();
+  });
+});
+
+describe('rowsWithout', () => {
+  it('leaves out the row at the place given, and keeps the others in order', () => {
+    const [a, b, c] = rowsOf(['Revert A'], ['Revert B'], ['Revert C']);
+    const list = a.parentElement;
+    expect(rowsWithout(list, 1)).toEqual([a, c]);
+    expect(rowsWithout(list, 0)).toEqual([b, c]);
+    // A place past the rows leaves them all.
+    expect(rowsWithout(list, 3)).toEqual([a, b, c]);
+  });
+
+  it('gives no rows where there is no list', () => {
+    expect(rowsWithout(null, 0)).toEqual([]);
+    expect(rowsWithout(undefined, 0)).toEqual([]);
+  });
+
+  it('hands focusNearRow the rows a list has left, so the next row takes the focus', () => {
+    const [a, , c] = rowsOf(['Revert A'], ['Revert B'], ['Revert C']);
+    focusNearRow({rows: rowsWithout(a.parentElement, 1), index: 1, fallback: heading()});
+    expect(buttonOf(c, 'Revert C')).toHaveFocus();
   });
 });

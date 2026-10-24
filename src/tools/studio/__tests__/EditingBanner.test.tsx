@@ -3,7 +3,7 @@ import {cleanup, render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {EditingBanner} from '../components/EditingBanner';
-import {URSULA_SET_3, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
+import {DALMATIANS, URSULA_SET_3, URSULA_SET_9, YEN_SID} from '../finishes/__tests__/finishFixtures';
 import {PREVIEW_ENTRY, RELEASED_CARD, cardOf, studioCard} from '../studioFixtures';
 
 const MEI = cardOf(PREVIEW_ENTRY);
@@ -67,6 +67,18 @@ describe('EditingBanner', () => {
     renderBanner({card: URSULA_SET_9, tag: 'Released'});
     expect(screen.getByText('#90').tagName).toBe('CODE');
     expect(screen.queryByText(/^Set /)).not.toBeInTheDocument();
+  });
+
+  // Set 3's Dalmatian Puppy - Tail Wagger cards are all #4: only their ids tell them apart, as on their search rows (#74).
+  it("ends a twin's number with its id, and no other card's", () => {
+    const [puppy] = DALMATIANS;
+    renderBanner({card: puppy, tag: 'Released', twin: true});
+    expect(screen.getByText('Set 3 · #4 · id 436').tagName).toBe('CODE');
+    cleanup();
+
+    renderBanner({card: puppy, tag: 'Released'});
+    expect(screen.getByText('Set 3 · #4').tagName).toBe('CODE');
+    expect(screen.queryByText(/id 436/)).not.toBeInTheDocument();
   });
 
   it('tags a released card', () => {

@@ -20,3 +20,11 @@ const buttonIn = (row: Element | undefined) => row?.querySelector<HTMLElement>('
 export function focusNearRow({rows, index, fallback}: NearRow): void {
   (buttonIn(rows[index]) ?? buttonIn(rows[index - 1]) ?? fallback)?.focus();
 }
+
+/**
+ * The rows `list` has left once its row at `index` goes, in order, as focusNearRow takes them: every
+ * child of the list but that one. None where there is no list.
+ */
+export function rowsWithout(list: Element | null | undefined, index: number): Element[] {
+  return Array.from(list?.children ?? []).filter((_row, at) => at !== index);
+}

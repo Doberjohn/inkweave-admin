@@ -31,7 +31,7 @@ function props(overrides: Partial<EditSearchProps> = {}): EditSearchProps {
     total: ROWS.length,
     query: '',
     onQuery: vi.fn(),
-    list: {loading: false, error: null, onRetry: vi.fn()},
+    list: {loading: false, error: null, onRetry: vi.fn(), setsLoading: false},
     file: {error: null, onRetry: vi.fn()},
     ...overrides,
   };
@@ -299,7 +299,7 @@ describe('EditSearch', () => {
   describe('the card list', () => {
     it('says it is loading, with the field ready to type in and no rows until it lands', () => {
       // The page may already hold the branch file's entries (R-66); without the card list they'd all read "not deployed yet".
-      renderSearch({list: {loading: true, error: null, onRetry: vi.fn()}});
+      renderSearch({list: {loading: true, error: null, onRetry: vi.fn(), setsLoading: false}});
       expect(screen.getByRole('status')).toHaveTextContent('Loading cards…');
       expect(screen.getByRole('searchbox', {name: 'Search cards'})).toBeInTheDocument();
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -307,7 +307,7 @@ describe('EditSearch', () => {
 
     it('puts a failure, with Retry, in place of the field and the rows', async () => {
       const onRetry = vi.fn();
-      renderSearch({list: {loading: false, error: new Error('HTTP 503'), onRetry}});
+      renderSearch({list: {loading: false, error: new Error('HTTP 503'), onRetry, setsLoading: false}});
       expect(screen.getByRole('alert')).toHaveTextContent('Could not load the card list (HTTP 503)');
       expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -362,7 +362,7 @@ describe('EditSearch', () => {
 
     it('gives it to Retry when the card list fails again', () => {
       const handoff = handoffOf(true);
-      renderSearch({handoff, list: {loading: false, error: new Error('HTTP 503'), onRetry: vi.fn()}});
+      renderSearch({handoff, list: {loading: false, error: new Error('HTTP 503'), onRetry: vi.fn(), setsLoading: false}});
       expect(screen.getByRole('button', {name: 'Retry'})).toHaveFocus();
     });
 
@@ -373,10 +373,10 @@ describe('EditSearch', () => {
           <EditSearch {...props({handoff, list})} />
         </MemoryRouter>
       );
-      const {rerender} = render(search({loading: true, error: null, onRetry: vi.fn()}));
+      const {rerender} = render(search({loading: true, error: null, onRetry: vi.fn(), setsLoading: false}));
       expect(screen.getByRole('searchbox', {name: 'Search cards'})).not.toHaveFocus();
       expect(handoff.done).not.toHaveBeenCalled();
-      rerender(search({loading: false, error: new Error('HTTP 503'), onRetry: vi.fn()}));
+      rerender(search({loading: false, error: new Error('HTTP 503'), onRetry: vi.fn(), setsLoading: false}));
       expect(screen.getByRole('button', {name: 'Retry'})).toHaveFocus();
       expect(handoff.done).toHaveBeenCalledOnce();
     });
