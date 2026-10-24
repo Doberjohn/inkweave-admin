@@ -451,6 +451,15 @@ describe('a publish the branch can\'t take', () => {
     await expect(publishPrinting({token: 't', change: {...ADD_9_P4, card: stray}})).rejects.toThrow('no card 99999 (Nobody - Nowhere) in allCards.json');
     expect(repo.writes()).toEqual([]);
   });
+  it('refuses an add over a catalog whose text drifted from its format, writing nothing', async () => {
+    // Someone saved the catalog by hand with a newline at the end: writing it would rewrite all of it.
+    const repo = stubRepo({files: {...FIXTURE_FILES, [CATALOG_PATH]: `${FIXTURE_FILES[CATALOG_PATH]}\n`}});
+    await expect(publishPrinting({token: 't', change: ADD_9_P4})).rejects.toMatchObject({
+      name: 'FinishFileError',
+      message: `${CATALOG_PATH} isn't in its format (JSON.stringify(x, null, 2), with no newline at the end), so a publish would rewrite all of it. Put it back in that format first.`,
+    });
+    expect(repo.writes()).toEqual([]);
+  });
   it("names a catalog it can't read, as the panel does, writing nothing", async () => {
     const catalog = JSON.stringify({...FIXTURE_CATALOG, noBaseCard: undefined}, null, 2);
     const repo = stubRepo({files: {...FIXTURE_FILES, [CATALOG_PATH]: catalog}});

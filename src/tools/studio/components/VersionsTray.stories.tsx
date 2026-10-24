@@ -53,7 +53,7 @@ export const Gone: Story = {args: {view: batchView([NUMBER_59_TO_FOIL_GONE, NUMB
 export const Publishing: Story = {args: {view: batchView(TWO_CHANGES, {publishing: true})}};
 
 /** The publish landed: the batch is empty, and the line says how many changes went and links the commit. */
-export const Published: Story = {args: {view: batchView([], {result: {commitUrl: COMMIT_URL, count: 2}})}};
+export const Published: Story = {args: {view: batchView([], {result: {commitUrl: COMMIT_URL, count: 2, published: TWO_CHANGES}})}};
 
 /** The branch moved while publishing: the tray says why in the store's words, with the changes still staged. */
 export const PublishFailed: Story = {

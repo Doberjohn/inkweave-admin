@@ -117,6 +117,7 @@ Checked on 2026-10-22: master's `allCards.json` and `promos.json` are exactly wh
 - the catalog's own lines.
 
 **What it checks at the base.** Each check stops the publish, writes nothing and says why:
+- **The catalog is in its format.** Its text must be what `JSON.stringify(x, null, 2)` writes, with no newline at the end. The publish writes the catalog whole, so a catalog saved by hand in another format (with a newline at its end, for example) would be rewritten all over. The version batch's publish refuses such a file the same way (#74).
 - **The files are in step.** The merge over the branch's files as they are must change nothing, `promos.json` compared hash keys aside, as the app's CLI reads it. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
 - **The code is free.** No other printing has the promo set and number. An edit is checked only when it changes the promo set or number (see "Settled during the build").
 - **An edit's printing is unchanged.** The printing's catalog entry must still be what the form opened from. If it isn't, someone changed it, and the form shows the branch's values.

@@ -190,6 +190,16 @@ describe('publishVersions', () => {
     expect((refusal as FinishFileError).id).toBe('80017');
   });
 
+  it('refuses a file whose text drifted from its format, and writes nothing', async () => {
+    // Someone saved the catalog by hand with a newline at the end: writing it would rewrite all of it.
+    const repo = stubRepo({files: {...BASE_FILES, [CATALOG_PATH]: `${catalogWith()}\n`}});
+    await expect(publish(YEN_SID_223_TO_BOTH, MKB_1C3_TO_BOTH)).rejects.toMatchObject({
+      name: 'FinishFileError',
+      message: `${CATALOG_PATH} isn't in its format (JSON.stringify(x, null, 2), with no newline at the end), so a publish would rewrite all of it. Put it back in that format first.`,
+    });
+    expect(repo.writes()).toEqual([]);
+  });
+
   it.each([
     [CHUNK_4, 'text that is not JSON', '<<<<<<< HEAD\n'],
     [PROMOS_PATH, 'JSON of another shape', '{"promos": []}\n'],

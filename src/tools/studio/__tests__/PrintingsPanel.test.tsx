@@ -16,6 +16,7 @@ import {
 import {COMMIT_URL, stubRepo} from '../finishes/__tests__/repoHarness';
 import type {PrintingRow} from '../finishes/printingRows';
 import type {BranchPrintings} from '../finishes/useBranchPrintings';
+import {changeFor} from '../finishes/versionBatch';
 import {EMPTY_PRINTING_FORM, editValuesOf, promoSetOptions} from '../promos/printingForm';
 import type {PromoCatalog} from '../promos/promoCatalog';
 import {usePrintingForm, type OpenPrintingForm, type PrintingFormController} from '../promos/usePrintingForm';
@@ -267,6 +268,53 @@ describe('PrintingsPanel: during a publish, and while the files are read again a
     expect(screen.getByRole('list')).toBe(list);
     expect(bothOf(NUMBER_59)).toBe(both);
     expect(both).toHaveFocus();
+  });
+
+  /*
+   * The rows the panel keeps while the files are read again are the last read's, from before the publish. A row
+   * the publish wrote shows what it wrote until the read lands, marked as the branch's data now names it (#74).
+   */
+  it("shows a published change's versions on its row while the branch is read again", () => {
+    // Mother Knows Best's 1/C3, which the branch named Normal only, and its #99, which follows its rarity.
+    const [mkb99, mkb1C3] = MKB_ROWS;
+    const {update} = renderPanel({
+      view: {status: 'ready', rows: MKB_ROWS, refreshing: true},
+      published: [changeFor({row: mkb1C3, choice: 'foil'})],
+    });
+    expect(pressedIn(mkb1C3)).toEqual(['Foil only']);
+    expect(within(itemOf(mkb1C3)).getByText('In the data')).toBeInTheDocument();
+    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    // A row the publish didn't write is as the last read has it.
+    expect(pressedIn(mkb99)).toEqual(['Both']);
+    expect(within(itemOf(mkb99)).getByText('By rarity')).toBeInTheDocument();
+
+    // The read lands, and the branch's data names Foil only for 1/C3: the row is unchanged.
+    const read = MKB_ROWS.map((row): PrintingRow => (row === mkb1C3 ? {...row, value: ['foil'], shown: ['foil']} : row));
+    update({view: {status: 'ready', rows: read}});
+    expect(pressedIn(mkb1C3)).toEqual(['Foil only']);
+    expect(within(itemOf(mkb1C3)).getByText('In the data')).toBeInTheDocument();
+  });
+
+  it("shows the branch's values once the read lands, whatever the publish wrote", () => {
+    // #59 follows its rarity, Both, and a publish made it Foil only: until the read lands, the data names its versions.
+    const {update} = renderPanel({view: REFRESHING, published: [NUMBER_59_TO_FOIL]});
+    expect(pressedIn(NUMBER_59)).toEqual(['Foil only']);
+    expect(within(itemOf(NUMBER_59)).getByText('In the data')).toBeInTheDocument();
+
+    // The read lands, and the branch's data names nothing for #59 (someone took it out since): the row says so.
+    update({view: READY});
+    expect(pressedIn(NUMBER_59)).toEqual(['Both']);
+    expect(within(itemOf(NUMBER_59)).getByText('By rarity')).toBeInTheDocument();
+  });
+
+  it('shows a change staged since in front of what the publish wrote', () => {
+    // Another tab staged #59 as Normal only while the publish that made it Foil only ran. The change stays in the
+    // batch, started from what the publish wrote (afterPublish).
+    const wrote = NUMBER_59_TO_FOIL.to;
+    const restaged = {...changeFor({row: NUMBER_59, choice: 'normal'}), from: wrote, shownFrom: wrote};
+    renderPanel({view: REFRESHING, changes: [restaged], published: [NUMBER_59_TO_FOIL]});
+    expect(pressedIn(NUMBER_59)).toEqual(['Normal only']);
+    expect(within(itemOf(NUMBER_59)).getByText('Pending')).toBeInTheDocument();
   });
 
   it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', () => {

@@ -25,7 +25,7 @@ afterEach(() => vi.unstubAllEnvs());
  */
 
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
-const LANDED = {commitUrl: COMMIT_URL, count: 2};
+const LANDED = {commitUrl: COMMIT_URL, count: 2, published: [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]};
 const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: Bad credentials';
 const RACE = 'master changed while publishing, so nothing was published. Publish again.';
 
@@ -497,7 +497,7 @@ describe('VersionsTray: the outcome', () => {
   });
 
   it('counts a single change in the singular', () => {
-    renderTray(batchView([], {result: {commitUrl: COMMIT_URL, count: 1}}));
+    renderTray(batchView([], {result: {commitUrl: COMMIT_URL, count: 1, published: [NUMBER_223_TO_BOTH]}}));
     expect(screen.getByRole('status')).toHaveTextContent('Published 1 change.');
   });
 

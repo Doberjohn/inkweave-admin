@@ -9,6 +9,7 @@ import {
   PROMOS_PATH,
   readEntryFacts,
   readFinishes,
+  requireItsFormat,
   setChunkPath,
   writeFinishes,
 } from '../finishFiles';
@@ -115,6 +116,37 @@ describe('finishFiles', () => {
     const text = readFileSync(resolve('upstream/inkweave', path), 'utf8');
     const keys = text.match(/"finishes":/g)?.length ?? 0;
     expect([...readFinishes({path, text}).values()].filter((finishes) => finishes !== null)).toHaveLength(keys);
+  });
+});
+
+/*
+ * A write serializes the whole file in its format, so a file whose text has drifted from that format
+ * (a newline added or dropped at the end by hand) would be rewritten all over, not only where an entry
+ * changes. Such a file is refused, naming its format, before anything is written (#74).
+ */
+describe('a file whose text drifted from its format', () => {
+  it.each([
+    ['allCards.json, without its newline at the end', ALL_CARDS_PATH, all.trimEnd(), 'JSON.stringify(x, null, 2) and a newline'],
+    ['a collection file, without its newline at the end', setChunkPath('4'), chunk.trimEnd(), 'JSON.stringify(x) and a newline'],
+    ['the catalog, with a newline at the end', CATALOG_PATH, `${catalog}\n`, 'JSON.stringify(x, null, 2), with no newline at the end'],
+  ])('refuses %s, naming its path and its format, before it writes', (_file, path, text, format) => {
+    const message = `${path} isn't in its format (${format}), so a publish would rewrite all of it. Put it back in that format first.`;
+    // Whatever the write sets: an entry the file holds, or none.
+    const [id] = readFinishes({path, text}).keys();
+    for (const values of [new Map<string, PrintingFinishes>(), new Map<string, PrintingFinishes>([[id, ['foil']]])]) {
+      expect(() => writeFinishes({path, text, values})).toThrow(expect.objectContaining({name: 'FinishFileError', message}));
+    }
+    expect(() => requireItsFormat({path, text})).toThrow(expect.objectContaining({name: 'FinishFileError', message}));
+  });
+
+  it('passes each file that is in its format, every pinned app file included', () => {
+    for (const [path, text] of [[ALL_CARDS_PATH, all], [setChunkPath('4'), chunk], [CATALOG_PATH, catalog]]) {
+      expect(() => requireItsFormat({path, text}), path).not.toThrow();
+    }
+    const chunks = Array.from({length: 14}, (_, i) => setChunkPath(String(i + 1)));
+    for (const path of [ALL_CARDS_PATH, ...chunks, PROMOS_PATH, CATALOG_PATH]) {
+      expect(() => requireItsFormat({path, text: readFileSync(resolve('upstream/inkweave', path), 'utf8')}), path).not.toThrow();
+    }
   });
 });
 

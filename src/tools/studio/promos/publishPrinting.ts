@@ -8,7 +8,7 @@ import {
 } from '../../../github/githubCommit';
 import {RAW_DIR} from '../../image/githubClient';
 import {namingItsFile, type BranchFile} from '../finishes/branchFiles';
-import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../finishes/finishFiles';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, requireItsFormat, setChunkPath} from '../finishes/finishFiles';
 import {
   isWaitingGroupOf,
   withEditedPrinting,
@@ -42,9 +42,10 @@ import {mergeOver, outOfStep, promosDiffer, type MergeInput} from './promoMerge'
  * "Publish again."). allCards.json and collection/promos.json are the merge's output, each sent only when
  * the merge changes it, promos.json read as the app's CLI reads it (`promosDiffer`): nothing here edits
  * their entries. Any other failure, an unreadable file or a catalog the merge can't take, passes through
- * as it is. A refusal of a printing that changed or went names its code as its form opened it (24A/P2,
- * or 24/P2 where the form opened without its art variant); a taken code and the result name the code the
- * change gives it, with the form's art variant (25A/P2).
+ * as it is, and so does the refusal of a catalog whose text has drifted from its format, which the commit
+ * would rewrite whole (FinishFileError, #74). A refusal of a printing that changed or went names its code
+ * as its form opened it (24A/P2, or 24/P2 where the form opened without its art variant); a taken code and
+ * the result name the code the change gives it, with the form's art variant (25A/P2).
  */
 
 /** A scan to commit: its extension as the image control takes it (jpg, jpeg, png or webp), and its bytes in base64, with no data-URL prefix. */
@@ -287,11 +288,17 @@ interface Plan {
 /** The catalog a file holds. One it can't read is named, as Edit card's Printings panel names it: "scripts/data/promo-printings.json can't be read: …". */
 const catalogIn = namingItsFile(({text}: BranchFile) => parseCatalog(text));
 
-/** The catalog and both card files as they are at the commit `base`. */
+/**
+ * The catalog and both card files as they are at the commit `base`. A catalog whose text has drifted from
+ * its format is refused (`requireItsFormat`, a FinishFileError), as the version publish refuses such a file:
+ * the commit writes the catalog whole, so it would rewrite all of it.
+ */
 async function readHeld({token, base}: {token: string; base: string}): Promise<MergeInput> {
   const paths = [CATALOG_PATH, ALL_CARDS_PATH, PROMOS_PATH];
   const [catalog, allCards, promos] = await Promise.all(paths.map((path) => readRepoFile(token, path, base)));
-  return {catalog: catalogIn({path: CATALOG_PATH, text: catalog}), files: {allCards, promos}};
+  const held = {catalog: catalogIn({path: CATALOG_PATH, text: catalog}), files: {allCards, promos}};
+  requireItsFormat({path: CATALOG_PATH, text: catalog});
+  return held;
 }
 
 /**
@@ -364,9 +371,10 @@ async function planAt({token, base, change}: {token: string; base: string; chang
 /**
  * Publishes the change in one commit on the target branch: the catalog, the card files the app's merge
  * changes, and the scan. Nothing is written when the branch can't take it (PrintingRefusal, whose `kind`
- * says why), when a file can't be read or the catalog can't merge (the error as it is), when the
- * branch moves first (commitFiles' error, whose message ends "Publish again."), or when the branch holds
- * the files already, so that the commit would change nothing (commitFiles' error, "Nothing changed on …").
+ * says why), when a file can't be read, the catalog isn't in its format (FinishFileError) or can't merge
+ * (the error as it is), when the branch moves first (commitFiles' error, whose message ends "Publish
+ * again."), or when the branch holds the files already, so that the commit would change nothing
+ * (commitFiles' error, "Nothing changed on …").
  */
 export async function publishPrinting({token, change}: {token: string; change: PrintingChange}): Promise<PrintingPublished> {
   const code = printingCode(codePartsAfter(change));

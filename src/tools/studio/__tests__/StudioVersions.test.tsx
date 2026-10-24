@@ -404,6 +404,27 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     added.stop();
   });
 
+  it('shows on its row what the publish wrote, from the landing until the read after it lands (#74)', async () => {
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    await within(tray).findByText('Published 1 change.');
+    // Landed: the batch no longer holds the change, and the rows are the last read's, which name #223 Foil only.
+    const row223 = within(panel()).getByText('#223 · Alt foil').closest('li') as HTMLElement;
+    const both223 = within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
+    expect(within(panel()).getByRole('list')).toHaveAttribute('aria-busy', 'true');
+    expect(both223).toHaveAttribute('aria-pressed', 'true');
+    expect(within(row223).getByText('In the data')).toBeInTheDocument();
+    expect(within(panel()).queryByText('Pending')).not.toBeInTheDocument();
+
+    await act(async () => reread.respond(new Response(PUBLISHED_CHUNK)));
+    // Read: the branch names Both for #223, so the row is unchanged.
+    await waitFor(() => expect(within(panel()).getByRole('list')).not.toHaveAttribute('aria-busy'));
+    expect(both223).toHaveAttribute('aria-pressed', 'true');
+    expect(within(row223).getByText('In the data')).toBeInTheDocument();
+  });
+
   it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', async () => {
     const reread = rereadHeld();
     stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});

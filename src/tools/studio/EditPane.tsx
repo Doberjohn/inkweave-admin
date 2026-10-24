@@ -294,7 +294,8 @@ function usePromoPrintings({card, printing, printingsOnly, onForgetToken}: Omit<
  * the studio's batch of version changes, which a choice joins. Nothing is committed here: the
  * Version changes tray lists the batch and publishes it. Both are shared by the whole studio, so
  * a change staged for one card shows on it again whenever it is opened. While a publish runs, the
- * panel holds its choices. The panel also adds and edits the card's promo printings, through the
+ * panel holds its choices, and once it lands, the rows show what it wrote until the branch's files
+ * are read again (#74). The panel also adds and edits the card's promo printings, through the
  * studio's printing form, each in a commit of its own (#77).
  */
 function PrintingsSection({token, ...section}: PrintingsSectionProps) {
@@ -306,6 +307,7 @@ function PrintingsSection({token, ...section}: PrintingsSectionProps) {
       view={view}
       changes={batch.changes}
       publishing={batch.publishing}
+      published={batch.result?.published}
       onChoose={(chosen) => batch.stage(changeFor(chosen))}
       promos={promos}
     />

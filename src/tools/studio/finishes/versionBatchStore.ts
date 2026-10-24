@@ -42,8 +42,9 @@ import {
  * (`afterPublish`). Storage that can't be read says nothing, so the batch stays.
  *
  * A publish sends the changes staged when it starts (publishVersions.ts), and the owner may stage
- * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch.
- * When it finds clashes it marks them on their changes, and the batch stays, as it does for any
+ * more meanwhile, here or in another tab. When it lands only the changes it sent leave the batch,
+ * and its result keeps them (`published`) for the Printings panel to show until it reads the branch
+ * again. When it finds clashes it marks them on their changes, and the batch stays, as it does for any
  * other failure; the marks are all it says of them, and `error` is for the other failures. Where
  * no change is left to mark, or none is left at all after another failure (another tab published
  * or reverted them first), `error` says that nothing was published. A landing or a clash writes
@@ -70,6 +71,11 @@ export interface PublishResult {
   commitUrl: string;
   /** How many changes it sent. */
   count: number;
+  /**
+   * The changes it sent (#74). Until the Printings panel has read the branch again, the rows it holds
+   * are the last read's, from before the publish, so a row with one of these shows what it wrote.
+   */
+  published: readonly VersionChange[];
 }
 
 /** What the Printings panel and the tray read, and what they do to it. */
@@ -310,10 +316,14 @@ function adoptUnheard(): void {
   if (!snapshot().unsaved) adoptSaved();
 }
 
-/** The publish landed: the changes it sent leave the batch, and the Printings panel reads the branch again. */
+/**
+ * The publish landed: the changes it sent leave the batch, and the Printings panel reads the branch
+ * again. Until that read lands, the panel's rows show what the publish wrote (`published`).
+ */
 function landed({sent, commitUrl}: {sent: readonly VersionChange[]; commitUrl: string}): void {
   adoptUnheard();
-  put({batch: afterPublish(snapshot().batch, sent), publishing: false, result: {commitUrl, count: sent.length}});
+  const result: PublishResult = {commitUrl, count: sent.length, published: sent};
+  put({batch: afterPublish(snapshot().batch, sent), publishing: false, result});
   forgetBranchFiles();
 }
 
@@ -375,7 +385,8 @@ function publish(token: string): Promise<void> {
  * The shared batch of the target branch, and what the panel and the tray do to it. Given a token,
  * it tells how the last publish ended only if that publish was made with the same one (by their
  * marks): a token the owner saved since has nothing to be told. With none (the Printings panel,
- * which has no use for the outcome) it tells the outcome as it is.
+ * which reads only what a landed publish wrote, whoever's token wrote it) it tells the outcome as
+ * it is.
  */
 export function useVersionBatch(token?: string): VersionBatchView {
   const {batch, publishing, result, error, unsaved, outcomeMark} = useSyncExternalStore(subscribe, snapshot);
