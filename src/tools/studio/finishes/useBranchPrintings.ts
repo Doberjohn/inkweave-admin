@@ -83,11 +83,21 @@ const catalogIn = lastTextCached((file: BranchFile): CatalogRead => {
   }
 });
 
-/** The catalog's versions, or none where its shape can't give them: the printing form names what's wrong (catalogIn). */
+/** Whether `error` is the JSON parser's: text that isn't JSON at all. By name, which holds in any realm. */
+function isSyntaxError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'SyntaxError';
+}
+
+/**
+ * The catalog's versions, or none where its shape can't give them: the printing form names what's wrong
+ * (catalogIn). Text that isn't JSON at all still fails the read, as every file's does: no row then shows
+ * a promo's versions by rarity in place of the catalog's.
+ */
 function catalogValuesIn(file: BranchFile): FileValues {
   try {
     return finishesIn(file);
-  } catch {
+  } catch (error) {
+    if (isSyntaxError((error as Error).cause)) throw error;
     return new Map();
   }
 }
