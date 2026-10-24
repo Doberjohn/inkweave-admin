@@ -23,8 +23,6 @@ import {finishesById as appFinishesById} from '../upstream/inkweave/scripts/lib/
 export {
   ALL_INKS,
   COLORS,
-  // The kit's off look (dimmed, a not-allowed cursor), which CtaButton gives a held button itself.
-  DISABLED_STYLE,
   DURATION,
   EASING,
   FONTS,
