@@ -32,19 +32,24 @@ export type BranchPrintings =
    * the last read's, for the panel to hold until the read lands.
    *
    * `catalog`: the branch's promo catalog, the same read's, which the panel's printing form reads
-   * (#77): the entry a row's Edit opens, and who has the code a form names. The hook always sets it.
-   * It is optional only so that a view a test or a story builds without one still types: the panel
-   * then offers no form.
+   * (#77): the entry a row's Edit opens, and who has the code a form names. The hook sets it, or
+   * `catalogError` where the catalog's shape is wrong for the form (parseCatalog: a section it lacks,
+   * named with the file, #84). The rows and their versions don't read those sections, so they stay,
+   * and only the form is off. `catalog` is optional so that a view a test or a story builds without
+   * one still types: the panel then offers no form.
    */
-  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true; catalog?: PromoCatalog};
+  | {status: 'ready'; rows: readonly PrintingRow[]; refreshing?: true; catalog?: PromoCatalog; catalogError?: string};
 
 const LOADING: BranchPrintings = {status: 'loading'};
+
+/** The catalog as the printing form reads it, or what is wrong with its shape, naming the file (#84). */
+type CatalogRead = {catalog: PromoCatalog} | {catalogError: string};
 
 /**
  * What a card's rows are made from, but the card and whether it has a twin, and the catalog its
  * promos are filed in: the files of its set, parsed.
  */
-type Files = Omit<PrintingSources, 'card' | 'twin'> & {catalog: PromoCatalog};
+type Files = Omit<PrintingSources, 'card' | 'twin'> & {catalog: CatalogRead};
 
 /** How a read of the files ended. */
 type Outcome = {files: Files} | {error: string};
@@ -60,8 +65,42 @@ interface Settled {
 const finishesIn = lastTextCached(namingItsFile(readFinishes));
 const cardsIn = lastTextCached(namingItsFile(({text}) => transformRawCards(JSON.parse(text) as LorcanaJSONCard[])));
 const promosIn = lastTextCached(namingItsFile(({text}) => transformPromos(JSON.parse(text) as RawCollectionPromo[])));
-/** The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for its versions: each parses a text once. */
-const catalogIn = lastTextCached(namingItsFile(({text}) => parseCatalog(text)));
+/** The catalog checked as the printing form reads it (parseCatalog), where a problem is named and thrown. */
+const checkedCatalog = namingItsFile(({text}) => parseCatalog(text));
+
+/**
+ * The catalog itself, which the panel's printing form reads (#77). `finishesIn` reads the same text for
+ * its versions: each parses a text once. A catalog whose shape the form can't read, a section missing,
+ * fails only the form (#84): where its versions can't be read either (no `fold`, a group of another
+ * kind), the panel reads them as none (catalogValuesIn), so a read keeps its rows. A publish still
+ * checks the whole catalog (publishPrinting.ts), and the version publish refuses it (finishFiles.ts).
+ */
+const catalogIn = lastTextCached((file: BranchFile): CatalogRead => {
+  try {
+    return {catalog: checkedCatalog(file)};
+  } catch (e) {
+    return {catalogError: messageOf(e)};
+  }
+});
+
+/** Whether `error` is the JSON parser's: text that isn't JSON at all. By name, which holds in any realm. */
+function isSyntaxError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'SyntaxError';
+}
+
+/**
+ * The catalog's versions, or none where its shape can't give them: the printing form names what's wrong
+ * (catalogIn). Text that isn't JSON at all still fails the read, as every file's does: no row then shows
+ * a promo's versions by rarity in place of the catalog's.
+ */
+function catalogValuesIn(file: BranchFile): FileValues {
+  try {
+    return finishesIn(file);
+  } catch (error) {
+    if (isSyntaxError((error as Error).cause)) throw error;
+    return new Map();
+  }
+}
 
 /**
  * The files a card's rows are made from. The entries come from the first two: its set's chunk,
@@ -80,7 +119,8 @@ function pathsOf(setCode: string): string[] {
  */
 function parsedFiles(files: readonly BranchFile[]): Files {
   const [chunk, promos, catalog] = files;
-  const values = new Map(files.map((file): [string, FileValues] => [file.path, finishesIn(file)]));
+  const valuesOf = (file: BranchFile) => (file === catalog ? catalogValuesIn(file) : finishesIn(file));
+  const values = new Map(files.map((file): [string, FileValues] => [file.path, valuesOf(file)]));
   return {
     chunk: cardsIn(chunk),
     promos: promosIn(promos),
@@ -146,7 +186,7 @@ function viewOf({settled, generation, card, twin}: ViewInput): BranchPrintings {
   if ('error' in outcome) return current ? {status: 'error', error: outcome.error, retry: forgetBranchFiles} : LOADING;
   const {catalog, ...sources} = outcome.files;
   const rows = printingRowsFor({card, twin, ...sources});
-  return current ? {status: 'ready', rows, catalog} : {status: 'ready', rows, catalog, refreshing: true};
+  return current ? {status: 'ready', rows, ...catalog} : {status: 'ready', rows, ...catalog, refreshing: true};
 }
 
 /**

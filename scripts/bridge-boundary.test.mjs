@@ -87,6 +87,21 @@ describe('the app-bridge boundary', () => {
   });
 });
 
+// Admin enables every design-token rule the app's plugin has (CLAUDE.md), by name in eslint.config.js.
+// The plugin is the one the config loads from the pin, so a pin bump that brings a rule fails this until
+// the config enables it too (#84). It reads the plugin through the config: this file may not import upstream.
+describe("the app's design-token rules", () => {
+  it('enables every rule of the plugin, as an error, on admin source files', async () => {
+    const config = await eslint.calculateConfigForFile('src/shell/Tokens.tsx');
+    const plugin = Object.keys(config.plugins.inkweave.rules).map((rule) => `inkweave/${rule}`);
+    const enabled = Object.entries(config.rules)
+      .filter(([rule, [severity]]) => rule.startsWith('inkweave/') && severity === 2)
+      .map(([rule]) => rule);
+    expect(plugin.length).toBeGreaterThan(0);
+    expect(enabled.sort()).toEqual(plugin.sort());
+  });
+});
+
 // The layers under the tools (#37): src/ui imports neither the chart kit nor a
 // tool, and src/shell, src/charts and src/theme import no tool, at any depth of
 // ../ (a one-level grep missed ../../charts), statically or through import().

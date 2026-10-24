@@ -214,13 +214,13 @@ describe("an add that starts a Sets 1 to 8 card's group", () => {
   it("refuses an add whose set's data names the card otherwise, writing nothing", async () => {
     const repo = stubRepo({files: withSet3Chunk([{...BALOO_ENTRY, version: 'Someone Else', fullName: 'Baloo - Someone Else'}])});
     await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
-      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which is Baloo - Someone Else."});
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which is Baloo - Someone Else. Fix the card in the app's set data first."});
     expect(repo.writes()).toEqual([]);
   });
   it("refuses an add whose set's data lacks the card", async () => {
     const repo = stubRepo({files: withSet3Chunk([])});
     await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
-      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds."});
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which apps/web/public/data/collection/3.json doesn't hold. Fix the card in the app's set data first."});
     expect(repo.writes()).toEqual([]);
   });
   it("names a set's data whose cards aren't a list, writing nothing", async () => {
@@ -460,7 +460,7 @@ describe('a publish the branch can\'t take', () => {
     });
     expect(repo.writes()).toEqual([]);
   });
-  it("names a catalog it can't read, as the panel does, writing nothing", async () => {
+  it("refuses a catalog that lacks a section, naming it, though the panel keeps its rows over one (#84)", async () => {
     const catalog = JSON.stringify({...FIXTURE_CATALOG, noBaseCard: undefined}, null, 2);
     const repo = stubRepo({files: {...FIXTURE_FILES, [CATALOG_PATH]: catalog}});
     await expect(publishPrinting({token: 't', change: ADD_9_P4})).rejects.toThrow(`${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list`);

@@ -115,7 +115,17 @@ export const idName = (id: string) => `id ${id}`;
  * gives the id alone.
  */
 export function withIdName({label, id}: {label: string; id: string}): string {
-  return label === '' ? idName(id) : `${label} · ${idName(id)}`;
+  const {prefix, idPart} = idNameParts({label, id});
+  return `${prefix}${idPart}`;
+}
+
+/**
+ * withIdName's two parts, for a view that draws the id apart (the search row's number cell keeps it from
+ * breaking): what comes before the id, the label and its " · ", or nothing for an empty label; then the id
+ * part, "id 436". Joined, they are withIdName's text, so one rule ends every twin's label.
+ */
+export function idNameParts({label, id}: {label: string; id: string}): {prefix: string; idPart: string} {
+  return {prefix: label === '' ? '' : `${label} · `, idPart: idName(id)};
 }
 
 /**

@@ -8,7 +8,7 @@ import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
-import {idName, numberLabel, type SearchRow} from '../editSearch';
+import {idNameParts, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
@@ -265,15 +265,12 @@ function Thumb({card}: {card: LorcanaCard}) {
 function NumberCell({row}: {row: SearchRow}) {
   const {card} = row;
   const number = numberLabel(card);
+  if (!row.twin) return <code style={NUMBER}>{number}</code>;
+  const {prefix, idPart} = idNameParts({label: number, id: card.id});
   return (
     <code style={NUMBER}>
-      {number}
-      {row.twin && (
-        <>
-          {number === '' ? '' : ' · '}
-          <span style={TWIN_ID}>{idName(card.id)}</span>
-        </>
-      )}
+      {prefix}
+      <span style={TWIN_ID}>{idPart}</span>
     </code>
   );
 }

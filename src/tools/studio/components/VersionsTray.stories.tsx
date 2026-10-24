@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useRef, useState, type CSSProperties} from 'react';
 import {MemoryRouter} from 'react-router-dom';
-import {expect, spyOn, within} from 'storybook/test';
+import {expect, spyOn, waitFor, within} from 'storybook/test';
 import {SPACING} from '../../../app-bridge';
 import {targetBranch} from '../../../github/githubCommit';
 import {keepClearOfFoot} from '../../../shell/clearBand';
@@ -18,6 +18,8 @@ import {
   batchView,
 } from '../finishes/__tests__/finishFixtures';
 import {changeFor, keptClash, withChange, type VersionChange} from '../finishes/versionBatch';
+import type {VersionBatchView} from '../finishes/versionBatchStore';
+import {PIN_SHARE} from '../footPin';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {STUDIO_PADDING, type StudioLayout} from '../studioLayout';
 import {STUDIO_GAP, STUDIO_GRID, STUDIO_MAX_WIDTH, STUDIO_SLOT} from '../studioStyles';
@@ -69,7 +71,7 @@ export const Clash: Story = {args: {view: batchView([NUMBER_223_TO_BOTH_CLASHED,
 /** The branch no longer has #59 where the app keeps it: there is nothing to keep, so its row offers Drop alone. */
 export const Gone: Story = {args: {view: batchView([NUMBER_59_TO_FOIL_GONE, NUMBER_223_TO_BOTH])}};
 
-/** A publish is under way: Publish reads Publishing…, and no change can be taken back, as the publish has them. */
+/** A publish is under way: Publish reads Publishing 2 changes…, the count it sent, and no change can be taken back, as the publish has them. */
 export const Publishing: Story = {args: {view: batchView(TWO_CHANGES, {publishing: true})}};
 
 /** The publish landed: the batch is empty, and the line says how many changes went and links the commit. */
@@ -127,6 +129,10 @@ export const Settling: Story = {render: () => <SettlingTray />};
 const noop = () => {};
 /** A 375px phone's page, at a phone's height: the viewport less the rail the sidebar keeps there. */
 const PHONE_PAGE: CSSProperties = {width: 375 - ADMIN_LAYOUT.sidebarCollapsed, height: 667};
+/** A window at 400% zoom (WCAG 1.4.10's 320 × 256 CSS px), less the rail the sidebar keeps there. */
+const ZOOMED_PAGE: CSSProperties = {width: 320 - ADMIN_LAYOUT.sidebarCollapsed, height: 256};
+/** What GitHub says of a token it rejected: the tallest foot, with its failure and Forget token. */
+const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 /** A wide window's page, at a laptop's height, across the stage. */
 const WIDE_PAGE: CSSProperties = {flex: '1 1 100%', height: 800};
 /** A released card's form slot, as EditPane lays out its facts over its printings (#68). */
@@ -148,7 +154,7 @@ const STAGED = [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH];
  * stages its change as the studio's does; in the wide grid a dashed box stands in for the top of a
  * card taller than the view.
  */
-function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties}) {
+function PinnedStudio({layout, page, outcome = {}}: {layout: StudioLayout; page: CSSProperties; outcome?: Partial<VersionBatchView>}) {
   const pinnedFootRef = useRef<HTMLDivElement>(null);
   const [changes, setChanges] = useState<readonly VersionChange[]>(STAGED);
   return (
@@ -169,7 +175,7 @@ function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties
                 />
               </div>
             </div>
-            <VersionsTray view={batchView(changes)} token="story" onForgetToken={noop} pinnedFootRef={pinnedFootRef} />
+            <VersionsTray view={batchView(changes, outcome)} token="story" onForgetToken={noop} pinnedFootRef={pinnedFootRef} />
           </div>
         </PageLayout>
       </div>
@@ -203,14 +209,7 @@ function focusByKeyboard(control: HTMLElement): void {
  */
 async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
   const canvas = within(canvasElement);
-  // The page's flush body, which scrolls under its header.
-  const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
-  // The branch is the one the stories run against: a rehearsal's, when .env.local names one.
-  const publish = canvas.getByRole('button', {name: `Publish 2 changes to ${targetBranch()}`});
-  const foot = publish.parentElement as HTMLElement;
-  const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
-  body.scrollTop = 0;
-  const view = body.getBoundingClientRect();
+  const {body, publish, foot, panel, view} = laidOutTray(canvasElement);
   await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
   await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
 
@@ -251,4 +250,53 @@ export const PinnedWide: Story = {
   render: () => <PinnedStudio layout="wide" page={WIDE_PAGE} />,
   parameters: {stage: WIDEST},
   play: playPinned,
+};
+
+/** The page's flush body, the foot, the tray's panel, and the body's view, as the plays below read them. */
+function laidOutTray(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  // The page's flush body, which scrolls under its header.
+  const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
+  // The branch is the one the stories run against: a rehearsal's, when .env.local names one.
+  const publish = canvas.getByRole('button', {name: `Publish 2 changes to ${targetBranch()}`});
+  const foot = publish.parentElement as HTMLElement;
+  const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
+  body.scrollTop = 0;
+  return {body, publish, foot, panel, view: body.getBoundingClientRect()};
+}
+
+/**
+ * A failure in the foot on a 375px phone (#86): GitHub rejected the token, so the foot holds the failure
+ * and Forget token over Publish. It takes under half the view, so it stays pinned to the view's bottom,
+ * and the play checks it does.
+ */
+export const FailurePinnedOnAPhone: Story = {
+  render: () => <PinnedStudio layout="narrow" page={PHONE_PAGE} outcome={{error: REJECTED}} />,
+  play: async ({canvasElement}) => {
+    const {foot, view} = laidOutTray(canvasElement);
+    await expect(within(foot).getByRole('alert')).toHaveTextContent('Bad credentials');
+    await expect(foot.getBoundingClientRect().height).toBeLessThanOrEqual(view.height * PIN_SHARE);
+    // The foot is measured once the tray has mounted, so the play waits for what the measure decides.
+    await waitFor(() => expect(getComputedStyle(foot).position).toBe('sticky'));
+    await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
+  },
+};
+
+/**
+ * The same failure at 400% zoom (#86, WCAG 1.4.10's 320 × 256 CSS px): the foot is taller than half the
+ * page's scrolling body, so pinned it would cover all of it. It stays in its place under the panel, and
+ * the page scrolls to it; the play checks both.
+ */
+export const TooTallToPinAt400Percent: Story = {
+  render: () => <PinnedStudio layout="narrow" page={ZOOMED_PAGE} outcome={{error: REJECTED}} />,
+  play: async ({canvasElement}) => {
+    const {body, foot, panel, view} = laidOutTray(canvasElement);
+    await expect(foot.getBoundingClientRect().height).toBeGreaterThan(view.height * PIN_SHARE);
+    await waitFor(() => expect(getComputedStyle(foot).position).not.toBe('sticky'));
+    // At the top of the page the foot waits under the panel, below the view.
+    await expect(foot.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
+    body.scrollTop = body.scrollHeight;
+    await expect(Math.round(foot.getBoundingClientRect().top)).toBe(Math.round(panel.getBoundingClientRect().bottom));
+    body.scrollTop = 0;
+  },
 };

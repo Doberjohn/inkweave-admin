@@ -411,13 +411,18 @@ function DroppedNote({dropped, noteRef}: {dropped: number | null; noteRef: RefOb
  * field that takes focus outside the clear band between the header's bottom
  * and the tray's top scrolls into it (WCAG 2.4.11, scrollIntoBand). Centring it
  * in the view isn't enough: a tall header (a wrapped "Shared by" line) and a
- * tall tray can leave the view's middle under one of them.
+ * tall tray can leave the view's middle under one of them. Only a focus the
+ * browser shows (`:focus-visible`) moves the page, as the studio's band does
+ * (keepClearOfFoot, #86): a press of the mouse focuses a control as it goes
+ * down, and a scroll then would take it from under the pointer, so the click
+ * would land elsewhere.
  */
 function keepClear(field: Element, head: Element | null, foot: Element | null): void {
   // With no entry there is no header, and no field to focus.
   if (!head || !foot) return;
   // The header's own heading takes focus from the Tune link: it is the header, never under it.
   if (head.contains(field)) return;
+  if (!field.matches(':focus-visible')) return;
   scrollIntoBand({field, band: {top: head.getBoundingClientRect().bottom, bottom: foot.getBoundingClientRect().top}});
 }
 

@@ -397,6 +397,43 @@ describe('StudioPage: promo printings in the Printings panel (#77)', () => {
     expect(screen.queryByRole('group', {name: 'Versions of Mother Knows Best 13/C3'})).not.toBeInTheDocument();
   });
 
+  it("stages a version change over a catalog that lacks a section, and keeps only the printing form off (#84)", async () => {
+    const catalog = JSON.stringify({...FIXTURE_CATALOG, noBaseCard: undefined}, null, 2);
+    stubStudioRepo({branch: {...MKB_FILES, [CATALOG_PATH]: catalog}});
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    const {user} = renderStudio({path: studioHref('edit', '2035')});
+    const batch = renderHook(() => useVersionBatch());
+    const group = await within(await printings()).findByRole('group', {name: 'Versions of Mother Knows Best 13/C3'});
+
+    await user.click(within(group).getByRole('button', {name: 'Both'}));
+    expect(batch.result.current.changes).toEqual([expect.objectContaining({id: '80024', to: ['normal', 'foil']})]);
+    const panel = await printings();
+    expect(within(panel).getByRole('alert')).toHaveTextContent(
+      `Promo printings can't be added or edited: ${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list.`,
+    );
+    expect(within(panel).queryByRole('button', {name: 'Add a printing'})).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', {name: /^Edit /})).not.toBeInTheDocument();
+  });
+
+  it('keeps its rows over a catalog that lacks its fold, which its versions read too (#84)', async () => {
+    const catalog = JSON.stringify({...FIXTURE_CATALOG, fold: undefined}, null, 2);
+    stubStudioRepo({branch: {...MKB_FILES, [CATALOG_PATH]: catalog}});
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    renderStudio({path: studioHref('edit', '2035')});
+    const panel = await printings();
+    expect(await within(panel).findByRole('group', {name: 'Versions of Mother Knows Best 13/C3'})).toBeInTheDocument();
+    expect(within(panel).getByRole('alert')).toHaveTextContent(`${CATALOG_PATH} can't be read: its "fold" isn't a list.`);
+  });
+
+  it("fails the read of a catalog whose text isn't JSON, as any file's: no promo shows its versions by rarity", async () => {
+    stubStudioRepo({branch: {...MKB_FILES, [CATALOG_PATH]: '{"fold": ['}});
+    setCardList({cards: [MOTHER_KNOWS_BEST]});
+    renderStudio({path: studioHref('edit', '2035')});
+    const panel = await printings();
+    expect(await within(panel).findByRole('alert')).toHaveTextContent(`Could not read the printings: ${CATALOG_PATH} can't be read:`);
+    expect(within(panel).queryByRole('group', {name: 'Versions of Mother Knows Best 13/C3'})).not.toBeInTheDocument();
+  });
+
   it("points Ursula's Set 3 copy to her Core printing, which holds her promos, and offers no Add a printing on it", async () => {
     const chunk3 = setChunkPath('3');
     stubStudio({[chunk3]: collectionText([URSULA_SET_3_ENTRY]), [PROMOS_PATH]: EMPTY_FILE, [CATALOG_PATH]: EMPTY_CATALOG_TEXT}, {'3': [URSULA_SET_3_ENTRY]});

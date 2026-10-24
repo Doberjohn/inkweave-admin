@@ -84,6 +84,11 @@ export interface VersionBatchView {
   /** A publish is under way. */
   publishing: boolean;
   /**
+   * How many changes the publish under way sent, which Publish names while it runs ("Publishing 2
+   * changes…", #86): the batch can change under it, as another tab saves. 0 while none runs.
+   */
+  sending: number;
+  /**
    * The publish that landed last, until the owner stages, reverts or discards a change, or
    * publishes again. Only to a reader that names the token that made it, or names none
    * (`useVersionBatch(token)`).
@@ -122,6 +127,8 @@ interface BranchState {
   /** The last save of the batch failed: storage holds an older one, which a read of it must not put back. */
   unsaved: boolean;
   publishing: boolean;
+  /** How many changes the last publish to start sent. */
+  sending: number;
   result: PublishResult | null;
   error: string | null;
   /**
@@ -204,6 +211,7 @@ function snapshot(): BranchState {
     batch: {changes: readSaved() ?? []},
     unsaved: false,
     publishing: false,
+    sending: 0,
     result: null,
     error: null,
     outcomeMark: null,
@@ -240,11 +248,23 @@ function reconciled(batch: VersionBatch, saved: readonly VersionChange[]): Versi
 }
 
 /**
+ * Whether a failure that stands outlives the batch it was about: another tab's save emptied the batch
+ * after this tab's publish failed, with none running now (#86). Its words ("Publish again.") would
+ * then offer to publish nothing.
+ */
+function errorOutlivesBatch(before: BranchState, batch: VersionBatch): boolean {
+  return before.error !== null && !before.publishing && batch.changes.length === 0;
+}
+
+/**
  * Makes the target branch's batch what is saved for it, which another tab may have changed since.
  * What a publish has to say (`publishing`, `result`, `error`) is left as it is, and so is the batch
- * when nothing differs. Either way storage now holds the batch, so `unsaved` clears: a failed save
- * here no longer leaves it in memory alone. The readers are told when the batch or `unsaved`
- * changes, and only then. Storage that can't be read says nothing.
+ * when nothing differs, but for a failure the saved batch empties: another tab published or reverted
+ * the changes after this tab's publish failed, so `error` says nothing was published, and the Printings
+ * panel reads the branch again, as `failed` does when that save came first. Either way storage now
+ * holds the batch, so `unsaved` clears: a failed save here no longer leaves it in memory alone. The
+ * readers are told when the batch or `unsaved` changes, and only then. Storage that can't be read says
+ * nothing.
  */
 function adoptSaved(): void {
   const before = snapshot();
@@ -252,8 +272,10 @@ function adoptSaved(): void {
   if (saved === null) return;
   const batch = reconciled(before.batch, saved);
   if (batch === before.batch && !before.unsaved) return;
-  states.set(targetBranch(), {...before, batch, unsaved: false});
+  const emptied = errorOutlivesBatch(before, batch);
+  states.set(targetBranch(), {...before, batch, unsaved: false, ...(emptied && {error: NOTHING_PUBLISHED})});
   notify();
+  if (emptied) forgetBranchFiles();
 }
 
 /**
@@ -379,7 +401,7 @@ function publish(token: string): Promise<void> {
   const state = snapshot();
   if (!canPublish(state)) return Promise.resolve();
   const sent = state.batch.changes;
-  put({publishing: true, result: null, error: null, outcomeMark: tokenMark(token)});
+  put({publishing: true, sending: sent.length, result: null, error: null, outcomeMark: tokenMark(token)});
   return publishVersions({token, changes: sent}).then(({commitUrl}) => landed({sent, commitUrl}), refused);
 }
 
@@ -391,11 +413,12 @@ function publish(token: string): Promise<void> {
  * it is.
  */
 export function useVersionBatch(token?: string): VersionBatchView {
-  const {batch, publishing, result, error, unsaved, outcomeMark} = useSyncExternalStore(subscribe, snapshot);
+  const {batch, publishing, sending, result, error, unsaved, outcomeMark} = useSyncExternalStore(subscribe, snapshot);
   const theirs = token === undefined || tokenMark(token) === outcomeMark;
   return {
     changes: batch.changes,
     publishing,
+    sending: publishing ? sending : 0,
     result: theirs ? result : null,
     error: theirs ? error : null,
     unsaved,

@@ -197,13 +197,22 @@ describe('useBranchPrintings', () => {
       expect(failed(rendered.result.current).error).toContain(`${PROMOS_PATH} can't be read: `);
     });
 
-    it('names the catalog and the section it lacks, as a publish does', async () => {
-      const catalog = {...(JSON.parse(EMPTY_CATALOG_TEXT) as object), noBaseCard: undefined};
-      stubBranch({...YEN_SID_FILES, [CATALOG_PATH]: JSON.stringify(catalog, null, 2)});
-      const rendered = renderPrintings(YEN_SID);
-      await whenFailed(rendered);
-      expect(failed(rendered.result.current).error).toBe(`${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list`);
-    });
+    it.each(['noBaseCard', 'notes', 'provisionalIds'])(
+      'keeps the rows over a catalog that lacks its "%s", and names the file and the section for the form alone (#84)',
+      async (section) => {
+        const catalog = {...(JSON.parse(MKB_FILES[CATALOG_PATH]) as object), [section]: undefined};
+        stubBranch({...MKB_FILES, [CATALOG_PATH]: JSON.stringify(catalog, null, 2)});
+        const rendered = renderPrintings(MOTHER_KNOWS_BEST);
+        await whenReady(rendered);
+        expect(namesOf(rendered.result.current)).toEqual(MKB_NAMES);
+        // The promos' versions come from the catalog's fold, which the form's check doesn't need.
+        expect(valuesOf(rendered.result.current)).toEqual([null, ['normal'], ['foil']]);
+        const view = ready(rendered.result.current);
+        expect(view.catalog).toBeUndefined();
+        const problem = section === 'provisionalIds' ? `its "${section}" isn't an object` : `its "${section}" isn't a list`;
+        expect(view.catalogError).toBe(`${CATALOG_PATH} can't be read: ${problem}`);
+      },
+    );
   });
 
   describe('a card opened after another', () => {

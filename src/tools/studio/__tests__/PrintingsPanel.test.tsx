@@ -462,6 +462,21 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     expect(editNames()).toEqual([]);
   });
 
+  it("keeps the rows live over a catalog the form can't read, and says why in place of Add a printing and every Edit (#84)", async () => {
+    const problem = `scripts/data/promo-printings.json can't be read: its "noBaseCard" isn't a list`;
+    const {onChoose, user} = renderPanel({view: {status: 'ready', rows: MKB_ROWS, catalogError: problem}, promos: promosProps()});
+    expect(addButton()).toBeNull();
+    expect(editNames()).toEqual([]);
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent(`Promo printings can't be added or edited: ${problem}.`);
+    expect(follows(screen.getByRole('list'), notice)).toBe(true);
+    // The line for the last publish stays under it.
+    expect(follows(notice, document.querySelector('[data-outcome]')!)).toBe(true);
+
+    await user.click(within(versionsOf(MKB_13_C3)).getByRole('button', {name: 'Both'}));
+    expect(onChoose).toHaveBeenCalledWith({row: MKB_13_C3, choice: 'both'});
+  });
+
   it('offers no Edit on a promo the catalog does not hold', () => {
     renderPanel({view: {...MKB_READY, catalog: WITHOUT_13_C3}, promos: promosProps()});
     expect(editNames()).toEqual(['Edit Mother Knows Best 1/C3']);
@@ -664,7 +679,8 @@ describe('PrintingsPanel: a read GitHub refused the token for (#74)', () => {
  * Each form opens in place of the button that opened it, which hides while it is open, and Cancel
  * takes the form away with its own button. A publish that lands, or that the branch refuses because the
  * printing is gone, closes the form too. So the panel hands the focus on each time (R-48): to the form
- * that opened, back to the button that opened it, or to the line under the rows that says what came of
+ * that opened, back to the button that opened it on Cancel (or to Add a printing, for an edit form whose
+ * row a read dropped: the form sat in Add's place), or to the line under the rows that says what came of
  * the publish. These run the panel on the studio's own controller.
  */
 describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)', () => {
@@ -775,6 +791,26 @@ describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)
     expect(form.querySelector('img')).toBeNull();
     expect(screen.getByRole('button', {name: 'Cancel'})).toBeEnabled();
     expect(heading('Edit 13/C3 · id 80024')).toHaveFocus();
+  });
+
+  it('hands the focus that was in a moved edit form to its failure, where it has one (R-59, #84)', () => {
+    const failing = controllerOf(editForm({id: 80024, card: MKB_BASE, error: GONE}));
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: failing})});
+    act(() => screen.getByLabelText('Number').focus());
+
+    update({view: WITHOUT_ROW_13});
+    const form = screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'});
+    expect(within(form).getByRole('alert').parentElement).toHaveFocus();
+  });
+
+  it('leaves a focus that was on <body> before a read moved an edit form, rather than give it to the form (#84)', () => {
+    const {update} = renderPanel({view: MKB_READY, promos: promosProps({controller: edit13Form()})});
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(document.body).toHaveFocus();
+
+    update({view: WITHOUT_ROW_13});
+    expect(screen.getByRole('region', {name: 'Edit 13/C3 · id 80024'})).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
   });
 
   it('leaves the focus where it was when a read drops the row of an edit form it was not in', () => {

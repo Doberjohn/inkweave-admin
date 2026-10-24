@@ -1016,6 +1016,43 @@ describe('a publish and other tabs', () => {
     expect(generation.result.current).toBe(1);
   });
 
+  it('counts the changes the publish under way sent, through another tab’s save, and none once it ends (#86)', async () => {
+    const held = heldUpdate();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: held.update});
+    expect(view.current.sending).toBe(1);
+    otherTabSaves([]);
+    expect(view.current.sending).toBe(1);
+
+    await settled(publishing, held.moveBranch);
+    expect(view.current.sending).toBe(0);
+  });
+
+  it('says nothing was published, and reads the branch again, when another tab empties the batch after a publish failed (#86)', async () => {
+    const late = deferredResponse();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    const generation = renderHook(() => useBranchFilesGeneration());
+    await settled(publishing, () => late.respond(notAFastForward()));
+    expect(view.current.error).not.toBe(NOTHING);
+    expect(generation.result.current).toBe(0);
+
+    // The failure stands; then another tab publishes or reverts #223's change and saves the batch without it.
+    otherTabSaves([]);
+    expect(view.current.changes).toEqual([]);
+    expect(view.current.error).toBe(NOTHING);
+    expect(generation.result.current).toBe(1);
+  });
+
+  it('keeps a failure while another tab saves a batch that still holds changes', async () => {
+    const late = deferredResponse();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    await settled(publishing, () => late.respond(notAFastForward()));
+    const failure = view.current.error;
+
+    otherTabSaves([ALT_FOIL_TO_BOTH, CARD_TO_FOIL]);
+    expect(view.current.changes).toHaveLength(2);
+    expect(view.current.error).toBe(failure);
+  });
+
   it('marks the clashes it finds a change for, and says nothing else, when another tab took out only some', async () => {
     const late = deferredResponse();
     const files = {[CHUNK_4]: () => late.response};

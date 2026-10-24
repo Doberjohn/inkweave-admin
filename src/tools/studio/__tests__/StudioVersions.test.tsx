@@ -190,6 +190,11 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('button', {name: 'Publish to master'})).toBe(publish);
     expect(publish).toHaveAttribute('aria-disabled', 'true');
     expect(publish).toHaveFocus();
+    // The foot stays pinned while the focus is in it, so the line that says it landed stays in view (#86).
+    expect(publish.parentElement).toHaveStyle({position: 'sticky'});
+    await user.tab();
+    await user.tab();
+    expect(publish.parentElement?.style.position).toBe('');
   });
 
   it('leaves the focus on Publish when the branch moves under the publish: the failure comes in above the same button', async () => {
@@ -448,7 +453,7 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
     const batch = renderHook(() => useVersionBatch());
     const tray = await publish223(user);
-    expect(within(tray).getByRole('button', {name: 'Publishing…'})).toBeInTheDocument();
+    expect(within(tray).getByRole('button', {name: 'Publishing 1 change…'})).toBeInTheDocument();
 
     for (const choice of choicesIn(panel())) expect(choice).toHaveAttribute('aria-disabled', 'true');
     const foil59 = within(screen.getByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'});

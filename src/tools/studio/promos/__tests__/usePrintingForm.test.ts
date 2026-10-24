@@ -400,7 +400,7 @@ const REFUSALS: Record<RefusalKind, {files: Record<string, string>; open: Openin
       act(() => result.current.patch({promoGrouping: 'P4', number: '9', versions: 'foil'}));
       await act(() => result.current.chooseScan(pngFile('scan.png')));
     },
-    says: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds.",
+    says: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which apps/web/public/data/collection/3.json doesn't hold. Fix the card in the app's set data first.",
   },
 };
 
