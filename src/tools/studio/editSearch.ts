@@ -109,9 +109,10 @@ export const idName = (id: string) => `id ${id}`;
 
 /**
  * `label`, ended by the id that alone tells it apart (#74): the one way every twin's label ends, so a
- * twin reads the same wherever it is named. "Set 3 · #4 · id 436" on the Editing banner, as on its
- * search row; "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436" in the Printings panel, the Version
- * changes tray and the change history. An empty label gives the id alone.
+ * twin reads the same wherever a label names it. "Set 3 · #4 · id 436" on its search row; "Dalmatian
+ * Puppy - Tail Wagger #4 · Set 3 · id 436" in the Printings panel, the Version changes tray and the
+ * change history. The Editing banner needs neither: it shows every card's id (CardId). An empty label
+ * gives the id alone.
  */
 export function withIdName({label, id}: {label: string; id: string}): string {
   return label === '' ? idName(id) : `${label} · ${idName(id)}`;

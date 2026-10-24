@@ -375,10 +375,13 @@ describe('StudioPage: twin cards in the panel and the tray (#74)', () => {
     expect(within(tray).getByRole('button', {name: `Revert ${LABEL_437}`})).toHaveFocus();
   });
 
-  it("ends the open twin's number on its banner with its id, as its search row does", async () => {
+  it("shows the open twin's id after its number on its banner, as its search row does", async () => {
     stubStudioRepo({branch: PUPPY_FILES, chunks: {'3': DALMATIAN_ENTRIES}});
     renderStudio({path: studioHref('edit', PUPPY_437.id)});
-    expect(await screen.findByText('Set 3 · #4 · id 437')).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', {level: 2, name: /^Editing Dalmatian Puppy/});
+    const banner = within(heading.parentElement as HTMLElement);
+    expect(banner.getByText('Set 3 · #4')).toBeInTheDocument();
+    expect(banner.getByText(PUPPY_437.id).parentElement).toHaveTextContent(`ID ${PUPPY_437.id}`);
   });
 
   it("names a clashed twin's Keep mine and Drop by its id", async () => {

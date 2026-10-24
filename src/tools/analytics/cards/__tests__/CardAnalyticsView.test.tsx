@@ -100,6 +100,16 @@ describe('CardAnalyticsView', () => {
       expect(screen.getByText('Super rare').querySelector('img')).not.toBeNull();
     });
 
+    it("shows the card's id, as the card list has it, selected whole by one click", () => {
+      renderView();
+      const id = screen.getByText(CARD_ID);
+      expect(id.tagName).toBe('CODE');
+      expect(id.style.userSelect).toBe('all');
+      expect(id.parentElement).toHaveTextContent(`ID ${CARD_ID}`);
+      // Last on the facts line, after the collector number.
+      expect(id.closest('p')?.lastElementChild).toBe(id.parentElement);
+    });
+
     it('shows the thumbnail as decoration, 64 × 90', () => {
       const {container} = renderView();
       const thumb = container.querySelector('img[src^="https://placehold.co"]');
@@ -114,7 +124,8 @@ describe('CardAnalyticsView', () => {
       expect(screen.getByRole('img', {name: 'Amber'})).toBeInTheDocument();
       expect(screen.getByRole('img', {name: 'Sapphire'})).toBeInTheDocument();
       expect(screen.getByText('Action · cost 3 · uninkable')).toBeInTheDocument();
-      expect(container.querySelector('code')).toBeNull();
+      // The one code left is the id, which every card has.
+      expect([...container.querySelectorAll('code')].map((code) => code.textContent)).toEqual([CARD_500.id]);
       // The only images left are the two named inks: no thumbnail, no rarity glyph.
       expect(container.querySelectorAll('img')).toHaveLength(2);
     });
