@@ -180,7 +180,9 @@ function sharedLabels(pockets: readonly Pocket[]): ReadonlySet<string> {
  * labels, and any two of the card's own pockets that share one. In the app's data only promos can,
  * two under one code, as Hades - Dark Usurper's 28/C3 pair would: nothing promos.json holds tells
  * them apart. Those two would share their name on the panel too, so it ends in the id as well; a
- * twin's own panel shows none of its twin's pockets, so its names stay as they are.
+ * twin's own panel shows none of its twin's pockets, so its names stay as they are. The change history
+ * ends its entries' labels the same way, in dataEntries.ts's toldApart, where a file's shared labels
+ * are all it has to go by. A change to when either ends a label in its id belongs in both.
  */
 function toldApart({pockets, twin}: {pockets: readonly Pocket[]; twin: boolean}): Pocket[] {
   const shared = sharedLabels(pockets);

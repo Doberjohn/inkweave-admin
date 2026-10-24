@@ -70,13 +70,16 @@ async function chunkEntries(url: string): Promise<LorcanaJSONCard[]> {
 /**
  * One set's chunk as cards. The app's loader builds them (transformRawCards), so each has its art's
  * URL. A read that fails names the chunk before what it met (#74): "/data/collection/3.json: HTTP
- * 500", a fetch that couldn't reach it, or the JSON parser's words where the app answered with its page.
+ * 500", a fetch that couldn't reach it, the JSON parser's words where the app answered with its page,
+ * or the loader's where the JSON isn't a list of cards.
  */
 function readChunk(set: string): Promise<LorcanaCard[]> {
   const url = `/data/collection/${set}.json`;
-  return chunkEntries(url).then(transformRawCards, (error: unknown) => {
-    throw new Error(`${url}: ${messageOf(error)}`, {cause: error});
-  });
+  return chunkEntries(url)
+    .then(transformRawCards)
+    .catch((error: unknown) => {
+      throw new Error(`${url}: ${messageOf(error)}`, {cause: error});
+    });
 }
 
 /**

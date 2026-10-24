@@ -1,4 +1,4 @@
-import {useId, useRef, useState, type CSSProperties} from 'react';
+import {useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject} from 'react';
 import {COLORS, CtaButton, LinkButton, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
@@ -25,8 +25,9 @@ import {STUDIO_GAP} from '../studioStyles';
  * its own (display: contents; Chrome keeps the region, and all in it, in the accessibility tree). A
  * sticky box sticks only inside its parent's box, so a foot inside the panel would stick only while the
  * panel is in view. A box of the root, the foot sticks to the bottom of the view across the whole studio
- * while changes are staged (#74): Publish, which counts them, stays in view as the owner scrolls a tall
- * Edit card, while the rows scroll with the page.
+ * while changes are staged (#74): Publish, which counts them, and what the tray says of it (a failure,
+ * a clash, a batch this browser couldn't save) stay in view as the owner scrolls a tall Edit card,
+ * while the rows scroll with the page.
  */
 const REGION: CSSProperties = {display: 'contents'};
 
@@ -36,7 +37,7 @@ const REGION: CSSProperties = {display: 'contents'};
 const OWN_ROW: CSSProperties = {gridColumn: '1 / -1', flex: '1 1 100%', minWidth: 0};
 /** The edge of the tray's boxes: a studio panel's (STUDIO_PANEL). */
 const EDGE = `1px solid ${ADMIN_COLORS.border}`;
-// The heading, the rows and what the tray says: a studio panel, open at the bottom, where its foot closes it.
+// The heading and the rows: a studio panel, open at the bottom, where its foot closes it.
 const PANEL: CSSProperties = {
   ...OWN_ROW,
   display: 'flex',
@@ -56,9 +57,9 @@ const PANEL: CSSProperties = {
  * and the page under its border too, so the border lands where the panel's does (adminTheme.ts).
  */
 export const TRAY_FOOT_FILL = `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}) padding-box, ${ADMIN_COLORS.page}`;
-// Publish and what the last publish said, on a line, the words wrapping under the button where they don't
-// fit. The foot closes the panel under a rule, the root's gap between the two taken back. Its height while
-// pinned, Publish between this padding and the borders, is what AdminStyles keeps clear (TRAY_FOOT_CLEARANCE).
+// What the tray says of Publish, a line of its own when it says anything, then Publish and what the last
+// publish said on a line, the words wrapping under the button where they don't fit. The foot closes the
+// panel under a rule, the root's gap between the two taken back.
 const FOOT: CSSProperties = {
   ...OWN_ROW,
   display: 'flex',
@@ -119,6 +120,8 @@ const MUTED_LINE: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color:
 const CLASH: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.error};
 const ACTIONS: CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.md, flex: 'none'};
 const ACTION: CSSProperties = {fontSize: ADMIN_TYPE.small};
+// The notices above Publish, across the foot's whole width.
+const NOTICES: CSSProperties = {flex: '1 1 100%', display: 'flex', flexDirection: 'column', gap: SPACING.md};
 const FAILURE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
 const STATUS: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.success};
 const COMMIT_LINK: CSSProperties = {color: ADMIN_COLORS.accent};
@@ -142,6 +145,11 @@ export interface VersionsTrayProps {
   token: string;
   /** Forgets the saved token. Offered when GitHub rejects it (a 401) only; the page asks first where it must. */
   onForgetToken: () => void;
+  /**
+   * Holds the foot while it is pinned to the bottom of the view, and null otherwise (#74): the page
+   * keeps a control that takes focus clear of it (keepClearOfFoot, StudioWorkspace).
+   */
+  pinnedFootRef?: RefObject<HTMLDivElement | null>;
 }
 
 /** "1 change", "2 changes". */
@@ -340,18 +348,29 @@ interface NoticesProps {
   onForgetToken: () => void;
 }
 
+/** What the tray has to say of Publish: each notice it shows, and whether it shows any. */
+function noticesOf({view, clashes}: Pick<NoticesProps, 'view' | 'clashes'>) {
+  const unsaved = view.unsaved && view.changes.length > 0;
+  const clash = clashes > 0;
+  const failure = view.error;
+  return {unsaved, clash, failure, any: unsaved || clash || failure !== null};
+}
+
 /**
- * What the tray says between its rows and Publish: that this browser couldn't save the changes it
- * lists, why Publish is held, and how the last publish failed. The first is an alert: a reload
- * would lose those changes, which the owner must know before it.
+ * What the tray says above Publish, in its foot, so a pinned Publish keeps it in view (#74): that this
+ * browser couldn't save the changes it lists, why Publish is held, and how the last publish failed.
+ * The first is an alert: a reload would lose those changes, which the owner must know before it.
+ * Nothing at all where there is nothing to say, so the foot is no taller then.
  */
 function TrayNotices({view, clashes, clashId, onForgetToken}: NoticesProps) {
+  const {unsaved, clash, failure, any} = noticesOf({view, clashes});
+  if (!any) return null;
   return (
-    <>
-      {view.unsaved && view.changes.length > 0 && <Notice tone="error">{UNSAVED}</Notice>}
-      {clashes > 0 && <ClashNotice count={clashes} id={clashId} />}
-      {view.error !== null && <PublishFailure error={view.error} onForgetToken={onForgetToken} />}
-    </>
+    <div style={NOTICES}>
+      {unsaved && <Notice tone="error">{UNSAVED}</Notice>}
+      {clash && <ClashNotice count={clashes} id={clashId} />}
+      {failure !== null && <PublishFailure error={failure} onForgetToken={onForgetToken} />}
+    </div>
   );
 }
 
@@ -375,8 +394,10 @@ function PublishStatus({result}: {result: PublishResult | null}) {
   );
 }
 
-interface PublishProps {
+interface PublishProps extends Pick<VersionsTrayProps, 'pinnedFootRef'> {
   view: VersionBatchView;
+  /** What the tray says of Publish (TrayNotices), above it. */
+  notices: ReactNode;
   /** The id of the line that says why Publish is held, where one does. */
   describedBy: string | undefined;
   /** Publish was pressed: the tray publishes, unless Publish is held (`holdsPublish`). */
@@ -384,15 +405,18 @@ interface PublishProps {
 }
 
 /**
- * The tray's foot: Publish, and what the last publish said. Publish is aria-disabled where it is held,
- * so it keeps the focus a native disabled would drop; a click still arrives then, and the tray does
- * nothing with it. While changes are staged the foot is pinned (data-pinned): it sticks to the bottom
- * of the view, and AdminStyles keeps a control that takes focus elsewhere in the studio clear of it.
+ * The tray's foot: what the tray says of Publish, Publish, and what the last publish said. Publish is
+ * aria-disabled where it is held, so it keeps the focus a native disabled would drop; a click still
+ * arrives then, and the tray does nothing with it. The notices come and go above it, in a place of
+ * their own, so Publish stays the same button, with its focus. While changes are staged the foot is
+ * pinned: it sticks to the bottom of the view, and `pinnedFootRef` holds it for the page, which keeps
+ * a control that takes focus elsewhere clear of it.
  */
-function PublishBar({view, describedBy, onPublish}: PublishProps) {
+function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: PublishProps) {
   const pinned = view.changes.length > 0;
   return (
-    <div className="adm-tray-foot" data-pinned={pinned || undefined} style={pinned ? PINNED_FOOT : FOOT}>
+    <div ref={pinned ? pinnedFootRef : undefined} style={pinned ? PINNED_FOOT : FOOT}>
+      {notices}
       <CtaButton
         type="button"
         aria-disabled={holdsPublish(view) || undefined}
@@ -412,9 +436,10 @@ function PublishBar({view, describedBy, onPublish}: PublishProps) {
  * that landed. It renders nothing while there is nothing to say: no change, no publish under way,
  * nothing about the last one.
  *
- * Publish and the publish that landed are its foot, under the panel. While changes are staged the
- * foot sticks to the bottom of the view, so Publish, which counts them, is in reach however far up
- * the page the owner is (#74); the rows and the rest scroll with the page.
+ * Everything after the rows is its foot, under the panel. While changes are staged the foot sticks
+ * to the bottom of the view, so Publish, which counts them, is in reach however far up the page the
+ * owner is (#74), and what a press of it came to shows beside it; the rows scroll with the page.
+ * Once a publish lands, the batch is empty and the foot goes back under the panel.
  *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on
  * first and never falls to <body> (R-48): to the next row's first button, else the previous
@@ -430,7 +455,7 @@ function PublishBar({view, describedBy, onPublish}: PublishProps) {
  * A clash is told from the changes still marked, never from the store's `error`, which holds the
  * other failures only.
  */
-export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
+export function VersionsTray({view, token, onForgetToken, pinnedFootRef}: VersionsTrayProps) {
   const trayRef = useRef<HTMLElement>(null);
   const clashId = useId();
   // Set by the handlers of the buttons above, never by render.
@@ -452,13 +477,18 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
     if (!holdsPublish(view)) void view.publish(token);
   };
   return (
-    <section ref={trayRef} aria-label="Version changes" className="adm-tray" style={REGION}>
+    <section ref={trayRef} aria-label="Version changes" style={REGION}>
       <div style={PANEL}>
         <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
         <ChangeRows view={view} onSettle={settle} />
-        <TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />
       </div>
-      <PublishBar view={view} describedBy={clashes > 0 ? clashId : undefined} onPublish={publish} />
+      <PublishBar
+        view={view}
+        notices={<TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />}
+        describedBy={clashes > 0 ? clashId : undefined}
+        onPublish={publish}
+        pinnedFootRef={pinnedFootRef}
+      />
     </section>
   );
 }

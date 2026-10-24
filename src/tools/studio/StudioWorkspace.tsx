@@ -2,6 +2,7 @@ import {useRef} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useContainerWidth} from '../../app-bridge';
 import {useGithubToken} from '../../github/useGithubToken';
+import {keepClearOfFoot} from '../../shell/clearBand';
 import type {FocusHandoff} from '../../shell/focusHandoff';
 import {studioHref, type StudioMode} from '../../shell/nav';
 import {PageLayout} from '../../shell/PageLayout';
@@ -73,7 +74,9 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * batch is the studio's, kept in the browser, so it is no draft. The guard does not count it,
  * leaving the page loses none of it, and forgetting the token (the tray offers it too) never
  * touches it. It stays a child of the root: its foot, a box of the root's, sticks to the bottom
- * of the view across the whole studio while changes are staged (#74).
+ * of the view across the whole studio while changes are staged (#74). The browser scrolls a
+ * control that takes focus only as far as the view's edge, under that foot, so the root keeps it
+ * clear of the foot while the foot is pinned (keepClearOfFoot, WCAG 2.4.11).
  */
 export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const location = useLocation();
@@ -81,6 +84,8 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const mode = studioModeOf(location);
   const card = studioCardOf(location);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The Version changes tray's foot while it is pinned to the bottom of the view; null otherwise.
+  const pinnedFootRef = useRef<HTMLDivElement>(null);
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
   const edit = useCardEditor({token, cardId: card});
@@ -117,7 +122,10 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         leaves={(from, to) => shouldBlockStudioNavigation(from, to, drafts)}
         message={(to) => studioUnsavedQuestion({from: location, to, drafts, busy})}
       />
-      <div ref={rootRef} style={STUDIO_GRID[layout]}>
+      <div
+        ref={rootRef}
+        style={STUDIO_GRID[layout]}
+        onFocus={(event) => keepClearOfFoot({field: event.target, foot: pinnedFootRef.current})}>
         {mode === 'new' ? (
           <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
         ) : (
@@ -131,7 +139,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
             printing={printing}
           />
         )}
-        <VersionsTray view={versions} token={token} onForgetToken={forgetToken} />
+        <VersionsTray view={versions} token={token} onForgetToken={forgetToken} pinnedFootRef={pinnedFootRef} />
       </div>
     </PageLayout>
   );

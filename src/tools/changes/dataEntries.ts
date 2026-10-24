@@ -125,6 +125,9 @@ function sharedLabels(entries: readonly DataEntry[]): ReadonlySet<string> {
  * The entries, each label ending in its id where another entry of the file has it too (withIdName), as
  * the Printings panel ends a twin's (#74): Set 3's Dalmatian Puppy - Tail Wagger cards are all #4, so
  * each reads "Dalmatian Puppy - Tail Wagger #4 · Set 3 · id 436". Every other label stays as it is.
+ * The panel tells its rows apart in printingRows.ts's toldApart, by a twin card (twinIdsOf: its set,
+ * number and full name) and by the labels one card's pockets share; a file here has only its labels to
+ * go by. A change to when either ends a label in its id belongs in both.
  */
 function toldApart(entries: readonly DataEntry[]): DataEntry[] {
   const shared = sharedLabels(entries);

@@ -110,6 +110,19 @@ describe('fetchCollectionOnlyCards', () => {
     stubChunks((set) => (set === '5' ? Promise.reject(new TypeError('Failed to fetch')) : Response.json([])));
     await expect(fetchCollectionOnlyCards()).rejects.toThrow(new Error('/data/collection/5.json: Failed to fetch'));
   });
+
+  it('names the chunk whose JSON is no list of cards, where the loader fails to build them (#74)', async () => {
+    stubChunks((set) => (set === '7' ? Response.json({cards: []}) : Response.json([])));
+    const failure = await fetchCollectionOnlyCards().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(Error);
+    const {message, cause} = failure as Error;
+    // The chunk, then what the loader met there.
+    expect(message.startsWith('/data/collection/7.json: ')).toBe(true);
+    expect(message).toContain((cause as Error).message);
+  });
 });
 
 describe('resetCollectionOnlyCards', () => {

@@ -1,10 +1,11 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
-import {useState, type CSSProperties} from 'react';
+import {useRef, useState, type CSSProperties} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {expect, within} from 'storybook/test';
 import {SPACING} from '../../../app-bridge';
+import {keepClearOfFoot} from '../../../shell/clearBand';
 import {PageLayout} from '../../../shell/PageLayout';
-import {ADMIN_LAYOUT} from '../../../theme/adminTheme';
+import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS} from '../../../theme/adminTheme';
 import {
   NUMBER_209_TO_BOTH,
   NUMBER_223_TO_BOTH,
@@ -17,7 +18,7 @@ import {
 } from '../finishes/__tests__/finishFixtures';
 import {keptClash, type VersionChange} from '../finishes/versionBatch';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
-import {STUDIO_PADDING} from '../studioLayout';
+import {STUDIO_PADDING, type StudioLayout} from '../studioLayout';
 import {STUDIO_GAP, STUDIO_GRID, STUDIO_MAX_WIDTH, STUDIO_SLOT} from '../studioStyles';
 import {PrintingsPanel} from './PrintingsPanel';
 import {ReleasedCardFacts} from './ReleasedCardFacts';
@@ -125,58 +126,115 @@ export const Settling: Story = {render: () => <SettlingTray />};
 const noop = () => {};
 /** A 375px phone's page, at a phone's height: the viewport less the rail the sidebar keeps there. */
 const PHONE_PAGE: CSSProperties = {width: 375 - ADMIN_LAYOUT.sidebarCollapsed, height: 667};
+/** A wide window's page, at a laptop's height, across the stage. */
+const WIDE_PAGE: CSSProperties = {flex: '1 1 100%', height: 800};
 /** A released card's form slot, as EditPane lays out its facts over its printings (#68). */
 const FORM_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
+/** Stands in for the top of a tall Edit card, over the form slot: a row of its own, as the Editing banner is. */
+const TALL_CARD_TOP: CSSProperties = {
+  gridColumn: '1 / -1',
+  height: 1400,
+  border: `1px dashed ${ADMIN_COLORS.strongBorder}`,
+  borderRadius: ADMIN_RADIUS.panel,
+};
 /** Two of the printings Yen Sid's panel shows, staged. */
 const STAGED = [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH];
 
 /**
- * Card studio on a 375px phone (#74), at the top of a card taller than the view: Yen Sid's facts and
- * Printings panel, with two of his printings' changes staged. The tray's foot sticks to the bottom of
- * the view, Publish counting the changes, and covers the page by its own height only: the tray's
- * panel, its heading and rows, waits under the card. Scrolled to the end, the foot rests under the
- * panel and closes it. The play checks both, and that a choice taking focus under the foot scrolls
- * clear of it (WCAG 2.4.11). A desktop's scrollbar takes some of the page's width here; a phone's
- * overlays it.
+ * Card studio's page in `layout` (#74), as StudioWorkspace lays it out: its root keeps a control that
+ * takes focus clear of the tray's pinned foot, which the tray hands it (keepClearOfFoot). The card is
+ * Yen Sid's facts and Printings panel, with two of his printings' changes staged; in the wide grid a
+ * dashed box stands in for the top of a card taller than the view.
  */
-export const PinnedOnAPhone: Story = {
-  render: () => (
+function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties}) {
+  const pinnedFootRef = useRef<HTMLDivElement>(null);
+  return (
     <MemoryRouter>
-      <div style={PHONE_PAGE}>
+      <div style={page}>
         <PageLayout title="Card studio" writes flush>
-          <div style={STUDIO_GRID.narrow}>
-            <div style={STUDIO_SLOT.narrow.form}>
+          <div
+            style={STUDIO_GRID[layout]}
+            onFocus={(event) => keepClearOfFoot({field: event.target, foot: pinnedFootRef.current})}>
+            {layout === 'wide' && <div style={TALL_CARD_TOP} />}
+            <div style={STUDIO_SLOT[layout].form}>
               <div style={FORM_COLUMN}>
                 <ReleasedCardFacts card={YEN_SID} note={PRINTINGS_ONLY_NOTE} />
                 <PrintingsPanel view={{status: 'ready', rows: YEN_SID_ROWS}} changes={STAGED} onChoose={noop} />
               </div>
             </div>
-            <VersionsTray view={batchView(STAGED)} token="story" onForgetToken={noop} />
+            <VersionsTray view={batchView(STAGED)} token="story" onForgetToken={noop} pinnedFootRef={pinnedFootRef} />
           </div>
         </PageLayout>
       </div>
     </MemoryRouter>
-  ),
-  play: async ({canvasElement}) => {
-    const canvas = within(canvasElement);
-    // The page's flush body, which scrolls under its header.
-    const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
-    const foot = canvas.getByRole('button', {name: 'Publish 2 changes to master'}).parentElement as HTMLElement;
-    const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
-    body.scrollTop = 0;
-    const view = body.getBoundingClientRect();
-    await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
-    await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
+  );
+}
 
-    // The last row's Normal only, scrolled to sit under the foot, takes focus and scrolls out from under it.
-    const choice = canvas.getAllByRole('button', {name: 'Normal only'}).at(-1) as HTMLElement;
-    body.scrollTop += choice.getBoundingClientRect().bottom - (view.bottom - SPACING.sm);
-    choice.focus();
-    await expect(choice.getBoundingClientRect().bottom).toBeLessThanOrEqual(foot.getBoundingClientRect().top);
+/**
+ * Moves the focus to `control`, as a Tab does. A browser whose window hasn't the focus (Storybook in a
+ * hidden pane) moves it without firing focus events, so this then fires focusin itself, as a focused
+ * browser would, for the page to hear.
+ */
+function focusOn(control: HTMLElement): void {
+  control.focus();
+  if (!control.ownerDocument.hasFocus()) control.dispatchEvent(new FocusEvent('focusin', {bubbles: true}));
+}
 
-    body.scrollTop = body.scrollHeight;
-    await expect(Math.round(foot.getBoundingClientRect().top)).toBe(Math.round(panel.getBoundingClientRect().bottom));
-    choice.blur();
-    body.scrollTop = 0;
-  },
+/**
+ * What the pinned stories check, at the top of the page and as the owner moves through it:
+ * - the foot sits on the view's bottom, and the tray's panel waits below the view, so the foot covers
+ *   the page by its own height only;
+ * - a choice that takes focus under the foot scrolls clear of it (WCAG 2.4.11), and Publish, taking
+ *   focus, moves nothing, as it is the foot's own;
+ * - scrolled to the end, the foot rests under the panel and closes it.
+ */
+async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
+  const canvas = within(canvasElement);
+  // The page's flush body, which scrolls under its header.
+  const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
+  const publish = canvas.getByRole('button', {name: 'Publish 2 changes to master'});
+  const foot = publish.parentElement as HTMLElement;
+  const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
+  body.scrollTop = 0;
+  const view = body.getBoundingClientRect();
+  await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
+  await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
+
+  // The last row's Normal only, scrolled to sit under the foot, takes focus and scrolls out from under it.
+  const choice = canvas.getAllByRole('button', {name: 'Normal only'}).at(-1) as HTMLElement;
+  body.scrollTop += choice.getBoundingClientRect().bottom - (view.bottom - SPACING.sm);
+  await expect(choice.getBoundingClientRect().bottom).toBeGreaterThan(foot.getBoundingClientRect().top);
+  focusOn(choice);
+  await expect(choice.getBoundingClientRect().bottom).toBeLessThanOrEqual(foot.getBoundingClientRect().top);
+  const scrolled = body.scrollTop;
+  focusOn(publish);
+  await expect(body.scrollTop).toBe(scrolled);
+
+  body.scrollTop = body.scrollHeight;
+  await expect(Math.round(foot.getBoundingClientRect().top)).toBe(Math.round(panel.getBoundingClientRect().bottom));
+  publish.blur();
+  body.scrollTop = 0;
+}
+
+/**
+ * Card studio on a 375px phone (#74), at the top of a card taller than the view: the tray's foot sticks
+ * to the bottom of the view, Publish counting the changes, and the play checks it as the owner moves
+ * through the page (playPinned). A desktop's scrollbar takes some of the page's width here; a phone's
+ * overlays it.
+ */
+export const PinnedOnAPhone: Story = {
+  render: () => <PinnedStudio layout="narrow" page={PHONE_PAGE} />,
+  play: playPinned,
+};
+
+/**
+ * Card studio in its wide grid (#74), under the top of a tall card: the tray's foot, a row of the grid,
+ * sticks across the whole root as it does in the narrow layout's wrapping row, and the play checks the
+ * same (playPinned). Chrome lets a grid item stick across its whole grid; the spec's grid area would
+ * hold it to its own row, which this story would catch.
+ */
+export const PinnedWide: Story = {
+  render: () => <PinnedStudio layout="wide" page={WIDE_PAGE} />,
+  parameters: {stage: WIDEST},
+  play: playPinned,
 };

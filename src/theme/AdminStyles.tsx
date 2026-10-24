@@ -1,5 +1,5 @@
 import {DURATION, EASING, SPACING} from '../app-bridge';
-import {ADMIN_COLORS as C, ADMIN_LAYOUT, ADMIN_RADIUS as R, ADMIN_TYPE as T} from './adminTheme';
+import {ADMIN_COLORS as C, ADMIN_RADIUS as R, ADMIN_TYPE as T} from './adminTheme';
 
 // Control heights from the handoff. Heights have no token in the app's scales,
 // so they live here, beside the only rules that use them.
@@ -31,16 +31,6 @@ const RANGE_THUMB = 16;
  * so in a narrower list the names column can't hold it beside the marks. A 375px phone's list is 277px.
  */
 export const SEARCH_STACK_BELOW = 306;
-// The kit's CtaButton (the tray's Publish) at its minimum height, the app's touch target.
-const PUBLISH_HEIGHT = 44;
-// How far a focus ring reaches past a control's edge: FOCUS_RING's 2px outline, drawn 2px out.
-const RING_REACH = 4;
-/**
- * What a control in Card studio keeps clear under itself while the Version changes tray's foot is pinned to
- * the bottom of the view (#74): the foot's height, Publish between VersionsTray's SPACING.md paddings and
- * inside the foot's two 1px borders, and the ring.
- */
-const TRAY_FOOT_CLEARANCE = PUBLISH_HEIGHT + 2 * SPACING.md + 2 * ADMIN_LAYOUT.hairline + RING_REACH;
 
 const FAST = `${DURATION.base}ms ${EASING.snappy}`;
 // Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
@@ -163,15 +153,6 @@ const FILE_LIVE = ':where(:not(:has(input:disabled)))';
  * as Card studio picks its layout from its root's measured width (R-64): a
  * story of a phone's page stacks on any screen. A wider list meets no rule
  * here, so its rows keep their inline grid as it is.
- *
- * The Version changes tray (adm-tray, a region that draws no box) pins its
- * foot (adm-tray-foot, data-pinned="true") to the bottom of the view while
- * changes are staged (#74). A control that takes focus under the foot would be
- * hidden (WCAG 2.4.11), and the browser scrolls a focused control only as far
- * as the view's edge. So while the foot is pinned, every other element of the
- * root that holds the tray keeps TRAY_FOOT_CLEARANCE under itself when it is
- * scrolled into view (scroll-margin-bottom). The foot's own Publish doesn't: it
- * is pinned, so scrolling for it would move the page and never it.
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -284,8 +265,6 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-search-names{grid-column:2 / 4;}
 .adm-search-marks{grid-row:2;grid-column:2 / 4;justify-self:start;}
 }
-
-:has(>.adm-tray>.adm-tray-foot[data-pinned="true"]) :not(.adm-tray-foot,.adm-tray-foot *){scroll-margin-bottom:${TRAY_FOOT_CLEARANCE}px;}
 
 @media (prefers-reduced-motion: reduce){
 .adm-link{transition:none;}

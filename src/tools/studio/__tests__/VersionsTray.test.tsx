@@ -1,8 +1,7 @@
-import {useState} from 'react';
+import {createRef, useState} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {TRAY_FOOT_FILL, VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
 import {
@@ -141,16 +140,16 @@ describe('VersionsTray: when it shows', () => {
 });
 
 /*
- * The tray's foot (#74): Publish, and what the last publish said. While changes are staged it sticks
- * to the bottom of the view, so Publish, which counts them, stays in view as the owner scrolls a tall
- * Edit card; the rows scroll with the page. jsdom has no layout, so these pin the rules it rests on.
+ * The tray's foot (#74): what the tray says of Publish, Publish, and what the last publish said. While
+ * changes are staged it sticks to the bottom of the view, so Publish, which counts them, and what a
+ * press of it came to stay in view as the owner scrolls a tall Edit card; the rows scroll with the page.
+ * jsdom has no layout, so these pin the rules it rests on.
  */
 describe('VersionsTray: the foot', () => {
-  it('pins Publish and what the last publish said to the bottom of the view while changes are staged, and only them', () => {
+  it('pins Publish and what the last publish said to the bottom of the view while changes are staged, and not the rows', () => {
     renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]));
     const foot = footOf();
     expect(foot).toHaveStyle({position: 'sticky', bottom: '0px'});
-    expect(foot).toHaveAttribute('data-pinned', 'true');
     expect(foot).toContainElement(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
     expect(foot).toContainElement(screen.getByRole('status'));
     // The heading and the rows are the panel's, which scrolls with the page.
@@ -168,8 +167,37 @@ describe('VersionsTray: the foot', () => {
     renderTray(batchView([], {result: LANDED}));
     const foot = footOf();
     expect(foot.style.position).toBe('');
-    expect(foot).not.toHaveAttribute('data-pinned');
     expect(foot).toContainElement(screen.getByRole('status'));
+  });
+
+  it.each([
+    ['how a publish failed', {error: RACE}, RACE],
+    ['why Publish is held', {changes: [NUMBER_223_TO_BOTH_CLASHED]}, clashMessage(1)],
+    ['that this browser couldn’t save the changes', {unsaved: true}, "This browser couldn't save these changes."],
+  ])('says %s above Publish, in the foot, so a pinned Publish keeps it in view', (_what, rest, words) => {
+    const {changes = [NUMBER_223_TO_BOTH], ...outcome} = rest as Partial<VersionBatchView>;
+    renderTray(batchView(changes, outcome));
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent(words);
+    const foot = footOf();
+    expect(foot).toContainElement(notice);
+    expect(foot).toHaveStyle({position: 'sticky'});
+    expect(notice.compareDocumentPosition(screen.getByRole('button', {name: /^Publish/})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts nothing above Publish when the tray has nothing to say of it, so the foot is no taller', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    expect(footOf().firstElementChild).toBe(screen.getByRole('button', {name: 'Publish 1 change to master'}));
+  });
+
+  it('hands the page its foot while it is pinned, and nothing once no change is staged', () => {
+    const pinnedFootRef = createRef<HTMLDivElement>();
+    const {rerender} = renderTray(batchView([NUMBER_223_TO_BOTH]), {pinnedFootRef});
+    expect(pinnedFootRef.current).toBe(footOf());
+
+    rerender(trayElement(batchView([], {result: LANDED}), {pinnedFootRef}));
+    expect(footOf()).toBeInTheDocument();
+    expect(pinnedFootRef.current).toBeNull();
   });
 
   it('closes the panel under a rule, the root’s gap between the two taken back', () => {
@@ -177,12 +205,6 @@ describe('VersionsTray: the foot', () => {
     expect(panelOf().style.borderBottomStyle).toBe('');
     expect(footOf().style.borderTop).toBe(`1px solid ${ADMIN_COLORS.border}`);
     expect(footOf()).toHaveStyle({marginTop: `-${STUDIO_GAP}px`});
-  });
-
-  it('pads Publish as AdminStyles counts it, so a control kept clear of the pinned foot is clear of all of it', () => {
-    renderTray(batchView([NUMBER_223_TO_BOTH]));
-    // TRAY_FOOT_CLEARANCE is Publish between these paddings, inside the foot's 1px borders, and the ring.
-    expect(footOf()).toHaveStyle({paddingTop: `${SPACING.md}px`, paddingBottom: `${SPACING.md}px`, borderBottomWidth: '1px'});
   });
 
   it('paints the foot opaque, so what scrolls under it never shows through: the panel’s tint over the page, under its border too', () => {

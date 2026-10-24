@@ -519,3 +519,87 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     await waitFor(() => expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toHaveFocus());
   });
 });
+
+/** A box from `top` to `bottom` in the view, all that getBoundingClientRect's callers here read. */
+const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
+
+/**
+ * The page's scroller, PageLayout's flush body, as TuningAside.test.tsx's renderInScroller stubs the
+ * aside's: jsdom lays nothing out, so `pin` fixes a box in the view, and `place` puts a control there,
+ * which the scroller's scrollBy moves as a real scroll would (scrolling down by 100 lifts it by 100).
+ */
+function pageScroller() {
+  const scroller = screen.getByRole('main').lastElementChild as HTMLElement;
+  let scrolled = 0;
+  const scrollBy = vi.fn((options: ScrollToOptions) => {
+    scrolled += options.top ?? 0;
+  });
+  Object.defineProperty(scroller, 'scrollBy', {value: scrollBy});
+  return {
+    scroller,
+    scrollBy,
+    pin: (el: Element, top: number, bottom: number) => vi.spyOn(el, 'getBoundingClientRect').mockReturnValue(box(top, bottom)),
+    place: (el: Element, top: number, bottom: number) =>
+      vi.spyOn(el, 'getBoundingClientRect').mockImplementation(() => box(top - scrolled, bottom - scrolled)),
+  };
+}
+
+/*
+ * While changes are staged the tray's foot is pinned to the bottom of the view (#74), and the browser
+ * scrolls a control that takes focus only as far as the view's edge, under it. So the studio's root
+ * keeps such a control clear of the pinned foot (WCAG 2.4.11), as the tuning aside keeps its fields
+ * clear of its pinned tray. Here the scroller's view runs from 64 to 900, and the foot from 830 to 900.
+ */
+describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () => {
+  /** Yen Sid open, with #59 staged Foil only: the tray's foot is pinned. */
+  async function staged59() {
+    stubStudioRepo({branch: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    await user.click(within(await screen.findByRole('group', {name: NUMBER_59})).getByRole('button', {name: 'Foil only'}));
+    await screen.findByRole('button', {name: 'Publish 1 change to master'});
+    return user;
+  }
+
+  /** The page's boxes, laid out from here on: its scroller's view, and the tray's foot at the bottom of it. */
+  function laidOut() {
+    const publish = screen.getByRole('button', {name: /^Publish/});
+    const page = pageScroller();
+    page.pin(page.scroller, 64, 900);
+    page.pin(publish.parentElement as HTMLElement, 830, 900);
+    return {...page, publish};
+  }
+
+  /** #223's Both, a control of the Printings panel, which scrolls with the page. */
+  const choice223 = () => within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
+
+  it('scrolls a control that takes focus under the pinned foot up into the band above it', async () => {
+    await staged59();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 850, 882);
+
+    act(() => choice223().focus());
+    expect(scrollBy).toHaveBeenCalledOnce();
+    // Centred between the scroller's top and the foot's.
+    expect(choice223().getBoundingClientRect()).toMatchObject({top: 431, bottom: 463});
+  });
+
+  it('leaves Publish where it is: the foot is pinned, so scrolling for it would move the page and never it', async () => {
+    await staged59();
+    const {scrollBy, pin, publish} = laidOut();
+    pin(publish, 842, 886);
+
+    act(() => publish.focus());
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('scrolls nothing once no change is staged: the foot then sits under the panel, pinned no more', async () => {
+    const user = await staged59();
+    await user.click(screen.getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59 · Set 4'}));
+    expect(screen.getByRole('button', {name: 'Publish to master'})).toBeInTheDocument();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 850, 882);
+
+    act(() => choice223().focus());
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+});

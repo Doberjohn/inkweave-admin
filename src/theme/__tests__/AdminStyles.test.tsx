@@ -47,9 +47,6 @@ const CLASSES = [
   'adm-search-list',
   'adm-search-names',
   'adm-search-marks',
-  // The Version changes tray, and its foot, which is pinned while changes are staged (#74).
-  'adm-tray',
-  'adm-tray-foot',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -451,38 +448,6 @@ describe('AdminStyles', () => {
     );
     // Elsewhere the row's own inline grid lays it out, so a wider list looks as it always has.
     expect(css.replace(narrow?.[0] ?? '', '')).not.toMatch(/[.]adm-search-(names|marks)/);
-  });
-
-  it("keeps what takes focus in the tray's root clear of its pinned foot, but not the foot's own Publish (#74, WCAG 2.4.11)", () => {
-    // The foot's height, Publish (the kit's 44px CtaButton) between its SPACING.md paddings and two 1px borders, and the ring's 4px.
-    const clearance = `${44 + 2 * SPACING.md + 2 + 4}px`;
-    const root = (pinned: boolean) => (
-      <div>
-        <AdminStyles />
-        <div>
-          <button type="button">Foil only</button>
-        </div>
-        <section aria-label="Version changes" className="adm-tray">
-          <div>
-            <button type="button">Revert</button>
-          </div>
-          <div className="adm-tray-foot" data-pinned={pinned || undefined}>
-            <button type="button">Publish</button>
-          </div>
-        </section>
-      </div>
-    );
-    const margins = () =>
-      ['Foil only', 'Revert', 'Publish'].map((name) => getComputedStyle(screen.getByRole('button', {name})).scrollMarginBottom);
-    const {rerender} = render(root(true));
-    // A pane's choice and the panel's Revert scroll into view clear of the foot; Publish, pinned, never moves the page.
-    const [choice, revert, publish] = margins();
-    expect([choice, revert]).toEqual([clearance, clearance]);
-    expect(publish).not.toBe(clearance);
-
-    // A foot in its place under the panel covers nothing, so nothing keeps room for it.
-    rerender(root(false));
-    expect(margins()).not.toContain(clearance);
   });
 
   it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
