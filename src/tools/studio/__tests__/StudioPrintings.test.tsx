@@ -124,7 +124,7 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     const group = await within(panel).findByRole('group', {name: LANTERN_12});
     // It is a Common with no field, so it comes in both, by its rarity.
     expect(within(group).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
-    expect(within(panel).getByText('By rarity')).toBeInTheDocument();
+    expect(within(panel).getByText('by rarity')).toBeInTheDocument();
     // Its data first, its printings under it.
     const facts = screen.getByRole('region', {name: 'Card data'});
     expect(facts.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -179,7 +179,7 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
 
     await user.click(within(group).getByRole('button', {name: 'Both'}));
     expect(within(group).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('pending')).toBeInTheDocument();
     expect(batch.result.current.changes).toEqual([
       expect.objectContaining({
         id: '946',
@@ -199,7 +199,7 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     // The card opens again with the change still pending, and its files are not read a second time.
     const again = await screen.findByRole('group', {name: NUMBER_223});
     expect(within(again).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('pending')).toBeInTheDocument();
     expect(dataRequests(fetched)).toHaveLength(3);
   });
 
@@ -234,8 +234,8 @@ describe('StudioPage: the Printings panel in Edit card (#68)', () => {
     expect(batch.result.current.changes).toHaveLength(1);
     await user.click(within(group).getByRole('button', {name: 'Foil only'}));
     expect(batch.result.current.changes).toEqual([]);
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
-    expect(screen.getByText('In the data')).toBeInTheDocument();
+    expect(screen.queryByText('pending')).not.toBeInTheDocument();
+    expect(screen.getByText('in the data')).toBeInTheDocument();
   });
 
   it('keeps the panel in place when Discard opens the card’s form afresh, rather than mount it and read again', async () => {

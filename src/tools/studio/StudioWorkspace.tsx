@@ -72,7 +72,8 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * The Version changes tray (#68) is a row of its own under the active pane, in either mode: its
  * batch is the studio's, kept in the browser, so it is no draft. The guard does not count it,
  * leaving the page loses none of it, and forgetting the token (the tray offers it too) never
- * touches it.
+ * touches it. It stays a child of the root: its foot, a box of the root's, sticks to the bottom
+ * of the view across the whole studio while changes are staged (#74).
  */
 export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const location = useLocation();

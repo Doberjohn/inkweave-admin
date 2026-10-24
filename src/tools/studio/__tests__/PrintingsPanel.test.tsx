@@ -104,8 +104,8 @@ describe('PrintingsPanel', () => {
     renderPanel();
     const group = screen.getByRole('group', {name: 'Versions of Yen Sid - Powerful Sorcerer #223 · Set 4'});
     expect(within(group).getByRole('button', {name: 'Foil only'})).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByText('By rarity')).toHaveLength(2);
-    expect(screen.getByText('In the data')).toBeInTheDocument();
+    expect(screen.getAllByText('by rarity')).toHaveLength(2);
+    expect(screen.getByText('in the data')).toBeInTheDocument();
   });
 
   it('is a region named Printings, with one row for each printing in the order it was given', () => {
@@ -131,9 +131,9 @@ describe('PrintingsPanel', () => {
     expect(pressedIn(ENCHANTED_209)).toEqual(['Foil only']);
     expect(pressedIn(ALT_FOIL_223)).toEqual(['Foil only']);
     // One marker for each row, by where its versions come from.
-    expect(within(itemOf(NUMBER_59)).getByText('By rarity')).toBeInTheDocument();
-    expect(within(itemOf(ENCHANTED_209)).getByText('By rarity')).toBeInTheDocument();
-    expect(within(itemOf(ALT_FOIL_223)).getByText('In the data')).toBeInTheDocument();
+    expect(within(itemOf(NUMBER_59)).getByText('by rarity')).toBeInTheDocument();
+    expect(within(itemOf(ENCHANTED_209)).getByText('by rarity')).toBeInTheDocument();
+    expect(within(itemOf(ALT_FOIL_223)).getByText('in the data')).toBeInTheDocument();
   });
 
   it("draws each printing's art as decoration, 28px wide, and an empty box for one with none", () => {
@@ -157,12 +157,12 @@ describe('PrintingsPanel', () => {
     update({changes: [NUMBER_223_TO_BOTH]});
     expect(pressedIn(ALT_FOIL_223)).toEqual(['Both']);
     const row = itemOf(ALT_FOIL_223);
-    expect(within(row).getByText('Pending')).toBeInTheDocument();
+    expect(within(row).getByText('pending')).toBeInTheDocument();
     // It is the row's one marker: it no longer says where the old versions came from.
-    expect(within(row).queryByText('In the data')).not.toBeInTheDocument();
+    expect(within(row).queryByText('in the data')).not.toBeInTheDocument();
     // The other rows are as they were.
     expect(pressedIn(NUMBER_59)).toEqual(['Both']);
-    expect(screen.getAllByText('Pending')).toHaveLength(1);
+    expect(screen.getAllByText('pending')).toHaveLength(1);
   });
 
   it('shows each pending row with the versions its change writes', () => {
@@ -170,8 +170,8 @@ describe('PrintingsPanel', () => {
     expect(pressedIn(NUMBER_59)).toEqual(['Foil only']);
     expect(pressedIn(ALT_FOIL_223)).toEqual(['Both']);
     expect(pressedIn(ENCHANTED_209)).toEqual(['Foil only']);
-    expect(screen.getAllByText('Pending')).toHaveLength(2);
-    expect(within(itemOf(ENCHANTED_209)).getByText('By rarity')).toBeInTheDocument();
+    expect(screen.getAllByText('pending')).toHaveLength(2);
+    expect(within(itemOf(ENCHANTED_209)).getByText('by rarity')).toBeInTheDocument();
   });
 
   it('reports each choice of a row as the choice, not the label', async () => {
@@ -187,8 +187,8 @@ describe('PrintingsPanel', () => {
   it('marks a clash, in place of pending, and shows the versions the owner chose', () => {
     renderPanel({changes: [NUMBER_223_TO_BOTH_CLASHED]});
     const row = itemOf(ALT_FOIL_223);
-    expect(within(row).getByText('Clash')).toBeInTheDocument();
-    expect(within(row).queryByText('Pending')).not.toBeInTheDocument();
+    expect(within(row).getByText('clash')).toBeInTheDocument();
+    expect(within(row).queryByText('pending')).not.toBeInTheDocument();
     expect(pressedIn(ALT_FOIL_223)).toEqual(['Both']);
   });
 
@@ -282,29 +282,29 @@ describe('PrintingsPanel: during a publish, and while the files are read again a
       published: [changeFor({row: mkb1C3, choice: 'foil'})],
     });
     expect(pressedIn(mkb1C3)).toEqual(['Foil only']);
-    expect(within(itemOf(mkb1C3)).getByText('In the data')).toBeInTheDocument();
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    expect(within(itemOf(mkb1C3)).getByText('in the data')).toBeInTheDocument();
+    expect(screen.queryByText('pending')).not.toBeInTheDocument();
     // A row the publish didn't write is as the last read has it.
     expect(pressedIn(mkb99)).toEqual(['Both']);
-    expect(within(itemOf(mkb99)).getByText('By rarity')).toBeInTheDocument();
+    expect(within(itemOf(mkb99)).getByText('by rarity')).toBeInTheDocument();
 
     // The read lands, and the branch's data names Foil only for 1/C3: the row is unchanged.
     const read = MKB_ROWS.map((row): PrintingRow => (row === mkb1C3 ? {...row, value: ['foil'], shown: ['foil']} : row));
     update({view: {status: 'ready', rows: read}});
     expect(pressedIn(mkb1C3)).toEqual(['Foil only']);
-    expect(within(itemOf(mkb1C3)).getByText('In the data')).toBeInTheDocument();
+    expect(within(itemOf(mkb1C3)).getByText('in the data')).toBeInTheDocument();
   });
 
   it("shows the branch's values once the read lands, whatever the publish wrote", () => {
     // #59 follows its rarity, Both, and a publish made it Foil only: until the read lands, the data names its versions.
     const {update} = renderPanel({view: REFRESHING, published: [NUMBER_59_TO_FOIL]});
     expect(pressedIn(NUMBER_59)).toEqual(['Foil only']);
-    expect(within(itemOf(NUMBER_59)).getByText('In the data')).toBeInTheDocument();
+    expect(within(itemOf(NUMBER_59)).getByText('in the data')).toBeInTheDocument();
 
     // The read lands, and the branch's data names nothing for #59 (someone took it out since): the row says so.
     update({view: READY});
     expect(pressedIn(NUMBER_59)).toEqual(['Both']);
-    expect(within(itemOf(NUMBER_59)).getByText('By rarity')).toBeInTheDocument();
+    expect(within(itemOf(NUMBER_59)).getByText('by rarity')).toBeInTheDocument();
   });
 
   it('shows a change staged since in front of what the publish wrote', () => {
@@ -314,7 +314,7 @@ describe('PrintingsPanel: during a publish, and while the files are read again a
     const restaged = {...changeFor({row: NUMBER_59, choice: 'normal'}), from: wrote, shownFrom: wrote};
     renderPanel({view: REFRESHING, changes: [restaged], published: [NUMBER_59_TO_FOIL]});
     expect(pressedIn(NUMBER_59)).toEqual(['Normal only']);
-    expect(within(itemOf(NUMBER_59)).getByText('Pending')).toBeInTheDocument();
+    expect(within(itemOf(NUMBER_59)).getByText('pending')).toBeInTheDocument();
   });
 
   it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', () => {
@@ -449,7 +449,7 @@ describe('PrintingsPanel: promo printings (#77)', () => {
     // Each Edit reads "Edit" and sits in its own row, after the row's marker; the card's own row has none.
     const edit = within(itemOf(MKB_13_C3)).getByRole('button', {name: 'Edit Mother Knows Best 13/C3'});
     expect(edit).toHaveTextContent(/^Edit$/);
-    expect(follows(within(itemOf(MKB_13_C3)).getByText('In the data'), edit)).toBe(true);
+    expect(follows(within(itemOf(MKB_13_C3)).getByText('in the data'), edit)).toBe(true);
     expect(within(itemOf(MKB_99)).queryByRole('button', {name: /^Edit/})).toBeNull();
   });
 

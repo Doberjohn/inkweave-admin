@@ -11,7 +11,7 @@ import {choiceLabel} from '../finishes/finishValues';
 import {clashMessage} from '../finishes/publishVersions';
 import {clashCount, hasClash, removalNote, type VersionChange, type VersionClash} from '../finishes/versionBatch';
 import type {PublishResult, VersionBatchView} from '../finishes/versionBatchStore';
-import {STUDIO_PANEL} from '../studioStyles';
+import {STUDIO_GAP} from '../studioStyles';
 
 /*
  * The Version changes tray (#68): the studio's batch of version changes as rows, with the way out
@@ -20,18 +20,61 @@ import {STUDIO_PANEL} from '../studioStyles';
  * Forget token. Forgetting the token calls that and nothing else, so it never touches the batch.
  */
 
-// A row of its own across the studio's root, under whichever pane shows. grid-column spans the wide
-// grid's columns and flex fills a line of the narrow layout's wrapping row: each property applies
-// in its own layout only, so the tray needs to know neither.
-const TRAY: CSSProperties = {
-  ...STUDIO_PANEL,
-  gridColumn: '1 / -1',
-  flex: '1 1 100%',
+/*
+ * The tray is two boxes of the studio's root, its panel and its foot, in a region that draws no box of
+ * its own (display: contents; Chrome keeps the region, and all in it, in the accessibility tree). A
+ * sticky box sticks only inside its parent's box, so a foot inside the panel would stick only while the
+ * panel is in view. A box of the root, the foot sticks to the bottom of the view across the whole studio
+ * while changes are staged (#74): Publish, which counts them, stays in view as the owner scrolls a tall
+ * Edit card, while the rows scroll with the page.
+ */
+const REGION: CSSProperties = {display: 'contents'};
+
+// A row of its own across the studio's root, under whichever pane shows, for the panel and for the foot.
+// grid-column spans the wide grid's columns and flex fills a line of the narrow layout's wrapping row:
+// each property applies in its own layout only, so the tray needs to know neither.
+const OWN_ROW: CSSProperties = {gridColumn: '1 / -1', flex: '1 1 100%', minWidth: 0};
+/** The edge of the tray's boxes: a studio panel's (STUDIO_PANEL). */
+const EDGE = `1px solid ${ADMIN_COLORS.border}`;
+// The heading, the rows and what the tray says: a studio panel, open at the bottom, where its foot closes it.
+const PANEL: CSSProperties = {
+  ...OWN_ROW,
   display: 'flex',
   flexDirection: 'column',
   gap: SPACING.md,
-  padding: SPACING.xl,
+  padding: `${SPACING.xl}px ${SPACING.xl}px ${SPACING.md}px`,
+  // A translucent fill under a border: clip it to the padding box (adminTheme.ts).
+  backgroundColor: ADMIN_COLORS.card,
+  backgroundClip: 'padding-box',
+  borderTop: EDGE,
+  borderRight: EDGE,
+  borderLeft: EDGE,
+  borderRadius: `${ADMIN_RADIUS.panel}px ${ADMIN_RADIUS.panel}px 0 0`,
 };
+/**
+ * The foot's fill, which hides what scrolls under it once it sticks: the panel's tint over the page,
+ * and the page under its border too, so the border lands where the panel's does (adminTheme.ts).
+ */
+export const TRAY_FOOT_FILL = `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}) padding-box, ${ADMIN_COLORS.page}`;
+// Publish and what the last publish said, on a line, the words wrapping under the button where they don't
+// fit. The foot closes the panel under a rule, the root's gap between the two taken back. Its height while
+// pinned, Publish between this padding and the borders, is what AdminStyles keeps clear (TRAY_FOOT_CLEARANCE).
+const FOOT: CSSProperties = {
+  ...OWN_ROW,
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: `${SPACING.sm}px ${SPACING.lg}px`,
+  marginTop: -STUDIO_GAP,
+  padding: `${SPACING.md}px ${SPACING.xl}px`,
+  background: TRAY_FOOT_FILL,
+  border: EDGE,
+  borderRadius: `0 0 ${ADMIN_RADIUS.panel}px ${ADMIN_RADIUS.panel}px`,
+};
+// While changes are staged the foot sticks to the bottom of the view, as the tuning aside's tray does. It
+// comes after the panes, so it paints over them; its z-index keeps it over a card tile the pointer raises
+// (the app's .card-tile:hover), which would otherwise paint over it where they meet.
+const PINNED_FOOT: CSSProperties = {...FOOT, position: 'sticky', bottom: 0, zIndex: 1};
 const HEAD: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -77,13 +120,6 @@ const CLASH: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLO
 const ACTIONS: CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.md, flex: 'none'};
 const ACTION: CSSProperties = {fontSize: ADMIN_TYPE.small};
 const FAILURE: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
-// Publish and what the last publish said sit on a line, the words wrapping under the button where they don't fit.
-const FOOT: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: `${SPACING.sm}px ${SPACING.lg}px`,
-};
 const STATUS: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: COLORS.success};
 const COMMIT_LINK: CSSProperties = {color: ADMIN_COLORS.accent};
 
@@ -349,12 +385,15 @@ interface PublishProps {
 }
 
 /**
- * Publish, and what the last publish said. It is aria-disabled where it is held, so it keeps the
- * focus a native disabled would drop; a click still arrives then, and the tray does nothing with it.
+ * The tray's foot: Publish, and what the last publish said. Publish is aria-disabled where it is held,
+ * so it keeps the focus a native disabled would drop; a click still arrives then, and the tray does
+ * nothing with it. While changes are staged the foot is pinned (data-pinned): it sticks to the bottom
+ * of the view, and AdminStyles keeps a control that takes focus elsewhere in the studio clear of it.
  */
 function PublishBar({view, describedBy, onPublish}: PublishProps) {
+  const pinned = view.changes.length > 0;
   return (
-    <div style={FOOT}>
+    <div className="adm-tray-foot" data-pinned={pinned || undefined} style={pinned ? PINNED_FOOT : FOOT}>
       <CtaButton
         type="button"
         aria-disabled={holdsPublish(view) || undefined}
@@ -373,6 +412,10 @@ function PublishBar({view, describedBy, onPublish}: PublishProps) {
  * couldn't save them, why Publish is held, how a failed publish failed, Publish and the publish
  * that landed. It renders nothing while there is nothing to say: no change, no publish under way,
  * nothing about the last one.
+ *
+ * Publish and the publish that landed are its foot, under the panel. While changes are staged the
+ * foot sticks to the bottom of the view, so Publish, which counts them, is in reach however far up
+ * the page the owner is (#74); the rows and the rest scroll with the page.
  *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on
  * first and never falls to <body> (R-48): to the next row's first button, else the previous
@@ -410,10 +453,12 @@ export function VersionsTray({view, token, onForgetToken}: VersionsTrayProps) {
     if (!holdsPublish(view)) void view.publish(token);
   };
   return (
-    <section ref={trayRef} aria-label="Version changes" style={TRAY}>
-      <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
-      <ChangeRows view={view} onSettle={settle} />
-      <TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />
+    <section ref={trayRef} aria-label="Version changes" className="adm-tray" style={REGION}>
+      <div style={PANEL}>
+        <TrayHeader count={view.changes.length} held={view.publishing} onDiscard={discard} />
+        <ChangeRows view={view} onSettle={settle} />
+        <TrayNotices view={view} clashes={clashes} clashId={clashId} onForgetToken={onForgetToken} />
+      </div>
       <PublishBar view={view} describedBy={clashes > 0 ? clashId : undefined} onPublish={publish} />
     </section>
   );

@@ -98,7 +98,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 0'})).toHaveFocus();
     expect(within(tray).getByText('No version changes')).toBeInTheDocument();
     expect(within(group).getByRole('button', {name: 'Both'})).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    expect(screen.queryByText('pending')).not.toBeInTheDocument();
   });
 
   it('stays as an empty tray with focus on its heading after Discard all', async () => {
@@ -217,7 +217,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).toHaveAttribute('aria-disabled', 'true');
     expect(repo.writes()).toEqual([]);
     // The panel marks the printing too, once it has read the branch again.
-    expect(await screen.findByText('Clash')).toBeInTheDocument();
+    expect(await screen.findByText('clash')).toBeInTheDocument();
 
     await user.click(within(tray).getByRole('button', {name: 'Keep mine for Yen Sid - Powerful Sorcerer #223 · Set 4'}));
     // The change stays, built on what the branch has now, and no word of a clash is left on screen.
@@ -488,14 +488,14 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     const both223 = within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
     expect(within(panel()).getByRole('list')).toHaveAttribute('aria-busy', 'true');
     expect(both223).toHaveAttribute('aria-pressed', 'true');
-    expect(within(row223).getByText('In the data')).toBeInTheDocument();
-    expect(within(panel()).queryByText('Pending')).not.toBeInTheDocument();
+    expect(within(row223).getByText('in the data')).toBeInTheDocument();
+    expect(within(panel()).queryByText('pending')).not.toBeInTheDocument();
 
     await act(async () => reread.respond(new Response(PUBLISHED_CHUNK)));
     // Read: the branch names Both for #223, so the row is unchanged.
     await waitFor(() => expect(within(panel()).getByRole('list')).not.toHaveAttribute('aria-busy'));
     expect(both223).toHaveAttribute('aria-pressed', 'true');
-    expect(within(row223).getByText('In the data')).toBeInTheDocument();
+    expect(within(row223).getByText('in the data')).toBeInTheDocument();
   });
 
   it('hands the focus on a choice to "Read the files again" when the read after a publish fails (R-48)', async () => {

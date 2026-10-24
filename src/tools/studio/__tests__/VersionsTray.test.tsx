@@ -2,7 +2,9 @@ import {useState} from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
+import {SPACING} from '../../../app-bridge';
+import {ADMIN_COLORS} from '../../../theme/adminTheme';
+import {TRAY_FOOT_FILL, VersionsTray, type VersionsTrayProps} from '../components/VersionsTray';
 import {
   NUMBER_209_TO_BOTH,
   NUMBER_223_TO_BOTH,
@@ -14,6 +16,7 @@ import {
 import {clashMessage} from '../finishes/publishVersions';
 import {keptClash, type VersionChange} from '../finishes/versionBatch';
 import type {VersionBatchView} from '../finishes/versionBatchStore';
+import {STUDIO_GAP} from '../studioStyles';
 
 // vite.config.ts doesn't set unstubEnvs, so the rehearsal-branch cases unstub by hand.
 afterEach(() => vi.unstubAllEnvs());
@@ -65,6 +68,21 @@ const itemOf = (line: string) => screen.getByText(line).closest('li') as HTMLEle
 /** A change's Revert button. */
 const revertOf = (change: VersionChange) => screen.getByRole('button', {name: `Revert ${change.label}`});
 
+/** The box of the tray's region that holds `element`: its panel or its foot. */
+const boxOf = (element: HTMLElement) =>
+  Array.from(screen.getByRole('region', {name: 'Version changes'}).children).find((box) => box.contains(element)) as HTMLElement;
+/** The tray's panel: the box that holds its heading. */
+const panelOf = () => boxOf(screen.getByRole('heading', {level: 2}));
+/** The tray's foot: the box that holds Publish. */
+const footOf = () => boxOf(screen.getByRole('button', {name: /^Publish/}));
+
+/** A background as jsdom writes it back once set on an element. */
+function styledBackground(background: string): string {
+  const probe = document.createElement('div');
+  probe.style.background = background;
+  return probe.style.background;
+}
+
 /**
  * The tray once the owner's hand took its last change away: it stays, as PendingTray's empty state,
  * with focus on the heading that is still in the document. Nothing to list or discard, and
@@ -106,12 +124,76 @@ describe('VersionsTray: when it shows', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('is a row of its own across the studio’s root: every column of the wide grid, a whole line when narrow', () => {
+  it('is two rows of their own across the studio’s root, its panel and its foot, in a region that draws no box', () => {
     renderTray(batchView([NUMBER_223_TO_BOTH]));
     const tray = screen.getByRole('region', {name: 'Version changes'});
-    // Each property applies in its own layout only: grid-column in the grid, flex in the wrapping row.
-    expect(tray.style.gridColumn).toBe('1 / -1');
-    expect(tray.style.flex).toBe('1 1 100%');
+    // The foot is a box of the root, so it can stick across the whole studio (#74).
+    expect(tray).toHaveStyle({display: 'contents'});
+    const panel = panelOf();
+    const foot = footOf();
+    expect(Array.from(tray.children)).toEqual([panel, foot]);
+    for (const box of [panel, foot]) {
+      // Each property applies in its own layout only: grid-column in the grid, flex in the wrapping row.
+      expect(box.style.gridColumn).toBe('1 / -1');
+      expect(box.style.flex).toBe('1 1 100%');
+    }
+  });
+});
+
+/*
+ * The tray's foot (#74): Publish, and what the last publish said. While changes are staged it sticks
+ * to the bottom of the view, so Publish, which counts them, stays in view as the owner scrolls a tall
+ * Edit card; the rows scroll with the page. jsdom has no layout, so these pin the rules it rests on.
+ */
+describe('VersionsTray: the foot', () => {
+  it('pins Publish and what the last publish said to the bottom of the view while changes are staged, and only them', () => {
+    renderTray(batchView([NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH]));
+    const foot = footOf();
+    expect(foot).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(foot).toHaveAttribute('data-pinned', 'true');
+    expect(foot).toContainElement(screen.getByRole('button', {name: 'Publish 2 changes to master'}));
+    expect(foot).toContainElement(screen.getByRole('status'));
+    // The heading and the rows are the panel's, which scrolls with the page.
+    expect(panelOf()).toContainElement(screen.getByRole('heading', {level: 2, name: 'Version changes · 2'}));
+    expect(panelOf()).toContainElement(screen.getByRole('list'));
+    expect(panelOf().style.position).toBe('');
+  });
+
+  it('stays pinned while a publish is under way, as the changes it sent are still staged', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH], {publishing: true}));
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+  });
+
+  it('sits in its place under the panel once no change is staged, with the publish that landed', () => {
+    renderTray(batchView([], {result: LANDED}));
+    const foot = footOf();
+    expect(foot.style.position).toBe('');
+    expect(foot).not.toHaveAttribute('data-pinned');
+    expect(foot).toContainElement(screen.getByRole('status'));
+  });
+
+  it('closes the panel under a rule, the root’s gap between the two taken back', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    expect(panelOf().style.borderBottomStyle).toBe('');
+    expect(footOf().style.borderTop).toBe(`1px solid ${ADMIN_COLORS.border}`);
+    expect(footOf()).toHaveStyle({marginTop: `-${STUDIO_GAP}px`});
+  });
+
+  it('pads Publish as AdminStyles counts it, so a control kept clear of the pinned foot is clear of all of it', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    // TRAY_FOOT_CLEARANCE is Publish between these paddings, inside the foot's 1px borders, and the ring.
+    expect(footOf()).toHaveStyle({paddingTop: `${SPACING.md}px`, paddingBottom: `${SPACING.md}px`, borderBottomWidth: '1px'});
+  });
+
+  it('paints the foot opaque, so what scrolls under it never shows through: the panel’s tint over the page, under its border too', () => {
+    renderTray(batchView([NUMBER_223_TO_BOTH]));
+    const foot = footOf();
+    // jsdom writes a background's last colour back as "transparent", so the foot is held to TRAY_FOOT_FILL,
+    // and the fill to its layers: the tint, which alone is translucent, inside the border, over the page.
+    expect(foot.style.background).toBe(styledBackground(TRAY_FOOT_FILL));
+    expect(foot).toHaveStyle({backgroundColor: ADMIN_COLORS.page});
+    expect(foot.style.backgroundImage).toBe(`linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), none`);
+    expect(foot.style.backgroundClip).toBe('padding-box, border-box');
   });
 });
 

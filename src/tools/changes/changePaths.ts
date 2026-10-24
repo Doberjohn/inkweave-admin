@@ -27,7 +27,10 @@ export const TRACKED_PATHS: readonly TrackedPath[] = [
   {path: TUNING_PATH, area: 'tuning'},
 ];
 
-/** Each area's name on a tag and in the filter. */
+/**
+ * Each area's name, as the filter offers it. A change's tags print it lowercase, as every Tag's
+ * words are (#74), and so does the line that says an area has no changes.
+ */
 export const AREA_LABELS: Readonly<Record<ChangeArea, string>> = {
   cards: 'Preview cards',
   scans: 'Scans',

@@ -99,7 +99,7 @@ const OFFER: React.CSSProperties = {display: 'flex', flexDirection: 'column', ga
 const ADD: React.CSSProperties = {alignSelf: 'flex-start'};
 const NOTE: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, lineHeight: 1.5, color: ADMIN_COLORS.muted};
 
-/** What a row says about where its versions stand: one word, and what it means on hover. */
+/** What a row says about where its versions stand: its tag's words, lowercase as every Tag's are (#74), and what they mean on hover. */
 interface Marker {
   text: string;
   title: string;
@@ -107,12 +107,12 @@ interface Marker {
 
 const MARKERS = {
   clash: {
-    text: 'Clash',
+    text: 'clash',
     title: "The branch changed this printing's versions after you staged this change: keep it or drop it in Version changes",
   },
-  pending: {text: 'Pending', title: 'Staged in Version changes, not published yet'},
-  data: {text: 'In the data', title: "The branch's card data names this printing's versions"},
-  rarity: {text: 'By rarity', title: "The card data names none, so the printing's rarity gives them"},
+  pending: {text: 'pending', title: 'Staged in Version changes, not published yet'},
+  data: {text: 'in the data', title: "The branch's card data names this printing's versions"},
+  rarity: {text: 'by rarity', title: "The card data names none, so the printing's rarity gives them"},
 } as const satisfies Record<string, Marker>;
 
 /**
@@ -538,7 +538,7 @@ interface ItemProps extends RowChanges {
 
 /**
  * One printing: its art, its name, its marker, and the choice of versions. A staged change shows
- * the versions it writes in place of the ones the row shows, and the marker "Pending", or "Clash"
+ * the versions it writes in place of the ones the row shows, and the marker "pending", or "clash"
  * where the printing changed on the branch since: a publish found it, or a choice made again from
  * a row read since did. Choosing again changes only what the change writes: it keeps its base, and
  * a clash its mark, which Keep mine or Drop in the tray settles. Once the branch has moved, a

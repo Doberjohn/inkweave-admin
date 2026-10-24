@@ -1,28 +1,42 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
-import {useState} from 'react';
+import {useState, type CSSProperties} from 'react';
+import {MemoryRouter} from 'react-router-dom';
+import {expect, within} from 'storybook/test';
 import {SPACING} from '../../../app-bridge';
+import {PageLayout} from '../../../shell/PageLayout';
+import {ADMIN_LAYOUT} from '../../../theme/adminTheme';
 import {
   NUMBER_209_TO_BOTH,
   NUMBER_223_TO_BOTH,
   NUMBER_223_TO_BOTH_CLASHED,
   NUMBER_59_TO_FOIL,
   NUMBER_59_TO_FOIL_GONE,
+  YEN_SID,
+  YEN_SID_ROWS,
   batchView,
 } from '../finishes/__tests__/finishFixtures';
 import {keptClash, type VersionChange} from '../finishes/versionBatch';
+import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {STUDIO_PADDING} from '../studioLayout';
-import {STUDIO_MAX_WIDTH} from '../studioStyles';
+import {STUDIO_GAP, STUDIO_GRID, STUDIO_MAX_WIDTH, STUDIO_SLOT} from '../studioStyles';
+import {PrintingsPanel} from './PrintingsPanel';
+import {ReleasedCardFacts} from './ReleasedCardFacts';
 import {VersionsTray} from './VersionsTray';
 
 /**
- * The tray is a row of its own across the studio's root, which is 1600px at most. These stories give
- * it a 1200px stage, Wide the widest root's line (its `parameters.stage`), and PhoneWidth a phone's.
+ * The tray is two rows of their own across the studio's root, its panel and its foot, and the root is
+ * 1600px at most. These stories set it in the root as a narrow window lays it out (STUDIO_GRID), whose
+ * gap the foot takes back, on a 1200px stage: Wide on the widest root's line, and PhoneWidth on a phone's
+ * (their `parameters.stage`).
  */
 const STAGE = 1200;
 /** The widest root's line, 1600px less its padding each side: Wide's stage. */
 const WIDEST = STUDIO_MAX_WIDTH - 2 * STUDIO_PADDING;
 /** A phone: the root's 320px less the 64px rail and 32px of padding, which the tray then fills. */
 const PHONE = 224;
+
+/** StudioWorkspace's root in its narrow layout, `stage` wide inside its padding. */
+const rootOn = (stage: number): CSSProperties => ({...STUDIO_GRID.narrow, maxWidth: stage + 2 * STUDIO_PADDING, margin: 0});
 
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 const TWO_CHANGES = [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH];
@@ -33,7 +47,7 @@ const meta: Meta<typeof VersionsTray> = {
   tags: ['autodocs'],
   decorators: [
     (Story, {parameters}) => (
-      <div style={{maxWidth: (parameters.stage as number | undefined) ?? STAGE, padding: SPACING.lg}}>
+      <div style={rootOn((parameters.stage as number | undefined) ?? STAGE)}>
         <Story />
       </div>
     ),
@@ -87,13 +101,7 @@ export const Wide: Story = {
 /** On a phone the tray fills the line, and each row's buttons wrap under its text. */
 export const PhoneWidth: Story = {
   args: {view: batchView([NUMBER_223_TO_BOTH_CLASHED, NUMBER_59_TO_FOIL])},
-  decorators: [
-    (Story) => (
-      <div style={{maxWidth: PHONE}}>
-        <Story />
-      </div>
-    ),
-  ],
+  parameters: {stage: PHONE},
 };
 
 /** The tray over a batch of its own, as the studio's store keeps one: Revert, Keep mine, Drop and Discard all work on it. */
@@ -113,3 +121,62 @@ function SettlingTray() {
 
 /** The tray live: keep or drop each clash and the line, and the hold on Publish, go with the last one; focus moves on as a button goes. */
 export const Settling: Story = {render: () => <SettlingTray />};
+
+const noop = () => {};
+/** A 375px phone's page, at a phone's height: the viewport less the rail the sidebar keeps there. */
+const PHONE_PAGE: CSSProperties = {width: 375 - ADMIN_LAYOUT.sidebarCollapsed, height: 667};
+/** A released card's form slot, as EditPane lays out its facts over its printings (#68). */
+const FORM_COLUMN: CSSProperties = {display: 'flex', flexDirection: 'column', gap: STUDIO_GAP};
+/** Two of the printings Yen Sid's panel shows, staged. */
+const STAGED = [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH];
+
+/**
+ * Card studio on a 375px phone (#74), at the top of a card taller than the view: Yen Sid's facts and
+ * Printings panel, with two of his printings' changes staged. The tray's foot sticks to the bottom of
+ * the view, Publish counting the changes, and covers the page by its own height only: the tray's
+ * panel, its heading and rows, waits under the card. Scrolled to the end, the foot rests under the
+ * panel and closes it. The play checks both, and that a choice taking focus under the foot scrolls
+ * clear of it (WCAG 2.4.11). A desktop's scrollbar takes some of the page's width here; a phone's
+ * overlays it.
+ */
+export const PinnedOnAPhone: Story = {
+  render: () => (
+    <MemoryRouter>
+      <div style={PHONE_PAGE}>
+        <PageLayout title="Card studio" writes flush>
+          <div style={STUDIO_GRID.narrow}>
+            <div style={STUDIO_SLOT.narrow.form}>
+              <div style={FORM_COLUMN}>
+                <ReleasedCardFacts card={YEN_SID} note={PRINTINGS_ONLY_NOTE} />
+                <PrintingsPanel view={{status: 'ready', rows: YEN_SID_ROWS}} changes={STAGED} onChoose={noop} />
+              </div>
+            </div>
+            <VersionsTray view={batchView(STAGED)} token="story" onForgetToken={noop} />
+          </div>
+        </PageLayout>
+      </div>
+    </MemoryRouter>
+  ),
+  play: async ({canvasElement}) => {
+    const canvas = within(canvasElement);
+    // The page's flush body, which scrolls under its header.
+    const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
+    const foot = canvas.getByRole('button', {name: 'Publish 2 changes to master'}).parentElement as HTMLElement;
+    const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
+    body.scrollTop = 0;
+    const view = body.getBoundingClientRect();
+    await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
+    await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
+
+    // The last row's Normal only, scrolled to sit under the foot, takes focus and scrolls out from under it.
+    const choice = canvas.getAllByRole('button', {name: 'Normal only'}).at(-1) as HTMLElement;
+    body.scrollTop += choice.getBoundingClientRect().bottom - (view.bottom - SPACING.sm);
+    choice.focus();
+    await expect(choice.getBoundingClientRect().bottom).toBeLessThanOrEqual(foot.getBoundingClientRect().top);
+
+    body.scrollTop = body.scrollHeight;
+    await expect(Math.round(foot.getBoundingClientRect().top)).toBe(Math.round(panel.getBoundingClientRect().bottom));
+    choice.blur();
+    body.scrollTop = 0;
+  },
+};

@@ -58,10 +58,10 @@ type Story = StoryObj<typeof meta>;
 /** Yen Sid - Powerful Sorcerer, a card of Set 4: #59 and the Enchanted follow their rarity, and the alt foil's data names Foil only. */
 export const YenSid: Story = {};
 
-/** The owner made the alt foil Both: its row shows the choice and "Pending", and the other rows are as they were. */
+/** The owner made the alt foil Both: its row shows the choice and "pending", and the other rows are as they were. */
 export const PendingChange: Story = {args: {changes: [NUMBER_223_TO_BOTH]}};
 
-/** A publish found the alt foil changed on the branch since the change was staged: it keeps the owner's choice, marked "Clash". */
+/** A publish found the alt foil changed on the branch since the change was staged: it keeps the owner's choice, marked "clash". */
 export const Clash: Story = {args: {changes: [NUMBER_223_TO_BOTH_CLASHED]}};
 
 /** A card of a Core set with two Challenge Set 3 promos: Normal only and Foil only, named by their promo codes. */
@@ -79,7 +79,7 @@ function ChoosingPanel() {
   );
 }
 
-/** The panel live: each choice joins the batch, as the studio's does, and shows "Pending" until the printing is back to what it showed. */
+/** The panel live: each choice joins the batch, as the studio's does, and shows "pending" until the printing is back to what it showed. */
 export const Choosing: Story = {render: () => <ChoosingPanel />};
 
 /** The branch's files are being read. The heading stays, so the panel does not jump when the rows come. */
