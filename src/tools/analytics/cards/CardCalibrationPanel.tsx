@@ -26,7 +26,7 @@ const HEADLINE: React.CSSProperties = {
 const READ: React.CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.muted};
 
 /** The fixed columns, padding included; Rule takes the rest. */
-const COLUMN_WIDTH = {bias: 88, gap: 64, pairs: 52, votes: 56};
+const COLUMN_WIDTH = {bias: 88, scoreGap: 64, pairs: 52, votes: 56};
 /** Under this the table scrolls inside its own box rather than squeezing the rule names to nothing. */
 const TABLE_MIN_WIDTH = 360;
 /**
@@ -148,7 +148,7 @@ function CardRulesTable({rows}: {rows: CardRuleRow[]}) {
         <colgroup>
           <col />
           <col style={{width: COLUMN_WIDTH.bias}} />
-          <col style={{width: COLUMN_WIDTH.gap}} />
+          <col style={{width: COLUMN_WIDTH.scoreGap}} />
           <col style={{width: COLUMN_WIDTH.pairs}} />
           <col style={{width: COLUMN_WIDTH.votes}} />
         </colgroup>

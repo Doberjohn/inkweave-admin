@@ -38,6 +38,9 @@ const ENABLED = ':where(:not(:disabled))';
 // A segmented control's buttons skip held ones too: aria-disabled, which keeps
 // a focused one's focus where a native disabled would drop it (its `held`).
 const LIVE = ':where(:not(:disabled):not([aria-disabled="true"]))';
+// A file cover's rings skip a held one: a <label> is never :disabled itself, so
+// it is held while the input it wraps is.
+const FILE_LIVE = ':where(:not(:has(input:disabled)))';
 
 /**
  * Admin's one scoped stylesheet: every adm-* class the shell, the primitives
@@ -123,6 +126,10 @@ const LIVE = ':where(:not(:disabled):not([aria-disabled="true"]))';
  *   too (useFileDrop): while a file is dragged over it, the same ring marks
  *   the drop target, on data-dragging="true". adm-file-btn is a bordered
  *   button (Replace card image); adm-file-cover lies over the card preview.
+ *   A cover whose input is disabled (the printing form's, while its publish
+ *   runs) is held: it dims as a disabled control does, and takes neither its
+ *   hover ring nor its drop ring. Its held rule stands alone, so a browser
+ *   that doesn't know :has() drops it and not the held rules beside it.
  * - adm-range is the cost slider. data-unset="true" hides its thumb, so a
  *   blank cost never reads as 0. The track alone then shows the slider, so it
  *   is barNeutral, 3.3:1 on a card (WCAG 1.4.11), not the meters' barTrack.
@@ -196,8 +203,8 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-file-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:${SPACING.sm}px;min-height:${FILE_BUTTON_HEIGHT}px;padding:0 ${SPACING.section}px;border:1px solid ${C.strongBorder};border-radius:${R.control}px;color:${C.text};font-size:${T.body}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:border-color ${FAST},color ${FAST};}
 .adm-file-btn:hover{border-color:${C.accentStrong};color:${C.accent};}
 .adm-file-cover{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;border-radius:${R.preview}px;cursor:pointer;transition:box-shadow ${FAST};}
-.adm-file-cover:hover{box-shadow:inset 0 0 0 1px ${C.accentStrong};}
-.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"],.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]{${FOCUS_RING}outline-offset:2px;}
+.adm-file-cover:hover${FILE_LIVE}{box-shadow:inset 0 0 0 1px ${C.accentStrong};}
+.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"],.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]${FILE_LIVE}{${FOCUS_RING}outline-offset:2px;}
 
 .adm-range{appearance:none;display:block;flex:1 1 auto;min-width:${RANGE_MIN_WIDTH}px;height:${RANGE_HEIGHT}px;margin:0;background:transparent;cursor:pointer;}
 .adm-range::-webkit-slider-runnable-track{height:${RANGE_TRACK}px;border-radius:${R.tag}px;background:${C.barNeutral};}
@@ -214,6 +221,7 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 
 .adm-seg-btn:disabled,.adm-seg-btn[aria-disabled="true"],.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
 .adm-acc-head:disabled,.adm-pick-btn:disabled,.adm-switch:disabled,.adm-range:disabled{opacity:.4;cursor:not-allowed;}
+.adm-file-cover:has(input:disabled){opacity:.4;cursor:not-allowed;}
 
 .adm-chart-plot{border-radius:${R.control}px;outline:none;touch-action:pan-y;}
 .adm-chart-plot:focus-visible{${FOCUS_RING}outline-offset:2px;}

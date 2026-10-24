@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import type {LorcanaCard, SynergyGroup} from 'inkweave-synergy-engine';
 import {useCardDataContext} from '../../app-bridge';
+import {extOf} from '../../components/fileName';
 import {useImageUpload, type ImageUpload} from '../../components/useImageUpload';
 import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
 import {EMPTY_FORM, sameForm} from './emptyForm';
@@ -42,7 +43,7 @@ function readyToPublish(p: PublishState): PublishInput | null {
   if (!p.token) return null;
   if (!file) return null;
   if (!dataUrl) return null;
-  return {token: p.token, imageBase64: dataUrl, imageExt: (file.name.split('.').pop() ?? 'png').toLowerCase()};
+  return {token: p.token, imageBase64: dataUrl, imageExt: extOf(file.name) || 'png'};
 }
 
 /** The draft holds something: a field off its empty value, or a chosen file, read or not. */

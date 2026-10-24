@@ -1,4 +1,5 @@
 import {useRef, useState} from 'react';
+import {extOf} from './fileName';
 
 // How the formats the tools accept begin; WebP is a RIFF file whose type is WEBP.
 const JPEG = '\xFF\xD8\xFF';
@@ -30,8 +31,7 @@ function imageFormat(dataUrl: string): ImageFormat | null {
 export function imageProblem(name: string, dataUrl: string): string | null {
   const format = imageFormat(dataUrl);
   if (!format) return `${name} is not a JPEG, PNG or WebP image.`;
-  const ext = (name.split('.').pop() ?? '').toLowerCase();
-  if (EXTENSIONS[format].includes(ext)) return null;
+  if (EXTENSIONS[format].includes(extOf(name))) return null;
   return `${name} holds a ${format} image; rename it to end in .${EXTENSIONS[format][0]}.`;
 }
 

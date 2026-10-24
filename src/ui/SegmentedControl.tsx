@@ -50,7 +50,7 @@ function inPairs(buttons: React.ReactElement[]) {
  * Enter or Space; aria-pressed carries the selection, and AdminStyles draws it
  * (`.adm-seg-btn[aria-pressed="true"]`). Pressing the selected option again
  * does nothing, so onChange fires only for a real change: Card studio's mode
- * switch keeps both drafts and pushes a URL (R-57), and a stray click on the
+ * switch keeps its drafts and pushes a URL (R-57), and a stray click on the
  * current mode adds no history entry. While nothing is selected (a null
  * value), every option is a real change. While the control is held, no press
  * fires it.

@@ -5,22 +5,32 @@ import {useHiddenFileInput} from '../../../components/useHiddenFileInput';
 import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
-import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, isStaged, type ImageNoteIds} from '../cardPanel';
+import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, type FrameState, type ImageNoteIds} from '../cardPanel';
 import {CHOICE_OPTIONS} from '../finishes/finishValues';
-import {missingLine, publishLabel, type PromoSetOption, type ScanState} from '../promos/printingForm';
-import {printingCode, type FoundPrinting} from '../promos/promoCatalog';
+import {
+  missingLine,
+  numberProblem,
+  publishLabel,
+  scanNote,
+  scanUnusable,
+  type MissingLineOptions,
+  type PromoSetOption,
+  type ScanState,
+} from '../promos/printingForm';
+import {hasOfficialArt, printingCode, type FoundPrinting} from '../promos/promoCatalog';
 import type {OpenPrintingForm, PrintingFormController} from '../promos/usePrintingForm';
 import {scanLanguageOptions} from '../scanLanguages';
-import {FIELD_LABEL, HINT} from '../studioStyles';
+import {CARD_ASPECT, FIELD_LABEL, FRAME_BORDER, HINT} from '../studioStyles';
 import {CommitOutcome} from './CommitOutcome';
 import {Field} from './Field';
 
 /*
  * The promo printing form (#77): the box Edit card's Printings panel opens to add a printing of the card or
  * to edit one of its promo printings. It shows what the controller holds (usePrintingForm.ts) and hands
- * every entry back to it; whether Publish is on and what it says are printingForm.ts's rules, and the
- * commit is the controller's. On the left is the scan, 130px wide, under a click-or-drop control as the
- * card panel's preview is; on the right are the fields, Publish and Cancel, and what is missing or has
+ * every entry back to it. Whether Publish is on and what it says, the lines that say what is missing or
+ * wrong (under the buttons, and on Number) and what is said of a scan chosen are printingForm.ts's rules,
+ * and the commit is the controller's. On the left is the scan, 130px wide, under a click-or-drop control as
+ * the card panel's preview is; on the right are the fields, Publish and Cancel, and what is missing or has
  * failed. Below 360px the fields wrap under the scan.
  *
  * While a publish runs the form is held, since the controller would take an entry it then drops when the
@@ -30,8 +40,6 @@ import {Field} from './Field';
 /** The scan column's width, and the least the fields ask for beside it: with the gap, a box under 360px wraps them under the scan. */
 const SCAN_WIDTH = 130;
 const FIELDS_BASIS = 180;
-/** A card's proportions, as the studio's preview draws them. */
-const CARD_ASPECT = '0.72';
 
 /** The one thing a printing with Ravensburger's art says in place of a scan control. */
 const RAVENSBURGER_ART = "Its art is Ravensburger's, so it has no scan to replace.";
@@ -66,13 +74,11 @@ const CAPTION: CSSProperties = {
   color: ADMIN_COLORS.text,
   textAlign: 'center',
 };
-// A control that takes no file looks off, as the form's other held controls do (AdminStyles' .4).
-const LOCKED: CSSProperties = {opacity: 0.4, cursor: 'not-allowed'};
 // A file name has no break opportunity, and a long one would push the column wider than its 130px.
 const NOTES: CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xs, overflowWrap: 'anywhere'};
-// The scan's error is told as Notice tells one, small: light text on the error fill. The studio's red error text
-// on this box's tint comes to 4.497:1, a hair under AA's 4.5:1.
-const SCAN_ERROR: CSSProperties = {
+// An error in this box, the scan's or Number's, is told as Notice tells one, small: light text on the error fill.
+// The studio's red error text (ERROR_TEXT) on this box's tint comes to 4.497:1, a hair under AA's 4.5:1.
+const TINT_ERROR: CSSProperties = {
   margin: 0,
   padding: SPACING.sm,
   backgroundColor: ADMIN_COLORS.errorBg,
@@ -86,20 +92,15 @@ const BUTTONS: CSSProperties = {display: 'flex', flexWrap: 'wrap', gap: SPACING.
 const PUBLISH: CSSProperties = {flex: '1 1 auto'};
 const MISSING: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
-/** The fields' errors: none. What is missing speaks under the buttons, in printingForm.ts's words. */
+/**
+ * A field's errors when it has none to show: every field but Number, and Number while what was typed reads
+ * and names a free code. What is missing speaks under the buttons, in printingForm.ts's words; a number the
+ * owner typed that is wrong is marked on Number too (numberProblem, R-72).
+ */
 const NO_ERRORS: Readonly<Record<string, string>> = {};
 
 /** What the promo set's select says under it: it offers only the app's promo sets, at admin's pin. */
 const PROMO_SET_HINT = "A promo set not listed here has to be added to the app's PROMO_SETS first.";
-
-/** The picture's frame: no art to show (dashed), the printing's art now (solid), or the scan the owner chose (gold). */
-type FrameState = 'empty' | 'current' | 'staged';
-
-const FRAME_BORDER: Readonly<Record<FrameState, string>> = {
-  empty: `1px dashed ${ADMIN_COLORS.strongBorder}`,
-  current: `1px solid ${ADMIN_COLORS.inputBorder}`,
-  staged: `1px solid ${ADMIN_COLORS.accentStrong}`,
-};
 
 export interface PromoPrintingFormProps {
   /** Its form is open: the box draws nothing without one. */
@@ -125,12 +126,7 @@ function artVariantOf({printing}: OpenPrintingForm): string | undefined {
 
 /** Whether the form edits a printing with Ravensburger's art, which an edit doesn't replace: it has no scan control then. */
 function keepsItsArt({printing}: OpenPrintingForm): boolean {
-  return printing?.images !== undefined;
-}
-
-/** Whether the scan the owner chose can't be published yet: it failed its check, or its bytes are still being read. */
-function scanUnusable({name, dataUrl, error}: ScanState): boolean {
-  return error !== null || (name !== null && dataUrl === null);
+  return printing !== null && hasOfficialArt(printing);
 }
 
 /** What the scan control says: it adds the scan of a new printing, or replaces the scan of an edited one. */
@@ -138,7 +134,7 @@ function captionOf({kind}: OpenPrintingForm): string {
   return kind === 'add' ? 'Click or drop to add the scan' : 'Click or drop to replace the scan';
 }
 
-/** What the picture frame looks like for the art it shows and the scan the owner chose. */
+/** The picture's frame: no art to show (dashed), the printing's art now (solid), or the scan the owner chose (gold). */
 function frameStateOf({scan, art}: {scan: ScanState; art: string | undefined}): FrameState {
   if (scan.dataUrl !== null) return 'staged';
   return art === undefined ? 'empty' : 'current';
@@ -158,7 +154,7 @@ interface ScanCoverProps {
   caption: string;
   describedBy: string;
   invalid: boolean;
-  /** A publish runs: the control takes no file. */
+  /** A publish runs: the control takes no file, and its input is disabled, which the stylesheet holds it by. */
   locked: boolean;
   onFile: (file: File | null) => void;
 }
@@ -166,7 +162,8 @@ interface ScanCoverProps {
 /**
  * The control over the picture, as the card panel builds its own (StudioCardPanel): a <label> round a
  * visually hidden file input, which carries the focus and rings the label, and takes a dropped file too
- * (useFileDrop). A pick and a drop hand the file to the same place.
+ * (useFileDrop). A pick and a drop hand the file to the same place. While its input is disabled it looks
+ * held, with no ring on hover or under a dragged file: AdminStyles' .adm-file-cover:has(input:disabled).
  */
 function ScanCover({caption, describedBy, invalid, locked, onFile}: ScanCoverProps) {
   const {focused, inputProps} = useHiddenFileInput(onFile);
@@ -176,7 +173,6 @@ function ScanCover({caption, describedBy, invalid, locked, onFile}: ScanCoverPro
       className="adm-file-cover"
       data-focused={focused || undefined}
       data-dragging={dragging || undefined}
-      style={locked ? LOCKED : undefined}
       {...dropProps}>
       <span style={CAPTION}>{caption}</span>
       <input
@@ -191,11 +187,14 @@ function ScanCover({caption, describedBy, invalid, locked, onFile}: ScanCoverPro
 }
 
 /**
- * The formats, then what the pick did: the file's error (its bytes are checked after the pick) or its name.
- * Both speak through one polite live region, mounted before the pick: the file input empties itself, so
- * nothing else announces a file chosen (the card panel's R4-8c).
+ * The formats, then what the pick did: the file's error (its bytes are checked after the pick), or the
+ * sentence that names the file and says what it does (scanNote). Both speak through one polite live region,
+ * mounted before the pick: the file input empties itself, so nothing else announces a file chosen (the card
+ * panel's R4-8c).
  */
-function ScanNotes({scan, ids}: {scan: ScanState; ids: ImageNoteIds}) {
+function ScanNotes({form, ids}: {form: OpenPrintingForm; ids: ImageNoteIds}) {
+  const {scan} = form;
+  const note = scanNote({kind: form.kind, scan});
   return (
     <>
       <p id={ids.hint} style={HINT}>
@@ -203,11 +202,11 @@ function ScanNotes({scan, ids}: {scan: ScanState; ids: ImageNoteIds}) {
       </p>
       <div aria-live="polite" style={NOTES}>
         {scan.error !== null && (
-          <p id={ids.error} style={SCAN_ERROR}>
+          <p id={ids.error} style={TINT_ERROR}>
             {scan.error}
           </p>
         )}
-        {isStaged(scan) && <p style={HINT}>{scan.name}</p>}
+        {note !== null && <p style={HINT}>{note}</p>}
       </div>
     </>
   );
@@ -247,7 +246,7 @@ function ScanColumn({form, currentArt, locked, onFile}: ScanColumnProps) {
           />
         )}
       </div>
-      {control ? <ScanNotes scan={scan} ids={ids} /> : <p style={HINT}>{RAVENSBURGER_ART}</p>}
+      {control ? <ScanNotes form={form} ids={ids} /> : <p style={HINT}>{RAVENSBURGER_ART}</p>}
     </div>
   );
 }
@@ -266,8 +265,12 @@ function unlistedSet({initial}: OpenPrintingForm, promoSets: readonly PromoSetOp
   return promoGrouping === '' || promoSets.some(({code}) => code === promoGrouping) ? null : promoGrouping;
 }
 
-/** What the fields read: each one's props, and the promo sets the select offers. */
-type FieldsProps = FieldProps & {promoSets: readonly PromoSetOption[]};
+/** What the fields read: each one's props, the promo sets the select offers, and what Number says of the number typed. */
+type FieldsProps = FieldProps & {
+  promoSets: readonly PromoSetOption[];
+  /** Why the number typed is wrong (numberProblem), or null. */
+  numberError: string | null;
+};
 
 /**
  * The promo sets the app lists, newest first, after a blank choice, and under them the line that says a
@@ -297,10 +300,14 @@ function PromoSetField({form, patch, locked, promoSets}: FieldsProps) {
   );
 }
 
-/** The number as printed: 1 for 1/P5. Whether it reads is printingForm.ts's (parseNumber). */
-function NumberField({form, patch, locked}: FieldProps) {
+/**
+ * The number as printed: 1 for 1/P5. Whether it reads, and whose code it names, are printingForm.ts's
+ * (numberProblem): a number typed that is wrong marks the field invalid and says why under it.
+ */
+function NumberField({form, patch, locked, numberError}: FieldProps & Pick<FieldsProps, 'numberError'>) {
+  const errors = numberError === null ? NO_ERRORS : {'printing-number': numberError};
   return (
-    <Field label="Number" name="printing-number" errors={NO_ERRORS}>
+    <Field label="Number" name="printing-number" errors={errors} errorStyle={TINT_ERROR}>
       {(control) => (
         <input
           {...control}
@@ -451,10 +458,15 @@ interface OpenFormProps extends PromoPrintingFormProps {
   form: OpenPrintingForm;
 }
 
+/** What printingForm.ts's rules read of the open form: what it holds and opened with, its scan, who has its code, and its art variant. */
+function rulesOf({form, taken}: Pick<OpenFormProps, 'form' | 'taken'>): MissingLineOptions {
+  return {kind: form.kind, values: form.values, initial: form.initial, scan: form.scan, taken, artVariant: artVariantOf(form)};
+}
+
 /**
  * The open form. Publish is held while the form lacks something (missingLine), while a publish runs, and
- * while a scan the owner chose can't be used yet: it is still being read, or failed its check, which
- * printingForm.ts's rules leave to the scan's own error. A publish that did not land leaves the form open with
+ * while a scan the owner chose can't be used yet (scanUnusable): it is still being read, or failed its
+ * check, which the line leaves to the scan's own error. A publish that did not land leaves the form open with
  * its failure, and Publish went off while it ran, which drops the focus to <body>, so the failure takes it
  * (R-59). A landed one closes the form; the panel hands focus on from there. The heading takes focus from
  * script (tabIndex -1), as the panel's title does, for a handoff that opens the form.
@@ -463,14 +475,8 @@ function OpenForm({controller, form, promoSets, taken, currentArt, onForgetToken
   const headingId = useId();
   const handoff = useFocusHandoff();
   const {publishing} = controller;
-  const line = missingLine({
-    kind: form.kind,
-    values: form.values,
-    initial: form.initial,
-    scan: form.scan,
-    taken,
-    artVariant: artVariantOf(form),
-  });
+  const rules = rulesOf({form, taken});
+  const line = missingLine(rules);
   const publish = () =>
     void controller.publish().then((landed) => {
       if (!landed) handoff.request();
@@ -486,7 +492,7 @@ function OpenForm({controller, form, promoSets, taken, currentArt, onForgetToken
       <div style={BODY}>
         <ScanColumn form={form} currentArt={currentArt} locked={publishing} onFile={chooseScan} />
         <div style={FIELDS}>
-          <Fields form={form} patch={controller.patch} locked={publishing} promoSets={promoSets} />
+          <Fields form={form} patch={controller.patch} locked={publishing} promoSets={promoSets} numberError={numberProblem(rules)} />
           <Actions
             form={form}
             line={line}

@@ -1,12 +1,13 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {RAW_DIR} from '../../../image/githubClient';
-import {BASE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
-import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
+import {BASE, BASE_TREE, COMMIT_URL, notAFastForward, stubRepo} from '../../finishes/__tests__/repoHarness';
+import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH, setChunkPath} from '../../finishes/finishFiles';
 import {withEditedPrinting, type PrintingEdit} from '../catalogEdits';
 import {
   findPrinting,
   nextProvisionalId,
   parseCatalog,
+  takenBy,
   type BaseCard,
   type CatalogPrinting,
   type PromoCatalog,
@@ -24,39 +25,46 @@ import {
   type ScanFile,
 } from '../publishPrinting';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, FIXTURE_FILES, MKB_BASE, PRINCE, filesFor} from './promoFixtures';
+import {
+  BALOO_BASE,
+  BALOO_ENTRY,
+  FIXTURE_CATALOG,
+  FIXTURE_FILES,
+  HIRO_BASE,
+  MKB_BASE,
+  PRINCE,
+  SNOW_WHITE_BASE,
+  filesFor,
+  printingOf,
+  withSet3Chunk,
+} from './promoFixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
-/** The printing of FIXTURE_CATALOG with this id. */
-const printing = (id: number) => findPrinting(FIXTURE_CATALOG, id)!.printing;
-
 const SCAN: ScanFile = {ext: 'webp', base64: 'UklGRgAAAABXRUJQ'};
 const ADD_9_P4: PrintingChange = {kind: 'add', card: PRINCE, printing: {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null}, note: null, scan: SCAN};
-const EDIT_80024 = (edit: Partial<PrintingEdit>, from = factsOf(printing(80024))): Extract<PrintingChange, {kind: 'edit'}> =>
+const EDIT_80024 = (edit: Partial<PrintingEdit>, from = factsOf(printingOf(80024))): Extract<PrintingChange, {kind: 'edit'}> =>
   ({kind: 'edit', card: MKB_BASE, id: 80024, from, edit: {promoGrouping: 'C3', number: 13, scanLanguage: null, ...edit}, note: null, scan: null});
 
 /** Hades - Dark Usurper, whose card no dataset has yet: it has no base number. */
 const HADES: BaseCard = {id: 0, fullName: 'Hades - Dark Usurper', setCode: '15', number: 0, core: false};
 /** The Championship Hades, 80032: it has 28/C3 as the Challenge Top 8 Hades, 80031, does, and only its source tells them apart. */
-const NOTE_ON_80032: PrintingChange = {kind: 'edit', card: HADES, id: 80032, from: factsOf(printing(80032)),
+const NOTE_ON_80032: PrintingChange = {kind: 'edit', card: HADES, id: 80032, from: factsOf(printingOf(80032)),
   edit: {promoGrouping: 'C3', number: 28, scanLanguage: null}, note: 'Championship prize.', scan: null};
 /** Snow White's 42/P2, a Chinese scan, made Japanese: a printing of a Sets 1 to 8 card, which only promos.json lists. */
-const SNOW_WHITE_TO_JA: PrintingChange = {kind: 'edit', card: {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false},
-  id: 80049, from: factsOf(printing(80049)), edit: {promoGrouping: 'P2', number: 42, scanLanguage: 'ja'}, note: null, scan: null};
+const SNOW_WHITE_TO_JA: PrintingChange = {kind: 'edit', card: SNOW_WHITE_BASE, id: 80049, from: factsOf(printingOf(80049)),
+  edit: {promoGrouping: 'P2', number: 42, scanLanguage: 'ja'}, note: null, scan: null};
 
-/** Hiro Hamada - Armor Designer, whose 24A/P2 and 24B/P2 are two arts under one number. */
-const HIRO: BaseCard = {id: 1529, fullName: 'Hiro Hamada - Armor Designer', setCode: '7', number: 96, core: false};
 /** A note on 24A/P2 (1661), which has Ravensburger's art: its code in the form is "24A/P2", art variant included. */
-const NOTE_ON_1661: Extract<PrintingChange, {kind: 'edit'}> = {kind: 'edit', card: HIRO, id: 1661, from: factsOf(printing(1661)),
+const NOTE_ON_1661: Extract<PrintingChange, {kind: 'edit'}> = {kind: 'edit', card: HIRO_BASE, id: 1661, from: factsOf(printingOf(1661)),
   edit: {promoGrouping: 'P2', number: 24, scanLanguage: null}, note: 'The first of the two arts.', scan: null};
 /** FIXTURE_CATALOG with a third art of Hiro's beside the others: 25B/P2, the only printing with that number. */
 const WITH_25B: PromoCatalog = {
   ...FIXTURE_CATALOG,
-  noBaseCard: FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.fullName === HIRO.fullName
+  noBaseCard: FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.fullName === HIRO_BASE.fullName
     ? {...group, variants: [...group.variants, {id: 1663, rarity: 'Special', number: 25, promoGrouping: 'P2', artVariant: 'B', finishes: ['foil']}]}
     : group)),
 };
@@ -77,6 +85,16 @@ function staleFiles(): Record<string, string> {
   return {...FIXTURE_FILES, [ALL_CARDS_PATH]: `${JSON.stringify(all, null, 2)}\n`, [PROMOS_PATH]: '[]\n'};
 }
 
+/**
+ * FIXTURE_FILES with the hashes a local image build injects (the app's download-card-images.mjs) on the first
+ * entry of promos.json. The app's merge CLI reads the file without them.
+ */
+function hashedPromos(): Record<string, string> {
+  const [first, ...rest] = JSON.parse(FIXTURE_FILES[PROMOS_PATH]) as object[];
+  const hashed = {...first, imageHash: 'aaaa000011112222', imageHashSm: 'bbbb333344445555'};
+  return {...FIXTURE_FILES, [PROMOS_PATH]: `${JSON.stringify([hashed, ...rest])}\n`};
+}
+
 describe('the fixture branch', () => {
   it('is in step with its catalog', () => {
     const files = {allCards: FIXTURE_FILES[ALL_CARDS_PATH], promos: FIXTURE_FILES[PROMOS_PATH]};
@@ -86,15 +104,15 @@ describe('the fixture branch', () => {
 
 describe('factsOf', () => {
   it('reads what the form edits of a printing, and whether its art is Ravensburger\'s', () => {
-    expect(factsOf(printing(80049))).toEqual({promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false});
-    expect(factsOf(printing(1191))).toEqual({promoGrouping: 'D23', number: 1, scanLanguage: null, officialArt: true});
+    expect(factsOf(printingOf(80049))).toEqual({promoGrouping: 'P2', number: 42, scanLanguage: 'zh', officialArt: false});
+    expect(factsOf(printingOf(1191))).toEqual({promoGrouping: 'D23', number: 1, scanLanguage: null, officialArt: true});
   });
   it('reads a printing with no number as null', () => {
     expect(factsOf({id: 1, rarity: 'Special', promoGrouping: 'C1'})).toEqual({promoGrouping: 'C1', number: null, scanLanguage: null, officialArt: false});
   });
   it('copies the art variant of a printing that has one, and leaves the key out of one that has none', () => {
-    expect(factsOf(printing(1661))).toEqual({promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'});
-    expect(factsOf(printing(80049))).not.toHaveProperty('artVariant');
+    expect(factsOf(printingOf(1661))).toEqual({promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true, artVariant: 'A'});
+    expect(factsOf(printingOf(80049))).not.toHaveProperty('artVariant');
   });
 });
 
@@ -124,6 +142,14 @@ describe('publishPrinting', () => {
     await publishPrinting({token: 't', change: {...EDIT_80024({}), note: 'Foil twin of 1/C3.'}});
     expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
     expect(repo.commitMessage()).toBe('chore(collection): edit 13/C3 Mother Knows Best from Card studio');
+  });
+  it('commits nothing for an edit that changes nothing', async () => {
+    // GitHub names a tree by what it holds, so the catalog as the branch holds it builds the base commit's tree again.
+    const repo = stubRepo({files: FIXTURE_FILES, tree: BASE_TREE});
+    await expect(publishPrinting({token: 't', change: EDIT_80024({})})).rejects.toThrow(
+      'Nothing changed on master: it already holds these files as they are, so nothing was committed.');
+    expect(repo.filesSent()).toEqual({[CATALOG_PATH]: FIXTURE_FILES[CATALOG_PATH]});
+    expect(repo.writes()).toEqual(['POST git/blobs', 'POST git/trees']);
   });
   it('names a renumbering in its commit', async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
@@ -165,7 +191,7 @@ describe('the id an add takes', () => {
     // 80050 is one above the highest line, 80049's: the id the lines alone would issue again. Snow White
     // is a Sets 1 to 8 card, so the printing reaches promos.json only, where the app's merge checks no id.
     const lineless: CatalogPrinting = {id: 80050, rarity: 'Special', number: 43, promoGrouping: 'P2', finishes: ['foil']};
-    const withLineless = FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.lorcanaJsonBaseId === 240
+    const withLineless = FIXTURE_CATALOG.noBaseCard.map((group): WaitingGroup => (group.lorcanaJsonBaseId === SNOW_WHITE_BASE.id
       ? {...group, variants: [...group.variants, lineless]}
       : group));
     const repo = stubRepo({files: filesFor({...FIXTURE_CATALOG, noBaseCard: withLineless})});
@@ -173,6 +199,65 @@ describe('the id an add takes', () => {
     const ids = (JSON.parse(repo.filesSent()[PROMOS_PATH]) as Array<{id: number}>).map(({id}) => id);
     expect(ids).toEqual(expect.arrayContaining([80050, 80051]));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("an add that starts a Sets 1 to 8 card's group", () => {
+  /** 9/P4 for Baloo - von Bruinwald XIII, whom FIXTURE_CATALOG has no group for. */
+  const ADD_TO_BALOO: PrintingChange = {...ADD_9_P4, card: BALOO_BASE};
+
+  it("adds to a Sets 1 to 8 card with no group once its set's data holds it", async () => {
+    const repo = stubRepo({files: withSet3Chunk()});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).resolves.toEqual({commitUrl: COMMIT_URL, id: 80050, code: '9/P4'});
+    expect(repo.reads()).toContainEqual({path: setChunkPath('3'), ref: BASE, token: 't'});
+  });
+  it("refuses an add whose set's data names the card otherwise, writing nothing", async () => {
+    const repo = stubRepo({files: withSet3Chunk([{...BALOO_ENTRY, version: 'Someone Else', fullName: 'Baloo - Someone Else'}])});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which is Baloo - Someone Else."});
+    expect(repo.writes()).toEqual([]);
+  });
+  it("refuses an add whose set's data lacks the card", async () => {
+    const repo = stubRepo({files: withSet3Chunk([])});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownCard',
+      message: "The app's set 3 data on master doesn't match Baloo - von Bruinwald XIII: promo 80050 (Baloo - von Bruinwald XIII) reprints card 433, which no dataset holds."});
+    expect(repo.writes()).toEqual([]);
+  });
+  it("names a set's data whose cards aren't a list, writing nothing", async () => {
+    const repo = stubRepo({files: {...withSet3Chunk(), [setChunkPath('3')]: '{"cards":[]}\n'}});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toThrow(`${setChunkPath('3')} can't be read: its cards aren't a list`);
+    expect(repo.writes()).toEqual([]);
+  });
+  it('reads no set data until every other check has passed', async () => {
+    // The card files are out of step, so the publish is refused before it reads Set 3's chunk, which holds Baloo.
+    const repo = stubRepo({files: {...withSet3Chunk(), ...staleFiles()}});
+    await expect(publishPrinting({token: 't', change: ADD_TO_BALOO})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'outOfStep'});
+    expect(repo.reads().map(({path}) => path)).not.toContain(setChunkPath('3'));
+  });
+  it('reads no set data for a Core card, or for a card the catalog has a group for', async () => {
+    const pathsReadFor = async (card: BaseCard) => {
+      const repo = stubRepo({files: FIXTURE_FILES});
+      await publishPrinting({token: 't', change: {...ADD_9_P4, card}});
+      return repo.reads().map(({path}) => path).sort();
+    };
+    const promoFiles = [ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH].sort();
+    expect(await pathsReadFor(PRINCE)).toEqual(promoFiles);
+    expect(await pathsReadFor(SNOW_WHITE_BASE)).toEqual(promoFiles);
+  });
+});
+
+describe('a promos.json that a local image build hashed', () => {
+  it('commits the catalog alone for a note-only edit: the hashes are no change', async () => {
+    const repo = stubRepo({files: hashedPromos()});
+    await publishPrinting({token: 't', change: {...EDIT_80024({}), note: 'Foil twin of 1/C3.'}});
+    expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH]);
+  });
+  it('writes promos.json with no hash for an add', async () => {
+    const repo = stubRepo({files: hashedPromos()});
+    await publishPrinting({token: 't', change: ADD_9_P4});
+    const promos = repo.filesSent()[PROMOS_PATH];
+    expect(promos).toContain('"id":80050');
+    expect(promos).not.toContain('imageHash');
   });
 });
 
@@ -197,7 +282,7 @@ describe('over the pinned app files', () => {
 describe('an edit onto the number of another art', () => {
   it('is free for a printing of another art: 24A moves beside 25B', async () => {
     const repo = stubRepo({files: filesFor(WITH_25B)});
-    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25A/P2'});
+    await expect(publishPrinting({token: 't', change: to25P2({card: HIRO_BASE, id: 1661})})).resolves.toMatchObject({id: 1661, code: '25A/P2'});
     expect(Object.keys(repo.filesSent())).toEqual([CATALOG_PATH, PROMOS_PATH]);
     expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 25A/P2 Hiro Hamada - Armor Designer from Card studio');
   });
@@ -223,7 +308,7 @@ describe('a printing with an art variant', () => {
     expect(repo.commitMessage()).toBe('chore(collection): edit 24A/P2 to 30A/P2 Hiro Hamada - Armor Designer from Card studio');
   });
   it.each<[string, PrintingChange, RefusalKind, string]>([
-    ['a stale form', {...NOTE_ON_1661, from: {...factsOf(printing(1661)), scanLanguage: 'ja'}}, 'changed',
+    ['a stale form', {...NOTE_ON_1661, from: {...factsOf(printingOf(1661)), scanLanguage: 'ja'}}, 'changed',
       "Someone changed 24A/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
     ['a form that opened it without the variant', {...NOTE_ON_1661, from: {promoGrouping: 'P2', number: 24, scanLanguage: null, officialArt: true}}, 'changed',
       "Someone changed 24/P2 on master after you opened it. The form now shows the branch's values: make your change again."],
@@ -302,7 +387,7 @@ describe('a publish the branch can\'t take', () => {
     ['art variant', {artVariant: 'A'}],
   ])('refuses an edit whose printing\'s %s changed since the form opened', async (_what, differs) => {
     const repo = stubRepo({files: FIXTURE_FILES});
-    const from = {...factsOf(printing(80024)), ...differs};
+    const from = {...factsOf(printingOf(80024)), ...differs};
     await expect(publishPrinting({token: 't', change: EDIT_80024({}, from)})).rejects.toMatchObject({kind: 'changed'});
     expect(repo.writes()).toEqual([]);
   });
@@ -352,10 +437,24 @@ describe('a publish the branch can\'t take', () => {
     stubRepo({files: FIXTURE_FILES});
     await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({kind});
   });
+  it('refuses an unknown promo set before a taken code', async () => {
+    // 13/Q9 is Mother Knows Best's in WITH_Q9, and Q9 is a set the pinned PROMO_SETS lacks: an add of it trips both checks.
+    expect(takenBy({catalog: WITH_Q9, code: {promoGrouping: 'Q9', number: 13}})?.printing.id).toBe(80024);
+    const repo = stubRepo({files: filesFor(WITH_Q9)});
+    const change: PrintingChange = {...ADD_9_P4, printing: {...ADD_9_P4.printing, promoGrouping: 'Q9', number: 13}};
+    await expect(publishPrinting({token: 't', change})).rejects.toMatchObject({name: 'PrintingRefusal', kind: 'unknownSet'});
+    expect(repo.writes()).toEqual([]);
+  });
   it("passes on the app's own error for a catalog that can't merge, writing nothing", async () => {
     const repo = stubRepo({files: FIXTURE_FILES});
     const stray: BaseCard = {id: 99999, fullName: 'Nobody - Nowhere', setCode: '9', number: 1, core: true};
     await expect(publishPrinting({token: 't', change: {...ADD_9_P4, card: stray}})).rejects.toThrow('no card 99999 (Nobody - Nowhere) in allCards.json');
+    expect(repo.writes()).toEqual([]);
+  });
+  it("names a catalog it can't read, as the panel does, writing nothing", async () => {
+    const catalog = JSON.stringify({...FIXTURE_CATALOG, noBaseCard: undefined}, null, 2);
+    const repo = stubRepo({files: {...FIXTURE_FILES, [CATALOG_PATH]: catalog}});
+    await expect(publishPrinting({token: 't', change: ADD_9_P4})).rejects.toThrow(`${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list`);
     expect(repo.writes()).toEqual([]);
   });
 });

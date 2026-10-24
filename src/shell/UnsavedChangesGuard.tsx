@@ -110,7 +110,10 @@ export function UnsavedChangesDialog({open, message, words = LEAVE_PAGE, onStay,
       size="sm"
       initialFocusRef={messageRef}
       // Opts out of the shell's × (Doberjohn/inkweave#909): the stay answer is always
-      // on screen, so the dialog already shows a visible way out.
+      // on screen, so the dialog already shows a visible way out. Without the ×, which
+      // the shell renders before the content, Tab from the message reaches the stay
+      // answer and Shift+Tab wraps to the leave answer (UnsavedChangesGuard.test.tsx
+      // pins both).
       showClose={false}
       panelStyle={PANEL}>
       <h2 style={HEADING}>{shown.title}</h2>

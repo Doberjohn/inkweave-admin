@@ -15,6 +15,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import {
   collectionPromos as appCollectionPromos,
   mergePromoPrintings as appMergePromoPrintings,
+  promoBaseProblems as appPromoBaseProblems,
 } from '../upstream/inkweave/scripts/lib/promo-printings.mjs';
 import {byPrintingOrder as appByPrintingOrder} from '../upstream/inkweave/scripts/lib/fold-variants.mjs';
 import {finishesById as appFinishesById} from '../upstream/inkweave/scripts/lib/finishes.mjs';
@@ -124,13 +125,16 @@ export interface MergeReport {
 // Makes each card's promo entries the catalog's, in place; throws, changing nothing, if the catalog can't merge.
 export const mergePromoPrintings: (cards: MergeCard[], catalog: MergeCatalog) => MergeReport = appMergePromoPrintings;
 // Every catalog promo as collection/promos.json lists it; `kept` holds the versions a file has already, by id.
-// The cast: the .mjs only reads `kept`, but its `= new Map()` default types it as a mutable Map, which refuses a ReadonlyMap.
-export const collectionPromos = appCollectionPromos as (
-  catalog: MergeCatalog,
-  kept?: ReadonlyMap<string, readonly string[]>,
-) => object[];
+// The .mjs exports are untyped (allowJs, no checkJs): this annotation is what admin relies on. `kept` is a Map,
+// not a ReadonlyMap, because TypeScript reads the .mjs's `= new Map()` default as a mutable Map, which a
+// ReadonlyMap can't stand in for. promoBridge.test.ts pins the output over the pinned files, and
+// promoMerge.test.ts pins what `kept` carries over.
+export const collectionPromos: (catalog: MergeCatalog, kept?: Map<string, readonly string[]>) => object[] = appCollectionPromos;
 // The `finishes` already in entries and their variants, by id: what collectionPromos carries over.
 export const finishesById: (entries: readonly object[]) => Map<string, readonly string[]> = appFinishesById;
+// Why listed promos can't ship: one per promo whose card `cards` lacks or names otherwise, in the app's words.
+export const promoBaseProblems: (promos: readonly object[], cards: ReadonlyArray<{id: number | string; fullName: string}>) => string[] =
+  appPromoBaseProblems;
 // A card's printings in the switcher's order: the others by number, then the promos by set and number.
 export const byPrintingOrder: (a: object, b: object) => number = appByPrintingOrder;
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded

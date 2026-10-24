@@ -196,6 +196,14 @@ describe('useBranchPrintings', () => {
       await whenFailed(rendered);
       expect(failed(rendered.result.current).error).toContain(`${PROMOS_PATH} can't be read: `);
     });
+
+    it('names the catalog and the section it lacks, as a publish does', async () => {
+      const catalog = {...(JSON.parse(EMPTY_CATALOG_TEXT) as object), noBaseCard: undefined};
+      stubBranch({...YEN_SID_FILES, [CATALOG_PATH]: JSON.stringify(catalog, null, 2)});
+      const rendered = renderPrintings(YEN_SID);
+      await whenFailed(rendered);
+      expect(failed(rendered.result.current).error).toBe(`${CATALOG_PATH} can't be read: its "noBaseCard" isn't a list`);
+    });
   });
 
   describe('a card opened after another', () => {

@@ -13,7 +13,7 @@ import {CAPTION, CELL, CELL_LINK, HEAD_CELL, MUTED_NUMBER, NUMBER, OPAQUE_CARD} 
 import type {CardPair} from './cardStats';
 
 /** The fixed columns, padding included; Paired with takes the rest. "10 → 4.33" fits 96px at 13px. */
-const COLUMN_WIDTH = {scores: 96, gap: 68, votes: 60};
+const COLUMN_WIDTH = {scores: 96, scoreGap: 68, votes: 60};
 /**
  * R2's PairList scroller (R-47): past about ten rows the list scrolls inside
  * the panel, so the panel stays level with the calibration beside it, with no
@@ -177,7 +177,7 @@ function PairsTable({pairs, isListed, filter}: PairsTableProps) {
         <colgroup>
           <col />
           <col style={{width: COLUMN_WIDTH.scores}} />
-          <col style={{width: COLUMN_WIDTH.gap}} />
+          <col style={{width: COLUMN_WIDTH.scoreGap}} />
           <col style={{width: COLUMN_WIDTH.votes}} />
         </colgroup>
         <PairsHead />

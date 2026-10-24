@@ -28,12 +28,10 @@ import {
   type StagedImage,
 } from '../cardPanel';
 import type {StudioLayout} from '../studioLayout';
-import {ERROR_TEXT, HINT, STUDIO_PANEL} from '../studioStyles';
+import {CARD_ASPECT, ERROR_TEXT, FRAME_BORDER, HINT, STUDIO_PANEL} from '../studioStyles';
 
 /** The preview's widest, by layout (handoff README §7: 320px wide, 280px narrow). */
 const PREVIEW_MAX: Readonly<Record<StudioLayout, number>> = {wide: 320, narrow: 280};
-/** CardTile's own proportions, so the stripes and the card take the same box. */
-const CARD_ASPECT = '0.72';
 const STRIPE = 10;
 const ICON_SIZE = 18;
 /** The current art's thumbnail: the card header's 64 × 90 (CardHeader.tsx:8-10), a card's proportions. */
@@ -51,11 +49,6 @@ const PANEL: CSSProperties = {
 // No overflow clip here: the file control's ring sits 2px outside the frame.
 const FRAME: CSSProperties = {position: 'relative', width: '100%'};
 const PICTURE: CSSProperties = {borderRadius: ADMIN_RADIUS.preview, overflow: 'hidden'};
-const FRAME_BORDER: Readonly<Record<FrameState, string>> = {
-  empty: `1px dashed ${ADMIN_COLORS.strongBorder}`,
-  current: `1px solid ${ADMIN_COLORS.inputBorder}`,
-  staged: `1px solid ${ADMIN_COLORS.accentStrong}`,
-};
 const STRIPES: CSSProperties = {
   aspectRatio: CARD_ASPECT,
   background: `repeating-linear-gradient(135deg, ${ADMIN_COLORS.card} 0 ${STRIPE}px, ${ADMIN_COLORS.rowHover} ${STRIPE}px ${2 * STRIPE}px)`,

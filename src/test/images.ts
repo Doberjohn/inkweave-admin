@@ -1,3 +1,5 @@
+import {extOf} from '../components/fileName';
+
 // The 8 bytes every PNG file starts with.
 const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -17,6 +19,6 @@ const HEADS: Record<string, string> = {
  * the file, so a test can tell whose bytes a hook ended up with.
  */
 export function imageDataUrl(name: string): string {
-  const ext = (name.split('.').pop() ?? '').toLowerCase();
+  const ext = extOf(name);
   return `data:image/${ext};name=${name};base64,${btoa(HEADS[ext] ?? '')}`;
 }

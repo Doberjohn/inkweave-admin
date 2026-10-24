@@ -1,10 +1,10 @@
 import {describe, expect, it} from 'vitest';
 import {ALL_CARDS_PATH, CATALOG_PATH, PROMOS_PATH} from '../../finishes/finishFiles';
-import {withNewPrinting} from '../catalogEdits';
-import {parseCatalog, serializeCatalog, type BaseCard, type FoldGroup, type PromoCatalog} from '../promoCatalog';
+import {withNewPrinting, type NewPrinting} from '../catalogEdits';
+import {parseCatalog, serializeCatalog, takenBy, type BaseCard, type FoldGroup, type PromoCatalog} from '../promoCatalog';
 import {mergeOver, outOfStep} from '../promoMerge';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, PRINCE} from './promoFixtures';
+import {FIXTURE_CATALOG, FIXTURE_FILES, PRINCE} from './promoFixtures';
 
 /** A card of allCards.json, as far as these tests look at it. */
 interface TestCard {
@@ -47,12 +47,29 @@ describe('mergeOver', () => {
       fullName: 'Mickey Mouse - Brave Little Prince', baseId: 2047, finishes: ['foil']}]);
     expect(promos.filter((promo) => promo.id !== id)).toEqual(JSON.parse(base.files.promos));
   });
+  it('adds to a Sets 1 to 8 card over the pinned files', () => {
+    const base = pinned();
+    // A Sets 1 to 8 card's group waits in noBaseCard: the merge lists its printings in promos.json alone.
+    const group = base.catalog.noBaseCard.find(({lorcanaJsonBaseId}) => lorcanaJsonBaseId !== null);
+    if (group?.lorcanaJsonBaseId == null) throw new Error('The pinned catalog has no Sets 1 to 8 group with a LorcanaJSON id.');
+    const card: BaseCard = {id: group.lorcanaJsonBaseId, fullName: group.fullName, setCode: group.baseSetCode, number: group.baseNumber ?? 0, core: false};
+    const printing: NewPrinting = {promoGrouping: 'P4', number: 99, finishes: ['foil'], scanLanguage: null};
+    expect(takenBy({catalog: base.catalog, code: printing})).toBeNull();
+    const {catalog, id} = withNewPrinting({catalog: base.catalog, card, printing, note: null});
+    const out = mergeOver({catalog, files: base.files});
+    expect(out.allCards).toBe(base.files.allCards);
+    const promos = JSON.parse(out.promos) as Array<{id: number; baseId?: number}>;
+    expect(promos.filter((promo) => promo.id !== id)).toEqual(JSON.parse(base.files.promos));
+    expect(promos.filter((promo) => promo.id === id).map(({baseId}) => baseId)).toEqual([group.lorcanaJsonBaseId]);
+  });
   it('keeps the versions promos.json holds where the catalog names none', () => {
     // Hades - Dark Usurper's printings name none and wait in noBaseCard, so allCards.json needs no card for them.
     const catalog: PromoCatalog = {...FIXTURE_CATALOG, fold: []};
+    const unversioned = catalog.noBaseCard.flatMap((group) => group.variants).find(({finishes}) => finishes === undefined);
+    if (unversioned === undefined) throw new Error('FIXTURE_CATALOG has no printing that names no versions.');
     const allCards = allCardsText([]);
     const listed = JSON.parse(mergeOver({catalog, files: {allCards, promos: '[]\n'}}).promos) as Array<{id: number}>;
-    const promos = `${JSON.stringify(listed.map((promo) => (promo.id === 80031 ? {...promo, finishes: ['foil']} : promo)))}\n`;
+    const promos = `${JSON.stringify(listed.map((promo) => (promo.id === unversioned.id ? {...promo, finishes: ['foil']} : promo)))}\n`;
     expect(mergeOver({catalog, files: {allCards, promos}}).promos).toBe(promos);
   });
   it("throws the app's message for a catalog it can't merge", () => {
@@ -87,6 +104,12 @@ describe('outOfStep', () => {
   it('names the promos file alone where allCards.json is in step', () => {
     const base = pinned();
     expect(outOfStep({catalog: base.catalog, files: {...base.files, promos: '[]\n'}})).toEqual(['collection/promos.json']);
+  });
+  it("finds a promos.json in step whatever its hashes and its formatting, as the app's CLI reads it", () => {
+    const listed = JSON.parse(FIXTURE_FILES[PROMOS_PATH]) as object[];
+    const hashed = listed.map((promo) => ({...promo, imageHash: 'aaaa000011112222', imageHashSm: 'bbbb333344445555'}));
+    const files = {allCards: FIXTURE_FILES[ALL_CARDS_PATH], promos: `${JSON.stringify(hashed, null, 2)}\n`};
+    expect(outOfStep({catalog: FIXTURE_CATALOG, files})).toEqual([]);
   });
   it('names a card alone where promos.json is in step', () => {
     expect(outOfStep(pinnedWith((cards) => mkb(cards).variants?.pop()))).toEqual(['Mother Knows Best']);

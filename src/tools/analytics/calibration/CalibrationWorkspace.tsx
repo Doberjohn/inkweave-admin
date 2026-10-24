@@ -3,7 +3,7 @@ import type {TuningConfig} from 'inkweave-synergy-engine';
 import {LinkButton, SPACING} from '../../../app-bridge';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
-import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
+import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {twoUp} from '../../../ui/layout';
 import {Notice} from '../../../ui/Notice';
 import {activityWindow} from '../activity/activityModel';
@@ -61,7 +61,7 @@ export interface CalibrationWorkspaceProps {
 const COLUMNS: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: 1,
+  gap: ADMIN_LAYOUT.hairline,
   minHeight: '100%',
   background: ADMIN_COLORS.border,
 };

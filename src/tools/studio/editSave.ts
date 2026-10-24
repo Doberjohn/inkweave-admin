@@ -1,4 +1,5 @@
 import type {LorcanaCard, LorcanaJSONCard} from 'inkweave-synergy-engine';
+import {extOf} from '../../components/fileName';
 import {targetBranch} from '../../github/githubCommit';
 import {isRejectedToken} from '../../github/rejectedToken';
 import type {CardImageCommit} from '../image/githubClient';
@@ -65,14 +66,9 @@ function uploadOf({draft, staged}: Pick<SaveInput, 'draft' | 'staged'>): Upload 
   return {file: draft.image, dataUrl: staged.dataUrl};
 }
 
-/** The extension a commit files the image under; useImageUpload's byte check matched it to the bytes. */
-function extOf(file: File): string {
-  return (file.name.split('.').pop() ?? '').toLowerCase();
-}
-
 /** The staged image as commitCardEdit sends it, or null with none. */
 function sentImage(upload: Upload | null): CardEditCommit['image'] {
-  return upload?.dataUrl ? {dataUrl: upload.dataUrl, ext: extOf(upload.file)} : null;
+  return upload?.dataUrl ? {dataUrl: upload.dataUrl, ext: extOf(upload.file.name)} : null;
 }
 
 type PlanInput = SaveInput & {card: LorcanaCard; upload: Upload | null};
@@ -94,7 +90,7 @@ function fieldsPlan({token, draft, changes, validation, upload}: PlanInput): Sav
  */
 function imagePlan({token, draft, card, upload}: PlanInput): SavePlan | null {
   if (!upload?.dataUrl) return null;
-  const commit = {token, card: {id: card.id, fullName: card.fullName}, imageBase64: upload.dataUrl, imageExt: extOf(upload.file)};
+  const commit = {token, card: {id: card.id, fullName: card.fullName}, imageBase64: upload.dataUrl, imageExt: extOf(upload.file.name)};
   return {path: 'image', seed: draft.seed, sent: upload.file, checksFile: hasPreviewId(card), commit};
 }
 

@@ -1,5 +1,6 @@
 import type {CSSProperties} from 'react';
 import {SPACING} from '../app-bridge';
+import {ADMIN_LAYOUT} from '../theme/adminTheme';
 
 /**
  * A row of panels: two side by side once the row holds two `track`-wide
@@ -56,7 +57,7 @@ export const SR_ONLY: CSSProperties = {
   position: 'absolute',
   width: 1,
   height: 1,
-  margin: -1,
+  margin: -ADMIN_LAYOUT.hairline,
   padding: 0,
   overflow: 'hidden',
   clipPath: 'inset(50%)',

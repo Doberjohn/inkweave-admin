@@ -138,18 +138,18 @@ export const CARD_RULES: readonly RuleStat[] = [
   ruleStat({ruleId: 'location-boost', ruleName: 'Location Boost', category: 'playstyle', scoreVotes: 9, meanGap: 2.44}),
 ];
 
-/** A card for Cards to review: two pairs with cards of its own, both at `gap`, with `votes` score votes each. */
+/** A card for Cards to review: two pairs with cards of its own, both at `scoreGap`, with `votes` score votes each. */
 interface ReviewSeed {
   id: string;
   name: string;
-  gap: number;
+  scoreGap: number;
   votes: readonly [number, number];
 }
 
 /** A review card's two pairs. Each partner's id extends the card's, so the card keeps the a side. */
-function reviewPairs({id, name, gap, votes}: ReviewSeed): PairStat[] {
+function reviewPairs({id, name, scoreGap, votes}: ReviewSeed): PairStat[] {
   return votes.map((scoreVotes, i) =>
-    pairStat({a: id, b: `${id}${i + 1}`, aName: name, engineScore: 6, communityScore: 6 + gap, scoreVotes}),
+    pairStat({a: id, b: `${id}${i + 1}`, aName: name, engineScore: 6, communityScore: 6 + scoreGap, scoreVotes}),
   );
 }
 
@@ -161,13 +161,13 @@ function reviewPairs({id, name, gap, votes}: ReviewSeed): PairStat[] {
  * votes.
  */
 const REVIEW_SEEDS: readonly ReviewSeed[] = [
-  {id: '3001', name: 'Elsa - Spirit of Winter', gap: -1.75, votes: [5, 5]},
-  {id: '3002', name: 'Stitch - Rock Star', gap: 1.5, votes: [5, 5]},
-  {id: '3003', name: 'Belle - Strange but Special', gap: -1.25, votes: [5, 5]},
-  {id: '3004', name: 'Hades - King of Olympus', gap: 1.25, votes: [6, 6]},
-  {id: '3005', name: 'Tinker Bell - Giant Fairy', gap: 0.75, votes: [5, 5]},
-  {id: '3006', name: 'Mickey Mouse - Wayward Sorcerer', gap: -0.5, votes: [5, 5]},
-  {id: '3007', name: 'Ursula - Power Hungry', gap: -3, votes: [4, 5]},
+  {id: '3001', name: 'Elsa - Spirit of Winter', scoreGap: -1.75, votes: [5, 5]},
+  {id: '3002', name: 'Stitch - Rock Star', scoreGap: 1.5, votes: [5, 5]},
+  {id: '3003', name: 'Belle - Strange but Special', scoreGap: -1.25, votes: [5, 5]},
+  {id: '3004', name: 'Hades - King of Olympus', scoreGap: 1.25, votes: [6, 6]},
+  {id: '3005', name: 'Tinker Bell - Giant Fairy', scoreGap: 0.75, votes: [5, 5]},
+  {id: '3006', name: 'Mickey Mouse - Wayward Sorcerer', scoreGap: -0.5, votes: [5, 5]},
+  {id: '3007', name: 'Ursula - Power Hungry', scoreGap: -3, votes: [4, 5]},
 ];
 export const REVIEW_PAIRS: readonly PairStat[] = REVIEW_SEEDS.flatMap(reviewPairs);
 

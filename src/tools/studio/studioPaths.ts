@@ -22,7 +22,7 @@ export interface StudioDrafts {
 type Draft = keyof StudioDrafts;
 
 /** The drafts in the order the studio names them. */
-const DRAFTS: readonly Draft[] = ['reveal', 'edit', 'printing'];
+const DRAFTS = ['reveal', 'edit', 'printing'] as const satisfies readonly Draft[];
 
 const NOTHING_AT_RISK: StudioDrafts = {reveal: false, edit: false, printing: false};
 
@@ -93,25 +93,54 @@ const IN_FLIGHT: Readonly<Record<Draft, () => string>> = {
   printing: publishInFlight,
 };
 
-/** A dirty draft's line when the navigation leaves Card studio. */
-const LEAVES_STUDIO: Readonly<Record<Draft, string>> = {
-  reveal: "Your New reveal card isn't published yet. Leaving Card studio drops it.",
-  edit: "Your Edit card changes aren't saved yet. Leaving Card studio drops them.",
-  printing: "Your printing form isn't published yet. Leaving Card studio drops it.",
-};
+/** How the studio's lines name a draft. */
+interface DraftWords {
+  /** Its name, as a line says it mid-sentence: "your New reveal card". */
+  name: string;
+  /** What it lacks, said after its name: "isn't published yet", or "aren't saved yet" after a plural one. */
+  lacks: string;
+  /** What stands for it once it is named: "Leaving Card studio drops it." */
+  pronoun: 'it' | 'them';
+}
 
 /**
- * What each draft lacks, as the sentence that names several of them at once
- * says it: the first half of its line above, in the middle of a sentence.
+ * Each draft's words, in one record: the lines that name a draft when the navigation leaves Card studio,
+ * and the confirm before Forget token, are built from them.
  */
-const LACKS: Readonly<Record<Draft, string>> = {
-  reveal: "your New reveal card isn't published yet",
-  edit: "your Edit card changes aren't saved yet",
-  printing: "your printing form isn't published yet",
+const WORDS: Readonly<Record<Draft, DraftWords>> = {
+  reveal: {name: 'your New reveal card', lacks: "isn't published yet", pronoun: 'it'},
+  edit: {name: 'your Edit card changes', lacks: "aren't saved yet", pronoun: 'them'},
+  printing: {name: 'your printing form', lacks: "isn't published yet", pronoun: 'it'},
 };
 
-/** What leaving Card studio drops, when one sentence names two of the drafts, or all three. */
-const DROPS: Readonly<Record<number, string>> = {2: 'both', 3: 'all three'};
+/** A line for each draft, put together from its words. */
+function eachDraft(line: (words: DraftWords) => string): Readonly<Record<Draft, string>> {
+  return {reveal: line(WORDS.reveal), edit: line(WORDS.edit), printing: line(WORDS.printing)};
+}
+
+/** The text with its first letter capitalized, to open a sentence. */
+function capitalized(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+/** What a draft lacks, in the middle of a sentence: "your New reveal card isn't published yet". */
+const lacking = ({name, lacks}: DraftWords) => `${name} ${lacks}`;
+
+/** A dirty draft's line when the navigation leaves Card studio: what it lacks, then what leaving drops. */
+const LEAVES_STUDIO = eachDraft(
+  (words) => `${capitalized(lacking(words))}. Leaving Card studio drops ${words.pronoun}.`,
+);
+
+/** What each draft lacks, as the sentence that names several of them at once says it. */
+const LACKS = eachDraft(lacking);
+
+/**
+ * What leaving Card studio drops, when one sentence names two of the drafts, or all of them: a word for
+ * each count. A fourth draft makes the key type's `(typeof DRAFTS)['length']` 4, so the keys become
+ * `2 | 4` and TypeScript rejects the `3` below as an unknown key (TS2353). That error is the reminder:
+ * whoever adds the draft must then give every count its word by hand.
+ */
+const DROPS: Readonly<Record<2 | (typeof DRAFTS)['length'], string>> = {2: 'both', 3: 'all three'};
 
 /**
  * Two or three drafts' lines when the navigation leaves Card studio with none
@@ -122,14 +151,24 @@ const DROPS: Readonly<Record<number, string>> = {2: 'both', 3: 'all three'};
 function leavesStudioTogether(dropped: readonly Draft[]): string {
   const lacks = dropped.map((draft) => LACKS[draft]);
   const parts = `${lacks.slice(0, -1).join(', ')}, and ${lacks[lacks.length - 1]}`;
-  return `${parts.charAt(0).toUpperCase()}${parts.slice(1)}. Leaving Card studio drops ${DROPS[lacks.length]}.`;
+  // A sentence names two drafts at the least (studioUnsavedMessage) and every draft at the most,
+  // so its count is one of DROPS' keys.
+  const drops = DROPS[dropped.length as keyof typeof DROPS];
+  return `${capitalized(parts)}. Leaving Card studio drops ${drops}.`;
 }
 
-/** The Edit draft's line when the navigation opens another card, or the search, in the studio. */
-const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
+/**
+ * The card's drafts: every draft but New reveal's, which a card change leaves be (draftsAtRisk). Today that
+ * is Edit's, and the printing form, which belongs to the card as Edit's draft does (#77). A draft added to
+ * the studio counts as one, so LEAVES_CARD fails to compile until it has a line.
+ */
+type CardDraft = Exclude<Draft, 'reveal'>;
 
-/** The printing form's line when it does: the form belongs to the card, as Edit's draft does (#77). */
-const LEAVES_CARD_PRINTING = "Your printing form for this card isn't published yet. Leaving the card drops it.";
+/** A card draft's line when the navigation opens another card, or the search, in the studio. */
+const LEAVES_CARD: Readonly<Record<CardDraft, string>> = {
+  edit: "Your changes to this card aren't saved yet. Leaving the card drops them.",
+  printing: "Your printing form for this card isn't published yet. Leaving the card drops it.",
+};
 
 /**
  * Both lines as one sentence, neither commit in flight (R4-8c). A card change
@@ -188,7 +227,7 @@ function draftLine(draft: Draft, leave: StudioLeave): string {
   if (leave.busy[draft]) return IN_FLIGHT[draft]();
   if (!staysInStudio(leave)) return LEAVES_STUDIO[draft];
   // The Edit draft and the printing form are the card's, so the only drafts a card change drops (draftsAtRisk).
-  return draft === 'printing' ? LEAVES_CARD_PRINTING : LEAVES_CARD;
+  return LEAVES_CARD[draft as CardDraft];
 }
 
 /**
@@ -240,11 +279,7 @@ export function studioUnsavedQuestion(leave: StudioLeave): string | UnsavedQuest
 }
 
 /** How the confirm before Forget token names each draft. */
-const DRAFT_NAMES: Readonly<Record<Draft, string>> = {
-  reveal: 'your New reveal card',
-  edit: 'your Edit card changes',
-  printing: 'your printing form',
-};
+const DRAFT_NAMES = eachDraft(({name}) => name);
 
 /** Names as a list: "A", "A and B", or "A, B, and C". */
 function listOf(names: readonly string[]): string {

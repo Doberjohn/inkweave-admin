@@ -122,4 +122,5 @@ export const ADMIN_LAYOUT = {
   sidebarOpen: 240,
   sidebarCollapsed: 64,
   headerMinHeight: 64,
+  hairline: 1, // a seam between two columns and, negated, the visually-hidden idiom's margin; SPACING starts at 2
 } as const;

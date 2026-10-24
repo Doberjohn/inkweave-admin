@@ -103,11 +103,54 @@ export interface BaseCard {
 }
 
 /** Where provisional ids start. A printing LorcanaJSON lacks takes the next one; LorcanaJSON's own ids are below. */
-export const PROVISIONAL_ID_BASE = 80001;
+const PROVISIONAL_ID_BASE = 80001;
 
-/** The catalog the text holds. Its shape is trusted, not checked: the file is the owner's. */
+/** The catalog's sections that are lists. */
+const LISTS = ['fold', 'noBaseCard', 'notes'] as const;
+
+/** The sections that list groups, each of which lists its printings under `variants`. */
+const GROUPED = ['fold', 'noBaseCard'] as const;
+
+/** Whether the value is an object with keys: not null, and not an array. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Whether a group lists its printings: an object whose `variants` is a list. */
+function listsItsPrintings(group: unknown): boolean {
+  return isRecord(group) && Array.isArray(group.variants);
+}
+
+/** Whether each printing a group lists is an object. Asked only of groups that list their printings. */
+function printingsAreObjects(group: unknown): boolean {
+  return (group as {variants: unknown[]}).variants.every(isRecord);
+}
+
+/**
+ * What is wrong with the shape of a parsed catalog, as far as admin reads it, or null where nothing is.
+ * It doesn't check `about` or `stats`: nothing reads them as a shape.
+ */
+function shapeProblem(file: Record<string, unknown>): string | null {
+  const notAList = LISTS.find((key) => !Array.isArray(file[key]));
+  if (notAList) return `its "${notAList}" isn't a list`;
+  if (!isRecord(file.provisionalIds)) return `its "provisionalIds" isn't an object`;
+  const ungrouped = GROUPED.find((key) => !(file[key] as unknown[]).every(listsItsPrintings));
+  if (ungrouped) return `a group in "${ungrouped}" has no "variants" list`;
+  const malformed = GROUPED.find((key) => !(file[key] as unknown[]).every(printingsAreObjects));
+  return malformed ? `a printing in "${malformed}" isn't an object` : null;
+}
+
+/**
+ * The catalog the text holds. Its shape is checked as far as admin reads it: the file is a JSON object,
+ * `fold`, `noBaseCard` and `notes` are lists, `provisionalIds` is an object, and each group lists its
+ * printings, each an object, under `variants`. One that isn't throws an Error that names what is wrong
+ * (`its "noBaseCard" isn't a list`), where a read of it further on would throw a bare TypeError.
+ */
 export function parseCatalog(text: string): PromoCatalog {
-  return JSON.parse(text) as PromoCatalog;
+  const parsed: unknown = JSON.parse(text);
+  const problem = isRecord(parsed) ? shapeProblem(parsed) : "it isn't a JSON object";
+  if (problem !== null) throw new Error(problem);
+  return parsed as PromoCatalog;
 }
 
 /** The catalog as its file holds it: `JSON.stringify(x, null, 2)`, with no newline at the end. */
@@ -145,15 +188,24 @@ function artsDiffer({artVariant: a}: CodeParts, {artVariant: b}: CodeParts): boo
   return a !== b;
 }
 
-/** Whether the printing has the code: the same promo set and number, unless the two name different arts. */
+/** Whether both name a number and it is the same one. A number nobody knows is no one's: it matches nothing. */
+function sameNumber({number: a}: CodeParts, {number: b}: CodeParts): boolean {
+  return a !== undefined && a === b;
+}
+
+/**
+ * Whether the printing has the code: the same promo set and number, unless the two name different arts.
+ * A code or a printing with no number matches nothing.
+ */
 function hasCode(printing: CodeParts, code: CodeParts): boolean {
-  if (printing.promoGrouping !== code.promoGrouping || printing.number !== code.number) return false;
+  if (printing.promoGrouping !== code.promoGrouping || !sameNumber(printing, code)) return false;
   return !artsDiffer(printing, code);
 }
 
 /**
  * The first printing that has this code, with its group, or null where the code is free. `exceptId`
- * leaves out the printing being edited, so that it doesn't clash with its own code.
+ * leaves out the printing being edited, so that it doesn't clash with its own code. A code with no number
+ * is free: no printing has it, one with no number included.
  */
 export function takenBy({catalog, code, exceptId}: {catalog: PromoCatalog; code: CodeParts; exceptId?: number}): FoundPrinting | null {
   return firstWhere(catalog, (printing) => printing.id !== exceptId && hasCode(printing, code));
@@ -181,8 +233,13 @@ export function nextProvisionalId(catalog: PromoCatalog): number {
 }
 
 /** Whether the printing has a provisional id, not a LorcanaJSON one. */
-function isProvisional({id}: CatalogPrinting): boolean {
+export function isProvisional({id}: Pick<CatalogPrinting, 'id'>): boolean {
   return id >= PROVISIONAL_ID_BASE;
+}
+
+/** Whether the printing has Ravensburger's art, which its entry holds as `images`. */
+export function hasOfficialArt({images}: Pick<CatalogPrinting, 'images'>): boolean {
+  return images !== undefined;
 }
 
 /** How many printings each promo set holds, its codes in alphabetical order. */
@@ -201,7 +258,7 @@ function countsOf(catalog: PromoCatalog): CatalogStats {
     promoPrintings: all.length,
     withLorcanaJsonId: all.filter((printing) => !isProvisional(printing)).length,
     withProvisionalId: all.filter(isProvisional).length,
-    withOfficialArtUrl: all.filter((printing) => printing.images !== undefined).length,
+    withOfficialArtUrl: all.filter(hasOfficialArt).length,
     foldIntoAllCards: {printings: folded.length, baseCards: catalog.fold.length},
     noBaseCardInAllCards: {printings: waiting.length, cards: catalog.noBaseCard.length},
     byPromoGrouping: countBySet(all),

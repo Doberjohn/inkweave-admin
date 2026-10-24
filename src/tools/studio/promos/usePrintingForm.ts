@@ -11,8 +11,8 @@ import {
   type PrintingFormValues,
   type ScanState,
 } from './printingForm';
-import type {BaseCard, CatalogPrinting} from './promoCatalog';
-import {PrintingRefusal, factsOf, publishPrinting} from './publishPrinting';
+import {hasOfficialArt, type BaseCard, type CatalogPrinting} from './promoCatalog';
+import {PrintingRefusal, publishPrinting} from './publishPrinting';
 
 /*
  * The promo printing form's controller (#77): the one form open in Edit card's Printings panel (an add
@@ -109,8 +109,9 @@ interface Landed {
  * A publish that did not land. The branch refused it (a PrintingRefusal) after reading itself: a printing
  * it changed since the form opened comes with the branch's (`changed`), one it no longer has closes the
  * form (`gone`), and any other refusal leaves the form as it is (`refused`: files out of step, a taken
- * code, an unknown promo set). Anything else read nothing new of the branch and leaves the form as it
- * is too (`failed`: a branch that moved meanwhile, a rejected token, a file that can't be read).
+ * code, an unknown promo set, or a Sets 1 to 8 card whose set's data lacks it or names it otherwise).
+ * Anything else read nothing new of the branch and leaves the form as it is too (`failed`: a branch that
+ * moved meanwhile, a rejected token, a file that can't be read).
  */
 type Failure =
   | {kind: 'changed'; now: CatalogPrinting; message: string}
@@ -174,7 +175,7 @@ function scanOf({file, dataUrl, error}: ImageUpload): ScanState {
 /** Whether the open form is an edit of a printing with Ravensburger's art: an edit doesn't replace that art, so the form holds no scan. */
 function keepsItsArt(form: FormState | null): boolean {
   const printing = form?.printing ?? null;
-  return printing !== null && factsOf(printing).officialArt;
+  return printing !== null && hasOfficialArt(printing);
 }
 
 /** Whether the owner entered or chose anything the form didn't open with: a file, or values that would publish something else. */

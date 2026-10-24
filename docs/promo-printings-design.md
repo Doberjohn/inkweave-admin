@@ -62,7 +62,7 @@ The owner wants Card studio to do this. The owner picks the base card, uploads t
 It lives in Edit card's Printings panel (#68), which every released card has, Sets 1 to 8 included (owner, 2026-10-22):
 
 - **Add a printing.** A button under the rows unfolds the add form under them.
-- **Edit.** Every promo row (`PrintingKind` `promo`) gets an Edit button. It unfolds the same form under that row, filled in from the branch.
+- **Edit.** Every promo row (`PrintingKind` `promo`) gets an Edit button. It unfolds the same form under that row, filled in from the branch. The rows come from `collection/promos.json` and the form from the catalog, so on a branch whose files are out of step a read can drop the row while its form is open: the form then stays open under the rows, where Add a printing sits.
 - The card's own row and its set printings get no Edit.
 - One form is open at a time.
 
@@ -85,6 +85,8 @@ The studio works out:
 - **Placement:** where each entry goes (see "Publishing").
 
 It refuses a promo set and number that another printing already has.
+
+The line under Publish names the first thing the add lacks: the promo set, the number, then a code another printing has, then the versions and the scan. A taken code shows as soon as the promo set and number name it ("13/C3 is taken: Mother Knows Best has it."), since no versions or scan would let it through. The Number field marks only what the owner typed, as New reveal's fields do (R-72). A number that doesn't read is invalid and says why under the field ("Enter a number from 1 up."), and so is a taken code, in the line's words. A blank one is left to the line. The edit form's Number does the same.
 
 ### The edit form
 
@@ -115,11 +117,13 @@ Checked on 2026-10-22: master's `allCards.json` and `promos.json` are exactly wh
 - the catalog's own lines.
 
 **What it checks at the base.** Each check stops the publish, writes nothing and says why:
-- **The files are in step.** The merge over the branch's files as they are must change nothing. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
+- **The files are in step.** The merge over the branch's files as they are must change nothing, `promos.json` compared hash keys aside, as the app's CLI reads it. If it would, the catalog and the card files are out of step on the branch, and the commit would carry someone else's half-done change. The message names the cards the merge would change.
 - **The code is free.** No other printing has the promo set and number. An edit is checked only when it changes the promo set or number (see "Settled during the build").
 - **An edit's printing is unchanged.** The printing's catalog entry must still be what the form opened from. If it isn't, someone changed it, and the form shows the branch's values.
 - **The promo set is known.** It must be one the app knows. An edit is checked only when it changes the promo set (see "Settled during the build").
+- **A new group's card is in the app's data.** An add that starts a group in `noBaseCard`, for a Sets 1 to 8 card the catalog has none for, reads the card's set chunk (`collection/{set}.json`) at the base once the other checks pass. The app's `promoBaseProblems`, bridged, runs over the new printing: a chunk that lacks the card, or holds its id under another name, refuses the add. The app's merge checks only a `fold` group's card, and only the app's manual scripts run `promoBaseProblems`.
 - **The branch hasn't moved.** If it moves while the commit is built, `commitFiles` refuses it, as it already does ("Publish again.").
+- **The commit changes something.** If the branch already holds the files as they are, the commit would be empty, and `commitFiles` refuses it ("Nothing changed on …").
 
 The commit message names the printing and its card, for example "chore(collection): add 1/P5 Mickey Mouse - Brave Little Prince from Card studio", as #68's version commits are worded. The wording is the builder's.
 

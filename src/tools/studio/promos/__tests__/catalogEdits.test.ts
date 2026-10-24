@@ -3,10 +3,10 @@ import {CATALOG_PATH} from '../../finishes/finishFiles';
 import {withEditedPrinting, withNewPrinting, type NewPrinting} from '../catalogEdits';
 import {parseCatalog, printingCode, serializeCatalog, type BaseCard, type CatalogPrinting, type PromoCatalog} from '../promoCatalog';
 import {readPinned} from './pinned';
-import {FIXTURE_CATALOG, PRINCE} from './promoFixtures';
+import {FIXTURE_CATALOG, MKB_BASE, PRINCE, SNOW_WHITE_BASE} from './promoFixtures';
 
 const NEW_9_P4: NewPrinting = {promoGrouping: 'P4', number: 9, finishes: ['foil'], scanLanguage: null};
-const snowWhite = (catalog: PromoCatalog) => catalog.noBaseCard.find((g) => g.fullName === 'Snow White - Unexpected Houseguest');
+const snowWhite = (catalog: PromoCatalog) => catalog.noBaseCard.find((g) => g.fullName === SNOW_WHITE_BASE.fullName);
 
 describe('catalogEdits', () => {
   it('adds a printing of a Core card in a new fold group, in baseId order', () => {
@@ -20,9 +20,13 @@ describe('catalogEdits', () => {
     expect(catalog.stats.foldIntoAllCards).toEqual({printings: 3, baseCards: 2});
     expect(FIXTURE_CATALOG.fold).toHaveLength(1);
   });
+  it('files a new Core group before the groups whose baseId is higher', () => {
+    const card: BaseCard = {id: 2001, fullName: 'Hercules - Divine Hero', setCode: '9', number: 1, core: true};
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: NEW_9_P4, note: null});
+    expect(catalog.fold.map((g) => g.baseId)).toEqual([2001, 2035]);
+  });
   it("adds to the card's own group in printing order, its language before its versions", () => {
-    const card: BaseCard = {id: 2035, fullName: 'Mother Knows Best', setCode: '9', number: 99, core: true};
-    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: {promoGrouping: 'C3', number: 2, finishes: ['normal'], scanLanguage: 'ja'}, note: null});
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card: MKB_BASE, printing: {promoGrouping: 'C3', number: 2, finishes: ['normal'], scanLanguage: 'ja'}, note: null});
     expect(catalog.fold[0].variants.map(printingCode)).toEqual(['1/C3', '2/C3', '13/C3']);
     expect(Object.keys(catalog.fold[0].variants[1])).toEqual(['id', 'rarity', 'number', 'promoGrouping', 'scanLanguage', 'finishes']);
   });
@@ -58,8 +62,7 @@ describe('catalogEdits', () => {
   });
 
   it("adds to a Sets 1 to 8 card's own group, found by its LorcanaJSON id, and starts none", () => {
-    const card: BaseCard = {id: 240, fullName: 'Snow White - Unexpected Houseguest', setCode: '2', number: 24, core: false};
-    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card, printing: NEW_9_P4, note: null});
+    const {catalog} = withNewPrinting({catalog: FIXTURE_CATALOG, card: SNOW_WHITE_BASE, printing: NEW_9_P4, note: null});
     expect(snowWhite(catalog)?.variants.map(printingCode)).toEqual(['41/P1', '42/P2', '9/P4']);
     expect(catalog.stats.noBaseCardInAllCards).toEqual({printings: 13, cards: 4});
   });
@@ -97,6 +100,8 @@ describe('catalogEdits', () => {
     const edited = withEditedPrinting({catalog, id: 80024, edit: {promoGrouping: 'C3', number: 14, scanLanguage: null}, note: null});
     expect(edited.provisionalIds['80024']).toBe('14/C3 Mother Knows Best');
   });
+  // A pin bump whose catalog orders an entry's keys otherwise, or adds a key anywhere but last, fails here:
+  // ENTRY_KEYS in catalogEdits.ts has to follow the app's order.
   it('leaves every printing of the pinned catalog byte for byte under an edit that changes nothing', () => {
     const text = readPinned(CATALOG_PATH);
     const pinned = parseCatalog(text);

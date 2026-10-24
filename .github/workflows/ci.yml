@@ -52,7 +52,8 @@ jobs:
   # --pm-on-fail=ignore stops pnpm 11 from handing the command to the packageManager pin.
   # Audits dev and prod dependencies and fails on high or critical. It reads only
   # pnpm-lock.yaml, so it needs neither the submodule nor an install. To waive an accepted
-  # advisory, add its GHSA id under audit.ignore in pnpm-workspace.yaml, with the reason.
+  # advisory, add its GHSA id under auditConfig.ignoreGhsas in pnpm-workspace.yaml (where
+  # pnpm 11's `audit --ignore` writes it), with the reason.
   security-audit:
     runs-on: ubuntu-latest
     steps:

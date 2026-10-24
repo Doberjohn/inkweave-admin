@@ -18,6 +18,11 @@ interface FieldProps {
   /** A line under the control that describes it: a format, a rule, why it is locked. */
   hint?: string;
   grow?: boolean;
+  /**
+   * How the error prints: ERROR_TEXT's red unless the field's surface needs another look. On the
+   * printing form's tint that red falls under AA, so the form passes its own.
+   */
+  errorStyle?: React.CSSProperties;
   /** Renders the control, spreading `control`: its id, aria-invalid and aria-describedby. */
   children: (control: ControlProps) => ReactNode;
 }
@@ -27,7 +32,7 @@ interface FieldProps {
  * RevealAdminForm's Field on admin's tokens. The error shows next to its
  * control, and the control is described by the hint, then the error.
  */
-export function Field({label, name, errors, hint, grow, children}: FieldProps) {
+export function Field({label, name, errors, hint, grow, errorStyle = ERROR_TEXT, children}: FieldProps) {
   const ids = fieldIds({name});
   const error = errors[name];
   return (
@@ -42,7 +47,7 @@ export function Field({label, name, errors, hint, grow, children}: FieldProps) {
         </p>
       )}
       {error && (
-        <p id={ids.error} style={ERROR_TEXT}>
+        <p id={ids.error} style={errorStyle}>
           {error}
         </p>
       )}

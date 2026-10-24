@@ -1,8 +1,8 @@
 import type {PrintingFinishes} from 'inkweave-synergy-engine';
 import {byPrintingOrder} from '../../../app-bridge';
 import {
-  PROVISIONAL_ID_BASE,
   findPrinting,
+  isProvisional,
   nextProvisionalId,
   printingCode,
   recountStats,
@@ -126,6 +126,14 @@ function sortsAfter(group: WaitingGroup, card: BaseCard): boolean {
 }
 
 /**
+ * Whether the waiting group is the card's: its LorcanaJSON id is the card's id. A group with no id, such
+ * as Hades - Dark Usurper's, is no card's.
+ */
+export function isWaitingGroupOf(group: WaitingGroup, card: Pick<BaseCard, 'id'>): boolean {
+  return group.lorcanaJsonBaseId === card.id;
+}
+
+/**
  * The group that holds the card's promos. A Core card's is in `fold`, found by `baseId` and filed in that
  * order. Any other card's is in `noBaseCard`, found by its LorcanaJSON id and filed by base set and number.
  * A card the catalog has no group for gets one, started with the section's keys.
@@ -142,7 +150,7 @@ function groupFor({catalog, card}: {catalog: PromoCatalog; card: BaseCard}): Fol
   }
   return groupIn({
     groups: catalog.noBaseCard,
-    isOf: (group) => group.lorcanaJsonBaseId === id,
+    isOf: (group) => isWaitingGroupOf(group, card),
     start: () => ({fullName, lorcanaJsonBaseId: id, baseSetCode: setCode, baseNumber: number, variants: []}),
     follows: (group) => sortsAfter(group, card),
   });
@@ -167,7 +175,7 @@ function withLine({lines, printing, fullName}: {
   fullName: string;
 }): Record<string, string> {
   const held: string | undefined = lines[printing.id];
-  if (held === undefined && printing.id < PROVISIONAL_ID_BASE) return lines;
+  if (held === undefined && !isProvisional(printing)) return lines;
   const code = printingCode(printing);
   return {...lines, [printing.id]: held === undefined ? `${code} ${fullName}` : relabeled({line: held, code})};
 }

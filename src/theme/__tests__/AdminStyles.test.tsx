@@ -316,11 +316,37 @@ describe('AdminStyles', () => {
     const css = stylesheet();
     expect(css).toContain(
       '.adm-file-btn[data-focused="true"],.adm-file-cover[data-focused="true"],' +
-        `.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
+        '.adm-file-btn[data-dragging="true"],.adm-file-cover[data-dragging="true"]:where(:not(:has(input:disabled)))' +
+        `{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`,
     );
     // A <label> never matches :focus-visible itself, so FOCUSABLE leaves both out.
     expect(css).not.toContain('.adm-file-btn:focus-visible');
     expect(css).not.toContain('.adm-file-cover:focus-visible');
+  });
+
+  it('holds a file cover whose input is disabled: dimmed as a disabled control, with neither its hover ring nor its drop ring', () => {
+    const css = stylesheet();
+    expect(css).toContain('.adm-file-cover:has(input:disabled){opacity:.4;cursor:not-allowed;}');
+    expect(css).toContain(`.adm-file-cover:hover:where(:not(:has(input:disabled))){box-shadow:inset 0 0 0 1px ${ADMIN_COLORS.accentStrong};}`);
+    render(
+      <>
+        <AdminStyles />
+        <label className="adm-file-cover">
+          Held
+          <input type="file" disabled />
+        </label>
+        <label className="adm-file-cover">
+          Live
+          <input type="file" />
+        </label>
+      </>,
+    );
+    const look = (name: string) => {
+      const {opacity, cursor} = getComputedStyle(screen.getByLabelText(name).closest('label')!);
+      return {opacity, cursor};
+    };
+    expect(look('Held')).toEqual({opacity: '0.4', cursor: 'not-allowed'});
+    expect(look('Live')).toEqual({opacity: '1', cursor: 'pointer'});
   });
 
   it("hides the cost slider's thumb while the cost is unset, in each engine's own rule", () => {

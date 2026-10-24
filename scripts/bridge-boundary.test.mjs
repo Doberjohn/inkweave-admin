@@ -155,11 +155,17 @@ describe('the layer boundaries', () => {
 });
 
 // Admin has no design-token exception (CLAUDE.md): every source file gets the
-// app's rules. OFF_TOKEN breaks four of them: an off-token color, a 15px size,
-// a 9px radius and a raw hex.
+// app's rules. OFF_TOKEN breaks five of them: an off-token color, a 15px size,
+// a 9px radius, a raw hex and a 30px padding.
 const OFF_TOKEN =
-  "export const art = {color: 'rgba(43, 127, 255, 0.22)', fontSize: 15, borderRadius: 9, background: '#123456'};\n";
-const TOKEN_RULES = ['inkweave/no-raw-rgba', 'inkweave/no-raw-font-size', 'inkweave/no-raw-radius', 'inkweave/no-raw-hex-colors'];
+  "export const art = {color: 'rgba(43, 127, 255, 0.22)', fontSize: 15, borderRadius: 9, background: '#123456', padding: 30};\n";
+const TOKEN_RULES = [
+  'inkweave/no-raw-rgba',
+  'inkweave/no-raw-font-size',
+  'inkweave/no-raw-radius',
+  'inkweave/no-raw-hex-colors',
+  'inkweave/no-raw-spacing',
+];
 
 describe('the design-token rules', () => {
   it.each(TOKEN_RULES)('hold every admin source file to %s', async (rule) => {

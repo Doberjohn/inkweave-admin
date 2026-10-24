@@ -34,7 +34,7 @@ const TYPE_LABEL: Record<CalibrationRow['category'], string> = {playstyle: 'Play
 /** Every column fits from this width; a narrower column scrolls the table inside its own box. */
 const TABLE_MIN_WIDTH = 560;
 /** The fixed columns, padding included. Rule takes the rest. */
-const COLUMN_WIDTH = {type: 96, bias: 136, gap: 76, votes: 84};
+const COLUMN_WIDTH = {type: 96, bias: 136, scoreGap: 76, votes: 84};
 const PENDING_DOT = 6;
 const NO_VALUE = '—';
 
@@ -260,7 +260,7 @@ export function RulesTable({rows, selectedId, edited, onSelect, emptyText = 'No 
               <col />
               <col style={{width: COLUMN_WIDTH.type}} />
               <col style={{width: COLUMN_WIDTH.bias}} />
-              <col style={{width: COLUMN_WIDTH.gap}} />
+              <col style={{width: COLUMN_WIDTH.scoreGap}} />
               <col style={{width: COLUMN_WIDTH.votes}} />
             </colgroup>
             <RulesHead sortKey={sortable ? sortKey : null} />
