@@ -578,6 +578,41 @@ describe('PrintingsPanel: promo printings (#77)', () => {
 });
 
 /*
+ * A read of the branch's files that GitHub refused the token for (a 401) fails again with that token, so the failed
+ * view offers Forget token under "Read the files again", as the search does for previewCards.json (R-26, #74). It
+ * comes with the panel's promos, as the forms' does.
+ */
+describe('PrintingsPanel: a read GitHub refused the token for (#74)', () => {
+  const REJECTED_READ = 'GitHub 401 on apps/web/public/data/collection/4.json: {"message":"Bad credentials"}';
+  const readAgain = () => screen.getByRole('button', {name: 'Read the files again'});
+  const forgetToken = () => screen.queryByRole('button', {name: 'Forget token'});
+
+  it('offers Forget token where GitHub rejected the token on the read', async () => {
+    const onForgetToken = vi.fn();
+    const {user} = renderPanel({view: {status: 'error', error: REJECTED_READ, retry: vi.fn()}, promos: promosProps({onForgetToken})});
+    expect(screen.getByRole('alert')).toHaveTextContent(REJECTED_READ);
+    const forget = screen.getByRole('button', {name: 'Forget token'});
+    // Under the retry, which the panel's handoff still lands on (R-48).
+    expect(follows(readAgain(), forget)).toBe(true);
+
+    await user.click(forget);
+    expect(onForgetToken).toHaveBeenCalledOnce();
+  });
+
+  it('offers no Forget token for another read failure', () => {
+    renderPanel({view: {status: 'error', error: FAILED, retry: vi.fn()}, promos: promosProps()});
+    expect(readAgain()).toBeInTheDocument();
+    expect(forgetToken()).toBeNull();
+  });
+
+  it('offers no Forget token without the promos that bring it', () => {
+    renderPanel({view: {status: 'error', error: REJECTED_READ, retry: vi.fn()}});
+    expect(readAgain()).toBeInTheDocument();
+    expect(forgetToken()).toBeNull();
+  });
+});
+
+/*
  * Each form opens in place of the button that opened it, which hides while it is open, and Cancel
  * takes the form away with its own button. A publish that lands, or that the branch refuses because the
  * printing is gone, closes the form too. So the panel hands the focus on each time (R-48): to the form

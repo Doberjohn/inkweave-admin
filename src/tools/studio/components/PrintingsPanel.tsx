@@ -1,6 +1,8 @@
 import {Fragment, useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react';
 import {Link} from 'react-router-dom';
 import {COLORS, CtaButton, DISABLED_STYLE, LinkButton, SPACING} from '../../../app-bridge';
+import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
+import {isRejectedToken} from '../../../github/rejectedToken';
 import {focusUnmoved, useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
@@ -139,7 +141,10 @@ export interface PromoPrintingsProps {
   coreCopy: {id: string; name: string} | null;
   /** The promo sets a form offers, newest first. */
   promoSets: readonly PromoSetOption[];
-  /** R-26's Forget token, which a form offers when GitHub rejects the token. */
+  /**
+   * R-26's Forget token, which the panel offers wherever GitHub rejects the token: a form's publish,
+   * the line under the rows, and a failed read of the branch's files (#74).
+   */
   onForgetToken: () => void;
 }
 
@@ -621,17 +626,28 @@ function ReadyBody({view, changes, publishing = false, onChoose, promos, handTo}
   );
 }
 
+/** What a failed read shows: its error, the way to read the files again, and R-26's Forget token where the panel has it. */
+interface ReadErrorProps {
+  error: string;
+  onRetry: () => void;
+  /** Offered under the retry when GitHub rejected the token (isRejectedToken): a read with it would fail again. */
+  onForgetToken?: () => void;
+}
+
 /**
  * A read that failed, and its way out. Reading again swaps this for the loading line, taking its
  * own button with it, so the press asks for the handoff, which the panel's next view takes (R-48).
+ * Where GitHub rejected the token (a 401), it offers Forget token under that button too (R-26, #74),
+ * as the search does for previewCards.json; the handoff still lands on the button, the panel's first.
  */
-function ReadError({error, onRetry}: {error: string; onRetry: () => void}) {
+function ReadError({error, onRetry, onForgetToken}: ReadErrorProps) {
   return (
     <div style={FAILED}>
       <Notice tone="error">Could not read the printings: {error}.</Notice>
       <CtaButton type="button" variant="neutral" onClick={onRetry} style={RETRY}>
         Read the files again
       </CtaButton>
+      {onForgetToken && isRejectedToken(error) && <ForgetTokenOffer onForget={onForgetToken} />}
     </div>
   );
 }
@@ -644,9 +660,10 @@ interface FailedProps {
 }
 
 /**
- * A read that failed and its way out, and under them, where the panel runs the printing form, the line
- * that says what the last publish came to (#77): a publish lands and the read after it fails, so the
- * commit stays in view until the files read again.
+ * A read that failed and its way out, with the promos' Forget token where GitHub rejected the token
+ * (#74), and under them, where the panel runs the printing form, the line that says what the last
+ * publish came to (#77): a publish lands and the read after it fails, so the commit stays in view
+ * until the files read again.
  */
 function FailedBody({view, promos, handTo}: FailedProps) {
   const onRetry = () => {
@@ -655,7 +672,7 @@ function FailedBody({view, promos, handTo}: FailedProps) {
   };
   return (
     <div style={VIEW}>
-      <ReadError error={view.error} onRetry={onRetry} />
+      <ReadError error={view.error} onRetry={onRetry} onForgetToken={promos?.onForgetToken} />
       {promos && <PublishOutcome promos={promos} />}
     </div>
   );

@@ -557,6 +557,9 @@ const ALT_FOIL_CLASH = {id: '946', now: ['normal'], shownNow: ['normal']};
 /** commitFiles' refusal when the branch moved under the publish. */
 const RACE = 'master changed while publishing, so nothing was published. Publish again.';
 
+/** What a publish that didn't land says once another tab published or reverted the changes first. */
+const NOTHING = 'Nothing was published: these changes were published or reverted in another tab.';
+
 /** What a test reads the batch through: renderHook's result. */
 type View = {readonly current: VersionBatchView};
 
@@ -982,6 +985,20 @@ describe('a publish and other tabs', () => {
     expect(generation.result.current).toBe(1);
   });
 
+  it('says nothing was published when another tab emptied the batch while a publish failed', async () => {
+    const late = deferredResponse();
+    const {view, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    // Another tab publishes #223's change, or reverts it, and saves the batch without it.
+    otherTabSaves([]);
+
+    // The branch moved under the publish. Its own words would ask to publish again a batch that holds nothing.
+    await settled(publishing, () => late.respond(notAFastForward()));
+    expect(view.current.error).toBe(NOTHING);
+    expect(view.current.changes).toEqual([]);
+    expect(view.current.result).toBeNull();
+    expect(view.current.publishing).toBe(false);
+  });
+
   it('marks the clashes it finds a change for, and says nothing else, when another tab took out only some', async () => {
     const late = deferredResponse();
     const files = {[CHUNK_4]: () => late.response};
@@ -1007,6 +1024,19 @@ describe('a publish and other tabs', () => {
 
     await settled(publishing, () => late.respond(new Response(SET_4_ALT_FOIL_NORMAL[CHUNK_4])));
     expect(saved()).toEqual({v: 1, changes: [{...ALT_FOIL_TO_BOTH, clash: ALT_FOIL_CLASH}, CARD_TO_FOIL]});
+  });
+
+  it('takes in what another tab saved while no component listened, before it says why a publish failed', async () => {
+    const late = deferredResponse();
+    const {page, publishing} = publishingAltFoil({files: SET_4_FILES, update: () => late.response});
+    page.unmount();
+    // Another tab publishes #223's change and saves the batch without it. No component listens here, so no event
+    // reaches the store.
+    localStorage.setItem(MASTER_KEY, JSON.stringify({v: 1, changes: []}));
+
+    await settled(publishing, () => late.respond(notAFastForward()));
+    const {result} = renderHook(() => useVersionBatch());
+    expect({error: result.current.error, changes: result.current.changes}).toEqual({error: NOTHING, changes: []});
   });
 
   it('keeps a change storage refused to save when the publish lands, rather than read storage back', async () => {
