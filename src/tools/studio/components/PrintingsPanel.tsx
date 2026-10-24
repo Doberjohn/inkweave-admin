@@ -477,16 +477,17 @@ function strandsAnEdit({kit, rows}: OfferProps): boolean {
 
 /**
  * What the panel offers under the rows: the Core copy's note, unless an edit form whose row went is open;
- * else Add a printing or the form open there, over the line that says what the last publish came to. The
- * line stays mounted, blank, under an open form, so a landed add fills a live region that was there before
- * it, and is heard (CommitOutcome's StatusLine); a publish that closes its form hands the focus to the line.
+ * else Add a printing or the form open there. Under either is the line that says what the last publish
+ * came to. The line stays mounted, blank, under an open form and under the note, so a landed publish fills
+ * a live region that was there before it, and is heard (CommitOutcome's StatusLine); a publish that closes
+ * its form hands the focus to the line, a Core copy's stranded form included.
  */
 function PromoOffer({kit, rows}: OfferProps) {
   const {coreCopy} = kit.promos;
-  if (coreCopy !== null && !strandsAnEdit({kit, rows})) return <CoreCopyNote coreCopy={coreCopy} />;
+  const noted = coreCopy !== null && !strandsAnEdit({kit, rows});
   return (
     <div style={OFFER}>
-      <Offered kit={kit} rows={rows} />
+      {noted ? <CoreCopyNote coreCopy={coreCopy} /> : <Offered kit={kit} rows={rows} />}
       <PublishOutcome promos={kit.promos} />
     </div>
   );

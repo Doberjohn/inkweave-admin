@@ -732,6 +732,23 @@ describe('PrintingsPanel: the focus as printing forms open and close (#77, R-48)
     await waitFor(() => expect(screen.getByRole('link', {name: 'Open the Core printing'})).toHaveFocus());
   });
 
+  it('says what a Core copy\'s stranded edit form published, under the note, and hands the focus to that line', async () => {
+    stubRepo({files: FIXTURE_FILES});
+    const coreCopy = {id: '2026', name: 'Ursula - Deceiver (Set 9 #90)'};
+    const user = userEvent.setup();
+    const {rerender} = render(routed(<LivePanel view={MKB_READY} coreCopy={coreCopy} />));
+    await user.click(edit13());
+    rerender(routed(<LivePanel view={WITHOUT_ROW_13} coreCopy={coreCopy} />));
+    await user.type(screen.getByLabelText('Add a note'), 'Foil twin of 1/C3.');
+
+    await user.click(screen.getByRole('button', {name: 'Save 13/C3'}));
+    const line = await screen.findByText('Committed.', {exact: false});
+    expect(screen.queryByRole('heading', {level: 3})).toBeNull();
+    expect(screen.getByRole('link', {name: 'Open the Core printing'})).toBeInTheDocument();
+    await waitFor(() => expect(line).toHaveFocus());
+    expect(line).toHaveAttribute('role', 'status');
+  });
+
   it('puts the edit form back under its row when a read brings the row back, its heading taking the focus that was in it', () => {
     const {update} = renderPanel({view: WITHOUT_ROW_13, promos: promosProps({controller: edit13Form()})});
     act(() => screen.getByLabelText('Number').focus());

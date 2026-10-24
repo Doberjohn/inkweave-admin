@@ -107,7 +107,9 @@ Today a `node:` import in the app's `scripts/lib/*.mjs` passes lint, typecheck, 
   The tests:
 
   ```js
-  const ENTRIES = ['src/main.tsx', '.storybook/preview.tsx', ...fs.globSync('src/**/*.stories.{ts,tsx}')];
+  // globSync gives Windows separators on Windows, and the walk's paths are POSIX.
+  const stories = fs.globSync('src/**/*.stories.{ts,tsx}').map((file) => file.split(path.sep).join('/'));
+  const ENTRIES = ['src/main.tsx', '.storybook/preview.tsx', ...stories];
 
   it('reaches the bridged promo merge and the promo fixtures', () => {
     const {visited} = walk(onDisk(ENTRIES));
