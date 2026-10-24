@@ -161,6 +161,19 @@ function ReleasedFormSlot({card, note, rows}: ReleasedFormSlotProps) {
 /** What a 375px phone leaves the page: the viewport less the rail the sidebar keeps there. */
 const PHONE_PAGE: React.CSSProperties = {width: 375 - ADMIN_LAYOUT.sidebarCollapsed};
 
+/** Whether two boxes on the page share any of their area. */
+function overlap(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/** The tags of a search row that meet its marks, by their words: none, wherever the row lays its marks out. */
+function tagsOverMarks(row: HTMLElement): string[] {
+  const marks = row.querySelector('.adm-search-marks')?.getBoundingClientRect();
+  if (!marks) return [];
+  const tags = [...row.querySelectorAll('.adm-search-names span[title]')];
+  return tags.filter((tag) => overlap(tag.getBoundingClientRect(), marks)).map((tag) => tag.textContent ?? '');
+}
+
 const meta: Meta = {title: 'Admin/Publish/Card studio/Edit entry'};
 export default meta;
 type Story = StoryObj;
@@ -180,10 +193,11 @@ export const Search: Story = {
 /**
  * The search on a 375px phone (#74), in the studio's root as the phone lays it out: the viewport less
  * the rail, and no scrollbar beside it, as a phone's overlays the page (a desktop's would take its
- * width here). The root's padding is the search's only gutter, so each row's names column is 63px:
- * a "preview" or "released" chip sits beside a dual ink's marks, and "not deployed yet", wider than
- * the column, on a line of its own under them, its corner meeting the first ink's. Type "dalmatian"
- * for the twins, whose set, number and id take three lines.
+ * width here). The root's padding is the search's only gutter, so the list is 277px, under
+ * AdminStyles' SEARCH_STACK_BELOW: beside the marks the names column would be 63px, too narrow for
+ * "not deployed yet", so each row moves its marks under its name, and the name and its tags take
+ * 143px. No tag meets the marks, which the play checks. Type "dalmatian" for the twins, whose set,
+ * number and id take three lines.
  */
 export const PhoneWidth: Story = {
   render: () => (
@@ -195,6 +209,10 @@ export const PhoneWidth: Story = {
       </div>
     </MemoryRouter>
   ),
+  play: async ({canvasElement}) => {
+    const rows = within(canvasElement).getAllByRole('link');
+    await expect(rows.flatMap(tagsOverMarks)).toEqual([]);
+  },
 };
 
 /** Text that finds no card: the status line names it, and the list goes. */

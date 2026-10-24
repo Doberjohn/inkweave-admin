@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
+import {SEARCH_STACK_BELOW} from '../../../theme/AdminStyles';
 import {ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {filterCards} from '../../image/filterCards';
 import {EditSearch, type EditSearchProps} from '../components/EditSearch';
@@ -69,20 +70,39 @@ interface SearchBoxes {
   row: HTMLElement;
 }
 
-/**
- * The names column on a phone `width` px wide, worked out from the search's own styles as a browser
- * would lay them out, since jsdom has no layout: the viewport less the 64px rail and the studio
- * root's padding each side, the search's own gutter each side, the list's border and the row's
- * padding each side, then the row's fixed columns and the three gaps between its four.
- */
-function namesColumnAt(width: number, {search, list, row}: SearchBoxes): number {
-  const sides = (length: string) => 2 * pxAt(length, width);
-  const fixed = row.style.gridTemplateColumns.replace(/minmax\([^)]*\)/, '').match(/\d+px/g) ?? [];
-  const columns = fixed.reduce((sum, column) => sum + parseFloat(column), 0);
-  const frame = ADMIN_LAYOUT.sidebarCollapsed + 2 * STUDIO_PADDING;
-  const boxes = sides(search.style.paddingLeft) + sides(list.style.borderLeftWidth) + sides(row.style.paddingLeft);
-  return width - frame - boxes - columns - 3 * parseFloat(row.style.gap);
+/** A row's fixed columns, in px and in order: the thumbnail's, the marks' and the number's. */
+function fixedColumns(row: HTMLElement): number[] {
+  return (row.style.gridTemplateColumns.replace(/minmax\([^)]*\)/, '').match(/\d+px/g) ?? []).map(parseFloat);
 }
+
+/**
+ * A row's names column in a list whose content box is `listWidth` px wide, worked out from the row's
+ * own styles as a browser would lay them out: the row's padding each side, its fixed columns, and the
+ * three gaps between its four.
+ */
+function namesColumnIn(listWidth: number, row: HTMLElement): number {
+  const columns = fixedColumns(row).reduce((sum, column) => sum + column, 0);
+  return listWidth - 2 * parseFloat(row.style.paddingLeft) - columns - 3 * parseFloat(row.style.gap);
+}
+
+/**
+ * The list's content box on a phone `width` px wide, since jsdom has no layout: the viewport less the
+ * 64px rail and the studio root's padding each side, the search's own gutter each side, and the
+ * list's border each side.
+ */
+function listWidthAt(width: number, {search, list}: Omit<SearchBoxes, 'row'>): number {
+  const sides = (length: string) => 2 * pxAt(length, width);
+  const frame = ADMIN_LAYOUT.sidebarCollapsed + 2 * STUDIO_PADDING;
+  return width - frame - sides(search.style.paddingLeft) - sides(list.style.borderLeftWidth);
+}
+
+/** The names column on a phone `width` px wide. */
+function namesColumnAt(width: number, boxes: SearchBoxes): number {
+  return namesColumnIn(listWidthAt(width, boxes), boxes.row);
+}
+
+/** The widest tag a search row shows, "not deployed yet", as Chrome draws it at the tags' size (measured, #74). */
+const WIDEST_TAG = 92;
 
 const ELSA = studioCard({id: '5001', name: 'Elsa', version: 'Snow Queen'});
 const ANNA = studioCard({id: '5002', name: 'Anna', version: 'Heir to Arendelle'});
@@ -190,6 +210,27 @@ describe('EditSearch', () => {
       // Room for the "released" chip, about 50px, beside a dual ink's marks: the 31px the search's own gutter left put
       // it under the first ink's icon.
       expect(namesColumnAt(375, boxes)).toBe(63);
+    });
+
+    // AdminStyles' rule moves a row's marks under its name, and lets the name take the marks' column too, in a list
+    // under SEARCH_STACK_BELOW: there the names column can't hold "not deployed yet" beside the marks. jsdom has no
+    // layout or container queries, so this pins the classes the rule reads and the arithmetic of its breakpoint.
+    it('stacks the marks under the name where the names column can’t hold "not deployed yet", as on a 375px phone (#74)', () => {
+      renderSearch();
+      const list = screen.getByRole('list', {name: 'Cards'});
+      const priya = screen.getByRole('link', {name: /^Priya /});
+      expect(list).toHaveClass('adm-search-list');
+      expect(within(priya).getByText('not deployed yet').closest('span.adm-search-names')).not.toBeNull();
+      expect(within(priya).getByRole('img', {name: 'Ruby'}).closest('span.adm-search-marks')).not.toBeNull();
+      // At the breakpoint the tag fits beside the marks, and a pixel under it, it doesn't.
+      expect(namesColumnIn(SEARCH_STACK_BELOW, priya)).toBeGreaterThanOrEqual(WIDEST_TAG);
+      expect(namesColumnIn(SEARCH_STACK_BELOW - 1, priya)).toBeLessThan(WIDEST_TAG);
+      // A 375px phone's list is under it, so its rows stack, and the name and its tags take 143px.
+      const search = screen.getByRole('region', {name: 'Find a card to edit'}).parentElement as HTMLElement;
+      const phone = listWidthAt(375, {search, list});
+      expect(phone).toBeLessThan(SEARCH_STACK_BELOW);
+      const [, marks] = fixedColumns(priya);
+      expect(namesColumnIn(phone, priya) + parseFloat(priya.style.gap) + marks).toBe(143);
     });
 
     it('gives every list one number column, mixed or Core-only, so the marks never jump while a query is typed', () => {

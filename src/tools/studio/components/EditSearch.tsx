@@ -27,8 +27,10 @@ const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
  * each, and a pixel to spare, 52px. "#204" alone had 44px, so this takes 8px of the names column. On
  * a phone that column is the viewport less the 64px rail, 32px of gutter (the studio root's 16px
  * padding each side: the search adds none of its own, #74), 26px of border and padding, 138px of
- * thumbnail, marks and gaps, and this column: 63px at 375px, room for the "released" chip (about
- * 50px) beside a dual ink's marks.
+ * thumbnail, marks and gaps, and this column: 63px at 375px. That holds the "released" chip (about
+ * 50px), but not "not deployed yet" (about 92px), so in a list that narrow, under AdminStyles'
+ * SEARCH_STACK_BELOW, a row moves its marks under its name, and the name and its tags take the
+ * marks' column and the gap before it too: 143px at 375px.
  */
 const NUMBER_WIDTH = Math.ceil(7 * 0.6 * ADMIN_TYPE.small) + 1;
 
@@ -83,8 +85,10 @@ const THUMB: React.CSSProperties = {
   backgroundColor: ADMIN_COLORS.card,
 };
 const THUMB_IMAGE: React.CSSProperties = {display: 'block', width: '100%', height: '100%', objectFit: 'cover'};
+// The names and the marks carry adm-search-names and adm-search-marks, which stack the marks under the name in a list
+// too narrow to hold every tag beside them (AdminStyles, #74). A wider list keeps this grid as it is.
 const NAMES: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xxs, minWidth: 0};
-// The tags wrap under a long name rather than run into the marks at phone width.
+// The tags wrap under a long name rather than run into the marks.
 const NAME_LINE: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -282,9 +286,10 @@ function NumberCell({row}: {row: SearchRow}) {
  * before the number (numberLabel), so it tells from a Core reprint of itself
  * (#68); the number's cell wraps, the set over the number. A twin names its id
  * after the number, "Set 3 · #4 · id 436", as only its id tells it from its
- * twins (#74). The spaces are text nodes of their own, so the link's name reads
- * "Mei preview Red Panda Ruby #31", or "Ursula released Deceiver Emerald
- * Set 3 · #90": a grid or a flex row draws none of them.
+ * twins (#74). In a list too narrow for every tag beside the marks, the marks
+ * go under the name (#74). The spaces are text nodes of their own, so the
+ * link's name reads "Mei preview Red Panda Ruby #31", or "Ursula released
+ * Deceiver Emerald Set 3 · #90": a grid or a flex row draws none of them.
  */
 function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
   const {card} = row;
@@ -292,13 +297,13 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
     <li style={ruled ? RULED : undefined}>
       <Link to={studioHref('edit', card.id)} className="adm-row-btn" style={ROW}>
         <Thumb card={card} />{' '}
-        <span style={NAMES}>
+        <span className="adm-search-names" style={NAMES}>
           <span style={NAME_LINE}>
             <span style={NAME}>{card.name}</span> <CardTags tag={row.tag} deployed={row.deployed} />
           </span>{' '}
           <span style={VERSION}>{card.version}</span>
         </span>{' '}
-        <span style={MARKS}>
+        <span className="adm-search-marks" style={MARKS}>
           <CardInks card={card} />
           <RarityMark rarity={card.rarity} />
         </span>{' '}
@@ -308,11 +313,11 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
   );
 }
 
-/** The matches, or nothing for none: the status line says so. */
+/** The matches, or nothing for none: the status line says so. The list is what a row's stacking measures (#74). */
 function ResultList({rows}: {rows: readonly SearchRow[]}) {
   if (rows.length === 0) return null;
   return (
-    <ul aria-label="Cards" style={LIST}>
+    <ul aria-label="Cards" className="adm-search-list" style={LIST}>
       {rows.map((row) => (
         <ResultRow key={row.card.id} row={row} ruled={row !== rows[0]} />
       ))}

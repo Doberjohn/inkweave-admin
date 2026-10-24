@@ -24,6 +24,13 @@ const RANGE_HEIGHT = 20;
 const RANGE_MIN_WIDTH = 60;
 const RANGE_TRACK = 4;
 const RANGE_THUMB = 16;
+/**
+ * The width of Edit card's search list, its content box, under which a row moves its marks under its
+ * name (#74). A row's fixed parts take 214px of it: its 12px padding each side, the 34px thumbnail,
+ * the 68px marks, the 52px number and three 12px gaps. The widest tag, "not deployed yet", is 92px,
+ * so in a narrower list the names column can't hold it beside the marks. A 375px phone's list is 277px.
+ */
+export const SEARCH_STACK_BELOW = 306;
 
 const FAST = `${DURATION.base}ms ${EASING.snappy}`;
 // Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
@@ -135,6 +142,17 @@ const FILE_LIVE = ':where(:not(:has(input:disabled)))';
  *   is barNeutral, 3.3:1 on a card (WCAG 1.4.11), not the meters' barTrack.
  *   Its track and thumb rules repeat per engine: a selector list with a
  *   pseudo-element the browser doesn't know is dropped whole.
+ *
+ * Edit card's search (R4-5f) lays each row out as an inline grid of four
+ * columns: the thumbnail, the names, the marks and the number. In a list
+ * narrower than SEARCH_STACK_BELOW (a phone under about 404px, the rail
+ * included) the names column can't hold the widest tag, "not deployed yet",
+ * beside the marks, so adm-search-marks moves to a second line under the
+ * names, and adm-search-names takes the marks' column too (#74). The rule
+ * asks the list's width, not the screen's (adm-search-list is its container),
+ * as Card studio picks its layout from its root's measured width (R-64): a
+ * story of a phone's page stacks on any screen. A wider list meets no rule
+ * here, so its rows keep their inline grid as it is.
  */
 const CSS = `
 .adm-nav-item{display:flex;align-items:center;gap:${SPACING.md}px;height:${NAV_ITEM_HEIGHT}px;padding:0 ${SPACING.sm}px;border-radius:${R.control}px;color:${C.muted};font-size:${T.body}px;font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;transition:background-color ${FAST},color ${FAST};}
@@ -241,6 +259,12 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-rise{from{transform:scaleY(0);}to{transform:scaleY(1);}}
 @keyframes adm-chart-draw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
+
+.adm-search-list{container-type:inline-size;}
+@container (width < ${SEARCH_STACK_BELOW}px){
+.adm-search-names{grid-column:2 / 4;}
+.adm-search-marks{grid-row:2;grid-column:2 / 4;justify-self:start;}
+}
 
 @media (prefers-reduced-motion: reduce){
 .adm-link{transition:none;}

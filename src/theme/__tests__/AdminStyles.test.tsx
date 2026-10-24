@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
-import {AdminStyles} from '../AdminStyles';
+import {AdminStyles, SEARCH_STACK_BELOW} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
@@ -43,6 +43,10 @@ const CLASSES = [
   'adm-range',
   // A box that scrolls a table sideways, which the keyboard reaches (R4-8b).
   'adm-scroll-region',
+  // Edit card's search rows, their marks under their names in a narrow list (#74).
+  'adm-search-list',
+  'adm-search-names',
+  'adm-search-marks',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -432,6 +436,18 @@ describe('AdminStyles', () => {
       `2 1 ${SPACING.xxs}px`,
       '1 1 0px',
     ]);
+  });
+
+  it("moves a search row's marks under its name in a list too narrow for its widest tag beside them, and nothing wider (#74)", () => {
+    const css = stylesheet();
+    // The list is the container the rule measures, so a row answers to the list's width, not the screen's.
+    expect(css).toContain('.adm-search-list{container-type:inline-size;}');
+    const narrow = new RegExp(`@container \\(width < ${SEARCH_STACK_BELOW}px\\)\\{([\\s\\S]*?)\\n\\}`).exec(css);
+    expect(narrow?.[1]).toBe(
+      '\n.adm-search-names{grid-column:2 / 4;}\n.adm-search-marks{grid-row:2;grid-column:2 / 4;justify-self:start;}',
+    );
+    // Elsewhere the row's own inline grid lays it out, so a wider list looks as it always has.
+    expect(css.replace(narrow?.[0] ?? '', '')).not.toMatch(/[.]adm-search-(names|marks)/);
   });
 
   it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
