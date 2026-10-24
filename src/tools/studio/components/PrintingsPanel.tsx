@@ -1,6 +1,6 @@
 import {Fragment, useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react';
 import {Link} from 'react-router-dom';
-import {COLORS, CtaButton, DISABLED_STYLE, LinkButton, SPACING, type Finish} from '../../../app-bridge';
+import {CtaButton, LinkButton, SPACING, type Finish} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {focusUnmoved, useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
@@ -71,13 +71,10 @@ const NAMES: React.CSSProperties = {
   minWidth: 0,
 };
 const NAME: React.CSSProperties = {fontSize: ADMIN_TYPE.body, color: ADMIN_COLORS.text, overflowWrap: 'anywhere'};
-// A promo row's Edit, after its marker, in the size of the panel's other small actions.
+// A promo row's Edit, after its marker, in the size of the panel's other small actions. Held (aria-disabled), it
+// looks off and keeps its resting gold under the pointer: LinkButton holds itself off for aria-disabled as for a
+// native disabled, which would drop the focus (inkweave#951).
 const EDIT: React.CSSProperties = {flexShrink: 0, fontSize: ADMIN_TYPE.small};
-// A held Edit (aria-disabled) looks off as a held Add a printing does, and keeps LinkButton's resting gold under
-// the pointer: LinkButton reads only a native disabled, which would drop the focus, so on its own it would neither
-// dim a held Edit nor keep it from brightening on hover. The colour is all its hover changes: it underlines only
-// with underlineOnHover, which Edit doesn't pass.
-const HELD_EDIT: React.CSSProperties = {...EDIT, ...DISABLED_STYLE, color: COLORS.primary};
 const CONTROL: React.CSSProperties = {flex: `0 1 ${CONTROL_BASIS}px`, minWidth: 0};
 // An edit form hangs under its row with no rule between the two: the next row's rule closes it off.
 const FORM_ITEM: React.CSSProperties = {padding: `0 0 ${SPACING.sm}px`};
@@ -396,7 +393,7 @@ function EditButton({kit, row}: {kit: FormKit; row: PrintingRow}) {
       aria-disabled={held || undefined}
       data-opens={row.ref.id}
       onClick={open}
-      style={held ? HELD_EDIT : EDIT}>
+      style={EDIT}>
       Edit
     </LinkButton>
   );
