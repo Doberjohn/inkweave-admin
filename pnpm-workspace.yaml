@@ -17,6 +17,9 @@ overrides:
   # eslint-plugin-react-hooks takes zod 3.25 or 4, so its copy moves to the fixed 4.6.7.
   # eslint-plugin-react-compiler still takes zod 3 only, which has no fix: see auditConfig below.
   'zod@>=4.0.0 <4.6.6': 4.6.7
+  # GHSA-xjj6-f33q-929c: undici 8 below 8.12.2 can be crashed by a response with too many content
+  # encodings. jsdom, the tests' environment, takes undici ^8.12.1, so its copy moves to 8.12.3.
+  'undici@>=8.0.0 <8.12.2': 8.12.3
 
 # Advisories the audit (ci.yml's security-audit) accepts, each with its reason.
 auditConfig:
