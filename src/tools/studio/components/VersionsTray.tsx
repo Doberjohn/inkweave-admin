@@ -25,9 +25,9 @@ import {STUDIO_GAP} from '../studioStyles';
  * its own (display: contents; Chrome keeps the region, and all in it, in the accessibility tree). A
  * sticky box sticks only inside its parent's box, so a foot inside the panel would stick only while the
  * panel is in view. A box of the root, the foot sticks to the bottom of the view across the whole studio
- * while changes are staged (#74): Publish, which counts them, and what the tray says of it (a failure,
- * a clash, a batch this browser couldn't save) stay in view as the owner scrolls a tall Edit card,
- * while the rows scroll with the page.
+ * while changes are staged or a publish runs (#74): Publish, which counts them, and what the tray says
+ * of it (a failure, a clash, a batch this browser couldn't save) stay in view as the owner scrolls a
+ * tall Edit card, while the rows scroll with the page.
  */
 const REGION: CSSProperties = {display: 'contents'};
 
@@ -72,9 +72,9 @@ const FOOT: CSSProperties = {
   border: EDGE,
   borderRadius: `0 0 ${ADMIN_RADIUS.panel}px ${ADMIN_RADIUS.panel}px`,
 };
-// While changes are staged the foot sticks to the bottom of the view, as the tuning aside's tray does. It
-// comes after the panes, so it paints over them; its z-index keeps it over a card tile the pointer raises
-// (the app's .card-tile:hover), which would otherwise paint over it where they meet.
+// While changes are staged, or a publish runs, the foot sticks to the bottom of the view, as the tuning
+// aside's tray does. It comes after the panes, so it paints over them; its z-index keeps it over a card
+// tile the pointer raises (the app's .card-tile:hover), which would otherwise paint over it where they meet.
 const PINNED_FOOT: CSSProperties = {...FOOT, position: 'sticky', bottom: 0, zIndex: 1};
 const HEAD: CSSProperties = {
   display: 'flex',
@@ -408,12 +408,13 @@ interface PublishProps extends Pick<VersionsTrayProps, 'pinnedFootRef'> {
  * The tray's foot: what the tray says of Publish, Publish, and what the last publish said. Publish is
  * aria-disabled where it is held, so it keeps the focus a native disabled would drop; a click still
  * arrives then, and the tray does nothing with it. The notices come and go above it, in a place of
- * their own, so Publish stays the same button, with its focus. While changes are staged the foot is
- * pinned: it sticks to the bottom of the view, and `pinnedFootRef` holds it for the page, which keeps
- * a control that takes keyboard focus elsewhere clear of it.
+ * their own, so Publish stays the same button, with its focus. While changes are staged, or a publish
+ * runs (another tab can empty the batch under it), the foot is pinned: it sticks to the bottom of the
+ * view, and `pinnedFootRef` holds it for the page, which keeps a control that takes keyboard focus
+ * elsewhere clear of it.
  */
 function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: PublishProps) {
-  const pinned = view.changes.length > 0;
+  const pinned = view.changes.length > 0 || view.publishing;
   return (
     <div ref={pinned ? pinnedFootRef : undefined} style={pinned ? PINNED_FOOT : FOOT}>
       {notices}
@@ -436,9 +437,10 @@ function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: Publ
  * that landed. It renders nothing while there is nothing to say: no change, no publish under way,
  * nothing about the last one.
  *
- * Everything after the rows is its foot, under the panel. While changes are staged the foot sticks
- * to the bottom of the view, so Publish, which counts them, is in reach however far up the page the
- * owner is (#74), and what a press of it came to shows beside it; the rows scroll with the page.
+ * Everything after the rows is its foot, under the panel. While changes are staged, or a publish runs,
+ * the foot sticks to the bottom of the view, so Publish, which counts them, is in reach however far up
+ * the page the owner is (#74), and what a press of it came to shows beside it; the rows scroll with the
+ * page.
  * Once a publish lands, the batch is empty and the foot goes back under the panel.
  *
  * A button pressed on a row, or Discard all, takes itself out of the document, so focus moves on

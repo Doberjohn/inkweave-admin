@@ -100,6 +100,16 @@ describe('readEntries', () => {
     expect(named(CHUNK, [entry, entry])).toEqual([{id: '900', cardId: '900', label: 'Yen Sid - Powerful Sorcerer #223 · Set 4'}]);
   });
 
+  it("tells apart only the entries it keeps: a copy of an id it leaves out ends no other entry's label in its id", () => {
+    const yenSid = {fullName: 'Yen Sid - Powerful Sorcerer', setCode: '4', number: 223, rarity: 'Legendary'};
+    const mickey = {fullName: 'Mickey Mouse - Brave Little Tailor', setCode: '4', number: 223, rarity: 'Legendary'};
+    // 901's first copy shares 900's label, but its last copy, the one kept, doesn't.
+    expect(named(CHUNK, [{...yenSid, id: 900}, {...yenSid, id: 901}, {...mickey, id: 901}])).toEqual([
+      {id: '900', cardId: '900', label: 'Yen Sid - Powerful Sorcerer #223 · Set 4'},
+      {id: '901', cardId: '901', label: 'Mickey Mouse - Brave Little Tailor #223 · Set 4'},
+    ]);
+  });
+
   it("reads no file it doesn't know, and no layout it doesn't expect", () => {
     expect(readEntries({path: 'apps/web/public/data/other.json', text: '[]'})).toBeNull();
     expect(readEntries({path: ALL_CARDS, text: '[]'})).toBeNull();

@@ -163,6 +163,13 @@ describe('VersionsTray: the foot', () => {
     expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
   });
 
+  it('stays pinned, and handed to the page, while a publish runs over a batch another tab emptied', () => {
+    const pinnedFootRef = createRef<HTMLDivElement>();
+    renderTray(batchView([], {publishing: true}), {pinnedFootRef});
+    expect(footOf()).toHaveStyle({position: 'sticky', bottom: '0px'});
+    expect(pinnedFootRef.current).toBe(footOf());
+  });
+
   it('sits in its place under the panel once no change is staged, with the publish that landed', () => {
     renderTray(batchView([], {result: LANDED}));
     const foot = footOf();

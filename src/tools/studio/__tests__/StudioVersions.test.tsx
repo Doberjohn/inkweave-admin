@@ -528,6 +528,19 @@ describe('StudioPage: the Printings panel during a publish and after it (#68)', 
     expect(within(panel()).getByRole('alert')).toHaveTextContent(failure);
     await waitFor(() => expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toHaveFocus());
   });
+
+  it('keeps what the publish came to, and its commit, in the tray when the read after it fails: the commit landed', async () => {
+    const reread = rereadHeld();
+    stubStudioRepo({branch: reread.files, base: YEN_SID_FILES});
+    const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
+    const tray = await publish223(user);
+    await within(tray).findByText('Published 1 change.');
+
+    await act(async () => reread.respond(new Response('Bad Gateway', {status: 502})));
+    expect(within(panel()).getByRole('button', {name: 'Read the files again'})).toBeInTheDocument();
+    expect(within(tray).getByText('Published 1 change.')).toBeInTheDocument();
+    expect(within(tray).getByRole('link', {name: 'View commit'})).toHaveAttribute('href', COMMIT_URL);
+  });
 });
 
 /** A box from `top` to `bottom` in the view, all that getBoundingClientRect's callers here read. */

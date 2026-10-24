@@ -452,6 +452,19 @@ describe('StudioPage: Sets 1 to 8 in Edit card (#68)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('No cards match "zzz" yet: Sets 1 to 8 are still loading.');
   });
 
+  it('lists the card a query missed once its set lands: the miss said "yet" (#74)', async () => {
+    const held = deferredResponse();
+    const empty = chunksOf();
+    stubFetch(fileOf(FILE), (set) => (set === '4' ? held.response : empty(set)));
+    const {user} = renderStudio({path: '/studio?mode=edit'});
+    await user.type(searchField(), 'Yen Sid');
+    expect(screen.getByRole('status')).toHaveTextContent('No cards match "Yen Sid" yet: Sets 1 to 8 are still loading.');
+
+    held.respond(Response.json(SET_4_ENTRIES));
+    expect(await screen.findByRole('link', {name: 'Yen Sid released Powerful Sorcerer Amethyst Set 4 · #59'})).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('1 card matches');
+  });
+
   it("names a twin's id on its row, as only its id tells it from the other: Set 3's Dalmatian Puppies are both #4 (#74)", async () => {
     stubFetch(fileOf(FILE), chunksOf({'3': DALMATIAN_ENTRIES}));
     const {user} = renderStudio({path: '/studio?mode=edit'});

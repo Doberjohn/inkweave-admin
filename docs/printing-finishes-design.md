@@ -158,7 +158,7 @@ It starts once the app's part has merged and admin's app pin has moved past it, 
      - a change whose printing changed stays in the batch too, marked as a clash showing the branch's new value, until the owner keeps it (on top of the new value) or drops it.
    - Publish stays off while a clash is open. Unlike the tuning editor's reload (R-18), nothing leaves the batch without the owner choosing it (owner, 2026-10-21).
    - `allCards.json` is about 2 MB, more than the GitHub contents API's 1 MB JSON limit, so reading and writing it goes through the raw or blob routes.
-6. **After a publish,** the outcome links the commit and says the changes show in the binder once the app's deploy finishes. Today that's on staging only. The Printings panel reads the branch's files again, and until that read lands, each published printing's row shows the value the publish wrote (#74).
+6. **After a publish,** the outcome links the commit and says the changes show in the binder once the app's deploy finishes. Today that's on staging only. The Printings panel reads the branch's files again, and while that read runs, each published printing's row shows the value the publish wrote (#74). If the read fails, the panel shows its error and "Read the files again" in place of the rows, and the tray still shows the outcome and its commit.
 7. **Docs.** In `CLAUDE.md`, the Card studio paragraph covers the batch, the files a publish writes, and the collection data Edit card reads.
 
 ## Order of work

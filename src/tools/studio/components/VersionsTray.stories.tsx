@@ -3,6 +3,7 @@ import {useRef, useState, type CSSProperties} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {expect, spyOn, within} from 'storybook/test';
 import {SPACING} from '../../../app-bridge';
+import {targetBranch} from '../../../github/githubCommit';
 import {keepClearOfFoot} from '../../../shell/clearBand';
 import {PageLayout} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_RADIUS} from '../../../theme/adminTheme';
@@ -204,7 +205,8 @@ async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
   const canvas = within(canvasElement);
   // The page's flush body, which scrolls under its header.
   const body = canvasElement.querySelector('main')?.lastElementChild as HTMLElement;
-  const publish = canvas.getByRole('button', {name: 'Publish 2 changes to master'});
+  // The branch is the one the stories run against: a rehearsal's, when .env.local names one.
+  const publish = canvas.getByRole('button', {name: `Publish 2 changes to ${targetBranch()}`});
   const foot = publish.parentElement as HTMLElement;
   const panel = canvas.getByRole('region', {name: 'Version changes'}).firstElementChild as HTMLElement;
   body.scrollTop = 0;
