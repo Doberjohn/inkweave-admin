@@ -75,8 +75,9 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
  * leaving the page loses none of it, and forgetting the token (the tray offers it too) never
  * touches it. It stays a child of the root: its foot, a box of the root's, sticks to the bottom
  * of the view across the whole studio while changes are staged (#74). The browser scrolls a
- * control that takes focus only as far as the view's edge, under that foot, so the root keeps it
- * clear of the foot while the foot is pinned (keepClearOfFoot, WCAG 2.4.11).
+ * control that takes focus only as far as the view's edge, under that foot, so the root keeps one
+ * that takes keyboard focus clear of the foot while the foot is pinned (keepClearOfFoot, WCAG
+ * 2.4.11). One that a press of the mouse focuses stays under the pointer, so the press clicks it.
  */
 export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const location = useLocation();

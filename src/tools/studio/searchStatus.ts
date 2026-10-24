@@ -8,7 +8,7 @@ export interface SearchStatusState {
   shown: number;
   /** Every match: searchCards' total; for a blank query, every card. */
   total: number;
-  /** The card list's state (useCardDataContext), and whether Sets 1 to 8 are still being read (#68). */
+  /** The card list's state (useCardDataContext), and whether Sets 1 to 8 are still being read (#74). */
   list: {loading: boolean; failed: boolean; setsLoading: boolean};
 }
 

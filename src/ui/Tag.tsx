@@ -1,6 +1,11 @@
 import {SPACING} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
 
+/**
+ * The chip's size and padding. Its widest use, Card studio's "not deployed yet" (92px), sets the list width
+ * under which Edit card's search stacks a row's marks under its name (SEARCH_STACK_BELOW, 306px, in
+ * AdminStyles.tsx): a change to the font or the padding here needs that breakpoint measured again.
+ */
 const TAG: React.CSSProperties = {
   flex: 'none',
   fontSize: ADMIN_TYPE.micro,

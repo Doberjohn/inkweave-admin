@@ -60,6 +60,11 @@ const LINE_223 = 'Yen Sid - Powerful Sorcerer #223 · Set 4: Foil only → Both'
 const UNSAVED = "This browser couldn't save these changes. Publish them before you reload or close the tab.";
 
 const versionsTray = () => screen.queryByRole('region', {name: 'Version changes'});
+/**
+ * The page's body, PageLayout's flush scroller under its header. The studio's root, the grid that holds
+ * the panes, is its child, and the tray stays a child of the root: its foot sticks across the root (#74).
+ */
+const pageBody = () => screen.getByRole('main').lastElementChild;
 
 beforeEach(() => {
   // Wide, as StudioEdit's cases are, so every field of a form shows at once.
@@ -86,10 +91,11 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(within(tray).getByRole('heading', {level: 2, name: 'Version changes · 1'})).toBeInTheDocument();
     expect(within(tray).getByText(LINE_59)).toBeInTheDocument();
     expect(within(tray).getByText('Removes Normal. Copies counted in it will show under Foil.')).toBeInTheDocument();
-    // Under the panes: in the root they sit in, and after the printings in the tab order.
+    // Under the panes: a child of the studio's root, which holds them, and after the printings in the tab order.
     const printings = screen.getByRole('region', {name: 'Printings'});
     expect(printings.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tray.parentElement).toContainElement(printings);
+    expect(tray.parentElement?.parentElement).toBe(pageBody());
 
     await user.click(within(tray).getByRole('button', {name: 'Revert Yen Sid - Powerful Sorcerer #59 · Set 4'}));
     // The store's revert clears the outcome too, so nothing but the press keeps the tray up: it is the same
@@ -144,6 +150,7 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     const publish = screen.getByRole('complementary', {name: 'Publish'});
     expect(publish.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tray.parentElement).toContainElement(publish);
+    expect(tray.parentElement?.parentElement).toBe(pageBody());
   });
 
   it('asks nothing when the owner leaves the page with changes staged: the batch lives in the browser', async () => {
@@ -211,8 +218,11 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
     const tray = await screen.findByRole('region', {name: 'Version changes'});
 
-    await user.click(within(tray).getByRole('button', {name: 'Publish 1 change to master'}));
+    const publish = within(tray).getByRole('button', {name: 'Publish 1 change to master'});
+    await user.click(publish);
     expect(await within(tray).findByRole('alert')).toHaveTextContent(clashMessage(1));
+    // The clash comes in above the button pressed, which keeps the focus while it holds.
+    expect(publish).toHaveFocus();
     expect(within(tray).getByText('Changed on master since: now Normal only.')).toBeInTheDocument();
     expect(within(tray).getByRole('button', {name: 'Publish 1 change to master'})).toHaveAttribute('aria-disabled', 'true');
     expect(repo.writes()).toEqual([]);
@@ -529,7 +539,7 @@ const box = (top: number, bottom: number) => ({top, bottom}) as DOMRect;
  * which the scroller's scrollBy moves as a real scroll would (scrolling down by 100 lifts it by 100).
  */
 function pageScroller() {
-  const scroller = screen.getByRole('main').lastElementChild as HTMLElement;
+  const scroller = pageBody() as HTMLElement;
   let scrolled = 0;
   const scrollBy = vi.fn((options: ScrollToOptions) => {
     scrolled += options.top ?? 0;
@@ -544,11 +554,25 @@ function pageScroller() {
   };
 }
 
+/**
+ * Has the browser show `control`'s focus (`:focus-visible`), as Chrome does for a focus that came by
+ * keyboard. jsdom answers by a heuristic of dom-selector's that shows a Tab's focus from the body or a
+ * text field but, once a focus has shown, hides a Tab's from one button to the next, as it hides a
+ * press of the mouse's. So a case whose control takes keyboard focus says so with this, and a press
+ * of the mouse keeps jsdom's own answer, which is Chrome's.
+ */
+function showsItsFocus(control: Element) {
+  const matches = control.matches.bind(control);
+  vi.spyOn(control, 'matches').mockImplementation((selectors: string) => selectors === ':focus-visible' || matches(selectors));
+}
+
 /*
  * While changes are staged the tray's foot is pinned to the bottom of the view (#74), and the browser
  * scrolls a control that takes focus only as far as the view's edge, under it. So the studio's root
- * keeps such a control clear of the pinned foot (WCAG 2.4.11), as the tuning aside keeps its fields
- * clear of its pinned tray. Here the scroller's view runs from 64 to 900, and the foot from 830 to 900.
+ * keeps a control that takes keyboard focus clear of the pinned foot (WCAG 2.4.11), as the tuning aside
+ * keeps its fields clear of its pinned tray. One that a press of the mouse focuses stays where it is,
+ * under the pointer, so the press ends on it and clicks it. Here the scroller's view runs from 64 to
+ * 900, and the foot from 830 to 900.
  */
 describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () => {
   /** Yen Sid open, with #59 staged Foil only: the tray's foot is pinned. */
@@ -572,10 +596,11 @@ describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () 
   /** #223's Both, a control of the Printings panel, which scrolls with the page. */
   const choice223 = () => within(screen.getByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'});
 
-  it('scrolls a control that takes focus under the pinned foot up into the band above it', async () => {
+  it('scrolls a control that takes keyboard focus under the pinned foot up into the band above it', async () => {
     await staged59();
     const {scrollBy, place} = laidOut();
     place(choice223(), 850, 882);
+    showsItsFocus(choice223());
 
     act(() => choice223().focus());
     expect(scrollBy).toHaveBeenCalledOnce();
@@ -583,10 +608,21 @@ describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () 
     expect(choice223().getBoundingClientRect()).toMatchObject({top: 431, bottom: 463});
   });
 
+  it('leaves a control that a press of the mouse focuses half under the foot where it is, under the pointer', async () => {
+    const user = await staged59();
+    const {scrollBy, place} = laidOut();
+    place(choice223(), 810, 842);
+
+    await user.click(choice223());
+    expect(choice223()).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
   it('leaves Publish where it is: the foot is pinned, so scrolling for it would move the page and never it', async () => {
     await staged59();
     const {scrollBy, pin, publish} = laidOut();
     pin(publish, 842, 886);
+    showsItsFocus(publish);
 
     act(() => publish.focus());
     expect(scrollBy).not.toHaveBeenCalled();
@@ -598,6 +634,7 @@ describe('StudioPage: what takes focus, and the tray’s pinned foot (#74)', () 
     expect(screen.getByRole('button', {name: 'Publish to master'})).toBeInTheDocument();
     const {scrollBy, place} = laidOut();
     place(choice223(), 850, 882);
+    showsItsFocus(choice223());
 
     act(() => choice223().focus());
     expect(scrollBy).not.toHaveBeenCalled();

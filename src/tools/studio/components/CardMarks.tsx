@@ -8,7 +8,12 @@ export const MARK_SIZE = 20;
 
 const MARKS: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: SPACING.xs};
 
-/** Each tag's chip: lowercase, as admin's other tags read ("raw", "low n"), and where the card's data comes from. */
+/**
+ * Each tag's chip: lowercase, as admin's other tags read ("raw", "low n"), and where the card's data comes from.
+ * The widest chip, CardTags' "not deployed yet" (92px), sets the list width under which a search row stacks its
+ * marks under its name (EditSearch's SEARCH_STACK_BELOW, 306px, in AdminStyles.tsx): a wider tag word, here or
+ * in CardTags, needs that breakpoint measured again.
+ */
 const TAGS: Readonly<Record<CardTag, {text: string; title: string}>> = {
   Preview: {text: 'preview', title: 'Its data comes from previewCards.json'},
   Released: {text: 'released', title: 'Its data comes from LorcanaJSON'},

@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import userEvent from '@testing-library/user-event';
 import {clearScroll, keepClearOfFoot, scrollIntoBand, scrollerOf} from './clearBand';
 
 afterEach(() => {
@@ -83,48 +84,72 @@ describe('scrollIntoBand', () => {
 
 /*
  * A box pinned to the bottom of the view (the Version changes tray's foot, #74) hides what scrolls
- * under it, and the browser scrolls a focused control only as far as the view's edge.
+ * under it, and the browser scrolls a focused control only as far as the view's edge. Only a focus the
+ * browser shows (`:focus-visible`) moves the page. jsdom answers by a heuristic of dom-selector's that
+ * shows a Tab's focus from the body, whatever came before, and hides a press of the mouse's, so the
+ * cases take keyboard focus by a Tab from the body: the field is the first control in the document,
+ * and Publish, a Shift+Tab away, the last.
  */
 describe('keepClearOfFoot', () => {
-  it('scrolls a field under the foot into the band from the scroller’s top to the foot’s top', () => {
+  /** Has `scroller` keep each field that takes focus in it clear of `foot`, as Card studio's root does. */
+  function keepsClear({scroller, foot}: {scroller: Element; foot: Element | null}) {
+    scroller.addEventListener('focusin', (event) => keepClearOfFoot({field: event.target as Element, foot}));
+    return userEvent.setup();
+  }
+
+  it('scrolls a field that takes keyboard focus under the foot into the band from the scroller’s top to the foot’s top', async () => {
     const {scroller, field, foot, scrollBy, pin, place} = scrollerWithFoot();
     pin(scroller, 64, 900);
     pin(foot, 830, 900);
     place(field, 850, 882);
-    keepClearOfFoot({field, foot});
+    await keepsClear({scroller, foot}).tab();
+    expect(field).toHaveFocus();
     expect(scrollBy).toHaveBeenCalledOnce();
     // Centred between 64 and 830.
     expect(field.getBoundingClientRect()).toMatchObject({top: 431, bottom: 463});
   });
 
-  it('leaves a field clear of the foot where it is', () => {
+  it('leaves a field that a press of the mouse focuses half under the foot where it is, under the pointer', async () => {
+    const {scroller, field, foot, scrollBy, pin, place} = scrollerWithFoot();
+    pin(scroller, 64, 900);
+    pin(foot, 830, 900);
+    place(field, 810, 842);
+    await keepsClear({scroller, foot}).click(field);
+    expect(field).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('leaves a field clear of the foot where it is', async () => {
     const {scroller, field, foot, scrollBy, pin, place} = scrollerWithFoot();
     pin(scroller, 64, 900);
     pin(foot, 830, 900);
     place(field, 700, 732);
-    keepClearOfFoot({field, foot});
+    await keepsClear({scroller, foot}).tab();
+    expect(field).toHaveFocus();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it('leaves a field inside the foot alone: the foot is pinned, so scrolling would move the page and never it', () => {
+  it('leaves a field inside the foot alone: the foot is pinned, so scrolling would move the page and never it', async () => {
     const {scroller, foot, publish, scrollBy, pin} = scrollerWithFoot();
     pin(scroller, 64, 900);
     pin(foot, 830, 900);
     pin(publish, 842, 886);
-    keepClearOfFoot({field: publish, foot});
+    await keepsClear({scroller, foot}).tab({shift: true});
+    expect(publish).toHaveFocus();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it('does nothing with no foot pinned', () => {
+  it('does nothing with no foot pinned', async () => {
     const {scroller, field, scrollBy, pin, place} = scrollerWithFoot();
     pin(scroller, 64, 900);
     place(field, 850, 882);
-    keepClearOfFoot({field, foot: null});
+    await keepsClear({scroller, foot: null}).tab();
+    expect(field).toHaveFocus();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it('starts the band at the top of the view where the document scrolls, whose own box scrolls away', () => {
-    const {field, foot, pin} = scrollerWithFoot('visible');
+  it('starts the band at the top of the view where the document scrolls, whose own box scrolls away', async () => {
+    const {scroller, field, foot, pin} = scrollerWithFoot('visible');
     const page = scrollerOf(field);
     let scrolled = 0;
     const scrollBy = vi.fn((options: ScrollToOptions) => {
@@ -135,7 +160,8 @@ describe('keepClearOfFoot', () => {
     pin(page, -2000, -1000);
     pin(foot, 730, 800);
     vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => box(760 - scrolled, 800 - scrolled));
-    keepClearOfFoot({field, foot});
+    await keepsClear({scroller, foot}).tab();
+    expect(field).toHaveFocus();
     expect(scrollBy).toHaveBeenCalledOnce();
     // Centred between the view's top, 0, and the foot's top, 730.
     expect(field.getBoundingClientRect()).toMatchObject({top: 345, bottom: 385});

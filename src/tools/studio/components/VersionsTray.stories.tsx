@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useRef, useState, type CSSProperties} from 'react';
 import {MemoryRouter} from 'react-router-dom';
-import {expect, within} from 'storybook/test';
+import {expect, spyOn, within} from 'storybook/test';
 import {SPACING} from '../../../app-bridge';
 import {keepClearOfFoot} from '../../../shell/clearBand';
 import {PageLayout} from '../../../shell/PageLayout';
@@ -16,7 +16,7 @@ import {
   YEN_SID_ROWS,
   batchView,
 } from '../finishes/__tests__/finishFixtures';
-import {keptClash, type VersionChange} from '../finishes/versionBatch';
+import {changeFor, keptClash, withChange, type VersionChange} from '../finishes/versionBatch';
 import {PRINTINGS_ONLY_NOTE} from '../studioCopy';
 import {STUDIO_PADDING, type StudioLayout} from '../studioLayout';
 import {STUDIO_GAP, STUDIO_GRID, STUDIO_MAX_WIDTH, STUDIO_SLOT} from '../studioStyles';
@@ -142,12 +142,14 @@ const STAGED = [NUMBER_59_TO_FOIL, NUMBER_223_TO_BOTH];
 
 /**
  * Card studio's page in `layout` (#74), as StudioWorkspace lays it out: its root keeps a control that
- * takes focus clear of the tray's pinned foot, which the tray hands it (keepClearOfFoot). The card is
- * Yen Sid's facts and Printings panel, with two of his printings' changes staged; in the wide grid a
- * dashed box stands in for the top of a card taller than the view.
+ * takes keyboard focus clear of the tray's pinned foot, which the tray hands it (keepClearOfFoot). The
+ * card is Yen Sid's facts and Printings panel, with two of his printings' changes staged, and a choice
+ * stages its change as the studio's does; in the wide grid a dashed box stands in for the top of a
+ * card taller than the view.
  */
 function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties}) {
   const pinnedFootRef = useRef<HTMLDivElement>(null);
+  const [changes, setChanges] = useState<readonly VersionChange[]>(STAGED);
   return (
     <MemoryRouter>
       <div style={page}>
@@ -159,10 +161,14 @@ function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties
             <div style={STUDIO_SLOT[layout].form}>
               <div style={FORM_COLUMN}>
                 <ReleasedCardFacts card={YEN_SID} note={PRINTINGS_ONLY_NOTE} />
-                <PrintingsPanel view={{status: 'ready', rows: YEN_SID_ROWS}} changes={STAGED} onChoose={noop} />
+                <PrintingsPanel
+                  view={{status: 'ready', rows: YEN_SID_ROWS}}
+                  changes={changes}
+                  onChoose={(chosen) => setChanges((held) => withChange({changes: held}, changeFor(chosen)).changes)}
+                />
               </div>
             </div>
-            <VersionsTray view={batchView(STAGED)} token="story" onForgetToken={noop} pinnedFootRef={pinnedFootRef} />
+            <VersionsTray view={batchView(changes)} token="story" onForgetToken={noop} pinnedFootRef={pinnedFootRef} />
           </div>
         </PageLayout>
       </div>
@@ -171,21 +177,27 @@ function PinnedStudio({layout, page}: {layout: StudioLayout; page: CSSProperties
 }
 
 /**
- * Moves the focus to `control`, as a Tab does. A browser whose window hasn't the focus (Storybook in a
- * hidden pane) moves it without firing focus events, so this then fires focusin itself, as a focused
- * browser would, for the page to hear.
+ * Moves the focus to `control` and has the browser show it (`:focus-visible`), as it shows a focus
+ * that came by keyboard and not one a press of the mouse gave: only a shown focus moves the page
+ * (keepClearOfFoot). A browser whose window hasn't the focus (Storybook in a hidden pane) shows none
+ * and fires no focus events, so there this stands in for a focused one: the control answers
+ * `:focus-visible` while this fires focusin, for the page to hear.
  */
-function focusOn(control: HTMLElement): void {
-  control.focus();
-  if (!control.ownerDocument.hasFocus()) control.dispatchEvent(new FocusEvent('focusin', {bubbles: true}));
+function focusByKeyboard(control: HTMLElement): void {
+  control.focus({focusVisible: true});
+  if (control.ownerDocument.hasFocus()) return;
+  const matches = control.matches.bind(control);
+  const shown = spyOn(control, 'matches').mockImplementation((selectors) => selectors === ':focus-visible' || matches(selectors));
+  control.dispatchEvent(new FocusEvent('focusin', {bubbles: true}));
+  shown.mockRestore();
 }
 
 /**
  * What the pinned stories check, at the top of the page and as the owner moves through it:
  * - the foot sits on the view's bottom, and the tray's panel waits below the view, so the foot covers
  *   the page by its own height only;
- * - a choice that takes focus under the foot scrolls clear of it (WCAG 2.4.11), and Publish, taking
- *   focus, moves nothing, as it is the foot's own;
+ * - a choice that takes keyboard focus under the foot scrolls clear of it (WCAG 2.4.11), and Publish,
+ *   taking it, moves nothing, as it is the foot's own;
  * - scrolled to the end, the foot rests under the panel and closes it.
  */
 async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
@@ -200,14 +212,14 @@ async function playPinned({canvasElement}: {canvasElement: HTMLElement}) {
   await expect(Math.round(foot.getBoundingClientRect().bottom)).toBe(Math.round(view.bottom));
   await expect(panel.getBoundingClientRect().top).toBeGreaterThanOrEqual(view.bottom);
 
-  // The last row's Normal only, scrolled to sit under the foot, takes focus and scrolls out from under it.
+  // The last row's Normal only, scrolled to sit under the foot, takes keyboard focus and scrolls out from under it.
   const choice = canvas.getAllByRole('button', {name: 'Normal only'}).at(-1) as HTMLElement;
   body.scrollTop += choice.getBoundingClientRect().bottom - (view.bottom - SPACING.sm);
   await expect(choice.getBoundingClientRect().bottom).toBeGreaterThan(foot.getBoundingClientRect().top);
-  focusOn(choice);
+  focusByKeyboard(choice);
   await expect(choice.getBoundingClientRect().bottom).toBeLessThanOrEqual(foot.getBoundingClientRect().top);
   const scrolled = body.scrollTop;
-  focusOn(publish);
+  focusByKeyboard(publish);
   await expect(body.scrollTop).toBe(scrolled);
 
   body.scrollTop = body.scrollHeight;

@@ -147,7 +147,7 @@ export interface VersionsTrayProps {
   onForgetToken: () => void;
   /**
    * Holds the foot while it is pinned to the bottom of the view, and null otherwise (#74): the page
-   * keeps a control that takes focus clear of it (keepClearOfFoot, StudioWorkspace).
+   * keeps a control that takes keyboard focus clear of it (keepClearOfFoot, StudioWorkspace).
    */
   pinnedFootRef?: RefObject<HTMLDivElement | null>;
 }
@@ -410,7 +410,7 @@ interface PublishProps extends Pick<VersionsTrayProps, 'pinnedFootRef'> {
  * arrives then, and the tray does nothing with it. The notices come and go above it, in a place of
  * their own, so Publish stays the same button, with its focus. While changes are staged the foot is
  * pinned: it sticks to the bottom of the view, and `pinnedFootRef` holds it for the page, which keeps
- * a control that takes focus elsewhere clear of it.
+ * a control that takes keyboard focus elsewhere clear of it.
  */
 function PublishBar({view, notices, describedBy, onPublish, pinnedFootRef}: PublishProps) {
   const pinned = view.changes.length > 0;

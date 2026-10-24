@@ -3,7 +3,8 @@
  * The browser scrolls a focused field only as far as the view's edge, which can leave it under a
  * pinned box, so the page measures the band the pinned boxes leave clear and scrolls the field into
  * it. The tuning aside keeps its fields between its pinned entry header and its tray (TuningAside);
- * Card studio keeps its controls above the Version changes tray's pinned foot (#74).
+ * Card studio keeps a control that takes keyboard focus above the Version changes tray's pinned foot
+ * (#74).
  */
 
 /** A stretch of the view, from its top to its bottom, in px. */
@@ -43,12 +44,16 @@ function viewTopOf(scroller: Element): number {
 }
 
 /**
- * Keeps a field that takes focus clear of `foot`, a box pinned to the bottom of the view, or null
- * while none is: the band runs from the top of the field's scroller's view to the foot's top. A field
- * inside the foot is left alone: the foot is pinned, so scrolling for it would move the page and
- * never it.
+ * Keeps a field that takes keyboard focus clear of `foot`, a box pinned to the bottom of the view, or
+ * null while none is: the band runs from the top of the field's scroller's view to the foot's top.
+ * Only a focus the browser shows (`:focus-visible`) moves the page. A press of the mouse focuses a
+ * button as it goes down, and a scroll then would take the button from under the pointer, so the
+ * press would end on another box and the click with it (#74). A text field shows its focus after a
+ * press too, which is safe: the press is for the focus it already has. A field inside the foot is
+ * left alone: the foot is pinned, so scrolling for it would move the page and never it.
  */
 export function keepClearOfFoot({field, foot}: {field: Element; foot: Element | null}): void {
   if (foot === null || foot.contains(field)) return;
+  if (!field.matches(':focus-visible')) return;
   scrollIntoBand({field, band: {top: viewTopOf(scrollerOf(field)), bottom: foot.getBoundingClientRect().top}});
 }

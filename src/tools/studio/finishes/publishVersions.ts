@@ -59,7 +59,9 @@ interface BaseFile extends BranchFile {
 
 /**
  * What each entry of a file says, naming a file whose text its parser can't read. Every file is
- * read through it, so writing one can then fail only for an id it lacks (FinishFileError).
+ * read through it, so writing one can then fail only where its text isn't in its format
+ * (`requireItsFormat`) or it lacks an id: a FinishFileError either way, which names the id only for
+ * the second.
  */
 const factsIn = namingItsFile(readEntryFacts);
 
@@ -97,7 +99,9 @@ function valuesFor({path, changes}: {path: string; changes: readonly VersionChan
 /**
  * A file's refusal of an id it lacks (FinishFileError), named by the change that would have written
  * it there, with the way out: every publish fails the same way until that change leaves the batch.
- * Any other failure is as it was.
+ * Any other failure is as it was, a file's refusal of text that isn't in its format
+ * (`requireItsFormat`) among them: that names no id, as no change is to blame, and its message
+ * names the file and its format.
  */
 function namingTheChange({error, changes}: {error: unknown; changes: readonly VersionChange[]}): unknown {
   if (!(error instanceof FinishFileError)) return error;
@@ -108,7 +112,8 @@ function namingTheChange({error, changes}: {error: unknown; changes: readonly Ve
 
 /**
  * The commit's files: each file written with its changes' versions, where that changes its text. A
- * file that lacks a change's printing refuses the whole commit, naming that change (`namingTheChange`).
+ * file that lacks a change's printing refuses the whole commit, naming that change (`namingTheChange`),
+ * and so does one whose text isn't in its format (`requireItsFormat`), naming the file and its format.
  */
 function writtenFiles({changes, files}: {changes: readonly VersionChange[]; files: readonly BaseFile[]}): CommitFile[] {
   try {
@@ -124,8 +129,9 @@ function writtenFiles({changes, files}: {changes: readonly VersionChange[]; file
 /**
  * Writes the changes' versions in one commit on the target branch. Nothing is written when a change
  * clashes (VersionClashError, naming every clash), when a file that should hold a printing lacks it
- * (FinishFileError, naming its change), when a file can't be read, or when the branch moves first
- * (commitFiles' race, whose message ends "Publish again.").
+ * (FinishFileError, naming its change), when a file's text isn't in its format (`requireItsFormat`'s
+ * FinishFileError, naming the file and its format), when a file can't be read, or when the branch
+ * moves first (commitFiles' race, whose message ends "Publish again.").
  */
 export async function publishVersions({token, changes}: {token: string; changes: readonly VersionChange[]}): Promise<CommitResult> {
   return commitFiles({
