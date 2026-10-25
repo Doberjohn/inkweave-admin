@@ -86,6 +86,24 @@ export default defineConfig({
     // and leaves room for a second run, such as the commit hook beside another
     // session's tests. Two full-width runs drained a 16 GB machine.
     maxWorkers: '50%',
+    // Collected only on pushes to main in CI, where it feeds CodeScene's coverage views (#97).
+    // Admin's own code only: upstream/ is the app's, which its own project measures. Every
+    // source file is listed, loaded by a test or not, because CodeScene counts a file missing
+    // from the report as 0%. Vitest reads coverage from the root config only.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}', 'scripts/**/*.mjs'],
+      exclude: [
+        '**/*.test.{ts,tsx,mjs}',
+        '**/__tests__/**',
+        '**/__fixtures__/**',
+        '**/*Fixtures.ts',
+        '**/*.stories.tsx',
+        '**/*.d.ts',
+        'src/test/**',
+      ],
+      reporter: ['text-summary', 'lcovonly'],
+    },
     // Both projects inherit the options above (#35). 'scripts' takes the test
     // files under scripts/ and 'app' every other one, so each file runs once.
     projects: [

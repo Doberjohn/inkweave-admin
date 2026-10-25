@@ -17,6 +17,11 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Coverage is collected and uploaded on pushes to main only (#97). The second value says
+    # whether the token is set, so no step needs the token itself to decide.
+    env:
+      COLLECT_COVERAGE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      CODESCENE_TOKEN_SET: ${{ secrets.CODESCENE_COVERAGE_TOKEN != '' }}
     steps:
       # APP_REPO_TOKEN (read-only on both repos) fetches the private submodule.
       # Dependabot-triggered runs read Dependabot secrets, so the same token is
@@ -41,11 +46,47 @@ jobs:
       - run: pnpm check:deps
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test:run
+      # A push to main collects coverage for CodeScene's coverage views (#97). A PR collects
+      # none: nothing reads it there, and it makes the suite about a minute slower.
+      - run: pnpm test:run ${{ env.COLLECT_COVERAGE == 'true' && '--coverage' || '' }}
       # The Claude hook case table. Every case starts bash, which takes minutes on
       # Windows, so it runs here rather than in the pre-commit hook.
       - run: pnpm check:hooks
       - run: pnpm build
+      # CodeScene's coverage views (#97): line and branch coverage, uploaded for this commit once
+      # every check above has passed. CodeScene's analysis reads the newest upload at or before
+      # the commit it analyses, so a later push that CI skips (state.json only) still has it. A
+      # CodeScene outage must not turn main red, so both steps only warn, and neither runs until
+      # the owner sets CODESCENE_COVERAGE_TOKEN. The installer runs in a step of its own, so the
+      # script it fetches never sees the token.
+      - name: Install CodeScene's coverage tool
+        if: env.COLLECT_COVERAGE == 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          CS_COVERAGE_VERSION: 1.0.40
+        run: |
+          if [ "$CODESCENE_TOKEN_SET" != true ]; then
+            echo "::notice::CODESCENE_COVERAGE_TOKEN is not set; skipping the coverage upload."
+            exit 0
+          fi
+          curl -fsSL https://downloads.codescene.io/enterprise/cli/install-cs-coverage-tool.sh | sh -s -- -y "$CS_COVERAGE_VERSION"
+      # Uploaded from the repo root, as cs-coverage requires.
+      - name: Upload coverage to CodeScene
+        if: env.COLLECT_COVERAGE == 'true' && env.CODESCENE_TOKEN_SET == 'true'
+        continue-on-error: true
+        env:
+          CS_ACCESS_TOKEN: ${{ secrets.CODESCENE_COVERAGE_TOKEN }}
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          if ! command -v cs-coverage > /dev/null; then
+            echo "::warning::cs-coverage did not install; see the step above. Nothing was uploaded."
+            exit 0
+          fi
+          for metric in line-coverage branch-coverage; do
+            cs-coverage upload --format lcov --metric "$metric" coverage/lcov.info \
+              || echo "::warning::CodeScene coverage upload failed ($metric)"
+          done
 
   # The app's audit step (Doberjohn/inkweave#490). pnpm 11 queries npm's bulk advisory
   # endpoint; the pinned pnpm 10 still queries the legacy one, which npm is retiring.
