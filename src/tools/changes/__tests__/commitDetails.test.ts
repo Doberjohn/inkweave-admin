@@ -1,6 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {FILES_LISTED} from '../../../github/githubHistory';
 import {commitDetails, MAX_READ} from '../commitDetails';
+import {GOLIATH, SIX, featuredFileText} from '../../featured/featuredFixtures';
 import {commitOf, stubHistory} from './historyHarness';
 
 const ALL_CARDS = 'apps/web/public/data/allCards.json';
@@ -8,6 +9,7 @@ const CATALOG = 'scripts/data/promo-printings.json';
 const PROMOS = 'apps/web/public/data/collection/promos.json';
 const TUNING = 'packages/synergy-engine/src/data/tuning.json';
 const RAW = 'apps/web/public/card-images-raw';
+const FEATURED = 'apps/web/src/features/cards/featuredCardIds.json';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -50,6 +52,7 @@ describe('commitDetails', () => {
         },
       ],
       tuning: [],
+      featured: [],
       scans: [],
       unread: [],
       otherFiles: 0,
@@ -123,6 +126,26 @@ describe('commitDetails', () => {
     expect((await commitDetails({token: 't', sha: 't1'})).tuning).toEqual([
       {key: 'playstyles.ramp.name', label: 'Ramp · Title', from: '—', to: 'Ramp'},
     ]);
+  });
+
+  it('reads featuredCardIds.json as the slots whose card changed, never as card data', async () => {
+    stubHistory({
+      commits: {f1: commitOf({sha: 'f1', parent: 'p1', files: [modified(FEATURED)]})},
+      files: {[`p1:${FEATURED}`]: featuredFileText(), [`f1:${FEATURED}`]: featuredFileText([SIX[0], GOLIATH, ...SIX.slice(2)])},
+    });
+    const details = await commitDetails({token: 't', sha: 'f1'});
+    expect(details.featured).toEqual([
+      {slot: 'Amethyst', from: {id: '3328', name: 'Un Poco Loco'}, to: {id: '3318', name: 'Goliath - Transformed Warrior'}},
+    ]);
+    expect(details).toMatchObject({entries: [], unread: [], otherFiles: 0});
+  });
+
+  it("lists a featuredCardIds.json that isn't JSON as unread", async () => {
+    stubHistory({
+      commits: {f2: commitOf({sha: 'f2', parent: 'p1', files: [modified(FEATURED)]})},
+      files: {[`p1:${FEATURED}`]: '[', [`f2:${FEATURED}`]: featuredFileText()},
+    });
+    expect(await commitDetails({token: 't', sha: 'f2'})).toMatchObject({featured: [], unread: [FEATURED]});
   });
 
   it(`lists a commit's files unread, and reads none, past ${MAX_READ} followed files`, async () => {

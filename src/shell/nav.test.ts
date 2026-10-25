@@ -16,7 +16,7 @@ describe('navItemFor', () => {
 });
 
 describe('isWritePath', () => {
-  it.each(['/calibration', '/studio', '/studio/'])('%s writes to the app', (pathname) => {
+  it.each(['/calibration', '/studio', '/studio/', '/featured'])('%s writes to the app', (pathname) => {
     expect(isWritePath(pathname)).toBe(true);
   });
 
@@ -51,9 +51,10 @@ describe('the Calibration & tuning item', () => {
 });
 
 describe('the Publish items', () => {
-  it('are Card studio, in place of the two old write tools (R4), then Change history, which only reads', () => {
+  it('are Card studio, in place of the two old write tools (R4), Featured cards, then Change history, which only reads', () => {
     expect(NAV_ITEMS.filter((item) => item.group === 'publish')).toEqual([
       {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
+      {id: 'featured', label: 'Featured cards', mark: 'Fc', path: '/featured', group: 'publish', writes: true},
       {id: 'changes', label: 'Change history', mark: 'Ch', path: '/changes', group: 'publish', writes: false},
     ]);
   });

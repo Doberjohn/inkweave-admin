@@ -1,8 +1,10 @@
 import {FILES_LISTED, readCommitFiles, readFileAtCommit, type ChangedFile} from '../../github/githubHistory';
+import {FEATURED_PATH} from '../featured/githubClient';
 import {TUNING_PATH} from '../tuning/githubClient';
 import {areaOf} from './changePaths';
 import {readEntries, type EntryMap} from './dataEntries';
 import {diffEntries, mergeEntryChanges, type EntryChange} from './entryDiff';
+import {diffFeatured, type FeaturedChange} from './featuredDiff';
 import {diffTuning, type TuningChange} from './tuningDiff';
 
 /*
@@ -26,6 +28,8 @@ export interface CommitDetails {
   /** Each card or printing it added, removed or changed, once, however many files hold it. */
   entries: EntryChange[];
   tuning: TuningChange[];
+  /** The homepage's featured slots it changed (featuredCardIds.json). */
+  featured: FeaturedChange[];
   scans: ScanFile[];
   /** Followed files it changed that aren't itemized: more than MAX_READ of them, a file this can't read, or a commit not complete. */
   unread: string[];
@@ -115,15 +119,18 @@ function dataChanges(files: readonly TextSides[]): {entries: EntryChange[]; unre
   return {entries: mergeEntryChanges(perFile), unread};
 }
 
-/** tuning.json's changes, or null where its text isn't JSON. */
-function tuningChanges(file: TextSides | undefined): TuningChange[] | null {
+/** A file's changes read by `diff`: none for a file the commit didn't change, null where its text can't be read. */
+function sideChanges<T>(file: TextSides | undefined, diff: (sides: TextSides) => T[]): T[] | null {
   if (file === undefined) return [];
   try {
-    return diffTuning(file);
+    return diff(file);
   } catch {
     return null;
   }
 }
+
+/** The files read whole, each by its own diff rather than as card data: tuning.json and featuredCardIds.json. */
+const WHOLE_FILES = new Set([TUNING_PATH, FEATURED_PATH]);
 
 /** The scans a commit added or replaced. The bot's commit that removes them after converting them adds none. */
 function scansOf(files: readonly ChangedFile[], sha: string): ScanFile[] {
@@ -132,11 +139,14 @@ function scansOf(files: readonly ChangedFile[], sha: string): ScanFile[] {
     .map(({filename}) => ({path: filename, cardId: filename.replace(/^.*\//, '').replace(/\.[^.]*$/, ''), sha}));
 }
 
-/** What the read files say: tuning.json's values and the card data's entries, and the files that couldn't be itemized. */
-function itemized(read: readonly TextSides[]): Pick<CommitDetails, 'entries' | 'tuning' | 'unread'> {
-  const tuning = tuningChanges(read.find((file) => file.path === TUNING_PATH));
-  const {entries, unread} = dataChanges(read.filter((file) => file.path !== TUNING_PATH));
-  return {entries, tuning: tuning ?? [], unread: tuning === null ? [...unread, TUNING_PATH] : unread};
+/** What the read files say: tuning.json's values, the featured slots and the card data's entries, and the files that couldn't be itemized. */
+function itemized(read: readonly TextSides[]): Pick<CommitDetails, 'entries' | 'tuning' | 'featured' | 'unread'> {
+  const fileAt = (path: string) => read.find((file) => file.path === path);
+  const tuning = sideChanges(fileAt(TUNING_PATH), diffTuning);
+  const featured = sideChanges(fileAt(FEATURED_PATH), diffFeatured);
+  const {entries, unread} = dataChanges(read.filter((file) => !WHOLE_FILES.has(file.path)));
+  const unreadWhole = [tuning === null ? TUNING_PATH : [], featured === null ? FEATURED_PATH : []].flat();
+  return {entries, tuning: tuning ?? [], featured: featured ?? [], unread: [...unread, ...unreadWhole]};
 }
 
 /**
@@ -150,7 +160,7 @@ async function loadCommitDetails({token, sha}: {token: string; sha: string}): Pr
   const texts = followed.filter((file) => areaOf(file.filename) !== 'scans');
   const complete = files.length < FILES_LISTED;
   const listed = {url: commit.html_url, scans: scansOf(followed, sha), otherFiles: files.length - followed.length, complete};
-  if (!complete || texts.length > MAX_READ) return {...listed, entries: [], tuning: [], unread: texts.map((file) => file.filename)};
+  if (!complete || texts.length > MAX_READ) return {...listed, entries: [], tuning: [], featured: [], unread: texts.map((file) => file.filename)};
   const ref: CommitRef = {token, sha, parent: commit.parents[0]?.sha ?? null};
   return {...listed, ...itemized(await Promise.all(texts.map((file) => readSides(ref, file))))};
 }

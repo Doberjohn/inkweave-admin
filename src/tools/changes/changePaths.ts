@@ -1,5 +1,6 @@
 import {RAW_DIR} from '../image/githubClient';
 import {PREVIEW_PATH} from '../reveal/githubClient';
+import {FEATURED_PATH} from '../featured/githubClient';
 import {ALL_CARDS_PATH, CATALOG_PATH, COLLECTION_DIR} from '../studio/finishes/finishFiles';
 import {TUNING_PATH} from '../tuning/githubClient';
 
@@ -8,8 +9,8 @@ import {TUNING_PATH} from '../tuning/githubClient';
  * the card data they write beside them. A commit that changed any of them is a change.
  */
 
-/** What a change touched: the reveal season's preview cards, raw scans, the card data or tuning.json. */
-export type ChangeArea = 'cards' | 'scans' | 'data' | 'tuning';
+/** What a change touched: the reveal season's preview cards, raw scans, the card data, tuning.json or the homepage's featured cards. */
+export type ChangeArea = 'cards' | 'scans' | 'data' | 'tuning' | 'featured';
 
 /** A followed path, a file or a folder and everything under it, and the area it belongs to. */
 export interface TrackedPath {
@@ -25,6 +26,7 @@ export const TRACKED_PATHS: readonly TrackedPath[] = [
   {path: COLLECTION_DIR, area: 'data'},
   {path: CATALOG_PATH, area: 'data'},
   {path: TUNING_PATH, area: 'tuning'},
+  {path: FEATURED_PATH, area: 'featured'},
 ];
 
 /**
@@ -36,10 +38,11 @@ export const AREA_LABELS: Readonly<Record<ChangeArea, string>> = {
   scans: 'Scans',
   data: 'Card data',
   tuning: 'Tuning',
+  featured: 'Featured cards',
 };
 
 /** The areas in the order a change lists them and the filter offers them. */
-export const AREAS: readonly ChangeArea[] = ['cards', 'scans', 'data', 'tuning'];
+export const AREAS: readonly ChangeArea[] = ['cards', 'scans', 'data', 'tuning', 'featured'];
 
 /** The area a changed file belongs to, or null for one the history doesn't follow. */
 export function areaOf(file: string): ChangeArea | null {
