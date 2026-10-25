@@ -8,7 +8,7 @@ Private admin tools for Inkweave. The public app is `Doberjohn/inkweave`, served
 - `src/app-bridge.ts` is the **only** source file that may import from `upstream/` (lint-enforced; the one exception is `eslint.config.js`, which loads the app's design-token plugin). Add re-exports there; never deep-import app files anywhere else. It also re-exports the app's promo merge (`mergePromoPrintings`, `collectionPromos`, `finishesById`, `byPrintingOrder`) and its check of a promo's card (`promoBaseProblems`) from `upstream/inkweave/scripts/lib/*.mjs`, typed in the bridge itself, since `tsconfig.app.json`'s `allowJs` lets it import that plain JavaScript. `scripts/browser-safety.test.mjs` fails when anything `src/main.tsx` or a story loads imports a Node builtin: Vite only warns, and the page then fails to load.
 - Admin writes into the app repo **only through the GitHub API**: the tools commit to `master`, and reveal ingestion opens PRs. Never write into a local app checkout.
 - The engine (`inkweave-synergy-engine`) is a pnpm workspace package built from the submodule (`pnpm build:engine`). `typecheck`, `build` and `test:run` build it themselves; run it once before `pnpm dev` on a fresh clone or after a pin bump.
-- Admin declares the app's full runtime dependency set at the app's exact versions. `pnpm check:deps` verifies this, and `pnpm check:deps --fix` aligns it.
+- Admin declares the app's full runtime dependency set at the app's exact versions, and no runtime dependency the app has dropped except its own (`ADMIN_OWN_RUNTIME` in `scripts/check-shared-deps.mjs`, which a new one for admin's code joins). `pnpm check:deps` verifies this, and `pnpm check:deps --fix` aligns it.
 
 ## The tools
 
