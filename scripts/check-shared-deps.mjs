@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Dependency parity between admin and the pinned app (docs/PLAN.md, section 8).
 // Bridged app modules compile inside admin, so admin must (1) declare every
-// runtime dependency the app declares and (2) use the app's exact specifier for
-// every package both declare. Run after each submodule bump; --fix aligns.
+// runtime dependency the app declares, (2) use the app's exact specifier for
+// every package both declare and (3) drop a runtime dependency the app no longer
+// declares, unless admin's own code needs it. Run after each submodule bump;
+// --fix aligns.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -12,6 +14,15 @@ const ADMIN_PKG = path.join(ROOT, 'package.json');
 const APP_PKG = path.join(ROOT, 'upstream/inkweave/apps/web/package.json');
 
 const allDeps = (pkg) => ({...pkg.dependencies, ...pkg.devDependencies});
+
+/** Runtime dependencies admin's own code imports, which it keeps whatever the app declares. */
+const ADMIN_OWN_RUNTIME = new Set(['@supabase/supabase-js']);
+
+/** Admin runtime dependencies kept only for parity that the app's runtime set has dropped. */
+const retiredDeps = (admin, app) =>
+  Object.keys(admin.dependencies ?? {}).filter(
+    (name) => !(name in (app.dependencies ?? {})) && !ADMIN_OWN_RUNTIME.has(name),
+  );
 
 /** Human-readable problems; an empty array means admin and the app agree. */
 export function compareDeps(admin, app) {
@@ -23,7 +34,8 @@ export function compareDeps(admin, app) {
   const mismatched = Object.entries(allDeps(admin))
     .filter(([name, range]) => name in appAll && appAll[name] !== range)
     .map(([name, range]) => `version mismatch ${name}: admin ${range}, app ${appAll[name]}`);
-  return [...missing, ...mismatched];
+  const retired = retiredDeps(admin, app).map((name) => `runtime dependency ${name} the app no longer declares`);
+  return [...missing, ...mismatched, ...retired];
 }
 
 /** Admin's dependency maps with every problem compareDeps reports fixed. */
@@ -33,7 +45,9 @@ export function alignDeps(admin, app) {
     Object.fromEntries(Object.entries(deps).map(([name, range]) => [name, appAll[name] ?? range]));
   const adminRuntime = admin.dependencies ?? {};
   const missing = Object.entries(app.dependencies ?? {}).filter(([name]) => !(name in adminRuntime));
-  const dependencies = {...align(adminRuntime), ...Object.fromEntries(missing)};
+  const retired = new Set(retiredDeps(admin, app));
+  const kept = Object.fromEntries(Object.entries(adminRuntime).filter(([name]) => !retired.has(name)));
+  const dependencies = {...align(kept), ...Object.fromEntries(missing)};
   // A runtime dependency admin had declared as a dev dependency moves, rather than being listed twice.
   const devDependencies = Object.fromEntries(
     Object.entries(align(admin.devDependencies)).filter(([name]) => !(name in dependencies)),
