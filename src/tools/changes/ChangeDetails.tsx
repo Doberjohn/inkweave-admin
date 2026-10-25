@@ -11,6 +11,7 @@ import type {CommitDetails, ScanFile} from './commitDetails';
 import {ReadFailure} from './ReadFailure';
 import type {EntryChange, ValueChange} from './entryDiff';
 import {localDay, localTime, type Change} from './historyModel';
+import type {FeaturedChange, FeaturedSide} from './featuredDiff';
 import type {TuningChange} from './tuningDiff';
 
 /** How many cards and printings an open change lists before it counts the rest. */
@@ -108,6 +109,32 @@ function TuningList({changes}: {changes: readonly TuningChange[]}) {
   );
 }
 
+/** A featured slot's card on one side of a change, linked to Edit card, or "no card" where the file had none. */
+function FeaturedCard({side}: {side: FeaturedSide | null}) {
+  if (side === null) return <span style={MUTED}>no card</span>;
+  return (
+    <CardLink cardId={side.id} to={studioHref('edit', side.id)}>
+      {side.name}
+    </CardLink>
+  );
+}
+
+/** The homepage's featured slots a change gave another card: "Amethyst: Goliath - Transformed Warrior → Un Poco Loco". */
+function FeaturedList({changes}: {changes: readonly FeaturedChange[]}) {
+  return (
+    <section style={{display: 'grid', gap: SPACING.sm}}>
+      <h4 style={SECTION_TITLE}>Featured cards</h4>
+      <ul style={LIST}>
+        {changes.map((change) => (
+          <li key={change.slot} style={LINE}>
+            <span style={MUTED}>{change.slot}:</span> <FeaturedCard side={change.from} /> → <FeaturedCard side={change.to} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** One scan, read from the commit that added it. */
 function ScanImage({source, scan}: {source: ChangeSource; scan: ScanFile}) {
   const state = useScanUrl(source, scan);
@@ -148,12 +175,12 @@ const plural = (n: number) => (n === 1 ? '' : 's');
  * What a change's details say beyond the lists: that GitHub listed only part of the commit,
  * the files not itemized, the files outside the history, or that it changed nothing listed.
  */
-function notesOf({entries, tuning, scans, unread, otherFiles, complete}: CommitDetails): string[] {
+function notesOf({entries, tuning, featured, scans, unread, otherFiles, complete}: CommitDetails): string[] {
   const notes: string[] = [];
   if (!complete) notes.push(`GitHub lists ${FILES_LISTED} of a commit's files at most, so this one isn't itemized here. Its page on GitHub has them all.`);
-  else if (entries.length + tuning.length + scans.length + unread.length === 0) notes.push('It changed nothing these lists show.');
+  else if (entries.length + tuning.length + featured.length + scans.length + unread.length === 0) notes.push('It changed nothing these lists show.');
   if (unread.length > 0) notes.push(`Not itemized here: ${unread.join(', ')}.`);
-  if (otherFiles > 0) notes.push(`It also changed ${complete ? '' : 'at least '}${otherFiles} file${plural(otherFiles)} outside the card data and tuning.`);
+  if (otherFiles > 0) notes.push(`It also changed ${complete ? '' : 'at least '}${otherFiles} file${plural(otherFiles)} outside the card data, tuning and featured cards.`);
   return notes;
 }
 
@@ -171,6 +198,7 @@ function DetailsBody({source, details}: {source: ChangeSource; details: CommitDe
     <>
       {details.entries.length > 0 && <EntryList entries={details.entries} />}
       {details.tuning.length > 0 && <TuningList changes={details.tuning} />}
+      {details.featured.length > 0 && <FeaturedList changes={details.featured} />}
       {details.scans.length > 0 && <ScanList source={source} scans={details.scans} />}
       <DetailsNotes details={details} />
     </>
@@ -199,7 +227,7 @@ interface ChangeDetailsProps {
 }
 
 /**
- * An open change: what it did to the cards and printings, tuning.json and the scans, read
+ * An open change: what it did to the cards and printings, tuning.json, the featured cards and the scans, read
  * from its commit (commitDetails), with who made it and a link to the commit.
  */
 export function ChangeDetails({change, source, onRetried, onForgetToken}: ChangeDetailsProps) {

@@ -100,7 +100,7 @@ describe('ChangesPage', () => {
     expect(within(reveal).getByText('scans')).toBeInTheDocument();
     expect(screen.getByText('4 changes')).toBeInTheDocument();
     // Each followed path's first page, from the branch admin writes to.
-    expect(stub.asked().filter((asked) => asked.startsWith('/commits?'))).toHaveLength(6);
+    expect(stub.asked().filter((asked) => asked.startsWith('/commits?'))).toHaveLength(7);
     expect(stub.asked()).toContain(`/commits?sha=master&path=${TUNING}&per_page=${HISTORY_PAGE}&page=1`);
   });
 

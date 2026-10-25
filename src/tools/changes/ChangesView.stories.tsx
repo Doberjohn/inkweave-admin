@@ -15,6 +15,7 @@ function change({sha, date, headline, areas, author = 'Doberjohn'}: Omit<Change,
 }
 
 const CHANGES: Change[] = [
+  change({sha: '5e1f0a2', date: '2026-10-25T12:02:00Z', headline: "chore(cards): change the homepage's featured cards", areas: ['featured']}),
   change({sha: '1df4ad3', date: '2026-10-22T14:13:00Z', headline: 'chore(collection): set the versions of 2 printings from Card studio', areas: ['data']}),
   change({sha: 'a019937', date: '2026-10-22T13:39:00Z', headline: 'fix(collection): set 220 promo printings to foil only', areas: ['data']}),
   change({sha: '9dfd089', date: '2026-10-19T08:35:00Z', headline: 'chore(engine): tune scoring copy + scores', areas: ['tuning'], author: 'claude'}),
@@ -22,7 +23,7 @@ const CHANGES: Change[] = [
   change({sha: '2187bfb', date: '2026-10-08T11:25:00Z', headline: 'fix(card-images): update image for Pepita - Watchful Alebrije [14040]', areas: ['scans']}),
 ];
 
-const NO_DETAILS = {entries: [], tuning: [], scans: [], unread: [], otherFiles: 0, complete: true};
+const NO_DETAILS = {entries: [], tuning: [], featured: [], scans: [], unread: [], otherFiles: 0, complete: true};
 
 const url = (sha: string) => `https://github.com/Doberjohn/inkweave/commit/${sha}`;
 
@@ -33,6 +34,11 @@ function toNormal({id, cardId, label}: {id: string; cardId: string; label: strin
 
 /** What each change did, as commitDetails reads it. */
 const DETAILS: Readonly<Record<string, CommitDetails>> = {
+  '5e1f0a2': {
+    ...NO_DETAILS,
+    url: url('5e1f0a2'),
+    featured: [{slot: 'Amethyst', from: {id: '3328', name: 'Un Poco Loco'}, to: {id: '3318', name: 'Goliath - Transformed Warrior'}}],
+  },
   '1df4ad3': {
     ...NO_DETAILS,
     url: url('1df4ad3'),
@@ -96,10 +102,10 @@ const SOURCE: ChangeSource = {
 
 /**
  * The changes as each followed area's history, every one read to its start but `unread`,
- * which has more to read. Its oldest change is the list's oldest, so the floor shows all five.
+ * which has more to read. Its oldest change is the list's oldest, so the floor shows all six.
  */
 function streams(changes: readonly Change[], unread?: ChangeArea): PathStream[] {
-  const areas: ChangeArea[] = ['cards', 'scans', 'data', 'tuning'];
+  const areas: ChangeArea[] = ['cards', 'scans', 'data', 'tuning', 'featured'];
   return areas.map((area) => ({path: area, area, changes: changes.filter((c) => c.areas.includes(area)), pages: 1, done: area !== unread}));
 }
 

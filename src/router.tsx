@@ -8,6 +8,7 @@ import {CardAnalyticsPage} from './tools/analytics/cards/CardAnalyticsPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ChangesPage} from './tools/changes/ChangesPage';
+import {FeaturedPage} from './tools/featured/FeaturedPage';
 import {StudioPage} from './tools/studio/StudioPage';
 
 /** Admin's routes. Every one renders inside AdminShell, whose sidebar links them (src/shell/nav.ts). */
@@ -25,6 +26,8 @@ export const routes: RouteObject[] = [
       {path: 'analytics', element: <Navigate to="/" replace />},
       // New reveal and Edit card (R4); ?mode= and ?card= pick the mode and the card (studioHref).
       {path: 'studio', element: <StudioPage />},
+      // The homepage's six featured cards (#95): commits featuredCardIds.json, behind the token gate.
+      {path: 'featured', element: <FeaturedPage />},
       // What changed in the app's card data and tuning, from its history; read-only, behind the token gate.
       {path: 'changes', element: <ChangesPage />},
       // Card studio replaced the two write tools at /reveal and /image (R4). Old links, from

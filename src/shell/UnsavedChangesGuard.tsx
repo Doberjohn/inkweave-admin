@@ -1,7 +1,8 @@
 import {useRef, useState} from 'react';
 import type {Location} from 'react-router-dom';
-import {CtaButton, DialogShell, FONTS, SPACING} from '../app-bridge';
-import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../theme/adminTheme';
+import {CtaButton, DialogShell, SPACING} from '../app-bridge';
+import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
+import {DIALOG_HEADING, DIALOG_PANEL} from '../ui/dialogFrame';
 import {useUnsavedChangesGuard, type LeavesPage} from './useUnsavedChangesGuard';
 
 /** What a dialog asks with: its title, and its two answers. */
@@ -16,26 +17,6 @@ export interface UnsavedWords {
 
 /** The words for a navigation that leaves the page: /calibration's, and the studio's when it leaves Card studio. */
 const LEAVE_PAGE: UnsavedWords = {title: 'Leave this page?', stay: 'Stay on this page', leave: 'Leave this page'};
-
-// DialogShell draws the app's surface. Admin's panel is the card fill layered
-// over the page instead: opaque, as adminTheme.ts asks of anything that hides
-// what is under it.
-const PANEL: React.CSSProperties = {
-  padding: SPACING.xl,
-  background: `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), ${ADMIN_COLORS.page}`,
-  border: `1px solid ${ADMIN_COLORS.strongBorder}`,
-  borderRadius: ADMIN_RADIUS.panel,
-  color: ADMIN_COLORS.text,
-  fontFamily: FONTS.body,
-};
-
-const HEADING: React.CSSProperties = {
-  margin: 0,
-  fontFamily: FONTS.hero,
-  fontSize: ADMIN_TYPE.sectionTitle,
-  fontWeight: 400,
-  lineHeight: 1.2,
-};
 
 // The message takes focus when the dialog opens, so a screen reader reads it.
 // It is no control, so it draws no focus ring (DialogShell's panel draws none either).
@@ -115,8 +96,8 @@ export function UnsavedChangesDialog({open, message, words = LEAVE_PAGE, onStay,
       // answer and Shift+Tab wraps to the leave answer (UnsavedChangesGuard.test.tsx
       // pins both).
       showClose={false}
-      panelStyle={PANEL}>
-      <h2 style={HEADING}>{shown.title}</h2>
+      panelStyle={DIALOG_PANEL}>
+      <h2 style={DIALOG_HEADING}>{shown.title}</h2>
       <p ref={messageRef} tabIndex={-1} style={MESSAGE}>
         {shown.message}
       </p>

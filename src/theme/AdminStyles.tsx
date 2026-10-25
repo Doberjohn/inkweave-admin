@@ -31,6 +31,11 @@ const RANGE_THUMB = 16;
  * so in a narrower list the names column can't hold it beside the marks. A 375px phone's list is 277px.
  */
 export const SEARCH_STACK_BELOW = 306;
+/**
+ * The Featured cards page's slots run three to a row, and two in a narrower column (a phone, or a
+ * narrow window), where a third would leave each card under 176px wide: 560px less two 16px gaps, in thirds.
+ */
+export const FEATURED_TWO_UP_BELOW = 560;
 
 const FAST = `${DURATION.base}ms ${EASING.snappy}`;
 // Chart motion (R1-3b): the smooth curve, on transform and opacity only, so
@@ -259,6 +264,13 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 @keyframes adm-chart-rise{from{transform:scaleY(0);}to{transform:scaleY(1);}}
 @keyframes adm-chart-draw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}
 @keyframes adm-chart-fade{from{opacity:0;}to{opacity:1;}}
+
+.adm-featured{container-type:inline-size;}
+button.adm-row-btn.adm-pick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:${SPACING.md}px;padding:${SPACING.sm}px ${SPACING.md}px;}
+.adm-featured-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:${SPACING.lg}px;}
+@container (width < ${FEATURED_TWO_UP_BELOW}px){
+.adm-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
 
 .adm-search-list{container-type:inline-size;}
 @container (width < ${SEARCH_STACK_BELOW}px){

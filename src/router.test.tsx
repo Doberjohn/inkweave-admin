@@ -121,6 +121,8 @@ describe('admin routes', () => {
     ['/studio', 'Card studio'],
     // The gate fills the tuning aside; the analytics beside it need no token.
     ['/calibration', 'Calibration & tuning'],
+    // The token gate fills the whole body, as on /studio (#95).
+    ['/featured', 'Featured cards'],
   ];
 
   // The gate renders under the page's own title, so its heading is an h2 (R1-7).
