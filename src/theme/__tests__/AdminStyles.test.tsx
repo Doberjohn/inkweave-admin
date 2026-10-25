@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
-import {AdminStyles, SEARCH_STACK_BELOW} from '../AdminStyles';
+import {AdminStyles, FEATURED_TWO_UP_BELOW, PICK_ROW_THUMB, SEARCH_STACK_BELOW} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
@@ -47,6 +47,10 @@ const CLASSES = [
   'adm-search-list',
   'adm-search-names',
   'adm-search-marks',
+  // Featured cards' slots and the rows of a slot's search (#95).
+  'adm-featured',
+  'adm-featured-grid',
+  'adm-pick-row',
 ];
 const FOCUSABLE = [
   'adm-nav-item',
@@ -448,6 +452,22 @@ describe('AdminStyles', () => {
     );
     // Elsewhere the row's own inline grid lays it out, so a wider list looks as it always has.
     expect(css.replace(narrow?.[0] ?? '', '')).not.toMatch(/[.]adm-search-(names|marks)/);
+  });
+
+  it("runs Featured cards' slots three to a row, and two in a column narrower than three fit (#95)", () => {
+    const css = stylesheet();
+    // The slots' wrapper is the container the rule measures, so the grid answers to the page column, not the screen.
+    expect(css).toContain('.adm-featured{container-type:inline-size;}');
+    expect(css).toContain(`.adm-featured-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:${SPACING.lg}px;}`);
+    const narrow = new RegExp(`@container \\(width < ${FEATURED_TWO_UP_BELOW}px\\)\\{([\\s\\S]*?)\\n\\}`).exec(css);
+    expect(narrow?.[1]).toBe('\n.adm-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}');
+  });
+
+  it("lays a slot search's row out as thumbnail, names and id, over the row button's block display (#95)", () => {
+    // Two classes, so the rule outranks button.adm-row-btn's display:block.
+    expect(stylesheet()).toContain(
+      `button.adm-row-btn.adm-pick-row{display:grid;grid-template-columns:${PICK_ROW_THUMB}px minmax(0,1fr) auto;`,
+    );
   });
 
   it('rings a focused scroll region 2px outside it, as a chart plot is ringed', () => {
