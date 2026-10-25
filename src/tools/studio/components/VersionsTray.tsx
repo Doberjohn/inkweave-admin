@@ -12,7 +12,7 @@ import {clashMessage} from '../finishes/publishVersions';
 import {clashCount, hasClash, removalNote, type VersionChange, type VersionClash} from '../finishes/versionBatch';
 import type {PublishResult, VersionBatchView} from '../finishes/versionBatchStore';
 import {useFootFits} from '../footPin';
-import {STUDIO_GAP} from '../studioStyles';
+import {STUDIO_GAP, STUDIO_OWN_ROW} from '../studioStyles';
 
 /*
  * The Version changes tray (#68): the studio's batch of version changes as rows, with the way out
@@ -32,15 +32,12 @@ import {STUDIO_GAP} from '../studioStyles';
  */
 const REGION: CSSProperties = {display: 'contents'};
 
-// A row of its own across the studio's root, under whichever pane shows, for the panel and for the foot.
-// grid-column spans the wide grid's columns and flex fills a line of the narrow layout's wrapping row:
-// each property applies in its own layout only, so the tray needs to know neither.
-const OWN_ROW: CSSProperties = {gridColumn: '1 / -1', flex: '1 1 100%', minWidth: 0};
 /** The edge of the tray's boxes: a studio panel's (STUDIO_PANEL). */
 const EDGE = `1px solid ${ADMIN_COLORS.border}`;
-// The heading and the rows: a studio panel, open at the bottom, where its foot closes it.
+// The heading and the rows: a studio panel on a row of its own under whichever pane shows, open at the
+// bottom, where its foot closes it.
 const PANEL: CSSProperties = {
-  ...OWN_ROW,
+  ...STUDIO_OWN_ROW,
   display: 'flex',
   flexDirection: 'column',
   gap: SPACING.md,
@@ -62,7 +59,7 @@ export const TRAY_FOOT_FILL = `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COL
 // publish said on a line, the words wrapping under the button where they don't fit. The foot closes the
 // panel under a rule, the root's gap between the two taken back.
 const FOOT: CSSProperties = {
-  ...OWN_ROW,
+  ...STUDIO_OWN_ROW,
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',

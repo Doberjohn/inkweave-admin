@@ -7,12 +7,12 @@ import {CommitOutcome} from '../components/CommitOutcome';
 import {loadAgainNote} from '../loadAgainNote';
 
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
-/** New reveal's go-live note on master (the R4 header's "Labels and notes"); the page picks it, the outcome prints it. */
+/** New card's go-live note on master (the R4 header's "Labels and notes"); the page picks it, the outcome prints it. */
 const NOTE = 'Vercel is deploying it: allow 15 to 20 minutes before it shows on inkweave.ink.';
 /** R4-1b's StaleCardError message for a card whose entry changed at the base (R-67). */
 const STALE = 'Mei - Red Panda changed on master since you loaded it. Load it again.';
 const REJECTED = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
-/** commitFiles' race, as New reveal gets it (githubCommit.ts) and as Edit's controller words it for a save (R4-4c). */
+/** commitFiles' race, as New card gets it (githubCommit.ts) and as Edit's controller words it for a save (R4-4c). */
 const NEW_RACE = 'master changed while publishing, so nothing was published. Publish again.';
 const EDIT_RACE = 'master changed while saving, so nothing was saved. Save again.';
 
@@ -81,7 +81,7 @@ describe('CommitOutcome', () => {
   });
 
   it.each([
-    ['New reveal', NEW_RACE],
+    ['New card', NEW_RACE],
     ['Edit card', EDIT_RACE],
   ])("shows %s's race refusal word for word, and no way out but trying again", (_mode, error) => {
     render(outcomeElement({error, onForgetToken: () => {}}));

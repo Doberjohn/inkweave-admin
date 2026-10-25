@@ -8,7 +8,7 @@ import type {RevealCardForm} from '../../reveal/buildPreviewCard';
 import {ReadyChecklist} from '../components/ReadyChecklist';
 import {revealChecklist, type ChecklistItem} from '../readiness';
 
-/** The checklist New reveal shows for `form`, with `imageName` chosen and its bytes read when `ready`. */
+/** The checklist New card shows for `form`, with `imageName` chosen and its bytes read when `ready`. */
 function checklistFor({form, imageName, ready}: {form: RevealCardForm; imageName: string | null; ready: boolean}) {
   const validation = validateRevealCardForm(form, new Set(), imageName);
   return revealChecklist(form, validation, {ready, error: null});

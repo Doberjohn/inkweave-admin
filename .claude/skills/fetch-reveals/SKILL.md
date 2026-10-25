@@ -275,10 +275,10 @@ words `resolve` takes.
 - A card the write chain refuses (`validation-failed`) carries the validator's message as its
   detail, for example `"Strength" is spelled out: use ¤ ("their ¤")` for a glyph word house
   style cannot place (Doberjohn/inkweave#635). `resolve` cannot rule on it, and it is retried
-  on every run. Add it by hand in Card studio's New reveal
+  on every run. Add it by hand in Card studio's New card
   (https://inkweave-admin.vercel.app/studio), writing the text the way the detail says. A
   detail such as `#21 is already Miguel Rivera - Street Musician (3286)` is the exception: a
-  released card of the set holds that number, so New reveal refuses it too. Check the card's
+  released card of the set holds that number, so New card refuses it too. Check the card's
   number and name against the released one by hand.
 
 Anything unresolved is simply not written, and is retried next run.
@@ -292,9 +292,9 @@ node scripts/reveal-sync/run.mjs write RUN
 `write` first checks that the app's `previewCards.json` on `master` and admin's `state.json` on
 `main` are still what `start` read, and aborts, writing nothing, if either changed. Then, in an
 order that never leaves the card data ahead of its art, it:
-- validates each verified card through the same chain Card studio's New reveal uses
+- validates each verified card through the same chain Card studio's New card uses
   (`validateRevealCardForm`, `buildPreviewCard`, `insertCardIntoPreviewJson`), which refuses a
-  collector number a released card of the set holds, as New reveal does;
+  collector number a released card of the set holds, as New card does;
 - converts the accepted cards' scans to AVIFs with the app's own converter, never replacing art
   the app already has;
 - inserts only the cards whose art converted.
@@ -337,7 +337,7 @@ Besides the card sections, the report ends with two lists the owner should see:
 
 ## Cards shown with a non-English scan
 
-The pipeline never writes these, but the owner can add one through Card studio's New reveal:
+The pipeline never writes these, but the owner can add one through Card studio's New card:
 an official reveal whose only scan is Japanese, German, Italian or French, shown with that scan
 as its art and lorcanaplayer's English name and text. Its "Scan language" field writes
 `scanLanguage` on the card in `previewCards.json` (the scan's two-letter code: `"ja"`, `"de"`,

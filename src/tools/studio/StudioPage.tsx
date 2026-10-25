@@ -31,7 +31,7 @@ function StudioGate({onSave, handoff}: StudioGateProps) {
 }
 
 /**
- * Card studio (/studio): New reveal and Edit card on one page (R-2, R-57),
+ * Card studio (/studio): New card and Edit card on one page (R-2, R-57),
  * replacing the reveal publisher and Card images. Everything in it commits,
  * so all of it sits behind the token gate. The page holds the focus handoff
  * (R-59), since Save token swaps the gate for the workspace and takes its own

@@ -34,13 +34,13 @@ const meta: Meta<typeof StudioCardPanel> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A fresh New reveal form: its card has no name and no art, so the frame shows the stripes and the pill. */
+/** A fresh New card form: its card has no name and no art, so the frame shows the stripes and the pill. */
 export const NewEmpty: Story = {args: {card: {...PANEL_CARD, name: '', fullName: '', version: undefined}}};
 
 /** Named, with no scan yet: the app's own render of the card, in a dashed frame. */
 export const NewNamed: Story = {};
 
-/** A scan staged: a gold frame, "Click or drop to change scan", Revert image and New reveal's own note. */
+/** A scan staged: a gold frame, "Click or drop to change scan", Revert image and New card's own note. */
 export const NewStaged: Story = {args: {card: STAGED_CARD, staged: {name: 'mei.png', error: null}}};
 
 /** A file that failed its byte check: the error under the controls, which it describes, and no note. */

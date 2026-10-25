@@ -13,7 +13,7 @@ import {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('publishLabel', () => {
-  it('names the branch New reveal commits to, and says while it commits', () => {
+  it('names the branch New card commits to, and says while it commits', () => {
     expect(publishLabel({publishing: false})).toBe('Publish to master');
     expect(publishLabel({publishing: true})).toBe('Publishing…');
   });
@@ -43,7 +43,7 @@ describe('studioDocumentTitle', () => {
   });
 
   it.each([
-    ['New reveal, whatever card the URL keeps', 'new', ELSA],
+    ['New card, whatever card the URL keeps', 'new', ELSA],
     ['Edit card before its card resolves', 'edit', null],
   ] as const)('leaves the page title on %s', (_case, mode, card) => {
     expect(studioDocumentTitle({mode, card})).toBeUndefined();
@@ -70,7 +70,7 @@ describe('editNote (R4-6b)', () => {
     );
   });
 
-  it("gives a fields-only save New reveal's note, since it deploys as a new card's does", () => {
+  it("gives a fields-only save New card's note, since it deploys as a new card's does", () => {
     expect(editNote({withImage: false})).toBe(newRevealNote());
     expect(editNote(null)).toBe(newRevealNote());
   });

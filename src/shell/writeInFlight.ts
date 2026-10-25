@@ -8,7 +8,7 @@ export interface WriteInFlight {
 /**
  * What leaving mid-commit means (R2's F13 wording, shared since R-58): nothing
  * recalls the commit, and only the page that made it would show how it went.
- * /calibration's tuning publish and the studio's New reveal say "publish";
+ * /calibration's tuning publish and the studio's New card say "publish";
  * Edit card says "save".
  */
 export function writeInFlightMessage({action}: WriteInFlight): string {

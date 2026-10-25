@@ -10,7 +10,7 @@ import {writeInFlightMessage} from '../../shell/writeInFlight';
 export type StudioLocation = Pick<Location, 'pathname' | 'search'>;
 
 /**
- * Which drafts hold unsaved edits: New reveal's form, Edit card's, and Edit
+ * Which drafts hold unsaved edits: New card's form, Edit card's, and Edit
  * card's promo printing form (#77), which the workspace holds beside Edit's draft.
  */
 export interface StudioDrafts {
@@ -28,7 +28,7 @@ const NOTHING_AT_RISK: StudioDrafts = {reveal: false, edit: false, printing: fal
 
 const paramsOf = (location: StudioLocation) => new URLSearchParams(location.search);
 
-/** The mode a studio URL opens: ?mode=edit is Edit card, anything else New reveal (studioHref's reverse). */
+/** The mode a studio URL opens: ?mode=edit is Edit card, anything else New card (studioHref's reverse). */
 export function studioModeOf(location: StudioLocation): StudioMode {
   return paramsOf(location).get('mode') === 'edit' ? 'edit' : 'new';
 }
@@ -43,7 +43,7 @@ export function studioCardOf(location: StudioLocation): string | null {
  * - Leaving /studio drops every dirty draft.
  * - Inside it, another card, or none, drops the Edit draft and the printing
  *   form, which are the card's: the editor is keyed by the card (R-59), and
- *   the printing form goes with it (#77). New reveal's draft isn't.
+ *   the printing form goes with it (#77). New card's draft isn't.
  * - A mode switch drops nothing: every draft stays mounted, and studioHref
  *   keeps the card (R-57).
  */
@@ -68,11 +68,11 @@ export interface StudioLeave {
   to: StudioLocation;
   /** Each draft's dirty. */
   drafts: StudioDrafts;
-  /** Each draft's commit in flight: New reveal's publish, Edit card's save, the printing form's publish. */
+  /** Each draft's commit in flight: New card's publish, Edit card's save, the printing form's publish. */
   busy: StudioDrafts;
 }
 
-/** The line for a publish in flight, which New reveal's and the printing form's share. */
+/** The line for a publish in flight, which New card's and the printing form's share. */
 const publishInFlight = () => writeInFlightMessage({action: 'publish'});
 
 /**
@@ -98,7 +98,7 @@ type Pronoun = 'it' | 'them';
 
 /** How the studio's lines name a draft. */
 interface DraftWords {
-  /** Its name, as a line says it mid-sentence: "your New reveal card". */
+  /** Its name, as a line says it mid-sentence: "your new card". */
   name: string;
   /** The commit it still waits for, said after its name: "isn't published yet", or "aren't saved yet" after a plural one. */
   notYet: string;
@@ -110,7 +110,7 @@ interface DraftWords {
  * and the confirm before Forget token, are built from them.
  */
 const WORDS: Readonly<Record<Draft, DraftWords>> = {
-  reveal: {name: 'your New reveal card', notYet: "isn't published yet", pronoun: 'it'},
+  reveal: {name: 'your new card', notYet: "isn't published yet", pronoun: 'it'},
   edit: {name: 'your Edit card changes', notYet: "aren't saved yet", pronoun: 'them'},
   printing: {name: 'your printing form', notYet: "isn't published yet", pronoun: 'it'},
 };
@@ -125,7 +125,7 @@ function capitalized(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
-/** The clause that says a draft isn't committed yet, in the middle of a sentence: "your New reveal card isn't published yet". */
+/** The clause that says a draft isn't committed yet, in the middle of a sentence: "your new card isn't published yet". */
 const notYetClause = ({name, notYet}: DraftWords) => `${name} ${notYet}`;
 
 /** A dirty draft's line when the navigation leaves Card studio: that it isn't committed yet, then what leaving drops. */
@@ -165,7 +165,7 @@ function leavesStudioTogether(dropped: readonly Draft[]): string {
 }
 
 /**
- * The card's drafts: every draft but New reveal's, which a card change leaves be (draftsAtRisk). Today that
+ * The card's drafts: every draft but New card's, which a card change leaves be (draftsAtRisk). Today that
  * is Edit's, and the printing form, which belongs to the card as Edit's draft does (#77). A draft added to
  * the studio counts as one, so CARD_WORDS fails to compile until it has its words.
  */
@@ -244,7 +244,7 @@ const CARD_KEPT: UnsavedWords = {...CARD_CHANGE, leave: 'Leave the card'};
  * landed, or the printing form closed or went back to what it opened with, by
  * a landed publish or a refusal (#77). A refusal saves nothing, so the line
  * says only that nothing is left to drop. The guard ends a hold only once no
- * draft is dirty, so with New reveal dirty the dialog stays open, and it shows
+ * draft is dirty, so with New card dirty the dialog stays open, and it shows
  * what the message returns.
  */
 const CARD_CLEAN = 'Nothing on this card is unsaved now. Leaving the card drops nothing.';

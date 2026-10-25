@@ -64,8 +64,8 @@ export interface RevealAdminController {
    * value, so only the pane on screen runs it: StudioWorkspace runs this hook
    * on every render in either mode, and while the React Compiler skipped the
    * hook (Doberjohn/inkweave-admin#59), a value here ran the engine on every
-   * keystroke in Edit card too. New reveal's aside calls it as it shows the
-   * synergies, which it does only in New reveal (Doberjohn/inkweave-admin#55).
+   * keystroke in Edit card too. New card's aside calls it as it shows the
+   * synergies, which it does only in New card (Doberjohn/inkweave-admin#55).
    */
   findSynergies: () => SynergyGroup[];
   validation: ValidationResult;
@@ -81,7 +81,7 @@ export interface RevealAdminController {
   cardList: CardListStatus;
   /**
    * Loads a failed card list again (useCardDataContext's retryLoad): New
-   * reveal's "Load the card list again", which keeps the draft a page reload
+   * card's "Load the card list again", which keeps the draft a page reload
    * would drop (R4-8f).
    */
   retryCardList: () => void;
@@ -96,7 +96,7 @@ export interface RevealAdminController {
 }
 
 /**
- * Owns Card studio's New reveal state and side effects. Keeping it here leaves
+ * Owns Card studio's New card state and side effects. Keeping it here leaves
  * NewRevealPane as mostly-presentational JSX (and well under the complexity gate).
  */
 export function useRevealAdmin(): RevealAdminController {

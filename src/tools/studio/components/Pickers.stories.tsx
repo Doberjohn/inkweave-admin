@@ -53,7 +53,7 @@ const meta: Meta<typeof Pickers> = {
 export default meta;
 type Story = StoryObj<typeof Pickers>;
 
-/** A fresh New reveal: Amber, no rarity, inkable. Turn Dual-ink on for the second-ink row and its hint. */
+/** A fresh New card form: Amber, no rarity, inkable. Turn Dual-ink on for the second-ink row and its hint. */
 export const Fresh: Story = {args: {start: EMPTY_FORM}};
 
 /** A dual-ink card: the switch starts on. Pick Sapphire as the primary: the second ink clears and the switch stays on (R-75). */

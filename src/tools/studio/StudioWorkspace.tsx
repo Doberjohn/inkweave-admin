@@ -13,7 +13,7 @@ import {VersionsTray} from './components/VersionsTray';
 import {EditPane} from './EditPane';
 import {openCard} from './editorState';
 import {useVersionBatch} from './finishes/versionBatchStore';
-import {NewRevealPane} from './NewRevealPane';
+import {NewCardPane} from './NewCardPane';
 import {usePrintingForm} from './promos/usePrintingForm';
 import {STUDIO_SUBTITLE, STUDIO_TITLE, studioDocumentTitle} from './studioCopy';
 import {studioLayout} from './studioLayout';
@@ -27,10 +27,11 @@ import {
 } from './studioPaths';
 import {STUDIO_GRID} from './studioStyles';
 import {useCardEditor} from './useCardEditor';
+import {useNewCardStep} from './useNewCardStep';
 import {useReloadAfterPublish} from './useReloadAfterPublish';
 
 const MODES: ReadonlyArray<{value: StudioMode; label: string}> = [
-  {value: 'new', label: 'New reveal'},
+  {value: 'new', label: 'New card'},
   {value: 'edit', label: 'Edit card'},
 ];
 
@@ -57,18 +58,19 @@ function useForgetToken({drafts, handoff}: {drafts: StudioDrafts; handoff: Focus
 }
 
 /**
- * Card studio with a token saved. It holds three drafts: New reveal's, Edit
- * card's, and Edit card's promo printing form (#77). So a mode switch keeps
- * them all (R-57), and the page's one guard counts each of them (R-58): a card
- * change asks only about the Edit draft and the printing form, which are the
- * card's, never New reveal's, and leaving the page asks about every dirty
- * draft. The guard needs the data router, so no story renders this.
+ * Card studio with a token saved. It holds three drafts: New card's, Edit
+ * card's, and Edit card's promo printing form (#77), and New card's step, the
+ * set it chose (useNewCardStep). So a mode switch keeps them all (R-57), and
+ * the page's one guard counts each draft (R-58): a card change asks only about
+ * the Edit draft and the printing form, which are the card's, never New
+ * card's, and leaving the page asks about every dirty draft. The guard needs
+ * the data router, so no story renders this.
  *
  * The root under the header is the element useContainerWidth measures. It is
  * there in every mode and state, so the measure never stops: the hook watches
  * only the element it finds on mount. Its width picks the layout, wide or
  * narrow (R-64), and the active pane fills its slots in that layout's order
- * (R-63). A New reveal publish that lands reads Edit's file again (R-66).
+ * (R-63). A New card publish that lands reads Edit's file again (R-66).
  *
  * The Version changes tray (#68) is a row of its own under the active pane, in either mode: its
  * batch is the studio's, kept in the browser, so it is no draft. The guard does not count it,
@@ -89,6 +91,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const pinnedFootRef = useRef<HTMLDivElement>(null);
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
+  const step = useNewCardStep(card);
   const edit = useCardEditor({token, cardId: card});
   // Edit card's promo printing form (#77), held here beside its draft, so a mode switch keeps it too.
   const printing = usePrintingForm({token, cardId: card});
@@ -128,7 +131,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
         style={STUDIO_GRID[layout]}
         onFocus={(event) => keepClearOfFoot({field: event.target, foot: pinnedFootRef.current})}>
         {mode === 'new' ? (
-          <NewRevealPane ctrl={ctrl} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
+          <NewCardPane ctrl={ctrl} step={step} layout={layout} handoff={handoff} onForgetToken={forgetToken} />
         ) : (
           <EditPane
             edit={edit}

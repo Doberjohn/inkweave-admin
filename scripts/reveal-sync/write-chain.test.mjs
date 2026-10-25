@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * The skill writes through the same chain Card studio's New reveal uses (src/tools/reveal/).
+ * The skill writes through the same chain Card studio's New card uses (src/tools/reveal/).
  * These tests run adjudicated cards through the write step's own form (writtenForm) and the
  * real TypeScript modules, so a change to the reveal form's shape or its validation breaks
  * here rather than silently producing bad records.

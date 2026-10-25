@@ -12,6 +12,7 @@ import {Notice} from '../../../ui/Notice';
 import {idNameParts, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
+import {FailedCardList} from './FailedCardList';
 
 /** The search screen's column, the handoff's 720px (README §7). */
 const COLUMN_WIDTH = 720;
@@ -190,25 +191,6 @@ function SearchField({query, onQuery, handoff, ready}: SearchFieldProps) {
         onFocus={(event) => event.currentTarget.select()}
         style={FIELD}
       />
-    </div>
-  );
-}
-
-/**
- * The card list failed (R3's FailedCardList), and every row comes from it.
- * Retry swaps this for the field, taking its own button with it, so the page
- * asks for a handoff, which waits out the load: the field takes it once the
- * list is in, and Retry takes it if the list fails again.
- */
-function FailedCardList({error, onRetry, handoff}: {error: Error; onRetry: () => void; handoff?: FocusHandoff}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useTakeHandoff(handoff, ref, 'button');
-  return (
-    <div ref={ref} style={STACK}>
-      <Notice tone="error">Could not load the card list ({error.message})</Notice>
-      <CtaButton type="button" variant="neutral" onClick={onRetry} style={{alignSelf: 'flex-start'}}>
-        Retry
-      </CtaButton>
     </div>
   );
 }

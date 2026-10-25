@@ -1,7 +1,7 @@
 import type {RevealCardForm} from './buildPreviewCard';
 
 /**
- * A New reveal form before the operator types: every text field blank, the
+ * A New card form before the operator types: every text field blank, the
  * controls on their defaults (Amber, a Character, inkable, an English scan).
  */
 export const EMPTY_FORM: Readonly<RevealCardForm> = {

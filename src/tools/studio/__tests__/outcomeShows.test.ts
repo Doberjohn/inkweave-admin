@@ -6,7 +6,7 @@ const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'
 describe('outcomeShows', () => {
   it('is false with nothing to say: no commit, no failure, and no Load it again yet', () => {
     expect(outcomeShows({result: null, error: null, dropped: null})).toBe(false);
-    // CommitOutcome's dropped is optional: New reveal never passes it.
+    // CommitOutcome's dropped is optional: New card never passes it.
     expect(outcomeShows({result: null, error: null})).toBe(false);
   });
 

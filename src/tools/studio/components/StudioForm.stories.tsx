@@ -8,7 +8,7 @@ import {validateRevealCardForm} from '../../reveal/validateForm';
 import type {StudioLayout} from '../studioLayout';
 import {StudioForm} from './StudioForm';
 
-/** Mei, as New reveal would hold her: the tests' complete Ruby character, with a franchise, subtypes and card text. */
+/** Mei, as New card would hold her: the tests' complete Ruby character, with a franchise, subtypes and card text. */
 const MEI = revealForm({
   franchise: 'Turning Red',
   subtypes: 'Hero, Red Panda',
@@ -52,7 +52,7 @@ const meta: Meta<typeof StudioForm> = {
 export default meta;
 type Story = StoryObj<typeof StudioForm>;
 
-/** A fresh New reveal form: no red anywhere (R-72), every section neutral but Card text. */
+/** A fresh New card form: no red anywhere (R-72), every section neutral but Card text. */
 export const NewReveal: Story = {render: () => <Harness />};
 
 /** The same form in the narrow accordion: Identity open, the rest summed up. */

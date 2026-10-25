@@ -18,7 +18,7 @@ type Story = StoryObj<typeof meta>;
 /** What a page with unsaved edits asks when a link or the browser's Back would leave it (decision R-19). */
 export const Open: Story = {};
 
-/** Leaving while a publish is in flight, in the words /calibration and New reveal both show (R-58). */
+/** Leaving while a publish is in flight, in the words /calibration and New card both show (R-58). */
 export const CommitInFlight: Story = {args: {message: writeInFlightMessage({action: 'publish'})}};
 
 /** A hold that keeps the page asks in its own words: Card studio's card change (R4-8c). */

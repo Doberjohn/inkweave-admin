@@ -9,7 +9,7 @@ import {buildPreviewCard, type RevealCardForm} from './buildPreviewCard';
 import type {ValidationResult} from './validateForm';
 
 // The card being written, as the studio shows it while the operator types:
-// New reveal's controller (useRevealAdmin) and Edit card's (R4-4) both build on these.
+// New card's controller (useRevealAdmin) and Edit card's (R4-4) both build on these.
 
 /** Build the live preview card from form values; null until ink/type are valid. */
 export function buildPreview(form: RevealCardForm, imageDataUrl: string | null): LorcanaCard | null {
@@ -32,7 +32,7 @@ export function computeSynergies(card: LorcanaCard | null, allCards: LorcanaCard
   }
 }
 
-/** The image a controller holds: New reveal's upload, or Edit card's staged file (R4-4b). */
+/** The image a controller holds: New card's upload, or Edit card's staged file (R4-4b). */
 export interface ChosenImage {
   /** The chosen file's name, or null before one is chosen. */
   name: string | null;

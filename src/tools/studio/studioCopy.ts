@@ -5,16 +5,16 @@ import type {StudioMode} from '../../shell/nav';
 import type {EditResult} from './editSave';
 
 /*
- * Card studio's page-level words: its title, its subtitle, New reveal's
+ * Card studio's page-level words: its title, its subtitle, New card's
  * button, the note after a publish lands, and the tab's name. One module, so
  * the page, its tests and its story say the same thing.
  */
 
 export const STUDIO_TITLE = 'Card studio';
 
-export const STUDIO_SUBTITLE = 'Publish a newly revealed card, or edit a card and its image.';
+export const STUDIO_SUBTITLE = 'Add a card to a set, or edit a card and its image.';
 
-/** New reveal's button: the branch it commits to, or that it is committing. */
+/** New card's button: the branch it commits to, or that it is committing. */
 export function publishLabel({publishing}: {publishing: boolean}): string {
   return publishing ? 'Publishing…' : `Publish to ${targetBranch()}`;
 }
@@ -31,7 +31,7 @@ function deploying(what: string): string {
 }
 
 /**
- * What follows "Committed." after a New reveal publish: the card goes live
+ * What follows "Committed." after a New card publish: the card goes live
  * with the deploy its commit starts. A rehearsal branch never deploys, and
  * goLiveNote says so instead.
  */
@@ -47,7 +47,7 @@ interface TitleSource {
 
 /**
  * The tab's name before " · Inkweave admin" (R-51, R-59): Edit card's open
- * card, so a tab says which card it holds. New reveal, and Edit before its
+ * card, so a tab says which card it holds. New card, and Edit before its
  * card resolves, read as the page's title.
  */
 export function studioDocumentTitle({mode, card}: TitleSource): string | undefined {
@@ -61,7 +61,7 @@ export function saveLabel({saving}: {saving: boolean}): string {
 
 /**
  * What follows "Committed." after an Edit save (R4-6b): the same wait as New
- * reveal's, naming the new image when one went with the commit, since that is
+ * card's, naming the new image when one went with the commit, since that is
  * what the operator waits to see. A fields commit deploys as a new card's
  * does. A rehearsal branch never deploys, and goLiveNote says so.
  */

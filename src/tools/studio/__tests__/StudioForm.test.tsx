@@ -83,7 +83,7 @@ describe('StudioForm, ported from RevealAdminForm', () => {
 });
 
 describe('StudioForm: what shows red (R-72)', () => {
-  it('opens a fresh New reveal form with nothing marked invalid, and every section neutral but Card text', () => {
+  it('opens a fresh New card form with nothing marked invalid, and every section neutral but Card text', () => {
     // The validator does report the blank number, name, cost and stats: they stay hidden.
     expect(Object.keys(errorsOf(EMPTY_FORM))).toEqual(
       expect.arrayContaining(['collectorNumber', 'name', 'cost', 'strength', 'willpower', 'lore']),

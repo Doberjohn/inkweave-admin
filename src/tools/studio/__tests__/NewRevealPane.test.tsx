@@ -11,19 +11,35 @@ import {revealController} from '../studioFixtures';
 const COMMIT_URL = 'https://github.com/Doberjohn/inkweave/commit/abc123';
 const REJECTED_PUBLISH = 'GitHub 401 on /repos/Doberjohn/inkweave/git/ref/heads/master: {"message":"Bad credentials"}';
 
-/** The page's handoff as the pane sees it: a request is recorded, and a pending one waits to be taken. */
+/** A handoff as the pane sees it, the page's or the step's: a request is recorded, and a pending one waits to be taken. */
 function handoffOf({pending = false} = {}) {
   return {pending, request: vi.fn(), done: vi.fn()};
 }
 
+type Handoff = ReturnType<typeof handoffOf>;
+
 /** The pane, wide (every form field shows), on a controller that starts from an empty draft. */
-function renderPane({ctrl = {}, handoff = handoffOf(), onForgetToken = vi.fn()}: {
+function renderPane({
+  ctrl = {},
+  handoff = handoffOf(),
+  stepHandoff = handoffOf(),
+  onForgetToken = vi.fn(),
+}: {
   ctrl?: Partial<RevealAdminController>;
-  handoff?: ReturnType<typeof handoffOf>;
+  handoff?: Handoff;
+  stepHandoff?: Handoff;
   onForgetToken?: () => void;
 } = {}) {
-  render(<NewRevealPane ctrl={revealController(ctrl)} layout="wide" handoff={handoff} onForgetToken={onForgetToken} />);
-  return {handoff, user: userEvent.setup()};
+  render(
+    <NewRevealPane
+      ctrl={revealController(ctrl)}
+      layout="wide"
+      handoff={handoff}
+      stepHandoff={stepHandoff}
+      onForgetToken={onForgetToken}
+    />,
+  );
+  return {handoff, stepHandoff, user: userEvent.setup()};
 }
 
 const aside = () => within(screen.getByRole('complementary', {name: 'Publish'}));
@@ -60,25 +76,37 @@ describe('NewRevealPane', () => {
     const handoff = handoffOf();
     const user = userEvent.setup();
     const {unmount} = render(
-      <NewRevealPane ctrl={revealController({canPublish: true, publish})} layout="wide" handoff={handoff} onForgetToken={vi.fn()} />,
+      <NewRevealPane
+        ctrl={revealController({canPublish: true, publish})}
+        layout="wide"
+        handoff={handoff}
+        stepHandoff={handoffOf()}
+        onForgetToken={vi.fn()}
+      />,
     );
     await user.click(publishButton());
-    // The workspace renders this pane only in New reveal, so a switch unmounts it.
+    // The workspace renders this pane only as New card's step 2, so a switch unmounts it.
     unmount();
 
     await act(async () => land());
     expect(handoff.request).not.toHaveBeenCalled();
   });
 
-  it("gives the form Save token's pending handoff while no outcome shows", () => {
+  it("gives the form the page's pending handoff while no outcome shows: the card list's", () => {
     const {handoff} = renderPane({handoff: handoffOf({pending: true})});
     expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus();
     expect(handoff.done).toHaveBeenCalled();
   });
 
-  it("leaves a pending handoff to the outcome once one shows: it is the publish's", () => {
+  it("leaves the page's pending handoff to the outcome once one shows: it is the publish's", () => {
     renderPane({ctrl: {result: {commitUrl: COMMIT_URL}}, handoff: handoffOf({pending: true})});
     expect(screen.getByRole('textbox', {name: 'Collector number'})).not.toHaveFocus();
+  });
+
+  it("gives the form the step's pending handoff even while an outcome shows: the set was chosen for it (R-48)", () => {
+    const {stepHandoff} = renderPane({ctrl: {result: {commitUrl: COMMIT_URL}}, stepHandoff: handoffOf({pending: true})});
+    expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus();
+    expect(stepHandoff.done).toHaveBeenCalled();
   });
 
   it('shows a refused scan under the card panel, never as the outcome', () => {

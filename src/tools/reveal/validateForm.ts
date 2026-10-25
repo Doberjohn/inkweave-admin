@@ -1,8 +1,8 @@
 import {findGlyphWords, findSpelledGlyphWords, type Ink} from 'inkweave-synergy-engine';
-import type {RevealCardForm} from './buildPreviewCard';
+import {previewIdOf, type RevealCardForm} from './buildPreviewCard';
 import {ALL_INKS, SET_TOTAL, inkBlock} from '../../app-bridge';
 import {extOf} from '../../components/fileName';
-import {CARD_TYPES, REVEAL_ID_BASE, STAT_FIELDS, STAT_LABELS} from './constants';
+import {CARD_TYPES, STAT_FIELDS, STAT_LABELS} from './constants';
 
 const VALID_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
 /** How card data writes each glyph word, with a released example. Lore is a word when gained. */
@@ -52,21 +52,31 @@ export function intField(value: string): number | null {
 }
 
 /**
- * Why the collector number can't be a new card's, or undefined. Every number past
- * the set is an Epic, Enchanted or Iconic printing of one of its cards, and a
- * printing is never a card: it goes in through scripts/reveal-sync/variants.mjs.
- * A number a released card holds is taken under that card's official id, which
- * the preview id's check can't see.
+ * Whether `n` is one of the reveal set's own collector numbers, 1 to SET_TOTAL.
+ * Every number past the set is an Epic, Enchanted or Iconic printing of one of
+ * its cards, never a card. The validator, Card studio's checklist and New
+ * card's set step all read the range here.
+ */
+export function isSetNumber(n: number | null | undefined): n is number {
+  return n != null && Number.isInteger(n) && n >= 1 && n <= SET_TOTAL;
+}
+
+/**
+ * Why the collector number can't be a new card's, or undefined. A printing
+ * (isSetNumber) goes in through scripts/reveal-sync/variants.mjs. A number a
+ * released card holds is taken under that card's official id, which the
+ * preview id's check can't see.
  */
 function collectorError(form: RevealCardForm, {ids, released}: TakenNumbers): string | undefined {
   const collector = intField(form.collectorNumber);
   if (collector === null || collector <= 0) return 'Enter a positive collector number';
-  if (collector > SET_TOTAL) {
+  if (!isSetNumber(collector)) {
     return `#${collector} is past the ${SET_TOTAL}-card set: special printings go in through variants.mjs stage`;
   }
   const holder = released.get(collector);
   if (holder) return `#${collector} is already ${holder.fullName} (${holder.id})`;
-  if (ids.has(REVEAL_ID_BASE + collector)) return `Card id ${REVEAL_ID_BASE + collector} already exists`;
+  const id = previewIdOf(collector);
+  if (ids.has(id)) return `Card id ${id} already exists`;
   return undefined;
 }
 

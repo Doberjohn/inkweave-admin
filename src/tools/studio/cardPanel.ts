@@ -53,7 +53,7 @@ export function pillCaption({mode, staged}: ImageSlot): string {
 
 /**
  * The note under a staged image (R-91 2): Edit's says when the art changes,
- * not the handoff's deploy wording, and New reveal's has its own. Null while
+ * not the handoff's deploy wording, and New card's has its own. Null while
  * nothing is staged, or while the file's error shows in its place.
  */
 export function stagedNote({mode, staged}: ImageSlot): string | null {
@@ -64,7 +64,7 @@ export function stagedNote({mode, staged}: ImageSlot): string | null {
 
 /**
  * A card the preview can draw: one with a name or with art. A fresh New
- * reveal form still builds a card (Amber, a Character, no name), so without
+ * card form still builds a card (Amber, a Character, no name), so without
  * this the frame would show an Amber 0 where the handoff's stripes belong.
  */
 export function hasPreview(card: LorcanaCard | null): card is LorcanaCard {

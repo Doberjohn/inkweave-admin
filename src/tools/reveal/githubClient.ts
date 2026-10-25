@@ -12,7 +12,7 @@ import {
   type CommitResult,
 } from '../../github/githubCommit';
 
-/** The preview cards of the reveal season: what New reveal adds to and Edit card saves. */
+/** The preview cards of the reveal season: what New card adds to and Edit card saves. */
 export const PREVIEW_PATH = 'apps/web/public/data/previewCards.json';
 
 /**

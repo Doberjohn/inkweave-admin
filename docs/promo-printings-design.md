@@ -76,7 +76,7 @@ The owner fills in (owner, 2026-10-22):
 - **Promo set:** one the app knows, shown as "P5 · Promo Set 5" (see "The promo sets" below).
 - **Number:** as printed, so 1 for 1/P5. A whole number from 1 up.
 - **Versions:** Both, Foil only or Normal only, the Printings panel's own choice. Nothing is preselected.
-- **Scan:** a file, as Edit card's image control takes them (jpg, jpeg, png, webp), and its language through New reveal's Scan language select. English writes no language.
+- **Scan:** a file, as Edit card's image control takes them (jpg, jpeg, png, webp), and its language through New card's Scan language select. English writes no language.
 - **Note (optional):** one line for the catalog's notes.
 
 The studio works out:
@@ -86,7 +86,7 @@ The studio works out:
 
 It refuses a promo set and number that another printing already has.
 
-The line under Publish names the first thing the add lacks: the promo set, the number, then a code another printing has, then the versions and the scan. A taken code shows as soon as the promo set and number name it ("13/C3 is taken: Mother Knows Best has it."), since no versions or scan would let it through. The Number field marks only what the owner typed, as New reveal's fields do (R-72). A number that doesn't read is invalid and says why under the field ("Enter a number from 1 up."), and so is a taken code, in the line's words. A blank one is left to the line. The edit form's Number does the same.
+The line under Publish names the first thing the add lacks: the promo set, the number, then a code another printing has, then the versions and the scan. A taken code shows as soon as the promo set and number name it ("13/C3 is taken: Mother Knows Best has it."), since no versions or scan would let it through. The Number field marks only what the owner typed, as New card's fields do (R-72). A number that doesn't read is invalid and says why under the field ("Enter a number from 1 up."), and so is a taken code, in the line's words. A blank one is left to the line. The edit form's Number does the same.
 
 ### The edit form
 

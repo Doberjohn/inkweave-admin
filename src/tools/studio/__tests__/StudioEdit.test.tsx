@@ -29,6 +29,7 @@ import {BRANCH_ONLY_ENTRY, PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf,
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {
   TOKEN_KEY,
+  chooseRevealSet,
   dropFocusToBody,
   fillNewCard,
   never,
@@ -67,7 +68,7 @@ const IMAGE_NOTE = 'Vercel is deploying it: allow 15 to 20 minutes before the ne
 const LEAVES_CARD = "Your changes to this card aren't saved yet. Leaving the card drops them.";
 const LEAVES_EDIT = "Your Edit card changes aren't saved yet. Leaving Card studio drops them.";
 const LEAVES_BOTH =
-  "Your New reveal card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
+  "Your new card isn't published yet, and your Edit card changes aren't saved yet. Leaving Card studio drops both.";
 /** Edit's in-flight line, on master: R2's (writeInFlight.ts), then what leaving still drops (studioPaths.ts). */
 const SAVING =
   "A save to master is in progress. Leaving won't stop it, and you won't see whether it landed. " +
@@ -132,10 +133,11 @@ async function rename(user: UserEvent) {
   await waitFor(() => expect(saveButton()).toBeEnabled());
 }
 
-/** A draft in each mode: a name typed in New reveal, and Mei renamed in Edit card (R-57 keeps both). */
+/** A draft in each mode: a name typed in New card, and Mei renamed in Edit card (R-57 keeps both). */
 async function twoDrafts(user: UserEvent) {
   await openMei(user);
-  await user.click(screen.getByRole('button', {name: 'New reveal'}));
+  await user.click(screen.getByRole('button', {name: 'New card'}));
+  await chooseRevealSet(user);
   await user.type(await nameField(), 'Wren');
   await user.click(screen.getByRole('button', {name: 'Edit card'}));
   await rename(user);
@@ -570,7 +572,7 @@ describe('StudioPage: Sets 1 to 8 in Edit card (#68)', () => {
 });
 
 describe('StudioPage: saving in Edit card', () => {
-  it("saves a field edit with New reveal's note, and keeps the card open on its new baseline (R-70)", async () => {
+  it("saves a field edit with New card's note, and keeps the card open on its new baseline (R-70)", async () => {
     vi.mocked(commitCardEdit).mockResolvedValue({commitUrl: COMMIT_URL});
     const {user} = renderStudio({path: '/studio?mode=edit'});
     await openMei(user);
@@ -768,13 +770,13 @@ describe('StudioPage: saving in Edit card', () => {
   });
 
   it("keeps an image-only card's facts once a later read gives its entry fields, and its re-read opens the form (R-65)", async () => {
-    // The branch holds Mei unrepresentable as the studio opens; the read after a New reveal publish finds her fixed.
+    // The branch holds Mei unrepresentable as the studio opens; the read after a New card publish finds her fixed.
     const reads = stubReads(fileOf([UNHELD_MEI, VARIANTS_ENTRY]), fileOf([FIXED_MEI, VARIANTS_ENTRY]));
     vi.mocked(commitNewCard).mockResolvedValue({commitUrl: COMMIT_URL});
     const {user} = renderStudio({path: studioHref('edit', MEI.id)});
     expect(await screen.findByText(IMAGE_ONLY_NOTES.unrepresentable)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    await user.click(screen.getByRole('button', {name: 'New card'}));
     await fillNewCard({user, name: 'Wren'});
     await user.click(screen.getByRole('button', {name: /^Publish/}));
     await screen.findByRole('link', {name: 'View commit'});
@@ -853,7 +855,7 @@ describe('StudioPage: saving in Edit card', () => {
     await waitFor(() => expect(screen.getByLabelText('GitHub token')).toHaveFocus());
   });
 
-  it('reads previewCards.json again once a New reveal publish lands, so the card is in the search at once (R-66)', async () => {
+  it('reads previewCards.json again once a New card publish lands, so the card is in the search at once (R-66)', async () => {
     // The workspace reads the file as it mounts; the read after the publish finds the new card.
     const reads = stubReads(fileOf(FILE), fileOf([...FILE, BRANCH_ONLY_ENTRY]));
     vi.mocked(commitNewCard).mockResolvedValue({commitUrl: COMMIT_URL});
@@ -878,7 +880,7 @@ describe('StudioPage: the guard and the view in Edit card', () => {
     const dialog = await cardDialog();
     expect(within(dialog).getByRole('heading', {level: 2, name: 'Leave this card?'})).toBeInTheDocument();
     expect(dialog).toHaveTextContent(LEAVES_CARD);
-    expect(dialog).not.toHaveTextContent('New reveal');
+    expect(dialog).not.toHaveTextContent('New card');
     expect(within(dialog).getAllByRole('button').map((button) => button.textContent)).toEqual(['Keep editing', 'Drop changes']);
 
     await user.click(within(dialog).getByRole('button', {name: 'Keep editing'}));
@@ -1068,7 +1070,7 @@ describe('StudioPage: the guard and a started promo printing form (#77)', () => 
 
   it('keeps a started form across a mode switch without asking, and asks before a card change drops it (R-57, R-58)', async () => {
     const {router, user} = await startPrintingForm();
-    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    await user.click(screen.getByRole('button', {name: 'New card'}));
     await user.click(screen.getByRole('button', {name: 'Edit card'}));
     // Every draft stays mounted, so the switch asks nothing and the form is as it was.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -1145,7 +1147,7 @@ describe('StudioPage: the guard and a started promo printing form (#77)', () => 
  * afterEach restores it (Doberjohn/inkweave-admin#55).
  */
 describe("StudioPage: a keystroke in one mode and the other mode's synergies", () => {
-  it("never runs the engine again for the card open in Edit card while New reveal's form is typed in", async () => {
+  it("never runs the engine again for the card open in Edit card while New card's form is typed in", async () => {
     const findSynergies = vi.spyOn(synergyEngine, 'findSynergies');
     const meiRuns = () => findSynergies.mock.calls.filter(([card]) => card.id === MEI.id).length;
     const {user} = renderStudio({path: studioHref('edit', MEI.id)});
@@ -1153,7 +1155,8 @@ describe("StudioPage: a keystroke in one mode and the other mode's synergies", (
     // Edit scored her as she opened, so the spy sees Edit's runs.
     expect(meiRuns()).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('button', {name: 'New reveal'}));
+    await user.click(screen.getByRole('button', {name: 'New card'}));
+    await chooseRevealSet(user);
     const opened = meiRuns();
     await user.type(await nameField(), 'Wren');
     expect(await nameField()).toHaveValue('Wren');
@@ -1161,15 +1164,16 @@ describe("StudioPage: a keystroke in one mode and the other mode's synergies", (
     expect(meiRuns()).toBe(opened);
   });
 
-  it("never runs the engine again for New reveal's preview while Edit card's form is typed in", async () => {
+  it("never runs the engine again for New card's preview while Edit card's form is typed in", async () => {
     const findSynergies = vi.spyOn(synergyEngine, 'findSynergies');
     const number = inkBlock('Amber').first;
-    // New reveal's preview takes its id from its collector number (buildPreviewCard).
+    // New card's preview takes its id from its collector number (buildPreviewCard).
     const wrenRuns = () => findSynergies.mock.calls.filter(([card]) => card.id === String(REVEAL_ID_BASE + number)).length;
     const {user} = renderStudio({path: studioHref('new', MEI.id)});
+    await chooseRevealSet(user);
     await user.type(screen.getByRole('textbox', {name: 'Collector number'}), String(number));
     await user.type(await nameField(), 'Wren');
-    // New reveal scored its preview as it was typed, so the spy sees its runs.
+    // New card scored its preview as it was typed, so the spy sees its runs.
     expect(wrenRuns()).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', {name: 'Edit card'}));

@@ -199,7 +199,7 @@ export function missingLine(opts: MissingLineOptions): string | null {
 }
 
 /**
- * What the Number field says of the number the owner typed, or null. As New reveal's fields do (R-72), it
+ * What the Number field says of the number the owner typed, or null. As New card's fields do (R-72), it
  * marks only a value the owner filled in: a blank number, spaces included, is incomplete, not wrong, and
  * the line under Publish asks for it. A number `parseNumber` can't read says so, and one that names a code
  * another printing has says whose it is, in the line's words.

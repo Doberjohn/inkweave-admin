@@ -18,7 +18,7 @@ const CURRENT: LorcanaCard = {...PANEL_CARD, imageUrl: CURRENT_ART};
 /** Mei as the draft previews her once a new image is staged. */
 const STAGED_CARD: LorcanaCard = {...PANEL_CARD, imageUrl: STAGED_ART};
 
-/** The panel as a page renders it: New reveal, Mei with no art, nothing staged, unless a case says otherwise. */
+/** The panel as a page renders it: New card, Mei with no art, nothing staged, unless a case says otherwise. */
 function renderPanel(overrides: Partial<StudioCardPanelProps> = {}) {
   const props: StudioCardPanelProps = {
     card: PANEL_CARD,

@@ -5,7 +5,7 @@
  * each number a released card of the set holds in the run, as `released`:
  * [{number, id, fullName}], by number. Every step that asks what Inkweave already holds counts
  * those cards too: the gates before any reader, and `write`, whose validator refuses such a
- * number as Card studio's New reveal does.
+ * number as Card studio's New card does.
  */
 import {UsageError} from './cli.mjs';
 
@@ -13,7 +13,7 @@ import {UsageError} from './cli.mjs';
  * The run's `released`, from allCards.json's raw cards. `chain` is web.mjs's
  * loadReleasedChain(): the app's loader builds each card (transformRawCards), and Card
  * studio's releasedRevealNumbers maps the numbers, so a run finds the released cards New
- * reveal finds.
+ * card finds.
  */
 export function releasedRecords(rawCards, chain) {
   const released = chain.releasedRevealNumbers(chain.transformRawCards(rawCards));

@@ -9,7 +9,7 @@ import type {PreviewCardsFile} from './previewCardsFile';
 /*
  * Cards only the branch file holds (R-66). The card list is what inkweave.ink
  * serves: allCards.json plus the deployed previewCards.json, read once per
- * session. A card that New reveal publishes, or a /fetch-reveals PR merges,
+ * session. A card that New card publishes, or a /fetch-reveals PR merges,
  * reaches it only once the app deploys, 15 to 20 minutes later
  * (REVEAL_RUNBOOK.md, "One card at a time"), and a rehearsal branch's cards
  * never do. Edit card reads previewCards.json from the target branch itself,
