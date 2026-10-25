@@ -179,6 +179,21 @@ describe('StudioPage: the mode switch (R-57)', () => {
     await waitFor(() => expect(document.title).toBe('Card studio · Inkweave admin'));
   });
 
+  it('moves no focus on a switch that leaves it on <body>, as a click in Safari does (R-48)', async () => {
+    const {router} = renderStudio({path: '/studio?mode=edit'});
+    const {newCard, editCard} = modes();
+    // Safari, and Firefox on macOS, focus no button a click presses, and fireEvent.click doesn't either.
+    expect(document.body).toHaveFocus();
+    fireEvent.click(newCard);
+    await waitFor(() => expect(revealSetButton()).toBeInTheDocument());
+    expect(document.body).toHaveFocus();
+
+    fireEvent.click(editCard);
+    await waitFor(() => expect(router.state.location.search).toBe('?mode=edit'));
+    expect(await screen.findByRole('searchbox', {name: 'Search cards'})).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
+  });
+
   it('opens the other mode at the top of the body, a card in the URL too, with focus still on the switch', async () => {
     const {user} = renderStudio({path: '/studio?mode=edit&card=2983'});
     const {newCard} = modes();

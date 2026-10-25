@@ -1,8 +1,11 @@
 import type {CSSProperties} from 'react';
 import {LETTER_SPACING, LinkButton, SPACING} from '../../../app-bridge';
+import {baseName} from '../../../components/fileName';
 import {targetBranch} from '../../../github/githubCommit';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Tag} from '../../../ui/Tag';
+import {RAW_DIR} from '../../image/githubClient';
+import {PREVIEW_PATH} from '../../reveal/githubClient';
 import {previewIdText, type NewCardSet} from '../newCardSets';
 import type {StudioLayout} from '../studioLayout';
 import {STUDIO_OWN_ROW, STUDIO_PANEL} from '../studioStyles';
@@ -42,6 +45,8 @@ export interface SetBarProps {
   collectorNumber: string;
   /** Back to step 1, keeping the draft. */
   onChangeSet: () => void;
+  /** A publish is running: Change set waits for it, since step 1 would hide how it went. */
+  publishing: boolean;
   layout: StudioLayout;
 }
 
@@ -50,9 +55,10 @@ export interface SetBarProps {
  * Change set, and where the card is written. The set decides the file, so the
  * bar states it and offers no choice: previewCards.json under the id the
  * collector number gives (previewIdText), its scan in card-images-raw/, in one
- * commit to the target branch.
+ * commit to the target branch. It names them by the paths the commit writes
+ * (PREVIEW_PATH, RAW_DIR).
  */
-export function SetBar({set, collectorNumber, onChangeSet, layout}: SetBarProps) {
+export function SetBar({set, collectorNumber, onChangeSet, publishing, layout}: SetBarProps) {
   const wide = layout === 'wide';
   return (
     <div style={BARS[layout]}>
@@ -65,7 +71,7 @@ export function SetBar({set, collectorNumber, onChangeSet, layout}: SetBarProps)
             <span style={EYEBROW}>Set {set.code}</span> <Tag>reveal</Tag>
           </span>
           {set.name !== undefined && <span style={NAME}>{set.name}</span>}
-          <LinkButton type="button" onClick={onChangeSet} style={CHANGE}>
+          <LinkButton type="button" onClick={onChangeSet} disabled={publishing} style={CHANGE}>
             Change set
           </LinkButton>
         </div>
@@ -74,8 +80,8 @@ export function SetBar({set, collectorNumber, onChangeSet, layout}: SetBarProps)
       <div style={WHERES[layout]}>
         <span style={EYEBROW}>Written to</span>
         <p style={LINE}>
-          <code>apps/web/public/data/previewCards.json</code> as {previewIdText(collectorNumber)}, with its scan in{' '}
-          <code>card-images-raw/</code>
+          <code>{PREVIEW_PATH}</code> as {previewIdText(collectorNumber)}, with its scan in{' '}
+          <code>{baseName(RAW_DIR)}/</code>
         </p>
         <p style={NOTE}>
           One commit to {targetBranch()}. Graduation later swaps it for LorcanaJSON’s card and moves its votes.

@@ -5,8 +5,8 @@ import {newCardSet, newCardSets} from './newCardSets';
 import {NewRevealPane, type NewRevealPaneProps} from './NewRevealPane';
 import type {NewCardStepState} from './useNewCardStep';
 
-export interface NewCardPaneProps extends NewRevealPaneProps {
-  /** The set chosen and the ways between the steps, held by StudioWorkspace (useNewCardStep). */
+export interface NewCardPaneProps extends Omit<NewRevealPaneProps, 'stepHandoff'> {
+  /** The set chosen, the ways between the steps and their handoff, held by StudioWorkspace (useNewCardStep). */
   step: NewCardStepState;
 }
 
@@ -21,6 +21,7 @@ function NewCardSetStep({step, handoff}: Pick<NewCardPaneProps, 'step' | 'handof
       onChoose={step.choose}
       onEditInstead={step.editInstead}
       handoff={handoff}
+      stepHandoff={step.handoff}
     />
   );
 }
@@ -40,9 +41,10 @@ export function NewCardPane({step, ...pane}: NewCardPaneProps) {
         set={newCardSet(step.set)}
         collectorNumber={pane.ctrl.form.collectorNumber}
         onChangeSet={step.change}
+        publishing={pane.ctrl.publishing}
         layout={pane.layout}
       />
-      <NewRevealPane {...pane} />
+      <NewRevealPane {...pane} stepHandoff={step.handoff} />
     </>
   );
 }

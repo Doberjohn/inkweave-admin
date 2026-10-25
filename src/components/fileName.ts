@@ -8,3 +8,12 @@ export function extOf(name: string): string {
   const dot = name.lastIndexOf('.');
   return dot === -1 ? '' : name.slice(dot + 1).toLowerCase();
 }
+
+/**
+ * The last part of a slash-separated path, its file or folder name:
+ * "apps/web/public/card-images-raw" is "card-images-raw". New card names the
+ * files its commit writes by the paths the commit itself uses.
+ */
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1);
+}

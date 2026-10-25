@@ -93,13 +93,22 @@ function stats(form: RevealCardForm): Partial<LorcanaJSONCard> {
   return out;
 }
 
+/**
+ * The id a card of the reveal set takes under its collector number until
+ * graduation gives it the official one: 14000 + 23 is 14023. The commit, the
+ * validator's taken-id check and New card's set bar all read it here.
+ */
+export function previewIdOf(collector: number): number {
+  return REVEAL_ID_BASE + collector;
+}
+
 export function buildPreviewCard(formInput: RevealCardForm): LorcanaJSONCard {
   const collector = Number.parseInt(formInput.collectorNumber.trim(), 10);
   const name = formInput.name.trim();
   const version = formInput.version.trim();
 
   const card: LorcanaJSONCard = {
-    id: REVEAL_ID_BASE + collector,
+    id: previewIdOf(collector),
     name,
     fullName: version ? `${name} - ${version}` : name,
     cost: parseIntOrUndef(formInput.cost) ?? 0,

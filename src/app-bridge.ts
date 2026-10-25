@@ -32,6 +32,8 @@ import {
 export {
   ALL_INKS,
   COLORS,
+  // The kit's dimmed recipe (opacity and cursor): New card fades the logos of the sets that take no new card to its opacity.
+  DISABLED_STYLE,
   DURATION,
   EASING,
   FONTS,

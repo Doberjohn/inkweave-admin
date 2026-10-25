@@ -1,4 +1,5 @@
 import type {CSSProperties} from 'react';
+import {DISABLED_STYLE} from '../../../app-bridge';
 import type {NewCardSet} from '../newCardSets';
 
 /** The boxes New card draws a set's logo in: the open set's tile, the set bar, and a closed set's row. */
@@ -13,8 +14,8 @@ export type SetLogoSize = keyof typeof BOXES;
 
 const BOX: CSSProperties = {flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center'};
 const IMAGE: CSSProperties = {maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'};
-// A set that takes no new card: its logo half there, as its row is.
-const FADED_IMAGE: CSSProperties = {...IMAGE, opacity: 0.5};
+// A set that takes no new card: its logo dimmed as the kit dims a control that's off.
+const FADED_IMAGE: CSSProperties = {...IMAGE, opacity: DISABLED_STYLE.opacity};
 
 interface SetLogoProps {
   set: NewCardSet;

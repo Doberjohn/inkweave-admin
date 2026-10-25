@@ -213,13 +213,18 @@ describe('Card studio routes', () => {
   it.each([
     {path: '/reveal', mode: 'New card', search: ''},
     {path: '/image', mode: 'Edit card', search: '?mode=edit'},
-  ])('redirects the retired $path to Card studio in $mode', async ({path, search}) => {
+  ])('redirects the retired $path to Card studio in $mode', async ({path, mode, search}) => {
+    // With a token saved, so the studio shows its mode switch rather than the gate.
+    const saved = renderHook(() => useGithubToken());
+    act(() => saved.result.current.setToken('tok'));
     const router = routerAt(path);
     await waitFor(() => expect(router.state.location.pathname).toBe('/studio'));
     expect(router.state.location.search).toBe(search);
     // Replaced, not pushed: Back doesn't land on the redirect again.
     expect(router.state.historyAction).toBe('REPLACE');
     expect(screen.getByRole('heading', {level: 1, name: 'Card studio'})).toBeInTheDocument();
+    const modes = within(screen.getByRole('group', {name: 'Studio mode'}));
+    expect(modes.getByRole('button', {name: mode})).toHaveAttribute('aria-pressed', 'true');
     // A redirect is no one's action, so focus stays where it was (R-48).
     expect(document.body).toHaveFocus();
   });

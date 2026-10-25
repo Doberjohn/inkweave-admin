@@ -1,7 +1,6 @@
-import {SET_TOTAL} from '../../app-bridge';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import type {StatField} from '../reveal/constants';
-import {intField, type ValidationResult} from '../reveal/validateForm';
+import {intField, isSetNumber, type ValidationResult} from '../reveal/validateForm';
 
 /** The validator's errors: a message per key (validateRevealCardForm). */
 type Errors = Readonly<Record<string, string>>;
@@ -20,13 +19,13 @@ function firstError(errors: Errors, keys: readonly string[]): string | null {
 
 /**
  * The collector number parses as the validator parses it (intField) and falls
- * inside the set, so the validator's ink-block check ran on it. A number that
- * collides with an existing id still counts, and so does one a released card
- * of the reveal set holds (R4-5y's `released`): the check runs on both.
+ * inside the set (isSetNumber), so the validator's ink-block check ran on it. A
+ * number that collides with an existing id still counts, and so does one a
+ * released card of the reveal set holds (R4-5y's `released`): the check runs
+ * on both.
  */
 function numberInSet(form: RevealCardForm): boolean {
-  const collector = intField(form.collectorNumber) ?? 0;
-  return collector >= 1 && collector <= SET_TOTAL;
+  return isSetNumber(intField(form.collectorNumber));
 }
 
 /**

@@ -35,6 +35,7 @@ function SetStepStory({layout, ...choice}: SetStepStoryProps) {
         onChoose={() => {}}
         onEditInstead={() => {}}
         handoff={NO_HANDOFF}
+        stepHandoff={NO_HANDOFF}
       />
     </div>
   );

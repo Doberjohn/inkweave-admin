@@ -44,9 +44,15 @@ describe('newCardSets: the reveal set', () => {
 });
 
 describe('newCardSets: the released sets', () => {
-  it('lists every other Core set once, newest first, leaving out Sets 1 to 8 and the reveal set', () => {
+  it('lists the Core sets before the reveal set once, newest first, leaving out Sets 1 to 8 and the reveal set', () => {
     const cards = [otherSet('9', '1'), otherSet('13', '2'), otherSet('8', '3'), otherSet('9', '4'), revealCard(1)];
     expect(newCardSets(cards).released.map((set) => set.code)).toEqual(['13', '9']);
+  });
+
+  it("leaves out a set past the reveal set: the app's next season, while admin's pin lags it", () => {
+    const next = String(Number(REVEAL_SET_CODE) + 1);
+    const cards = [otherSet('13', '1'), studioCard({id: `${next}001`, name: 'Next', setCode: next, setNumber: 1})];
+    expect(newCardSets(cards).released.map((set) => set.code)).toEqual(['13']);
   });
 
   it("names a set with the app's name and logo", () => {
@@ -80,14 +86,14 @@ describe('closedReason and closedSets', () => {
     expect(closedSets(open).map((set) => set.code)).toEqual(['13']);
   });
 
-  it('say a graduated set has graduated, and list it first among the closed sets', () => {
+  it('say a graduated set has graduated, and the next set opens once its season starts, and list it first among the closed sets', () => {
     expect(closedReason(graduated.reveal)).toBe(
-      `${label} has graduated: released cards hold all ${SET_TOTAL} of its numbers.`,
+      `${label} has graduated: released cards hold all ${SET_TOTAL} of its numbers. The next set opens here once the app starts its reveal season and admin’s pin follows.`,
     );
     expect(closedSets(graduated).map((set) => set.code)).toEqual([REVEAL_SET_CODE, '13']);
   });
 
-  it('say a full set is full, and leave it out of the closed sets: its season is still on', () => {
+  it('say a full set is full, pointing to no next set, and leave it out of the closed sets: its season is still on', () => {
     expect(closedReason(full.reveal)).toBe(
       `${label} is full: cards hold all ${SET_TOTAL} of its numbers, some of them still previews.`,
     );

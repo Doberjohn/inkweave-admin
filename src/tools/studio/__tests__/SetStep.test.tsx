@@ -2,7 +2,7 @@ import {describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {REVEAL_ID_BASE, REVEAL_SET_CODE, SET_TOTAL} from '../../../app-bridge';
+import {DISABLED_STYLE, REVEAL_ID_BASE, REVEAL_SET_CODE, SET_TOTAL} from '../../../app-bridge';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {SetStep, type SetStepProps} from '../components/SetStep';
 import {newCardSet, newCardSets, setLabel} from '../newCardSets';
@@ -19,10 +19,13 @@ function revealCard(n: number, kind: 'released' | 'preview' = 'released'): Lorca
 }
 
 const NUMBERS = Array.from({length: SET_TOTAL}, (_, i) => i + 1);
-/** Two released Core sets beside the reveal set. */
+/** The set after the reveal set: the app's next season, in the card list while admin's pin lags it. */
+const NEXT_SET = String(Number(REVEAL_SET_CODE) + 1);
+/** Two released Core sets before the reveal set, and a preview card of the next one. */
 const RELEASED = [
   studioCard({id: '1', name: 'Card 1', setCode: '13', setNumber: 1}),
   studioCard({id: '2', name: 'Card 2', setCode: '9', setNumber: 1}),
+  studioCard({id: `${NEXT_SET}001`, name: 'Card 3', setCode: NEXT_SET, setNumber: 1}),
 ];
 
 /** Two numbers of the reveal set in, one of them a preview. */
@@ -44,6 +47,7 @@ function props(overrides: Partial<SetStepProps> = {}): SetStepProps {
     onChoose: vi.fn(),
     onEditInstead: vi.fn(),
     handoff: handoffOf(false),
+    stepHandoff: handoffOf(false),
     ...overrides,
   };
 }
@@ -69,11 +73,11 @@ describe('SetStep', () => {
     expect(items.map((item) => item.textContent)).toEqual(['1Set', '2Card details']);
   });
 
-  it('offers the reveal set while one of its numbers is free, as its one choice, saying how many are taken and where its cards go', () => {
+  it('offers the reveal set while one of its numbers is free, as its one choice, saying how many inkweave.ink has and where its cards go', () => {
     renderStep();
     expect(screen.getAllByRole('button')).toEqual([revealTile()]);
     expect(revealTile()).toHaveAccessibleDescription(
-      `reveal season 2 of ${SET_TOTAL} numbers taken. New cards go to previewCards.json as ${REVEAL_ID_BASE} + collector number.`,
+      `reveal season 2 of ${SET_TOTAL} numbers taken on inkweave.ink. New cards go to previewCards.json as ${REVEAL_ID_BASE} + collector number.`,
     );
   });
 
@@ -92,8 +96,16 @@ describe('SetStep', () => {
     expect(logos.every((logo) => logo.getAttribute('alt') === '')).toBe(true);
   });
 
-  it('lists the other Core sets as released, newest first, with no control: LorcanaJSON writes their cards', () => {
+  it('dims the logos of the sets that take no new card, as the kit dims what is off, and not the open set’s', () => {
+    const {container} = renderStep();
+    const [tile, ...rows] = [...container.querySelectorAll('img')];
+    expect(tile.style.opacity).toBe('');
+    expect(rows.map((logo) => logo.style.opacity)).toEqual(rows.map(() => String(DISABLED_STYLE.opacity)));
+  });
+
+  it('lists the Core sets before the reveal set as released, newest first, with no control: LorcanaJSON writes their cards', () => {
     renderStep();
+    // The next set's preview card is in the list during a pin lag, but its set isn't released.
     expect(releasedRows()).toEqual([setLabel(newCardSet('13')), setLabel(newCardSet('9'))]);
     expect(within(screen.getByRole('list', {name: 'Released sets'})).queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByText(/Edit card changes their images and printings\.$/)).toBeInTheDocument();
@@ -114,7 +126,8 @@ describe('SetStep', () => {
 
   it('says a full reveal set is full, and leaves it out of the released sets: its previews graduate with it', () => {
     renderStep({sets: FULL});
-    expect(screen.getByText(new RegExp(`^${REVEAL_LABEL} is full`))).toBeInTheDocument();
+    // Its season is still on, so the notice points to no next set.
+    expect(screen.getByText(new RegExp(`^${REVEAL_LABEL} is full`))).not.toHaveTextContent('The next set opens here');
     expect(releasedRows()).not.toContain(REVEAL_LABEL);
     expect(screen.getByRole('button', {name: 'Edit a card instead'})).toBeInTheDocument();
   });
@@ -151,6 +164,12 @@ describe('SetStep', () => {
     const {handoff} = renderStep({...overrides, handoff: handoffOf(true)});
     expect(takes()).toHaveFocus();
     expect(handoff.done).toHaveBeenCalled();
+  });
+
+  it("gives the step's own pending handoff to its first button too: Change set's (R-48)", () => {
+    const {stepHandoff} = renderStep({stepHandoff: handoffOf(true)});
+    expect(revealTile()).toHaveFocus();
+    expect(stepHandoff.done).toHaveBeenCalled();
   });
 
   it('keeps a pending handoff while the card list loads, and gives it to the tile once the list is in', () => {

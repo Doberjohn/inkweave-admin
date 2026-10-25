@@ -18,7 +18,13 @@ const NO_HANDOFF: FocusHandoff = {pending: false, request: () => {}, done: () =>
  * StudioWorkspace's state. Step 1 reads the card list's provider, so its
  * stories render it on its own (Set step).
  */
-const REVEAL_CHOSEN: NewCardStepState = {set: REVEAL_SET_CODE, choose: () => {}, change: () => {}, editInstead: () => {}};
+const REVEAL_CHOSEN: NewCardStepState = {
+  set: REVEAL_SET_CODE,
+  choose: () => {},
+  change: () => {},
+  editInstead: () => {},
+  handoff: NO_HANDOFF,
+};
 
 interface NewCardStoryProps {
   layout: StudioLayout;

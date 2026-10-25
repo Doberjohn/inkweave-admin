@@ -2,13 +2,23 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE} from '../../../app-bridge';
+import {baseName} from '../../../components/fileName';
+import {RAW_DIR} from '../../image/githubClient';
+import {PREVIEW_PATH} from '../../reveal/githubClient';
 import {SetBar, type SetBarProps} from '../components/SetBar';
 import {newCardSet} from '../newCardSets';
 
 const REVEAL = newCardSet(REVEAL_SET_CODE);
 
 function renderBar(overrides: Partial<SetBarProps> = {}) {
-  const props: SetBarProps = {set: REVEAL, collectorNumber: '', onChangeSet: vi.fn(), layout: 'wide', ...overrides};
+  const props: SetBarProps = {
+    set: REVEAL,
+    collectorNumber: '',
+    onChangeSet: vi.fn(),
+    publishing: false,
+    layout: 'wide',
+    ...overrides,
+  };
   const view = render(<SetBar {...props} />);
   return {...props, ...view};
 }
@@ -40,11 +50,9 @@ describe('SetBar', () => {
     expect(screen.getByText('Set 99').parentElement?.nextElementSibling).toHaveTextContent('Change set');
   });
 
-  it('says the card goes to previewCards.json under the id its collector number gives, with its scan', () => {
+  it('says the card goes to previewCards.json under the id its collector number gives, with its scan, by the paths the commit writes', () => {
     renderBar({collectorNumber: '23'});
-    expect(writtenTo()).toBe(
-      `apps/web/public/data/previewCards.json as card ${REVEAL_ID_BASE + 23}, with its scan in card-images-raw/`,
-    );
+    expect(writtenTo()).toBe(`${PREVIEW_PATH} as card ${REVEAL_ID_BASE + 23}, with its scan in ${baseName(RAW_DIR)}/`);
   });
 
   it('states the rule for the id while no number of the set is typed', () => {
@@ -65,6 +73,14 @@ describe('SetBar', () => {
     const {onChangeSet} = renderBar();
     await userEvent.click(screen.getByRole('button', {name: 'Change set'}));
     expect(onChangeSet).toHaveBeenCalledOnce();
+  });
+
+  it('holds Change set while a publish runs: step 1 would hide how it went', async () => {
+    const {onChangeSet} = renderBar({publishing: true});
+    const change = screen.getByRole('button', {name: 'Change set'});
+    expect(change).toBeDisabled();
+    await userEvent.click(change);
+    expect(onChangeSet).not.toHaveBeenCalled();
   });
 
   it('sets its parts in a line, ruled apart, when wide, where is written taking the rest of it', () => {

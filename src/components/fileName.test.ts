@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {extOf} from './fileName';
+import {baseName, extOf} from './fileName';
 
 describe('extOf', () => {
   it('is the text after the last dot, lowercased', () => {
@@ -10,5 +10,16 @@ describe('extOf', () => {
   it('is nothing for a name with no extension, however the name ends', () => {
     expect(extOf('scan')).toBe('');
     expect(extOf('scan.')).toBe('');
+  });
+});
+
+describe('baseName', () => {
+  it("is a path's last part, file or folder", () => {
+    expect(baseName('apps/web/public/data/previewCards.json')).toBe('previewCards.json');
+    expect(baseName('apps/web/public/card-images-raw')).toBe('card-images-raw');
+  });
+
+  it('is the whole of a path with no slash', () => {
+    expect(baseName('previewCards.json')).toBe('previewCards.json');
   });
 });

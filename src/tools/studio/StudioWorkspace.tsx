@@ -91,7 +91,7 @@ export function StudioWorkspace({token, handoff}: StudioWorkspaceProps) {
   const pinnedFootRef = useRef<HTMLDivElement>(null);
   const layout = studioLayout(useContainerWidth(rootRef));
   const ctrl = useRevealAdmin();
-  const step = useNewCardStep({handoff, card});
+  const step = useNewCardStep(card);
   const edit = useCardEditor({token, cardId: card});
   // Edit card's promo printing form (#77), held here beside its draft, so a mode switch keeps it too.
   const printing = usePrintingForm({token, cardId: card});

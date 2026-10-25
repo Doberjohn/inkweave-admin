@@ -1,16 +1,19 @@
 import {isCoreSet, type LorcanaCard} from 'inkweave-synergy-engine';
 import {REVEAL_ID_BASE, REVEAL_SET_CODE, SET_LOGOS, SET_NAMES, SET_TOTAL} from '../../app-bridge';
+import {previewIdOf} from '../reveal/buildPreviewCard';
 import {releasedRevealNumbers} from '../reveal/releasedNumbers';
-import {intField} from '../reveal/validateForm';
+import {intField, isSetNumber} from '../reveal/validateForm';
 
 /*
  * The sets New card's first step names. The set decides where a new card is
  * written, so the step shows that and never asks for it: a card of the reveal
  * set goes to previewCards.json under a preview id until graduation swaps it
  * for LorcanaJSON's, and the app refuses a preview card of any other set
- * (reveal-set-integrity.test.ts). Every other Core set is LorcanaJSON's, in
- * allCards.json, so it takes no new card here. All of it reads inkweave.ink's
- * card list, as New card's number check does (releasedRevealNumbers).
+ * (reveal-set-integrity.test.ts). Every Core set before it is LorcanaJSON's, in
+ * allCards.json, so it takes no new card here. A set past it is the app's next
+ * season while admin's pin lags it: its cards are previews this pin can't
+ * write, so the step leaves it out. All of it reads inkweave.ink's card list,
+ * as New card's number check does (releasedRevealNumbers).
  */
 
 /** A Core set as New card names it. */
@@ -41,7 +44,7 @@ export interface RevealSetState extends NewCardSet {
 /** What New card's first step shows. */
 export interface NewCardSets {
   reveal: RevealSetState;
-  /** Every other Core set the card list holds, newest first. None of them takes a new card. */
+  /** The Core sets before the reveal set that the card list holds, newest first. None of them takes a new card. */
   released: NewCardSet[];
 }
 
@@ -57,20 +60,15 @@ export function setLabel({code, name}: NewCardSet): string {
   return name === undefined ? `Set ${code}` : `Set ${code} · ${name}`;
 }
 
-/** Whether `n` is one of the reveal set's own numbers, 1 to SET_TOTAL. */
-function inSet(n: number | null | undefined): n is number {
-  return n != null && Number.isInteger(n) && n >= 1 && n <= SET_TOTAL;
-}
-
 /** How many of the reveal set's numbers a card in the list holds, under a preview id or its official one. */
 function takenCount(cards: readonly LorcanaCard[]): number {
   const numbers = cards.filter((card) => card.setCode === REVEAL_SET_CODE).map((card) => card.setNumber);
-  return new Set(numbers.filter(inSet)).size;
+  return new Set(numbers.filter(isSetNumber)).size;
 }
 
 /** How many of the reveal set's numbers a released card holds. */
 function releasedCount(cards: readonly LorcanaCard[]): number {
-  return [...releasedRevealNumbers(cards).keys()].filter(inSet).length;
+  return [...releasedRevealNumbers(cards).keys()].filter(isSetNumber).length;
 }
 
 function revealStatus({taken, released}: {taken: number; released: number}): RevealSetStatus {
@@ -78,14 +76,14 @@ function revealStatus({taken, released}: {taken: number; released: number}): Rev
   return released === SET_TOTAL ? 'graduated' : 'full';
 }
 
-/** Whether the card is of a Core set other than the reveal set. */
-function isOtherCoreSet(code: string | undefined): code is string {
-  return code !== undefined && code !== REVEAL_SET_CODE && isCoreSet(code);
+/** Whether the card is of a Core set before the reveal set, which LorcanaJSON has released. */
+function isEarlierCoreSet(code: string | undefined): code is string {
+  return code !== undefined && isCoreSet(code) && Number(code) < Number(REVEAL_SET_CODE);
 }
 
-/** The Core sets besides the reveal set that the list holds, newest first. */
+/** The Core sets before the reveal set that the list holds, newest first. */
 function releasedSets(cards: readonly LorcanaCard[]): NewCardSet[] {
-  const codes = new Set(cards.map((card) => card.setCode).filter(isOtherCoreSet));
+  const codes = new Set(cards.map((card) => card.setCode).filter(isEarlierCoreSet));
   return [...codes].sort((a, b) => Number(b) - Number(a)).map(newCardSet);
 }
 
@@ -101,21 +99,22 @@ export function newCardSets(cards: readonly LorcanaCard[]): NewCardSets {
 
 /**
  * Why the reveal set takes no new card, as step 1 says it, or null while it
- * takes one. A full set is still in its season: its preview cards graduate
+ * takes one. Only a graduated set's season is over, so only it points to the
+ * next set. A full set is still in its season: its preview cards graduate
  * with it.
  */
 export function closedReason(reveal: RevealSetState): string | null {
   if (reveal.status === 'open') return null;
   const label = setLabel(reveal);
   return reveal.status === 'graduated'
-    ? `${label} has graduated: released cards hold all ${reveal.total} of its numbers.`
+    ? `${label} has graduated: released cards hold all ${reveal.total} of its numbers. The next set opens here once the app starts its reveal season and admin’s pin follows.`
     : `${label} is full: cards hold all ${reveal.total} of its numbers, some of them still previews.`;
 }
 
 /**
  * The sets step 1 lists as taking no new card: the reveal set first once it
- * has graduated, then the other Core sets. A full reveal set is still in its
- * season, so it stays out: the notice names it.
+ * has graduated, then the Core sets before it. A full reveal set is still in
+ * its season, so it stays out: the notice names it.
  */
 export function closedSets({reveal, released}: NewCardSets): NewCardSet[] {
   return reveal.status === 'graduated' ? [reveal, ...released] : [...released];
@@ -123,10 +122,11 @@ export function closedSets({reveal, released}: NewCardSets): NewCardSet[] {
 
 /**
  * The id the set bar says a card will be written under: "card 14023" for a
- * number the set has, read as the form reads it (intField), else
+ * number the set has, read as the form reads it (intField, isSetNumber) and
+ * given its id as the commit gives it (previewIdOf), else
  * "14000 + its collector number".
  */
 export function previewIdText(collectorNumber: string): string {
   const n = intField(collectorNumber);
-  return inSet(n) ? `card ${REVEAL_ID_BASE + n}` : `${REVEAL_ID_BASE} + its collector number`;
+  return isSetNumber(n) ? `card ${previewIdOf(n)}` : `${REVEAL_ID_BASE} + its collector number`;
 }

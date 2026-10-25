@@ -27,14 +27,18 @@ export interface NewRevealPaneProps {
   ctrl: RevealAdminController;
   layout: StudioLayout;
   /**
-   * The page's (R-59). Three requests reach this pane: the set's, as New
-   * card's step 1 gives way to it (useNewCardStep), which the form takes, or
-   * the outcome line while a publish's outcome shows; the card list's, once
+   * The page's (R-59). Two requests reach this pane: the card list's, once
    * "Load the card list again" clears its error (R4-8f), which the form takes
-   * too while no outcome shows; and a publish's once it lands, which the
-   * outcome line takes.
+   * while no outcome shows; and a publish's once it lands, which the outcome
+   * line takes.
    */
   handoff: FocusHandoff;
+  /**
+   * New card's step's (useNewCardStep): the set's request, as step 1 gives way
+   * to this pane, which the form takes whatever outcome shows, since the form
+   * is what the set was chosen for.
+   */
+  stepHandoff: FocusHandoff;
   /**
    * R-26's Forget token, offered when GitHub rejects the token. The workspace
    * asks first while a draft is dirty (R-84).
@@ -66,15 +70,17 @@ function scanOf(ctrl: RevealAdminController): ImageStatus {
 }
 
 /**
- * The form, in its slot. It takes a pending handoff only while no outcome
- * shows: that is the set's or the card list's, since a publish's request
- * comes with its outcome, which the outcome line takes. Identity's dot waits
- * for the card list, as the checklist's Collector number does.
+ * The form, in its slot. It takes the page's pending handoff only while no
+ * outcome shows: that is the card list's, since a publish's request comes with
+ * its outcome, which the outcome line takes. It takes the step's whenever it
+ * is pending. Identity's dot waits for the card list, as the checklist's
+ * Collector number does.
  */
-function NewRevealForm({ctrl, layout, handoff}: PartProps) {
+function NewRevealForm({ctrl, layout, handoff, stepHandoff}: PartProps) {
   const ref = useRef<HTMLDivElement>(null);
   const outcome = ctrl.result !== null || ctrl.commitError !== null;
   useTakeHandoff(handoff, ref, FIRST_CONTROL, !outcome);
+  useTakeHandoff(stepHandoff, ref, FIRST_CONTROL);
   return (
     <div ref={ref}>
       <StudioForm
@@ -118,7 +124,7 @@ function listActions(ctrl: RevealAdminController): ChecklistActions {
  * set, focus is where the operator put it, and the view there would take a
  * request meant for this outcome.
  */
-function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealPaneProps, 'layout'> & {
+function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealPaneProps, 'layout' | 'stepHandoff'> & {
   showing: RefObject<boolean>;
 }) {
   const publish = () =>
@@ -153,7 +159,7 @@ function NewRevealAside({ctrl, handoff, onForgetToken, showing}: Omit<NewRevealP
  * it. The controller lives in StudioWorkspace, so a mode switch, and Change
  * set, keep the draft (R-57).
  */
-export function NewRevealPane({ctrl, layout, handoff, onForgetToken}: NewRevealPaneProps) {
+export function NewRevealPane({ctrl, layout, handoff, stepHandoff, onForgetToken}: NewRevealPaneProps) {
   const showing = useShowing();
   return (
     <StudioSlots
@@ -169,7 +175,7 @@ export function NewRevealPane({ctrl, layout, handoff, onForgetToken}: NewRevealP
             onImageChange={ctrl.onImageChange}
           />
         ),
-        form: <NewRevealForm ctrl={ctrl} layout={layout} handoff={handoff} />,
+        form: <NewRevealForm ctrl={ctrl} layout={layout} handoff={handoff} stepHandoff={stepHandoff} />,
         aside: <NewRevealAside ctrl={ctrl} handoff={handoff} onForgetToken={onForgetToken} showing={showing} />,
       }}
     />
