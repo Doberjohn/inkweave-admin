@@ -11,6 +11,7 @@ import '../upstream/inkweave/apps/web/src/index.css';
 // CardTile's loading placeholder is a react-loading-skeleton; the app loads
 // this stylesheet once, in its main.tsx.
 import 'react-loading-skeleton/dist/skeleton.css';
+import type {Ink} from 'inkweave-synergy-engine';
 // The app's promo merge is plain JavaScript (scripts/lib/*.mjs): the typed exports below wrap these.
 import {
   collectionPromos as appCollectionPromos,
@@ -19,6 +20,14 @@ import {
 } from '../upstream/inkweave/scripts/lib/promo-printings.mjs';
 import {byPrintingOrder as appByPrintingOrder} from '../upstream/inkweave/scripts/lib/fold-variants.mjs';
 import {finishesById as appFinishesById} from '../upstream/inkweave/scripts/lib/finishes.mjs';
+import {
+  FEATURED_COUNT as appFeaturedCount,
+  FEATURED_INKS as appFeaturedInks,
+  featuredEntry as appFeaturedEntry,
+  featuredIdsJson as appFeaturedIdsJson,
+  featuredListProblem as appFeaturedListProblem,
+  missingFeaturedInks as appMissingFeaturedInks,
+} from '../upstream/inkweave/scripts/lib/featured-ids.mjs';
 
 export {
   ALL_INKS,
@@ -135,6 +144,27 @@ export const promoBaseProblems: (promos: readonly object[], cards: ReadonlyArray
   appPromoBaseProblems;
 // A card's printings in the switcher's order: the others by number, then the promos by set and number.
 export const byPrintingOrder: (a: object, b: object) => number = appByPrintingOrder;
+// The homepage's featured cards, apps/web/src/features/cards/featuredCardIds.json (Doberjohn/inkweave#957):
+// FEATURED_COUNT cards, the inks Amber to Steel in the file's order, and the rule graduation applies too.
+/** A line of featuredCardIds.json: the card's id, and "<inks>: <full name>". */
+export interface FeaturedEntry {
+  id: string;
+  card: string;
+}
+export const FEATURED_COUNT: number = appFeaturedCount;
+export const FEATURED_INKS: readonly Ink[] = appFeaturedInks as Ink[];
+// A card's line in the file, a dual-ink card's inks joined by "-".
+export const featuredEntry: (card: {id: string | number; inks: readonly string[]; fullName: string}) => FeaturedEntry =
+  appFeaturedEntry;
+// The inks none of the cards carries, each card given as its inks.
+export const missingFeaturedInks: (cardInks: readonly (readonly string[])[]) => Ink[] = appMissingFeaturedInks as (
+  cardInks: readonly (readonly string[])[],
+) => Ink[];
+// Why a list can't be the homepage's, in the app's words, or null: six different cards that carry every ink.
+export const featuredListProblem: (cards: ReadonlyArray<{id: string | number; inks: readonly string[]}>) => string | null =
+  appFeaturedListProblem;
+// The file's text: one entry per line, as the app keeps it.
+export const featuredIdsJson: (entries: readonly FeaturedEntry[]) => string = appFeaturedIdsJson;
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
 // path). Each id's result is kept for the session, and a non-OK or non-JSON
 // response is kept as an empty result. A failed fetch or malformed JSON rejects
