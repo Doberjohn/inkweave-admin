@@ -44,6 +44,14 @@ jobs:
       # A push to main collects coverage for CodeScene's coverage views (#97). A PR collects
       # none: nothing reads it there, and it makes the suite about a minute slower.
       - run: pnpm test:run ${{ github.event_name == 'push' && '--coverage' || '' }}
+      # CodeScene's installer runs in a step of its own, so the script it fetches never sees
+      # CODESCENE_COVERAGE_TOKEN, which only the upload step below holds.
+      - name: Install CodeScene's coverage tool
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          CS_COVERAGE_VERSION: 1.0.40
+        run: curl -fsSL https://downloads.codescene.io/enterprise/cli/install-cs-coverage-tool.sh | sh -s -- -y "$CS_COVERAGE_VERSION"
       # Line and branch coverage for the commit CodeScene's next analysis reads, uploaded from
       # the repo root, as cs-coverage requires. A CodeScene outage must not turn main red, so
       # failures only warn, and the step skips until the owner sets CODESCENE_COVERAGE_TOKEN.
@@ -52,13 +60,11 @@ jobs:
         continue-on-error: true
         env:
           CS_ACCESS_TOKEN: ${{ secrets.CODESCENE_COVERAGE_TOKEN }}
-          CS_COVERAGE_VERSION: 1.0.40
         run: |
           if [ -z "$CS_ACCESS_TOKEN" ]; then
             echo "::notice::CODESCENE_COVERAGE_TOKEN is not set; skipping the coverage upload."
             exit 0
           fi
-          curl -fsSL https://downloads.codescene.io/enterprise/cli/install-cs-coverage-tool.sh | sh -s -- -y "$CS_COVERAGE_VERSION"
           export PATH="$HOME/.local/bin:$PATH"
           for metric in line-coverage branch-coverage; do
             cs-coverage upload --format lcov --metric "$metric" coverage/lcov.info \
