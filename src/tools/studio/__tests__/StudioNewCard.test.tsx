@@ -106,6 +106,14 @@ describe('StudioPage: New card’s set step (#98)', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?mode=edit'));
     expect(search()).toBeInTheDocument();
     expect(document.body).toHaveFocus();
+
+    // So does Forward, from the step 1 it was pushed over.
+    act(() => void router.navigate(-1));
+    expect(await editInstead()).toBeInTheDocument();
+    act(() => void router.navigate(1));
+    await waitFor(() => expect(router.state.location.search).toBe('?mode=edit'));
+    expect(search()).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
   });
 
   it('takes the card in the URL along to Edit card', async () => {
