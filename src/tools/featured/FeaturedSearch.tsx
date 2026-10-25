@@ -4,7 +4,7 @@ import {DialogShell, SPACING, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {CardThumb} from '../../ui/CardThumb';
 import {DIALOG_HEADING, DIALOG_PANEL} from '../../ui/dialogFrame';
-import {SEARCH_LIMIT, candidatesFor} from './featuredSlots';
+import {candidatesFor} from './featuredSlots';
 
 /** How wide the dialog grows: room for a long full name beside its thumbnail and id. */
 const PANEL: React.CSSProperties = {...DIALOG_PANEL, maxWidth: 560};
@@ -44,10 +44,10 @@ function CandidateRow({card, current, onPick}: {card: LorcanaCard; current: bool
   );
 }
 
-/** The status line over the rows: how many match, or that none do. */
-function matchLine(shown: number, query: string): string {
+/** The status line over the rows: how many match, or that none do, and whether more match than show. */
+function matchLine({shown, more, query}: {shown: number; more: boolean; query: string}): string {
   if (shown === 0) return query.trim() ? 'No card of this ink with art matches.' : 'No card of this ink has art.';
-  return `${shown} card${shown === 1 ? '' : 's'}${shown === SEARCH_LIMIT ? ' shown: type to narrow them' : ''}.`;
+  return `${shown} card${shown === 1 ? '' : 's'}${more ? ' shown: type to narrow them' : ''}.`;
 }
 
 interface FeaturedSearchProps {
@@ -69,7 +69,7 @@ interface FeaturedSearchProps {
 export function FeaturedSearch({ink, currentId, cards, onPick, onClose}: FeaturedSearchProps) {
   const [query, setQuery] = useState('');
   const fieldRef = useRef<HTMLInputElement>(null);
-  const rows = ink ? candidatesFor(ink, cards, query) : [];
+  const {rows, more} = ink ? candidatesFor(ink, cards, query) : {rows: [], more: false};
   const close = () => {
     setQuery('');
     onClose();
@@ -96,7 +96,7 @@ export function FeaturedSearch({ink, currentId, cards, onPick, onClose}: Feature
         style={{width: '100%'}}
       />
       <p role="status" style={STATUS}>
-        {matchLine(rows.length, query)}
+        {matchLine({shown: rows.length, more, query})}
       </p>
       {rows.length > 0 && (
         <ul style={LIST} aria-label={`${ink ?? ''} cards`}>

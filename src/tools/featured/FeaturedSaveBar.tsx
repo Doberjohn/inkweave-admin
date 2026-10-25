@@ -33,7 +33,7 @@ interface FeaturedSaveBarProps {
   save: FeaturedSave;
   onSave: () => void;
   onDiscard: () => void;
-  /** Reads the file again, dropping the picks: offered after a stale refusal. */
+  /** Reads the file again, keeping the picks that still change a slot: offered after a stale refusal. */
   onReload: () => void;
   /** Forgets the saved token: offered when GitHub rejected it. */
   onForgetToken: () => void;

@@ -11,9 +11,12 @@ describe('diffFeatured', () => {
   });
 
   it('lists every slot of a file the commit added', () => {
-    const changes = diffFeatured({before: null, after: featuredFileText()});
-    expect(changes.map((change) => [change.slot, change.from])).toEqual(
-      ['Amber', 'Amethyst', 'Emerald', 'Ruby', 'Sapphire', 'Steel'].map((ink) => [ink, null]),
+    expect(diffFeatured({before: null, after: featuredFileText()})).toEqual(
+      ['Amber', 'Amethyst', 'Emerald', 'Ruby', 'Sapphire', 'Steel'].map((slot, i) => ({
+        slot,
+        from: null,
+        to: {id: SIX[i].id, name: SIX[i].fullName},
+      })),
     );
   });
 

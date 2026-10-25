@@ -51,11 +51,12 @@ export const SEARCH_LIMIT = 40;
 
 /**
  * The cards a slot may take, the first SEARCH_LIMIT matching `query` (filterCards): those that carry
- * its ink, a dual-ink card under both of its inks, and have art.
+ * its ink, a dual-ink card under both of its inks, and have art. `more` says whether others match too.
  */
-export function candidatesFor(ink: Ink, cards: readonly LorcanaCard[], query: string): LorcanaCard[] {
+export function candidatesFor(ink: Ink, cards: readonly LorcanaCard[], query: string): {rows: LorcanaCard[]; more: boolean} {
   const offered = cards.filter((card) => Boolean(card.imageUrl) && getInks(card).includes(ink));
-  return filterCards(offered, query, SEARCH_LIMIT);
+  const found = filterCards(offered, query, SEARCH_LIMIT + 1);
+  return {rows: found.slice(0, SEARCH_LIMIT), more: found.length > SEARCH_LIMIT};
 }
 
 /** The file's six lines: each card's own, or the file's line for a card the card list lacks. */

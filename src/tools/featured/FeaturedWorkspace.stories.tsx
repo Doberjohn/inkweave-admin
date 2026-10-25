@@ -1,6 +1,6 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {DUAL, FEATURED_CARDS, GOLIATH, SIX, cardByIdIn, entriesFor} from './featuredFixtures';
+import {DUAL, FEATURED_CARDS, GOLIATH, NO_ART, SIX, cardByIdIn, entriesFor} from './featuredFixtures';
 import {StaleFeaturedError} from './githubClient';
 import {featuredProblem, slotsOf} from './featuredSlots';
 import type {FeaturedEditor, FeaturedSave} from './useFeaturedEditor';
@@ -66,6 +66,14 @@ export const RepeatedCard: Story = {args: {editor: editorOf({picks: [[1, DUAL], 
 
 /** A file edited by hand to leave Amber with no card: Save stays off, in the app's words. */
 export const MissingInk: Story = {args: {editor: editorOf({six: [GOLIATH, ...SIX.slice(1)], picks: [[4, DUAL]]})}};
+
+/** A file edited by hand to name a card with no art in Amethyst: the slot says why, and Save stays off. */
+export const NoArt: Story = {args: {editor: editorOf({six: [SIX[0], NO_ART, ...SIX.slice(2)], picks: [[4, DUAL]]})}};
+
+/** A file naming a card inkweave.ink's card list lacks (one not deployed yet): the slot shows the file's line, and Save stays off. */
+export const NotInCardList: Story = {
+  args: {editor: editorOf({six: [SIX[0], {...GOLIATH, id: '9999', fullName: 'Goliath - Clan Leader'}, ...SIX.slice(2)], picks: [[4, DUAL]]})},
+};
 
 /** Someone saved from another tab first: the refusal, and Reload. */
 export const StaleRefusal: Story = {

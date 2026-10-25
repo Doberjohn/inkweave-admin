@@ -36,7 +36,7 @@ export interface FeaturedEditor {
   undo: (index: number) => void;
   discard: () => void;
   onSave: () => void;
-  /** Reads the file again and drops the picks: a stale refusal's way out. Resolves true once a read lands. */
+  /** Reads the file again, keeping the picks that still change a slot: a stale refusal's way out. Resolves true once a read lands. */
   reload: () => Promise<boolean>;
 }
 
@@ -85,6 +85,10 @@ const failedSave = (e: unknown): FeaturedSave => ({
 const unsent = (picks: FeaturedPicks, sent: FeaturedPicks): FeaturedPicks =>
   new Map([...picks].filter(([index, card]) => sent.get(index) !== card));
 
+/** The picks that still change a slot: a pick of the card the branch's file now holds there stages nothing. */
+const stillPicked = (picks: FeaturedPicks, saved: readonly FeaturedSlot[]): FeaturedPicks =>
+  new Map([...picks].filter(([index, card]) => saved[index]?.id !== card.id));
+
 /** Why Save is off, or null. */
 function blockedReason({picks, slots, save}: {picks: FeaturedPicks; slots: FeaturedSlot[]; save: FeaturedSave}): string | null {
   if (save.status === 'saving') return 'Saving…';
@@ -97,11 +101,13 @@ function blockedReason({picks, slots, save}: {picks: FeaturedPicks; slots: Featu
  * branch (read once per token, and again on reload() and after a save), the
  * picks staged over it, and the save. A save writes the six in one commit
  * (commitFeatured). Once it lands the page shows the six it committed, keeps
- * only the picks made while it ran, and reads the file again to confirm.
+ * only the picks made while it ran, and reads the file again to confirm. A
+ * pick lasts until it is saved, undone or discarded: a read that brings the
+ * picked card into its slot drops it, and Reload keeps every other.
  */
 export function useFeaturedEditor(token: string, cardById: CardById): FeaturedEditor {
   const [read, setRead] = useState<FeaturedRead>({status: 'loading'});
-  const [picks, setPicks] = useState<FeaturedPicks>(new Map());
+  const [staged, setPicks] = useState<FeaturedPicks>(new Map());
   const [save, setSave] = useState<FeaturedSave>({status: 'idle'});
   const newest = useRef(0);
 
@@ -111,6 +117,7 @@ export function useFeaturedEditor(token: string, cardById: CardById): FeaturedEd
 
   const loaded = entriesIn(read);
   const saved = slotsOf(loaded, cardById);
+  const picks = stillPicked(staged, saved);
   const slots = saved.map((slot, i) => {
     const card = picks.get(i);
     return card ? pickedSlot(slot, card) : slot;
@@ -133,7 +140,6 @@ export function useFeaturedEditor(token: string, cardById: CardById): FeaturedEd
   };
   const discard = () => setPicks(new Map());
   const reload = () => {
-    setPicks(new Map());
     setSave({status: 'idle'});
     return startRead(token, newest, setRead);
   };

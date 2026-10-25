@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {DUAL, FEATURED_CARDS, GOLIATH, MAX, NO_ART, SIX, UN_POCO_LOCO, cardByIdIn, entriesFor} from '../featuredFixtures';
-import {candidatesFor, changedSlots, entriesOf, featuredProblem, slotProblem, slotsOf} from '../featuredSlots';
+import {SEARCH_LIMIT, candidatesFor, changedSlots, entriesOf, featuredProblem, slotProblem, slotsOf} from '../featuredSlots';
 
 const slotsFor = (cards = SIX, list = FEATURED_CARDS) => slotsOf(entriesFor(cards), cardByIdIn(list));
 
@@ -48,17 +48,25 @@ describe('featuredProblem', () => {
 
 describe('candidatesFor', () => {
   it('offers only cards of the ink with art', () => {
-    expect(candidatesFor('Amethyst', FEATURED_CARDS, '').map((card) => card.id)).toEqual([UN_POCO_LOCO.id, GOLIATH.id, DUAL.id]);
+    expect(candidatesFor('Amethyst', FEATURED_CARDS, '').rows.map((card) => card.id)).toEqual([UN_POCO_LOCO.id, GOLIATH.id, DUAL.id]);
   });
 
   it('offers a dual-ink card under each of its inks', () => {
-    expect(candidatesFor('Sapphire', FEATURED_CARDS, 'christopher')).toEqual([DUAL]);
-    expect(candidatesFor('Amethyst', FEATURED_CARDS, 'christopher')).toEqual([DUAL]);
+    expect(candidatesFor('Sapphire', FEATURED_CARDS, 'christopher').rows).toEqual([DUAL]);
+    expect(candidatesFor('Amethyst', FEATURED_CARDS, 'christopher').rows).toEqual([DUAL]);
   });
 
   it('searches by name, version or id', () => {
-    expect(candidatesFor('Amethyst', FEATURED_CARDS, 'warrior')).toEqual([GOLIATH]);
-    expect(candidatesFor('Amethyst', FEATURED_CARDS, '3318')).toEqual([GOLIATH]);
+    expect(candidatesFor('Amethyst', FEATURED_CARDS, 'warrior').rows).toEqual([GOLIATH]);
+    expect(candidatesFor('Amethyst', FEATURED_CARDS, '3318').rows).toEqual([GOLIATH]);
+  });
+
+  it('says more match only when a card past SEARCH_LIMIT does', () => {
+    const many = (n: number) => Array.from({length: n}, (_, i) => ({...GOLIATH, id: String(5000 + i)}));
+    expect(candidatesFor('Amethyst', many(SEARCH_LIMIT), '')).toMatchObject({more: false});
+    const past = candidatesFor('Amethyst', many(SEARCH_LIMIT + 1), '');
+    expect(past.rows).toHaveLength(SEARCH_LIMIT);
+    expect(past.more).toBe(true);
   });
 });
 

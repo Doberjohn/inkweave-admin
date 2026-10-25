@@ -5,7 +5,8 @@ import {useDeployedFeatured} from '../useDeployedFeatured';
 afterEach(() => vi.restoreAllMocks());
 
 /** What inkweave.ink's /data/featuredCards.json holds: LorcanaJSON's shape, ids as numbers. */
-const served = (ids: number[]) => new Response(JSON.stringify({metadata: {}, sets: {}, cards: ids.map((id) => ({id}))}));
+const JSON_TYPE = {headers: {'content-type': 'application/json'}};
+const served = (ids: number[]) => new Response(JSON.stringify({metadata: {}, sets: {}, cards: ids.map((id) => ({id}))}), JSON_TYPE);
 
 describe('useDeployedFeatured', () => {
   it('reads the served ids as strings, past every cache', async () => {
@@ -20,6 +21,20 @@ describe('useDeployedFeatured', () => {
     const {result} = renderHook(() => useDeployedFeatured());
     await waitFor(() =>
       expect(result.current).toMatchObject({status: 'error', error: 'inkweave.ink answered 503 for /data/featuredCards.json'}),
+    );
+  });
+
+  it('refuses a page that isn’t JSON, as a path the server lacks answers with the app’s HTML', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('<!doctype html>', {headers: {'content-type': 'text/html'}}));
+    const {result} = renderHook(() => useDeployedFeatured());
+    await waitFor(() => expect(result.current).toMatchObject({status: 'error', error: '/data/featuredCards.json isn’t JSON here'}));
+  });
+
+  it('refuses a list with a card that has no id', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({cards: [{id: 3286}, {}]}), JSON_TYPE));
+    const {result} = renderHook(() => useDeployedFeatured());
+    await waitFor(() =>
+      expect(result.current).toMatchObject({status: 'error', error: '/data/featuredCards.json lists a card with no id'}),
     );
   });
 

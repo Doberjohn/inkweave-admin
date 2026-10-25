@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {Link, RouterProvider, createMemoryRouter} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {cardList} from '../../studio/__tests__/studioStores';
-import {FEATURED_CARDS, GOLIATH, SIX, entriesFor} from '../featuredFixtures';
+import {FEATURED_CARDS, GOLIATH, NO_ART, SIX, entriesFor} from '../featuredFixtures';
 import {FeaturedPage} from '../FeaturedPage';
 import {StaleFeaturedError} from '../githubClient';
 
@@ -41,7 +41,7 @@ function setCards(cards: readonly LorcanaCard[] = FEATURED_CARDS) {
 /** inkweave.ink's /data/featuredCards.json, serving `ids`. */
 function serve(ids: readonly string[]) {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-    new Response(JSON.stringify({cards: ids.map((id) => ({id: Number(id)}))})),
+    new Response(JSON.stringify({cards: ids.map((id) => ({id: Number(id)}))}), {headers: {'content-type': 'application/json'}}),
   );
 }
 
@@ -156,6 +156,23 @@ describe('FeaturedPage', () => {
     await pick(user, 'Amethyst', 'Christopher Robin');
     expect(saveButton()).toBeDisabled();
     expect(screen.getByText(/no card is Amber/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['has no art', [SIX[0], NO_ART, ...SIX.slice(2)], 'This card has no art, so the homepage would skip it.'],
+    ['isn’t in the card list', [SIX[0], {...GOLIATH, id: '9999'}, ...SIX.slice(2)], 'The card list doesn’t hold this card.'],
+  ])('keeps Save off when the file’s Amethyst card %s, saying why', async (_, six, reason) => {
+    const user = userEvent.setup();
+    readFeatured.mockResolvedValue(entriesFor(six));
+    renderPage();
+    await screen.findByRole('region', {name: 'Amethyst slot'});
+    expect(within(slot('Amethyst')).getByText(reason)).toBeInTheDocument();
+    // A change elsewhere can't be saved past it.
+    await pick(user, 'Sapphire', 'Christopher Robin');
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText(`Amethyst: ${reason}`)).toBeInTheDocument();
+    await user.click(saveButton());
+    expect(commitFeatured).not.toHaveBeenCalled();
   });
 
   it('saves one commit and says when inkweave.ink shows it', async () => {

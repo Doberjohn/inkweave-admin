@@ -17,13 +17,17 @@ export type UseDeployedFeaturedResult = DeployedFeatured & {
 function servedIds(data: unknown): string[] {
   const cards = (data as {cards?: unknown} | null)?.cards;
   if (!Array.isArray(cards)) throw new Error(`${DEPLOYED_PATH} has no card list`);
-  return cards.map((card: {id?: unknown}) => String(card.id));
+  const ids = cards.map((card: {id?: unknown} | null) => card?.id);
+  if (ids.some((id) => typeof id !== 'number' && typeof id !== 'string')) throw new Error(`${DEPLOYED_PATH} lists a card with no id`);
+  return ids.map(String);
 }
 
 /** The served file's ids, or an error for a failed read or a file of another shape. */
 async function readServed(): Promise<string[]> {
   const response = await fetch(DEPLOYED_PATH, {cache: 'no-store'});
   if (!response.ok) throw new Error(`inkweave.ink answered ${response.status} for ${DEPLOYED_PATH}`);
+  // A path the server lacks answers 200 with the app's HTML page, as adminData.ts finds.
+  if (!response.headers.get('content-type')?.includes('application/json')) throw new Error(`${DEPLOYED_PATH} isn’t JSON here`);
   return servedIds(await response.json());
 }
 

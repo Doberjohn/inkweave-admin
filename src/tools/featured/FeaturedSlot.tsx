@@ -14,7 +14,10 @@ const SLOT: React.CSSProperties = {
   padding: SPACING.lg,
   backgroundColor: ADMIN_COLORS.card,
   backgroundClip: 'padding-box',
-  border: `1px solid ${ADMIN_COLORS.border}`,
+  // Longhands, so STAGED's borderColor never meets a border shorthand React would leave behind on Undo.
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: ADMIN_COLORS.border,
   borderRadius: ADMIN_RADIUS.panel,
 };
 // A staged pick's slot wears the accent edge, as a selected card button does (adm-card-btn).

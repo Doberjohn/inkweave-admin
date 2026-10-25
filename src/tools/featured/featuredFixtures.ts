@@ -1,5 +1,5 @@
-import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {featuredIdsJson, type FeaturedEntry} from '../../app-bridge';
+import {getInks, type LorcanaCard} from 'inkweave-synergy-engine';
+import {featuredEntry, featuredIdsJson, type FeaturedEntry} from '../../app-bridge';
 import {lorcanaCard} from '../analytics/cards/cardFixtures';
 
 /*
@@ -35,7 +35,7 @@ export const FEATURED_CARDS: readonly LorcanaCard[] = [...SIX, GOLIATH, DUAL, NO
 
 /** featuredCardIds.json's entries for `cards`, as the app writes them. */
 export const entriesFor = (cards: readonly LorcanaCard[]): FeaturedEntry[] =>
-  cards.map((card) => ({id: card.id, card: `${card.ink2 ? `${card.ink}-${card.ink2}` : card.ink}: ${card.fullName}`}));
+  cards.map((card) => featuredEntry({id: card.id, inks: getInks(card), fullName: card.fullName}));
 
 /** The file as the app keeps it, listing `cards`. */
 export const featuredFileText = (cards: readonly LorcanaCard[] = SIX): string => featuredIdsJson(entriesFor(cards));

@@ -111,7 +111,26 @@ describe('useFeaturedEditor', () => {
     expect(result.current.saved[1].id).toBe(GOLIATH.id);
   });
 
-  it('keeps the picks after a failed save, and Reload drops them', async () => {
+  it('keeps a pick through Reload, unless the file now holds that card there', async () => {
+    const result = await loaded();
+    act(() => result.current.stage(4, DUAL));
+    // Someone else saved Goliath into Amethyst meanwhile: Reload brings it in, and Sapphire's pick stays.
+    readFeatured.mockResolvedValueOnce(PICKED);
+    await act(async () => {
+      await result.current.reload();
+    });
+    expect([...result.current.picks.keys()]).toEqual([4]);
+    expect(result.current.slots[1].id).toBe(GOLIATH.id);
+
+    // Then the file takes Christopher Robin in Sapphire too, so that pick stages nothing any more.
+    readFeatured.mockResolvedValueOnce(entriesFor([SIX[0], GOLIATH, SIX[2], SIX[3], DUAL, SIX[5]]));
+    await act(async () => {
+      await result.current.reload();
+    });
+    expect(result.current.picks.size).toBe(0);
+  });
+
+  it('keeps the picks after a failed save, and Reload drops the ones the file now holds', async () => {
     const result = await loaded();
     commitFeatured.mockRejectedValueOnce(new StaleFeaturedError('master'));
     act(() => result.current.stage(1, GOLIATH));

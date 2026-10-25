@@ -60,7 +60,7 @@ export function featuredCommitMessage(changes: readonly SlotChange[]): string {
 /** commitFeatured's refusal when the file changed on the branch since the page read it: featuredFailureKind's 'stale', which offers Reload. */
 export class StaleFeaturedError extends Error {
   constructor(branch: string) {
-    super(`${FILE_NAME} changed on ${branch} since this page read it, so nothing was saved. Reload it and pick again.`);
+    super(`${FILE_NAME} changed on ${branch} since this page read it, so nothing was saved. Reload it, check your picks against the new six, and save again.`);
     this.name = 'StaleFeaturedError';
   }
 }

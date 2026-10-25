@@ -33,7 +33,7 @@ const RANGE_THUMB = 16;
 export const SEARCH_STACK_BELOW = 306;
 /**
  * The Featured cards page's slots run three to a row, and two in a narrower column (a phone, or a
- * narrow window), where a third would leave each card under 170px wide: 560px less two 16px gaps.
+ * narrow window), where a third would leave each card under 176px wide: 560px less two 16px gaps, in thirds.
  */
 export const FEATURED_TWO_UP_BELOW = 560;
 
