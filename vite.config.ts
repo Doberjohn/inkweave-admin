@@ -93,7 +93,15 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}', 'scripts/**/*.mjs'],
-      exclude: ['**/*.test.{ts,tsx,mjs}', '**/__tests__/**', '**/*.stories.tsx', '**/*.d.ts', 'src/test/**'],
+      exclude: [
+        '**/*.test.{ts,tsx,mjs}',
+        '**/__tests__/**',
+        '**/__fixtures__/**',
+        '**/*Fixtures.ts',
+        '**/*.stories.tsx',
+        '**/*.d.ts',
+        'src/test/**',
+      ],
       reporter: ['text-summary', 'lcovonly'],
     },
     // Both projects inherit the options above (#35). 'scripts' takes the test
