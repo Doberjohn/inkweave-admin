@@ -75,12 +75,14 @@ export interface CardListState {
   cards: LorcanaCard[];
   isLoading?: boolean;
   error?: Error | null;
+  /** What the list's Retry and "Load the card list again" call: by default nothing. */
+  retryLoad?: () => void;
 }
 
 /** Sets the card list the page reads, and re-renders. By default it has loaded, with no error. */
-export function setCardList({cards, isLoading = false, error = null}: CardListState) {
+export function setCardList({cards, isLoading = false, error = null, retryLoad = () => {}}: CardListState) {
   const getCardById: CardList['getCardById'] = (id) => cards.find((card) => card.id === id);
-  cardList.value = {cards, isLoading, error, getCardById, retryLoad: () => {}};
+  cardList.value = {cards, isLoading, error, getCardById, retryLoad};
   act(() => cardList.listeners.forEach((onChange) => onChange()));
 }
 

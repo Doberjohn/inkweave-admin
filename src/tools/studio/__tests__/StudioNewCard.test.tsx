@@ -5,7 +5,7 @@ import {REVEAL_SET_CODE, SET_TOTAL} from '../../../app-bridge';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
 import {chooseRevealSet, renderStudio, revealSetButton, setCardList, stubFetch} from './studioHarness';
-import {cardList, measured} from './studioStores';
+import {measured} from './studioStores';
 
 // The card list and the measured width come from the harness's stores (studioStores.ts); the rest of the bridge is real.
 vi.mock('../../../app-bridge', async (importOriginal) => ({
@@ -95,11 +95,13 @@ describe('StudioPage: New card’s set step (#98)', () => {
     expect(nameField()).toHaveValue('Mei');
   });
 
-  it("loads a failed card list again from the step, and gives the reveal set focus once it's in (R-48)", async () => {
-    const retryLoad = vi.fn();
-    setCardList({cards: [], error: new Error('Failed to fetch local cards: 500')});
-    Object.assign(cardList.value ?? {}, {retryLoad});
+  it("loads a failed card list again from the step, keeping the draft, and gives the reveal set focus once it's in (R-48)", async () => {
     const {user} = renderStudio();
+    await chooseRevealSet(user);
+    await user.type(nameField(), 'Mei');
+    await user.click(screen.getByRole('button', {name: 'Change set'}));
+    const retryLoad = vi.fn();
+    setCardList({cards: [], error: new Error('Failed to fetch local cards: 500'), retryLoad});
     expect(screen.getByText('Could not load the card list (Failed to fetch local cards: 500)')).toBeInTheDocument();
     await user.click(screen.getByRole('button', {name: 'Retry'}));
     expect(retryLoad).toHaveBeenCalledOnce();
@@ -109,5 +111,7 @@ describe('StudioPage: New card’s set step (#98)', () => {
     expect(screen.getByText('Checking which sets take new cards…')).toBeInTheDocument();
     setCardList({cards: [ELSA]});
     await waitFor(() => expect(revealSetButton()).toHaveFocus());
+    await chooseRevealSet(user);
+    expect(nameField()).toHaveValue('Mei');
   });
 });

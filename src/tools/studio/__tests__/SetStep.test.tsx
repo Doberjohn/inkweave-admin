@@ -69,8 +69,9 @@ describe('SetStep', () => {
     expect(items.map((item) => item.textContent)).toEqual(['1Set', '2Card details']);
   });
 
-  it('offers the reveal set while one of its numbers is free, saying how many are taken and where its cards go', () => {
+  it('offers the reveal set while one of its numbers is free, as its one choice, saying how many are taken and where its cards go', () => {
     renderStep();
+    expect(screen.getAllByRole('button')).toEqual([revealTile()]);
     expect(revealTile()).toHaveAccessibleDescription(
       `reveal season 2 of ${SET_TOTAL} numbers taken. New cards go to previewCards.json as ${REVEAL_ID_BASE} + collector number.`,
     );
