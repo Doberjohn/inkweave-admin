@@ -186,7 +186,7 @@ export const BRANCH_ENTRIES: LorcanaJSONCard[] = [PREVIEW_ENTRY, DUAL_INK_ENTRY,
 /** The card list over them: the released cards, then the branch entries with their art, preview cards last as the app's loader orders them. */
 export const STUDIO_CARDS: LorcanaCard[] = [RELEASED_CARD, RELEASED_SONG, ...BRANCH_ENTRIES.map(listCard)];
 
-/** R-66: a card New reveal just published. The branch file holds it, and inkweave.ink doesn't serve it yet. */
+/** R-66: a card New card just published. The branch file holds it, and inkweave.ink doesn't serve it yet. */
 export const BRANCH_ONLY_ENTRY = previewEntry({...ruby(7), name: 'Wren', fullName: 'Wren - Night Busker', version: 'Night Busker'});
 
 /** Mei as the card panel previews her (R4-5d): a named Ruby Character with rules text, and no art until a case gives her some. */
@@ -232,7 +232,7 @@ export const SYNERGY_GROUPS: SynergyGroup[] = [
 ];
 
 /**
- * New reveal's controller as useRevealAdmin returns it for an empty draft,
+ * New card's controller as useRevealAdmin returns it for an empty draft,
  * with a token saved; `overrides` set the rest. For NewRevealPane's tests and
  * story, which need no GitHub, card list or file reader (R4-6a).
  */

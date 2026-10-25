@@ -44,6 +44,8 @@ export {
   REVEAL_ID_BASE,
   REVEAL_SET_CODE,
   REVEAL_SET_NUMBER,
+  // Each set's logo, a WebP under /art/sets/ (forwarded to inkweave.ink): Card studio's New card names its sets with them.
+  SET_LOGOS,
   SET_NAMES,
   SET_TOTAL,
   SHADOWS,

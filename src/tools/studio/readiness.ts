@@ -43,7 +43,7 @@ export interface ImageStatus {
 }
 
 /**
- * The shell's card list as New reveal's number check reads it
+ * The shell's card list as New card's number check reads it
  * (useCardDataContext). The validator refuses a number a released card of the
  * reveal set holds (R4-5y), which only the loaded list shows: once a set
  * graduates, previewCards.json holds none of its cards, so nothing else would
@@ -144,7 +144,7 @@ const CHECKLIST: readonly ItemSpec[] = [
 ];
 
 /**
- * New reveal's checklist, from the validator. Every item is done exactly when
+ * New card's checklist, from the validator. Every item is done exactly when
  * the validation passes, the card list has loaded without error and the
  * image's bytes are read: readyToPublish, the token aside. Each open item
  * carries the validator's message for it, a blank field's included, so the

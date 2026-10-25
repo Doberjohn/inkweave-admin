@@ -122,7 +122,7 @@ describe('every pinned preview card', () => {
 });
 
 describe('formFromPreviewCard', () => {
-  it('gives the form New reveal would build the card from', () => {
+  it('gives the form New card would build the card from', () => {
     expect(FORM).toEqual({
       collectorNumber: String(PREVIEW_ENTRY.number),
       name: 'Mei',
@@ -305,7 +305,7 @@ describe('cardChanges', () => {
 });
 
 describe('validateCardEdit', () => {
-  it("passes the card's own number, which New reveal would call taken", () => {
+  it("passes the card's own number, which New card would call taken", () => {
     expect(validateRevealCardForm(FORM, new Set([PREVIEW_ENTRY.id]), null).errors.collectorNumber).toMatch(/already exists/);
     expect(validateCardEdit(FORM, null)).toEqual({ok: true, errors: {}});
   });

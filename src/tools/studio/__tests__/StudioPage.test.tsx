@@ -5,10 +5,19 @@ import {commitNewCard} from '../../reveal/githubClient';
 import {lorcanaCard} from '../../analytics/cards/cardFixtures';
 import {STUDIO_SUBTITLE} from '../studioCopy';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
-import {TOKEN_KEY, dropFocusToBody, fillNewCard, renderStudio, setCardList, stubFetch} from './studioHarness';
+import {
+  TOKEN_KEY,
+  chooseRevealSet,
+  dropFocusToBody,
+  fillNewCard,
+  renderStudio,
+  revealSetButton,
+  setCardList,
+  stubFetch,
+} from './studioHarness';
 import {cardList, measured} from './studioStores';
 
-// Every GitHub read stays real against the fetch stub; only New reveal's commit is faked.
+// Every GitHub read stays real against the fetch stub; only New card's commit is faked.
 vi.mock('../../reveal/githubClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../reveal/githubClient')>()),
   commitNewCard: vi.fn(),
@@ -37,7 +46,7 @@ function resize(width: number) {
 function modes() {
   const group = within(screen.getByRole('group', {name: 'Studio mode'}));
   return {
-    newReveal: group.getByRole('button', {name: 'New reveal'}),
+    newCard: group.getByRole('button', {name: 'New card'}),
     editCard: group.getByRole('button', {name: 'Edit card'}),
   };
 }
@@ -55,12 +64,13 @@ function refusesStrayFile(): boolean {
   return !fireEvent.dragOver(document.body, {dataTransfer: data}) && !fireEvent.drop(document.body, {dataTransfer: data});
 }
 
-/** The measured root's regions in DOM order, told apart by what each holds. */
+/** The measured root's regions in DOM order, told apart by what each holds: New card's set bar, then step 2's slots. */
 function regionOrder() {
   const aside = screen.getByRole('complementary', {name: 'Publish'});
   const root = aside.parentElement?.parentElement;
   return [...(root?.children ?? [])].map((region) => {
     if (region.contains(aside)) return 'aside';
+    if (region.textContent?.includes('Written to')) return 'bar';
     return region.querySelector('input[type="file"]') ? 'card' : 'form';
   });
 }
@@ -93,46 +103,55 @@ describe('StudioPage: the gate and the header', () => {
     expect(document.title).toBe('Card studio · Inkweave admin');
   });
 
-  it('opens New reveal with a token, under one h1 that names the branch, and leaves Forget token to the sidebar', () => {
-    renderStudio();
+  it("opens New card's set step with a token, under one h1 that names the branch, and leaves Forget token to the sidebar", async () => {
+    const {user} = renderStudio();
     expect(screen.getAllByRole('heading', {level: 1})).toHaveLength(1);
     expect(screen.getByText(STUDIO_SUBTITLE)).toBeInTheDocument();
     expect(screen.getByText('master')).toBeInTheDocument();
-    expect(modes().newReveal).toHaveAttribute('aria-pressed', 'true');
+    expect(modes().newCard).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', {level: 2, name: 'Which set is the card in?'})).toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: 'Card preview'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Forget token'})).not.toBeInTheDocument();
     // R-72, through the real controller: a fresh draft's missing scan is the checklist's, not the preview's.
+    await chooseRevealSet(user);
     const preview = within(screen.getByRole('region', {name: 'Card preview'}));
     expect(preview.queryByText('Upload a card image')).not.toBeInTheDocument();
   });
 
-  it('hands focus to the form after Save token: its first field, when wide (R-59)', async () => {
+  it("hands focus to the set step after Save token, then to the form's first field once the set is chosen (R-59, R-48)", async () => {
     measured.width = STUDIO_WIDE_MIN;
     const {user} = renderStudio({token: null});
     await user.type(screen.getByLabelText('GitHub token'), 'tok');
     await user.click(screen.getByRole('button', {name: 'Save token'}));
-    await waitFor(() => expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus());
+    await waitFor(() => expect(revealSetButton()).toHaveFocus());
     expect(localStorage.getItem(TOKEN_KEY)).toBe('tok');
+
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('textbox', {name: 'Collector number'})).toHaveFocus());
   });
 
-  it('names a rehearsal branch on Publish and in the header', () => {
+  it('names a rehearsal branch on Publish, on the set bar and in the header', async () => {
     vi.stubEnv('VITE_ADMIN_TARGET_BRANCH', 'admin-verify');
-    renderStudio();
+    const {user} = renderStudio();
+    await chooseRevealSet(user);
     expect(publishButton()).toHaveTextContent('Publish to admin-verify');
+    expect(screen.getByText(/^One commit to admin-verify\./)).toBeInTheDocument();
     expect(screen.getByText('admin-verify')).toBeInTheDocument();
   });
 });
 
 describe('StudioPage: the mode switch (R-57)', () => {
-  it('keeps the New reveal draft across a switch to Edit card and back, and never asks', async () => {
+  it('keeps the New card draft and its set across a switch to Edit card and back, and never asks', async () => {
     measured.width = STUDIO_WIDE_MIN;
     const {router, user} = renderStudio();
-    const {newReveal, editCard} = modes();
+    const {newCard, editCard} = modes();
+    await chooseRevealSet(user);
     await user.type(nameField(), 'Mei');
     await user.click(editCard);
     await waitFor(() => expect(router.state.location.search).toBe('?mode=edit'));
     expect(screen.queryByRole('textbox', {name: 'Name'})).not.toBeInTheDocument();
 
-    await user.click(newReveal);
+    await user.click(newCard);
     await waitFor(() => expect(router.state.location.search).toBe(''));
     expect(nameField()).toHaveValue('Mei');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -140,55 +159,56 @@ describe('StudioPage: the mode switch (R-57)', () => {
 
   it('pushes the switch, card and all, so Back returns to the other mode; the current mode does nothing', async () => {
     const {router, user} = renderStudio({path: '/studio?mode=edit&card=2983'});
-    const {newReveal, editCard} = modes();
+    const {newCard, editCard} = modes();
     const {key} = router.state.location;
     await user.click(editCard);
     expect(router.state.location.key).toBe(key);
 
-    await user.click(newReveal);
+    await user.click(newCard);
     await waitFor(() => expect(router.state.location.search).toBe('?card=2983'));
     expect(router.state.historyAction).toBe('PUSH');
     act(() => void router.navigate(-1));
     await waitFor(() => expect(editCard).toHaveAttribute('aria-pressed', 'true'));
   });
 
-  it("names the tab after Edit card's card, and New reveal after the page (R-51)", async () => {
+  it("names the tab after Edit card's card, and New card after the page (R-51)", async () => {
     const {user} = renderStudio({path: '/studio?mode=edit&card=2983'});
     // The card opens once Sets 1 to 8 are in too (#68), a moment after the first render.
     await waitFor(() => expect(document.title).toBe('Elsa - Snow Queen · Card studio · Inkweave admin'));
-    await user.click(modes().newReveal);
+    await user.click(modes().newCard);
     await waitFor(() => expect(document.title).toBe('Card studio · Inkweave admin'));
   });
 
   it('opens the other mode at the top of the body, a card in the URL too, with focus still on the switch', async () => {
     const {user} = renderStudio({path: '/studio?mode=edit&card=2983'});
-    const {newReveal} = modes();
+    const {newCard} = modes();
     const body = screen.getByRole('main').lastElementChild as HTMLElement;
     body.scrollTop = 500;
-    await user.click(newReveal);
+    await user.click(newCard);
     await waitFor(() => expect(body.scrollTop).toBe(0));
-    expect(newReveal).toHaveFocus();
+    expect(newCard).toHaveFocus();
   });
 });
 
 describe('StudioPage: the layout (R-63, R-64)', () => {
-  it('lays out narrow until the root measures STUDIO_WIDE_MIN, card first when wide, moving each region', () => {
-    renderStudio();
+  it('lays out narrow until the root measures STUDIO_WIDE_MIN, card first when wide, moving each region under the set bar', async () => {
+    const {user} = renderStudio();
+    await chooseRevealSet(user);
     const aside = screen.getByRole('complementary', {name: 'Publish'});
-    expect(regionOrder()).toEqual(['form', 'card', 'aside']);
+    expect(regionOrder()).toEqual(['bar', 'form', 'card', 'aside']);
 
     resize(STUDIO_WIDE_MIN);
-    expect(regionOrder()).toEqual(['card', 'form', 'aside']);
+    expect(regionOrder()).toEqual(['bar', 'card', 'form', 'aside']);
     expect(aside.parentElement?.parentElement).toHaveStyle({display: 'grid'});
     // Moved, not remounted (R-63).
     expect(screen.getByRole('complementary', {name: 'Publish'})).toBe(aside);
 
     resize(STUDIO_WIDE_MIN - 1);
-    expect(regionOrder()).toEqual(['form', 'card', 'aside']);
+    expect(regionOrder()).toEqual(['bar', 'form', 'card', 'aside']);
   });
 });
 
-describe('StudioPage: New reveal', () => {
+describe('StudioPage: New card', () => {
   beforeEach(() => {
     // Wide, so every field of the form shows at once.
     measured.width = STUDIO_WIDE_MIN;
@@ -196,10 +216,11 @@ describe('StudioPage: New reveal', () => {
 
   it('asks before leaving with a draft, and stays with it (R-58)', async () => {
     const {router, user} = renderStudio();
+    await chooseRevealSet(user);
     await user.type(nameField(), 'Mei');
     act(() => void router.navigate('/'));
     const dialog = await leaveDialog();
-    expect(dialog).toHaveTextContent("Your New reveal card isn't published yet. Leaving Card studio drops it.");
+    expect(dialog).toHaveTextContent("Your new card isn't published yet. Leaving Card studio drops it.");
 
     await user.click(within(dialog).getByRole('button', {name: 'Stay on this page'}));
     await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
@@ -207,16 +228,19 @@ describe('StudioPage: New reveal', () => {
     expect(nameField()).toHaveValue('Mei');
   });
 
-  it('starts a new workspace, drafts dropped, when another tab saves another token (R-84)', async () => {
+  it('starts a new workspace, drafts and set dropped, when another tab saves another token (R-84)', async () => {
     const {user} = renderStudio();
+    await chooseRevealSet(user);
     await user.type(nameField(), 'Mei');
     // The shared token store hears the storage event: no forget on this page, and no question.
     act(() => {
       localStorage.setItem(TOKEN_KEY, 'other');
       window.dispatchEvent(new StorageEvent('storage', {key: TOKEN_KEY}));
     });
-    await waitFor(() => expect(nameField()).toHaveValue(''));
+    await waitFor(() => expect(revealSetButton()).toBeInTheDocument());
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await chooseRevealSet(user);
+    expect(nameField()).toHaveValue('');
   });
 
   it('publishes the card, says when it goes live, and moves focus to the outcome (R-59, R-66)', async () => {
@@ -242,7 +266,8 @@ describe('StudioPage: New reveal', () => {
 
   // Doberjohn/inkweave-admin#54: a drop hands the file over as a pick does, so useImageUpload's checks run on it.
   it('stages a scan dropped on the preview through the same checks as a pick', async () => {
-    renderStudio();
+    const {user} = renderStudio();
+    await chooseRevealSet(user);
     const cover = screen.getByLabelText('Click or drop to upload scan').closest('label') as HTMLElement;
     fireEvent.drop(cover, {dataTransfer: fileDrag(new File(['GIF89a'], 'mei.gif', {type: 'image/gif'}))});
     const preview = within(screen.getByRole('region', {name: 'Card preview'}));
@@ -273,9 +298,11 @@ describe('StudioPage: New reveal', () => {
 
   it('loads a failed card list again from the checklist, keeping the draft, and hands focus to the form (R4-8f, R-48)', async () => {
     const retryLoad = vi.fn();
+    const {user} = renderStudio();
+    await chooseRevealSet(user);
+    // Step 2 shows only once the list has loaded, so here it fails under a chosen set.
     setCardList({cards: [], error: new Error('Failed to fetch local cards: 500')});
     Object.assign(cardList.value ?? {}, {retryLoad});
-    const {user} = renderStudio();
     await user.type(nameField(), 'Mei');
     const checklist = within(screen.getByRole('region', {name: 'Ready to publish'}));
     await user.click(checklist.getByRole('button', {name: 'Load the card list again'}));
@@ -297,7 +324,7 @@ describe('StudioPage: New reveal', () => {
 
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     await user.click(forget);
-    expect(confirm).toHaveBeenCalledWith('Forget the token and drop your New reveal card?');
+    expect(confirm).toHaveBeenCalledWith('Forget the token and drop your new card?');
     expect(localStorage.getItem(TOKEN_KEY)).toBe('tok');
 
     confirm.mockReturnValue(true);

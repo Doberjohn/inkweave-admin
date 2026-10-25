@@ -24,7 +24,7 @@ export const routes: RouteObject[] = [
       {path: 'cards/:cardId?', element: <CardAnalyticsPage />},
       // The old analytics page split into the insights pages; a bookmark lands on the Overview (R-10).
       {path: 'analytics', element: <Navigate to="/" replace />},
-      // New reveal and Edit card (R4); ?mode= and ?card= pick the mode and the card (studioHref).
+      // New card and Edit card (R4); ?mode= and ?card= pick the mode and the card (studioHref).
       {path: 'studio', element: <StudioPage />},
       // The homepage's six featured cards (#95): commits featuredCardIds.json, behind the token gate.
       {path: 'featured', element: <FeaturedPage />},

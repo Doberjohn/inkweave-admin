@@ -63,7 +63,7 @@ describe('NewRevealPane', () => {
       <NewRevealPane ctrl={revealController({canPublish: true, publish})} layout="wide" handoff={handoff} onForgetToken={vi.fn()} />,
     );
     await user.click(publishButton());
-    // The workspace renders this pane only in New reveal, so a switch unmounts it.
+    // The workspace renders this pane only as New card's step 2, so a switch unmounts it.
     unmount();
 
     await act(async () => land());

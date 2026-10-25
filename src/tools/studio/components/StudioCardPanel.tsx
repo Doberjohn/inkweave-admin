@@ -253,7 +253,7 @@ export interface StudioCardPanelProps {
   layout: StudioLayout;
   /** The controller's imageName and imageError. */
   staged: StagedImage;
-  /** Edit: the card as it stands, whose art the thumbnail shows while an image is staged (R-89). New reveal has none. */
+  /** Edit: the card as it stands, whose art the thumbnail shows while an image is staged (R-89). New card has none. */
   current?: LorcanaCard | null;
   /**
    * Whether the panel offers to replace the image (default true). False draws the art and the caption
@@ -262,7 +262,7 @@ export interface StudioCardPanelProps {
    */
   imageControl?: boolean;
   onImageChange: (file: File | null) => void;
-  /** Edit's revertImage. Without it, Revert image clears the file through onImageChange(null), as New reveal does. */
+  /** Edit's revertImage. Without it, Revert image clears the file through onImageChange(null), as New card does. */
   onRevertImage?: () => void;
 }
 

@@ -211,7 +211,7 @@ describe('Card studio routes', () => {
   // Card studio replaced the two write tools at /reveal and /image (R4). Their
   // old paths land in the mode that replaced each (R-10).
   it.each([
-    {path: '/reveal', mode: 'New reveal', search: ''},
+    {path: '/reveal', mode: 'New card', search: ''},
     {path: '/image', mode: 'Edit card', search: '?mode=edit'},
   ])('redirects the retired $path to Card studio in $mode', async ({path, search}) => {
     const router = routerAt(path);

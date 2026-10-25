@@ -11,7 +11,7 @@ export type ChecklistActions = Partial<Record<ChecklistId, ReactNode>>;
 interface ReadyChecklistProps {
   /** revealChecklist's items (R4-3a), in the form's order. An open item carries its message. */
   items: readonly ChecklistItem[];
-  /** New reveal's "Load the card list again", under Collector number while the list has failed (R4-8f). */
+  /** New card's "Load the card list again", under Collector number while the list has failed (R4-8f). */
   actions?: ChecklistActions;
 }
 
@@ -82,7 +82,7 @@ function ChecklistRow({item, action}: {item: ChecklistItem; action: ReactNode}) 
 }
 
 /**
- * New reveal's "Ready to publish N/7" (R4-3a's checklist): the count, a bar,
+ * New card's "Ready to publish N/7" (R4-3a's checklist): the count, a bar,
  * then each item with its message while it is open, so the list names what
  * is left. Every item is done exactly when Publish can run. The count prints
  * beside the bar, so the bar is decoration (MeterBar with no label). An item

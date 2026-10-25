@@ -44,6 +44,14 @@ export const STUDIO_GRID: Readonly<Record<StudioLayout, CSSProperties>> = {
 };
 
 /**
+ * A row of its own across the studio's root, in either layout: grid-column spans the wide grid's
+ * columns and flex fills a line of the narrow layout's wrapping row. Each property applies in its own
+ * layout only, so a part that takes it needs to know neither: the Version changes tray, and New
+ * card's set step and set bar.
+ */
+export const STUDIO_OWN_ROW: CSSProperties = {gridColumn: '1 / -1', flex: '1 1 100%', minWidth: 0};
+
+/**
  * Where each slot sits. Wide: the form spans the two middle columns. Narrow:
  * the form keeps 300-400px, the card panel takes the free width, and the aside
  * wraps under them when it doesn't fit. On a phone the root's content box is

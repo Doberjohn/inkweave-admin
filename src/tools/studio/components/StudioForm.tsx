@@ -29,7 +29,7 @@ interface StudioFormProps {
   /** Text fields shown read-only: Edit locks the collector number (R-91). */
   locked?: ReadonlySet<keyof RevealCardForm>;
   /**
-   * The card list New reveal checks the number against: Identity's dot waits
+   * The card list New card checks the number against: Identity's dot waits
    * for it, as the checklist does (sectionStatuses, R4-8f). Edit passes none.
    */
   list?: CardListStatus;
@@ -37,7 +37,7 @@ interface StudioFormProps {
    * Edit's count of Reverts that put the inks back (the Ink row's): each one
    * makes the Dual-ink switch follow the form's ink2 again, as a form opened
    * fresh does, while the open section stays (Doberjohn/inkweave-admin#52).
-   * New reveal passes none.
+   * New card passes none.
    */
   inksRestored?: number;
 }

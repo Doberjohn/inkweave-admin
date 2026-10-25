@@ -400,14 +400,14 @@ export function draftChanges(draft: Draft): PreviewCardChanges {
   return fields === null ? {} : cardChanges(fields.loaded, fields.before, fields.form);
 }
 
-/** New reveal's validator, for the edit (validateCardEdit); nothing to check on an image-only card. */
+/** New card's validator, for the edit (validateCardEdit); nothing to check on an image-only card. */
 export function draftValidation({draft, imageName}: {draft: Draft; imageName: string | null}): ValidationResult {
   const fields = fieldsOf(draft);
   return fields === null ? {ok: true, errors: {}} : validateCardEdit(fields.form, imageName);
 }
 
 /**
- * The live preview: the form built as New reveal builds it (buildPreview),
+ * The live preview: the form built as New card builds it (buildPreview),
  * over the staged image or else the card's current art; for an image-only
  * card, the card itself with the staged image swapped in; null until the card
  * is open.

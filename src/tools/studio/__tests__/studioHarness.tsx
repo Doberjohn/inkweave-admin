@@ -3,10 +3,11 @@ import {act, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent, {type UserEvent} from '@testing-library/user-event';
 import {createMemoryRouter, Link, RouterProvider, useParams} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {inkBlock} from '../../../app-bridge';
+import {REVEAL_SET_CODE, inkBlock} from '../../../app-bridge';
 import {studioHref} from '../../../shell/nav';
 import {pngFile} from '../../../test/images';
 import {chunksOf, setOfChunk, type ChunkAnswer} from '../finishes/__tests__/collectionHarness';
+import {newCardSet} from '../newCardSets';
 import {StudioPage} from '../StudioPage';
 import {cardList, type CardList} from './studioStores';
 
@@ -33,7 +34,7 @@ const json = (body: unknown) => new Response(JSON.stringify(body), {headers: {'c
 
 /**
  * Stubs fetch: the token can push, previewCards.json answers with `preview`
- * (by default it never settles: New reveal never needs it), the chunks of Sets
+ * (by default it never settles: New card never needs it), the chunks of Sets
  * 1 to 8 that Edit card's search adds answer with `chunk` (by default each
  * holds no card, so a card id waits for them only a moment), and every other
  * request never settles.
@@ -114,23 +115,37 @@ export function renderStudio({path = '/studio', token = 'tok'}: StudioRender = {
   return {router, user: userEvent.setup()};
 }
 
-/** A New reveal card to fill: who fills it, and its name. */
+/** The open reveal set's button in New card's step 1, by its name: "Set 14 Hyperia City". */
+export function revealSetButton() {
+  const {code, name} = newCardSet(REVEAL_SET_CODE);
+  return screen.getByRole('button', {name: `Set ${code} ${name}`});
+}
+
+/** Chooses the reveal set in New card's step 1, which the card list's cards leave open, and waits for the form. */
+export async function chooseRevealSet(user: UserEvent) {
+  await user.click(revealSetButton());
+  await screen.findByRole('textbox', {name: 'Collector number'});
+}
+
+/** A card for New card to fill: who fills it, and its name. */
 export interface NewCard {
   user: UserEvent;
   name: string;
 }
 
 /**
- * Fills a card New reveal can publish: a Character named `name`, numbered in
- * Amber's block (the form's default ink), with its scan, `{name}.png`.
+ * Fills a card New card can publish, from its step 1: the reveal set, then a
+ * Character named `name`, numbered in Amber's block (the form's default ink),
+ * with its scan, `{name}.png`.
  */
 export async function fillNewCard({user, name}: NewCard) {
+  await chooseRevealSet(user);
   await user.type(screen.getByRole('textbox', {name: 'Collector number'}), String(inkBlock('Amber').first));
   await user.type(await screen.findByRole('textbox', {name: 'Name'}), name);
   for (const [field, value] of [['Cost', '4'], ['Strength', '3'], ['Willpower', '5'], ['Lore', '2']] as const) {
     await user.type(screen.getByRole('textbox', {name: field}), value);
   }
-  // The card panel's file input: the only one New reveal has.
+  // The card panel's file input: the only one New card has.
   const input = document.querySelector<HTMLInputElement>('input[type="file"]');
   if (input) await user.upload(input, pngFile(`${name.toLowerCase()}.png`));
   await waitFor(() => expect(screen.getByRole('button', {name: /^Publish/})).toBeEnabled());
@@ -165,10 +180,10 @@ export function watchAdditions() {
  * Where a browser leaves focus once the focused Publish or Save button goes
  * off: on <body> (HTML's focus fixup rule). jsdom keeps it on the disabled
  * button, which can't blur, so focus another control and let that go: the
- * mode switch's New reveal, which the header shows in either mode.
+ * mode switch's New card, which the header shows in either mode.
  */
 export function dropFocusToBody() {
-  const control = within(screen.getByRole('group', {name: 'Studio mode'})).getByRole('button', {name: 'New reveal'});
+  const control = within(screen.getByRole('group', {name: 'Studio mode'})).getByRole('button', {name: 'New card'});
   act(() => {
     control.focus();
     control.blur();

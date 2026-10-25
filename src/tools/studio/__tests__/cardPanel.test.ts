@@ -14,7 +14,7 @@ import {PANEL_CARD} from '../studioFixtures';
 
 const STAGED = {name: 'mei.png', error: null};
 const FAILED = {name: 'mei.png', error: 'mei.png holds a JPEG image; rename it to end in .jpg.'};
-/** A fresh New reveal form's card: Amber, a Character, no name and no art. */
+/** A fresh New card form's card: Amber, a Character, no name and no art. */
 const FRESH: LorcanaCard = {...PANEL_CARD, name: '', fullName: '', version: undefined};
 
 interface Words {

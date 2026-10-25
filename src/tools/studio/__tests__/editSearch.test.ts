@@ -221,7 +221,7 @@ describe('searchCards', () => {
 
 // R4-4d (R-66): the cards only the branch file holds.
 describe('searchCards: deployed', () => {
-  // A card New reveal just published leads the list (editSources puts it first), then the card list.
+  // A card New card just published leads the list (editSources puts it first), then the card list.
   const cards = [revealCard(9), revealCard(1), card({id: '1936'})];
   const previewIds = new Set([REVEAL_ID_BASE + 9, REVEAL_ID_BASE + 1]);
 

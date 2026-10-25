@@ -1,47 +1,74 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
+import {REVEAL_SET_CODE} from '../../app-bridge';
 import type {FocusHandoff} from '../../shell/focusHandoff';
 import {revealForm} from '../../test/revealForm';
 import type {RevealAdminController} from '../reveal/useRevealAdmin';
 import {validateRevealCardForm} from '../reveal/validateForm';
-import {NewRevealPane} from './NewRevealPane';
+import {NewCardPane} from './NewCardPane';
 import {revealController} from './studioFixtures';
 import type {StudioLayout} from './studioLayout';
 import {STUDIO_GRID} from './studioStyles';
+import type {NewCardStepState} from './useNewCardStep';
 
 /** No story takes a handoff: nothing here unmounts the control pressed. */
 const NO_HANDOFF: FocusHandoff = {pending: false, request: () => {}, done: () => {}};
 
-interface NewRevealStoryProps {
+/**
+ * Step 2, the reveal set chosen. Change set does nothing here: the step is
+ * StudioWorkspace's state. Step 1 reads the card list's provider, so its
+ * stories render it on its own (Set step).
+ */
+const REVEAL_CHOSEN: NewCardStepState = {set: REVEAL_SET_CODE, choose: () => {}, change: () => {}, editInstead: () => {}};
+
+interface NewCardStoryProps {
   layout: StudioLayout;
   ctrl: RevealAdminController;
 }
 
 /**
- * New reveal in the studio's root, as StudioWorkspace lays it out under the
- * page header. The workspace has no story of its own: its guard needs the data
- * router, which a story doesn't have.
+ * New card's step 2 in the studio's root, as StudioWorkspace lays it out under
+ * the page header: the set bar over the reveal form's slots. The workspace has
+ * no story of its own: its guard needs the data router, which a story doesn't
+ * have.
  */
-function NewRevealStory({layout, ctrl}: NewRevealStoryProps) {
+function NewCardStory({layout, ctrl}: NewCardStoryProps) {
   return (
     <div style={STUDIO_GRID[layout]}>
-      <NewRevealPane ctrl={ctrl} layout={layout} handoff={NO_HANDOFF} onForgetToken={() => {}} />
+      <NewCardPane ctrl={ctrl} step={REVEAL_CHOSEN} layout={layout} handoff={NO_HANDOFF} onForgetToken={() => {}} />
     </div>
   );
 }
 
-const meta: Meta<typeof NewRevealStory> = {
-  title: 'Admin/Publish/Card studio/New reveal',
-  component: NewRevealStory,
+const meta: Meta<typeof NewCardStory> = {
+  title: 'Admin/Publish/Card studio/New card',
+  component: NewCardStory,
   args: {layout: 'wide', ctrl: revealController()},
 };
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** An empty draft, wide: the card panel, the form's four sections two by two, and the aside. */
+/**
+ * An empty draft, wide: the set bar, then the card panel, the form's four
+ * sections two by two, and the aside. With no number typed, the bar names the
+ * rule for the card's id.
+ */
 export const EmptyWide: Story = {};
 
-/** The same draft narrow: the form first, as an accordion, then the card panel and the aside. */
+/** The same draft narrow: the bar's parts stacked, the form first, as an accordion, then the card panel and the aside. */
 export const EmptyNarrow: Story = {args: {layout: 'narrow'}};
+
+const NUMBERED_FORM = revealForm();
+
+/** A complete card: the bar names the id its collector number gives it, and the checklist waits only for the scan. */
+export const Numbered: Story = {
+  args: {
+    ctrl: revealController({
+      dirty: true,
+      form: NUMBERED_FORM,
+      validation: validateRevealCardForm(NUMBERED_FORM, new Set(), null),
+    }),
+  },
+};
 
 /** Just published: the outcome, with the deploy note and the commit link, over an empty form again. */
 export const Published: Story = {

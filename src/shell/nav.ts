@@ -24,7 +24,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
   {id: 'cards', label: 'Card analytics', mark: 'Cd', path: '/cards', group: 'insights', writes: false},
-  // New reveal and Edit card on one page (R4), in place of the write tools at /reveal and /image,
+  // New card and Edit card on one page (R4), in place of the write tools at /reveal and /image,
   // which now redirect here (R-10). Both modes commit to the app repo, so the page writes (R-4).
   {id: 'studio', label: 'Card studio', mark: 'Cs', path: '/studio', group: 'publish', writes: true},
   // The homepage's six featured cards (#95). Saving commits featuredCardIds.json to the app repo, so the page writes (R-4).
@@ -64,13 +64,13 @@ export function cardsHref(cardId?: string): string {
   return cardId ? `/cards/${encodeURIComponent(cardId)}` : '/cards';
 }
 
-/** Card studio's two modes (R-57): New reveal, and Edit card. */
+/** Card studio's two modes (R-57): New card, and Edit card. */
 export type StudioMode = 'new' | 'edit';
 
 /**
  * Card studio in a mode, opened on a card when one is given (R-81): what the
  * mode switch, the Edit search's rows, Card analytics' "Edit in Card studio"
- * and the old /reveal and /image redirects navigate to. New reveal is the bare
+ * and the old /reveal and /image redirects navigate to. New card is the bare
  * path, and the card rides along as ?card=, so a switch keeps it and Back
  * returns to the other mode (R-57). An empty id names no card.
  */

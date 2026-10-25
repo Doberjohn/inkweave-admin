@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe('useCardEditor: cards only the branch file holds (R-66)', () => {
-  it('lists a card New reveal just published first, not deployed, with the art it will have', async () => {
+  it('lists a card New card just published first, not deployed, with the art it will have', async () => {
     setCardList([LISTED_PREVIEW, RELEASED_CARD]);
     const read = nextRead();
     const {result} = renderEditor(null);
@@ -155,7 +155,7 @@ describe('useCardEditor: cards only the branch file holds (R-66)', () => {
     expect(result.current.previewFile.previewIds?.has(1936)).toBe(false);
   });
 
-  it('reads the file again on reloadFile, so a card New reveal just published opens at once', async () => {
+  it('reads the file again on reloadFile, so a card New card just published opens at once', async () => {
     setCardList([LISTED_PREVIEW]);
     const first = nextRead();
     const {result, rerender} = renderEditor(null);

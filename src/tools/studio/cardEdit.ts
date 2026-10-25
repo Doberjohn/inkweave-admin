@@ -163,7 +163,7 @@ function changedFields(before: RevealCardForm, after: RevealCardForm): (keyof Re
 /**
  * What the edit changes on the card, for replaceCardInPreviewJson. Each changed
  * field's keys (FIELD_KEYS) take their values from buildPreviewCard(after), so
- * house style, keyword chips and sections come out as New reveal builds them.
+ * house style, keyword chips and sections come out as New card builds them.
  * A key the built card lacks is null (remove it). A value JSON-equal to the
  * loaded one is dropped, and so is a null for a key the loaded card lacks, so
  * typing that builds the same card ("Singer  5", spaces round the name) changes
@@ -183,7 +183,7 @@ export function cardChanges(
 }
 
 /**
- * New reveal's validator, for an edit. The number is locked, so the card's id is
+ * New card's validator, for an edit. The number is locked, so the card's id is
  * its own and the id check runs against no ids. The image is optional: with none
  * staged, its error goes. Every other rule still runs.
  */

@@ -93,14 +93,14 @@ export interface CardEditorController extends EditSave {
    * image-only card (editSynergies). A call, not a value: StudioWorkspace runs
    * this hook on every render in either mode, and the React Compiler leaves
    * its chain unmemoized, so a value here ran the engine on every keystroke in
-   * New reveal too. The Edit pane calls it as it shows the synergies, which it
+   * New card too. The Edit pane calls it as it shows the synergies, which it
    * does only in Edit card (Doberjohn/inkweave-admin#55).
    */
   findSynergies: () => SynergyGroup[];
   imageName: string | null;
   /** The staged image's bytes; null while they are read, and for a file that fails its check. */
   imageDataUrl: string | null;
-  /** The staged file's own error, else the validator's image error (imageErrorOf, as New reveal derives it). */
+  /** The staged file's own error, else the validator's image error (imageErrorOf, as New card derives it). */
   imageError: string | null;
   /** Stage a file for this card (null clears it). Resolves once its bytes are read. */
   onImageChange: (file: File | null) => Promise<void>;
@@ -144,7 +144,7 @@ export interface CardEditorController extends EditSave {
    * (`error`) and offers `retry`.
    */
   collection: CollectionOnlyCards;
-  /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New reveal publish lands. */
+  /** R4-4d (R-66): reads previewCards.json again, as previewFile.reload does; R4-6b calls it once a New card publish lands. */
   reloadFile: () => void;
   /**
    * R4-6b: the draft's seed, bumped on every re-seed (another card, the read a

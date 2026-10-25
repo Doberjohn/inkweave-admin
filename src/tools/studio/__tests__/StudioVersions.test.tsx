@@ -23,7 +23,7 @@ import {clashMessage, versionCommitMessage} from '../finishes/publishVersions';
 import {VERSION_BATCH_KEY_PREFIX, useVersionBatch} from '../finishes/versionBatchStore';
 import {PREVIEW_ENTRY, RELEASED_CARD, VARIANTS_ENTRY, cardOf} from '../studioFixtures';
 import {STUDIO_WIDE_MIN} from '../studioLayout';
-import {TOKEN_KEY, renderStudio, setCardList, watchAdditions} from './studioHarness';
+import {TOKEN_KEY, chooseRevealSet, renderStudio, setCardList, watchAdditions} from './studioHarness';
 import {stubStudioRepo} from './studioRepo';
 import {measured} from './studioStores';
 
@@ -65,6 +65,13 @@ const versionsTray = () => screen.queryByRole('region', {name: 'Version changes'
  * the panes, is its child, and the tray stays a child of the root: its foot sticks across the root (#74).
  */
 const pageBody = () => screen.getByRole('main').lastElementChild;
+
+/** The tray as the studio lays it out: a row of its own after `pane`, in the studio's root, the page body's child. */
+function expectTrayAfter(pane: HTMLElement, tray: HTMLElement) {
+  expect(pane.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(tray.parentElement).toContainElement(pane);
+  expect(tray.parentElement?.parentElement).toBe(pageBody());
+}
 
 beforeEach(() => {
   // Wide, as StudioEdit's cases are, so every field of a form shows at once.
@@ -138,19 +145,20 @@ describe('StudioPage: the Version changes tray (#68)', () => {
     expect(versionsTray()).not.toBeInTheDocument();
   });
 
-  it('stays when the owner switches to New reveal, under that pane too: the batch is the studio’s, not the card’s', async () => {
+  it('stays when the owner switches to New card, under both its steps too: the batch is the studio’s, not the card’s', async () => {
     stubStudioRepo({branch: YEN_SID_FILES});
     const {user} = renderStudio({path: studioHref('edit', YEN_SID.id)});
     await user.click(within(await screen.findByRole('group', {name: NUMBER_223})).getByRole('button', {name: 'Both'}));
     await screen.findByRole('region', {name: 'Version changes'});
 
-    await user.click(within(screen.getByRole('group', {name: 'Studio mode'})).getByRole('button', {name: 'New reveal'}));
+    await user.click(within(screen.getByRole('group', {name: 'Studio mode'})).getByRole('button', {name: 'New card'}));
     const tray = screen.getByRole('region', {name: 'Version changes'});
     expect(within(tray).getByText(LINE_223)).toBeInTheDocument();
-    const publish = screen.getByRole('complementary', {name: 'Publish'});
-    expect(publish.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(tray.parentElement).toContainElement(publish);
-    expect(tray.parentElement?.parentElement).toBe(pageBody());
+    expectTrayAfter(screen.getByRole('region', {name: 'Which set is the card in?'}), tray);
+
+    await chooseRevealSet(user);
+    expect(within(tray).getByText(LINE_223)).toBeInTheDocument();
+    expectTrayAfter(screen.getByRole('complementary', {name: 'Publish'}), tray);
   });
 
   it('asks nothing when the owner leaves the page with changes staged: the batch lives in the browser', async () => {

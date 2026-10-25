@@ -50,7 +50,7 @@ const noop = () => {};
 /** A story's Revert takes nothing back: the list keeps every row, so focus moves on to the next row's. */
 const keepsAll = (rows: readonly ChangeRow[]) => () => rows.map(({id}) => id);
 
-/** New reveal's checklist for `form`, with an image chosen and read when `image` names one. */
+/** New card's checklist for `form`, with an image chosen and read when `image` names one. */
 function checklistFor({form, image}: {form: RevealCardForm; image: string | null}) {
   const validation = validateRevealCardForm(form, new Set(), image);
   return revealChecklist(form, validation, {ready: image !== null, error: null});
@@ -100,7 +100,7 @@ function LiveChangeList() {
 
 const COMMIT = {commitUrl: 'https://github.com/Doberjohn/inkweave/commit/abc123'};
 // The notes the page picks (the R4 header's "Labels and notes"; R4-6a's newRevealNote, R4-6b's editNote):
-// New reveal's, and Edit's when an image went with the save.
+// New card's, and Edit's when an image went with the save.
 const NEW_NOTE = goLiveNote('Vercel is deploying it: allow 15 to 20 minutes before it shows on inkweave.ink.');
 const IMAGE_NOTE = goLiveNote('Vercel is deploying it: allow 15 to 20 minutes before the new image shows on inkweave.ink.');
 
@@ -113,7 +113,7 @@ function Commit({label, disabled = false}: {label: 'Publish' | 'Save changes'; d
   );
 }
 
-/** A fresh New reveal form: 1/7, every open item saying why, no synergies yet, Publish off. */
+/** A fresh New card form: 1/7, every open item saying why, no synergies yet, Publish off. */
 export const NewRevealFresh: Story = {
   render: () => (
     <>
@@ -137,7 +137,7 @@ export const NewRevealHalfDone: Story = {
   ),
 };
 
-/** Published: the form is empty again, and the status line holds the commit and New reveal's note. */
+/** Published: the form is empty again, and the status line holds the commit and New card's note. */
 export const NewRevealPublished: Story = {
   render: () => (
     <>

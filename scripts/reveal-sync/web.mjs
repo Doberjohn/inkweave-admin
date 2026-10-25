@@ -1,7 +1,7 @@
 /**
  * Load admin's TypeScript from Node: the season through the app bridge (src/app-bridge.ts,
- * the one module that reaches the pinned app), the write chain Card studio's New reveal uses
- * (src/tools/reveal/), and the map of the numbers released cards hold, which New reveal checks.
+ * the one module that reaches the pinned app), the write chain Card studio's New card uses
+ * (src/tools/reveal/), and the map of the numbers released cards hold, which New card checks.
  * Vite's `runnerImport` transforms them the way the dev server does, so nothing is
  * duplicated, and a season rotation reaches the skill with a pin bump.
  *
@@ -62,7 +62,7 @@ export async function loadSeason() {
 /**
  * transformRawCards and releasedRevealNumbers: allCards.json's cards built as the app's loader
  * builds them, then the numbers the reveal set's released cards hold, mapped as Card studio's
- * New reveal maps them (released.mjs, Doberjohn/inkweave-admin#51).
+ * New card maps them (released.mjs, Doberjohn/inkweave-admin#51).
  */
 export async function loadReleasedChain() {
   const [bridge, released] = await Promise.all([
@@ -75,7 +75,7 @@ export async function loadReleasedChain() {
   };
 }
 
-/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as Card studio's New reveal uses them. */
+/** validateRevealCardForm, buildPreviewCard and insertCardIntoPreviewJson, as Card studio's New card uses them. */
 export async function loadWriteChain() {
   const dir = 'src/tools/reveal';
   const [validate, build, insert] = await Promise.all([
