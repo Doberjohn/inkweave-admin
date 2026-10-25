@@ -1,4 +1,5 @@
 import {FEATURED_INKS} from '../../app-bridge';
+import {entryName} from '../featured/githubClient';
 
 /*
  * What a commit did to featuredCardIds.json: each slot whose card it changed, by the slot's
@@ -33,8 +34,7 @@ function sideOf(entry: unknown): FeaturedSide | null {
   const {id, card} = entry as {id?: unknown; card?: unknown};
   if (id === undefined) return null;
   const line = typeof card === 'string' ? card : '';
-  const colon = line.indexOf(': ');
-  return {id: String(id), name: colon === -1 ? line || String(id) : line.slice(colon + 2)};
+  return {id: String(id), name: entryName({id: String(id), card: line}) || String(id)};
 }
 
 /** Each slot whose card differs between the file before the commit and after it; null sides have no file. */

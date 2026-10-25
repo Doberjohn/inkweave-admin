@@ -1,32 +1,13 @@
 import {useRef, useState} from 'react';
 import type {Ink, LorcanaCard} from 'inkweave-synergy-engine';
-import {DialogShell, FONTS, SPACING, TRUNCATE, smallImageUrl} from '../../app-bridge';
-import {PICK_ROW_THUMB} from '../../theme/AdminStyles';
+import {DialogShell, SPACING, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
+import {CardThumb} from '../../ui/CardThumb';
+import {DIALOG_HEADING, DIALOG_PANEL} from '../../ui/dialogFrame';
 import {SEARCH_LIMIT, candidatesFor} from './featuredSlots';
 
-/** A row's thumbnail: a card's own proportions, as Edit card's search draws it. */
-const THUMB_HEIGHT = 48;
 /** How wide the dialog grows: room for a long full name beside its thumbnail and id. */
-const PANEL_WIDTH = 560;
-
-// The guard's dialog panel (UnsavedChangesGuard): admin's card fill over the page, so it hides what is under it.
-const PANEL: React.CSSProperties = {
-  maxWidth: PANEL_WIDTH,
-  padding: SPACING.xl,
-  background: `linear-gradient(${ADMIN_COLORS.card}, ${ADMIN_COLORS.card}), ${ADMIN_COLORS.page}`,
-  border: `1px solid ${ADMIN_COLORS.strongBorder}`,
-  borderRadius: ADMIN_RADIUS.panel,
-  color: ADMIN_COLORS.text,
-  fontFamily: FONTS.body,
-};
-const HEADING: React.CSSProperties = {
-  margin: 0,
-  fontFamily: FONTS.hero,
-  fontSize: ADMIN_TYPE.sectionTitle,
-  fontWeight: 400,
-  lineHeight: 1.2,
-};
+const PANEL: React.CSSProperties = {...DIALOG_PANEL, maxWidth: 560};
 const HINT: React.CSSProperties = {margin: `${SPACING.xs}px 0 ${SPACING.lg}px`, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 const STATUS: React.CSSProperties = {margin: `${SPACING.sm}px 0`, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 // The rows scroll inside the dialog, which stays on screen at any height.
@@ -40,15 +21,6 @@ const LIST: React.CSSProperties = {
   borderRadius: ADMIN_RADIUS.control,
 };
 const RULED: React.CSSProperties = {borderTop: `1px solid ${ADMIN_COLORS.divider}`};
-const THUMB: React.CSSProperties = {
-  display: 'block',
-  width: PICK_ROW_THUMB,
-  height: THUMB_HEIGHT,
-  overflow: 'hidden',
-  borderRadius: ADMIN_RADIUS.tag,
-  backgroundColor: ADMIN_COLORS.card,
-};
-const THUMB_IMAGE: React.CSSProperties = {display: 'block', width: '100%', height: '100%', objectFit: 'cover'};
 const NAME: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.body};
 const SUB: React.CSSProperties = {...TRUNCATE, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
@@ -60,10 +32,9 @@ function printedAt(card: LorcanaCard): string {
 
 /** One card the slot may take: its thumbnail, full name, set and number, and id. */
 function CandidateRow({card, current, onPick}: {card: LorcanaCard; current: boolean; onPick: () => void}) {
-  const src = smallImageUrl(card);
   return (
     <button type="button" className="adm-row-btn adm-pick-row" aria-pressed={current} onClick={onPick}>
-      <span style={THUMB}>{src && <img src={src} alt="" loading="lazy" style={THUMB_IMAGE} />}</span>
+      <CardThumb card={card} />
       <span style={{display: 'grid', gap: SPACING.xxs, minWidth: 0}}>
         <span style={NAME}>{card.fullName}</span>
         <span style={SUB}>{printedAt(card)}</span>
@@ -110,7 +81,7 @@ export function FeaturedSearch({ink, currentId, cards, onPick, onClose}: Feature
   const title = `Pick the ${ink ?? ''} card`;
   return (
     <DialogShell isOpen={ink !== null} onClose={close} ariaLabel={title} size="md" initialFocusRef={fieldRef} panelStyle={PANEL}>
-      <h2 style={HEADING}>{title}</h2>
+      <h2 style={DIALOG_HEADING}>{title}</h2>
       <p style={HINT}>Cards that carry {ink} and have art, dual-ink cards included. Search by name, version or id.</p>
       <input
         ref={fieldRef}

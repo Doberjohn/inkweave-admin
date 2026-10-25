@@ -6,7 +6,7 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {cardList} from '../../studio/__tests__/studioStores';
 import {FEATURED_CARDS, GOLIATH, SIX, entriesFor} from '../featuredFixtures';
 import {FeaturedPage} from '../FeaturedPage';
-import {staleFeatured} from '../githubClient';
+import {StaleFeaturedError} from '../githubClient';
 
 const {readFeatured, commitFeatured} = vi.hoisted(() => ({readFeatured: vi.fn(), commitFeatured: vi.fn()}));
 vi.mock('../githubClient', async (importOriginal) => ({
@@ -181,7 +181,7 @@ describe('FeaturedPage', () => {
     renderPage();
     await screen.findByRole('region', {name: 'Amethyst slot'});
     await pick(user, 'Amethyst', 'Goliath');
-    commitFeatured.mockRejectedValueOnce(staleFeatured('master'));
+    commitFeatured.mockRejectedValueOnce(new StaleFeaturedError('master'));
     await user.click(saveButton());
     readFeatured.mockResolvedValue(PICKED);
     await user.click(await screen.findByRole('button', {name: 'Reload featuredCardIds.json'}));

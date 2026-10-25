@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction} from 'react';
 import {getInks, type LorcanaCard} from 'inkweave-synergy-engine';
 import {featuredEntry, type FeaturedEntry} from '../../app-bridge';
+import {featuredFailureKind, type FeaturedFailureKind} from './featuredFailure';
 import {commitFeatured, readFeatured} from './githubClient';
 import {changedSlots, entriesOf, featuredProblem, slotsOf, type CardById, type FeaturedSlot} from './featuredSlots';
 
@@ -15,7 +16,8 @@ export type FeaturedSave =
   | {status: 'idle'}
   | {status: 'saving'}
   | {status: 'saved'; commitUrl: string}
-  | {status: 'failed'; error: string};
+  // kind: the way out the page offers (featuredFailureKind).
+  | {status: 'failed'; error: string; kind: FeaturedFailureKind};
 
 /** A slot's staged card: the slot's index, and the card picked for it. */
 export type FeaturedPicks = ReadonlyMap<number, LorcanaCard>;
@@ -72,6 +74,17 @@ function pickedSlot(slot: FeaturedSlot, card: LorcanaCard): FeaturedSlot {
 
 const entriesIn = (read: FeaturedRead) => (read.status === 'ready' ? read.entries : []);
 
+/** A failed save, with the way out its error asks for. */
+const failedSave = (e: unknown): FeaturedSave => ({
+  status: 'failed',
+  error: e instanceof Error ? e.message : 'Save failed',
+  kind: featuredFailureKind(e),
+});
+
+/** The picks left once a save of `sent` lands: those made while it ran, which it didn't commit. */
+const unsent = (picks: FeaturedPicks, sent: FeaturedPicks): FeaturedPicks =>
+  new Map([...picks].filter(([index, card]) => sent.get(index) !== card));
+
 /** Why Save is off, or null. */
 function blockedReason({picks, slots, save}: {picks: FeaturedPicks; slots: FeaturedSlot[]; save: FeaturedSave}): string | null {
   if (save.status === 'saving') return 'Saving…';
@@ -83,8 +96,8 @@ function blockedReason({picks, slots, save}: {picks: FeaturedPicks; slots: Featu
  * The Featured cards page's state: featuredCardIds.json from the target
  * branch (read once per token, and again on reload() and after a save), the
  * picks staged over it, and the save. A save writes the six in one commit
- * (commitFeatured), then drops the picks and reads the file again, so the page
- * shows what the branch holds.
+ * (commitFeatured). Once it lands the page shows the six it committed, keeps
+ * only the picks made while it ran, and reads the file again to confirm.
  */
 export function useFeaturedEditor(token: string, cardById: CardById): FeaturedEditor {
   const [read, setRead] = useState<FeaturedRead>({status: 'loading'});
@@ -129,14 +142,17 @@ export function useFeaturedEditor(token: string, cardById: CardById): FeaturedEd
   const onSave = () => {
     if (blocked) return;
     const entries = entriesOf(slots);
+    const sent = picks;
     setSave({status: 'saving'});
     commitFeatured({token, entries, loaded, changes: changedSlots(loaded, entries)}).then(
       ({commitUrl}) => {
         setSave({status: 'saved', commitUrl});
-        setPicks(new Map());
+        // The branch holds what the commit wrote, so the slots show it now, and stay right if the re-read fails.
+        setRead({status: 'ready', entries});
+        setPicks((prev) => unsent(prev, sent));
         void startRead(token, newest, setRead);
       },
-      (e: unknown) => setSave({status: 'failed', error: e instanceof Error ? e.message : 'Save failed'}),
+      (e: unknown) => setSave(failedSave(e)),
     );
   };
 

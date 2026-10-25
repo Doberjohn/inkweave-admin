@@ -1,12 +1,13 @@
 import {useId, useRef} from 'react';
 import {Link} from 'react-router-dom';
-import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, FONTS, SPACING, TRUNCATE, smallImageUrl} from '../../../app-bridge';
+import {CtaButton, FONTS, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
+import {CardThumb} from '../../../ui/CardThumb';
+import {CARD_THUMB} from '../../../ui/layout';
 import {Notice} from '../../../ui/Notice';
 import {idNameParts, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
@@ -14,9 +15,6 @@ import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';
 
 /** The search screen's column, the handoff's 720px (README §7). */
 const COLUMN_WIDTH = 720;
-/** A row's thumbnail, the handoff's 34 × 48: a card's own proportions. */
-const THUMB_WIDTH = 34;
-const THUMB_HEIGHT = 48;
 /** Room for two inks and a rarity, so every row's marks line up. */
 const MARKS_WIDTH = 3 * MARK_SIZE + 2 * SPACING.xs;
 /**
@@ -68,22 +66,12 @@ const RULED: React.CSSProperties = {borderTop: `1px solid ${ADMIN_COLORS.divider
 // ring, which the list's clipped corners keep whole.
 const ROW: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: `${THUMB_WIDTH}px minmax(0, 1fr) ${MARKS_WIDTH}px ${NUMBER_WIDTH}px`,
+  gridTemplateColumns: `${CARD_THUMB.width}px minmax(0, 1fr) ${MARKS_WIDTH}px ${NUMBER_WIDTH}px`,
   alignItems: 'center',
   gap: SPACING.md,
   padding: `${SPACING.sm}px ${SPACING.md}px`,
   textDecoration: 'none',
 };
-// The empty box shows until the art loads, and stays for a card with none.
-const THUMB: React.CSSProperties = {
-  display: 'block',
-  width: THUMB_WIDTH,
-  height: THUMB_HEIGHT,
-  overflow: 'hidden',
-  borderRadius: ADMIN_RADIUS.tag,
-  backgroundColor: ADMIN_COLORS.card,
-};
-const THUMB_IMAGE: React.CSSProperties = {display: 'block', width: '100%', height: '100%', objectFit: 'cover'};
 // The names and the marks carry adm-search-names and adm-search-marks, which stack the marks under the name in a list
 // too narrow to hold every tag beside them (AdminStyles, #74). A wider list keeps this grid as it is.
 const NAMES: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.xxs, minWidth: 0};
@@ -247,16 +235,6 @@ function FileReadError({error, file}: {error: string; file: EditSearchFile}) {
   );
 }
 
-/** A row's art, or its empty box. Decoration: the row's text names the card. */
-function Thumb({card}: {card: LorcanaCard}) {
-  const src = smallImageUrl(card);
-  return (
-    <span style={THUMB}>
-      {src && <img src={src} alt="" width={THUMB_WIDTH} height={THUMB_HEIGHT} loading="lazy" style={THUMB_IMAGE} />}
-    </span>
-  );
-}
-
 /**
  * The number's cell: numberLabel's text, then a twin's id (#74), which alone
  * tells its row from its twins': "Set 3 · #4 · id 436", wrapping as "Set 3 ·"
@@ -292,7 +270,7 @@ function ResultRow({row, ruled}: {row: SearchRow; ruled: boolean}) {
   return (
     <li style={ruled ? RULED : undefined}>
       <Link to={studioHref('edit', card.id)} className="adm-row-btn" style={ROW}>
-        <Thumb card={card} />{' '}
+        <CardThumb card={card} />{' '}
         <span className="adm-search-names" style={NAMES}>
           <span style={NAME_LINE}>
             <span style={NAME}>{card.name}</span> <CardTags tag={row.tag} deployed={row.deployed} />

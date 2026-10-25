@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {DUAL, FEATURED_CARDS, GOLIATH, SIX, cardByIdIn, entriesFor} from './featuredFixtures';
-import {staleFeatured} from './githubClient';
+import {StaleFeaturedError} from './githubClient';
 import {featuredProblem, slotsOf} from './featuredSlots';
 import type {FeaturedEditor, FeaturedSave} from './useFeaturedEditor';
 import type {UseDeployedFeaturedResult} from './useDeployedFeatured';
@@ -69,7 +69,7 @@ export const MissingInk: Story = {args: {editor: editorOf({six: [GOLIATH, ...SIX
 
 /** Someone saved from another tab first: the refusal, and Reload. */
 export const StaleRefusal: Story = {
-  args: {editor: editorOf({picks: [[1, GOLIATH]], save: {status: 'failed', error: staleFeatured('master').message}})},
+  args: {editor: editorOf({picks: [[1, GOLIATH]], save: {status: 'failed', error: new StaleFeaturedError('master').message, kind: 'stale'}})},
 };
 
 /** Just saved: the commit, and inkweave.ink still showing the previous six until the deploy finishes. */

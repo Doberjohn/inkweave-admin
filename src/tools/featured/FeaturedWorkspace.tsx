@@ -3,13 +3,13 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {CtaButton, LinkButton, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {targetBranch} from '../../github/githubCommit';
+import {isRejectedToken} from '../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
 import {PageLayout} from '../../shell/PageLayout';
 import {UnsavedChangesGuard, type UnsavedQuestion} from '../../shell/UnsavedChangesGuard';
 import {writeInFlightMessage} from '../../shell/writeInFlight';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {Notice} from '../../ui/Notice';
-import {featuredFailureKind} from './featuredFailure';
 import {FEATURED_SUBTITLE, FEATURED_TITLE} from './featuredCopy';
 import {FeaturedSaveBar} from './FeaturedSaveBar';
 import {FeaturedSearch} from './FeaturedSearch';
@@ -71,7 +71,7 @@ function ReadFailure({error, onRetry, onForgetToken}: {error: string; onRetry: (
   return (
     <div style={STACK}>
       <Notice tone="error">Couldn’t read featuredCardIds.json from {targetBranch()}: {error}</Notice>
-      {featuredFailureKind(error) === 'rejected-token' ? (
+      {isRejectedToken(error) ? (
         <ForgetTokenOffer onForget={onForgetToken} />
       ) : (
         <CtaButton type="button" variant="neutral" onClick={onRetry}>

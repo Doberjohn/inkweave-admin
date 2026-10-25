@@ -5,7 +5,7 @@ import {targetBranch} from '../../github/githubCommit';
 import {goLiveNote} from '../../github/goLiveNote';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {Notice} from '../../ui/Notice';
-import {featuredFailureKind} from './featuredFailure';
+import type {FeaturedFailureKind} from './featuredFailure';
 import type {FeaturedSave} from './useFeaturedEditor';
 
 const BAR: React.CSSProperties = {
@@ -40,8 +40,14 @@ interface FeaturedSaveBarProps {
 }
 
 /** A failed save, and the way out its kind needs: Reload after a stale refusal, a new token after a 401. */
-function SaveError({error, onReload, onForgetToken}: {error: string; onReload: () => void; onForgetToken: () => void}) {
-  const kind = featuredFailureKind(error);
+interface SaveErrorProps {
+  error: string;
+  kind: FeaturedFailureKind;
+  onReload: () => void;
+  onForgetToken: () => void;
+}
+
+function SaveError({error, kind, onReload, onForgetToken}: SaveErrorProps) {
   return (
     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm}}>
       <Notice tone="error">{error}</Notice>
@@ -118,7 +124,7 @@ export function FeaturedSaveBar({count, blocked, save, onSave, onDiscard, onRelo
   return (
     <section aria-label="Save" style={BAR}>
       <SaveRow count={count} blocked={blocked} saving={save.status === 'saving'} onSave={onSave} onDiscard={onDiscard} />
-      {save.status === 'failed' && <SaveError error={save.error} onReload={onReload} onForgetToken={onForgetToken} />}
+      {save.status === 'failed' && <SaveError error={save.error} kind={save.kind} onReload={onReload} onForgetToken={onForgetToken} />}
       {/* Mounted with the bar, so "Saved" is announced when it arrives: a live region mounted with its text often isn't. */}
       <p role="status" style={{...LINE, color: COLORS.success}}>
         {save.status === 'saved' && <SavedLine commitUrl={save.commitUrl} />}

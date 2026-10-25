@@ -22,15 +22,6 @@ export function slotsOf(entries: readonly FeaturedEntry[], cardById: CardById): 
   return entries.map(({id, card}, i) => ({ink: FEATURED_INKS[i], id, label: card, card: cardById(id)}));
 }
 
-/** The inks a line names before its colon, "Amethyst-Sapphire: …" naming two. */
-function labelInks(label: string): string[] {
-  const colon = label.indexOf(':');
-  return colon === -1 ? [] : label.slice(0, colon).split('-');
-}
-
-/** A slot's inks: its card's, else its line's. */
-const slotInks = (slot: FeaturedSlot): readonly string[] => (slot.card ? getInks(slot.card) : labelInks(slot.label));
-
 /** Why a slot's card can't be featured, or null: the card list lacks it, it has no art, or another slot holds it. */
 export function slotProblem(slot: FeaturedSlot, slots: readonly FeaturedSlot[]): string | null {
   if (!slot.card) return 'The card list doesn’t hold this card.';
@@ -50,7 +41,8 @@ export function featuredProblem(slots: readonly FeaturedSlot[]): string | null {
     const problem = slotProblem(slot, slots);
     if (problem) return `${slot.ink}: ${problem}`;
   }
-  const listProblem = featuredListProblem(slots.map((slot) => ({id: slot.id, inks: slotInks(slot)})));
+  // Every slot has a card by now: slotProblem refuses one the card list lacks.
+  const listProblem = featuredListProblem(slots.map((slot) => ({id: slot.id, inks: slot.card ? getInks(slot.card) : []})));
   return listProblem && `Can’t save: ${listProblem}.`;
 }
 

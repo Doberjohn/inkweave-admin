@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
-import {AdminStyles, FEATURED_TWO_UP_BELOW, PICK_ROW_THUMB, SEARCH_STACK_BELOW} from '../AdminStyles';
+import {AdminStyles, FEATURED_TWO_UP_BELOW, SEARCH_STACK_BELOW} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
 // The class names in the plan's shared interfaces (docs/plans/R-redesign.md).
@@ -466,7 +466,7 @@ describe('AdminStyles', () => {
   it("lays a slot search's row out as thumbnail, names and id, over the row button's block display (#95)", () => {
     // Two classes, so the rule outranks button.adm-row-btn's display:block.
     expect(stylesheet()).toContain(
-      `button.adm-row-btn.adm-pick-row{display:grid;grid-template-columns:${PICK_ROW_THUMB}px minmax(0,1fr) auto;`,
+      'button.adm-row-btn.adm-pick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;',
     );
   });
 

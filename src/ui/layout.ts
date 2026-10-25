@@ -63,3 +63,6 @@ export const SR_ONLY: CSSProperties = {
   clipPath: 'inset(50%)',
   whiteSpace: 'nowrap',
 };
+
+/** A search row's thumbnail in px (CardThumb): 34 × 48, a card's own proportions. Edit card's search and a Featured cards slot's draw it. */
+export const CARD_THUMB = {width: 34, height: 48} as const;

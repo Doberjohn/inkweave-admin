@@ -57,9 +57,12 @@ export function featuredCommitMessage(changes: readonly SlotChange[]): string {
   return `chore(cards): change the homepage's featured cards\n\n${lines.join('\n')}\n`;
 }
 
-/** The refusal featuredFailureKind reads as 'stale', so the page offers Reload. */
-export function staleFeatured(branch: string): Error {
-  return new Error(`${FILE_NAME} changed on ${branch} since this page read it, so nothing was saved. Reload it and pick again.`);
+/** commitFeatured's refusal when the file changed on the branch since the page read it: featuredFailureKind's 'stale', which offers Reload. */
+export class StaleFeaturedError extends Error {
+  constructor(branch: string) {
+    super(`${FILE_NAME} changed on ${branch} since this page read it, so nothing was saved. Reload it and pick again.`);
+    this.name = 'StaleFeaturedError';
+  }
 }
 
 const sameIds = (a: readonly FeaturedEntry[], b: readonly FeaturedEntry[]) =>
@@ -84,7 +87,7 @@ export async function commitFeatured(opts: {
     message: featuredCommitMessage(changes),
     files: async (baseCommitSha) => {
       const current = parseFeatured(await readRepoFile(token, FEATURED_PATH, baseCommitSha));
-      if (!sameIds(current, loaded)) throw staleFeatured(targetBranch());
+      if (!sameIds(current, loaded)) throw new StaleFeaturedError(targetBranch());
       return [{path: FEATURED_PATH, contentBase64: utf8ToBase64(featuredIdsJson(entries))}];
     },
   });

@@ -75,12 +75,12 @@ describe('commitFeatured', () => {
   it('refuses, writing nothing, when the file changed on the branch since the page read it', async () => {
     baseFile = featuredFileText([SIX[0], GOLIATH, ...SIX.slice(2)]);
     const calls = stubGithub();
-    const message = await commitFeatured({token: 'tok', entries: PICKED, loaded: LOADED, changes: []}).then(
+    const error: unknown = await commitFeatured({token: 'tok', entries: PICKED, loaded: LOADED, changes: []}).then(
       () => 'saved',
-      (e: Error) => e.message,
+      (e: unknown) => e,
     );
-    expect(message).toContain('featuredCardIds.json changed on master since this page read it');
-    expect(featuredFailureKind(message)).toBe('stale');
+    expect(String(error)).toContain('featuredCardIds.json changed on master since this page read it');
+    expect(featuredFailureKind(error)).toBe('stale');
     expect(calls.some((c) => c.url.endsWith('/git/blobs'))).toBe(false);
   });
 
