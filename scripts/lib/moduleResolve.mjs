@@ -40,11 +40,29 @@ export function starMatch({pattern, subpath}) {
   return subpath.slice(prefix.length, subpath.length - suffix.length);
 }
 
-/** The target an exports map gives `subpath` ("./tokens/theme"), its `*` filled in, or undefined. */
+// How specific an exports key is, as Node orders them (PATTERN_KEY_COMPARE): an exact key first,
+// then the pattern with the longest prefix before its `*`, then the longer key.
+const prefixRank = (key) => (key.includes('*') ? key.indexOf('*') : Number.MAX_SAFE_INTEGER);
+const bySpecificity = (a, b) => prefixRank(b) - prefixRank(a) || b.length - a.length;
+
+/**
+ * The path an exports target names for the browser build: the target itself, or a condition
+ * object's `import`, else its `default`. undefined for null, which blocks the subpath, or any
+ * other shape.
+ */
+export function targetPath(target) {
+  const chosen = target !== null && typeof target === 'object' ? (target.import ?? target.default) : target;
+  return typeof chosen === 'string' ? chosen : undefined;
+}
+
+/**
+ * The target an exports map gives `subpath` ("./tokens/theme"), its `*` filled in, or undefined.
+ * The most specific key that matches decides, so a null under it blocks the subpath.
+ */
 export function exportTarget({exports, subpath}) {
-  for (const [pattern, target] of Object.entries(exports)) {
+  for (const pattern of Object.keys(exports).sort(bySpecificity)) {
     const star = starMatch({pattern, subpath});
-    if (star !== undefined) return target.replaceAll('*', star);
+    if (star !== undefined) return targetPath(exports[pattern])?.replaceAll('*', star);
   }
   return undefined;
 }

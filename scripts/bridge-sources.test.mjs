@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
-import {INKWEAVE_UI, isRelative, resolvePackage, resolveRelative, starMatch} from './lib/moduleResolve.mjs';
+import {INKWEAVE_UI, isRelative, resolvePackage, resolveRelative, starMatch, targetPath} from './lib/moduleResolve.mjs';
 
 // The bridge takes the app's modules by path and inkweave-ui's by name (#101). A pin bump can move
 // a module out of the app and leave its name forwarded from the package by an app barrel, so the
@@ -23,6 +23,16 @@ const onDisk = {
 
 /** A file's syntax tree. The file's name tells TypeScript whether to read JSX. */
 const sourceOf = ({file, read}) => ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest);
+
+/** `tree` with `source(file)`, which parses each file once for the run: every name walks the same barrels. */
+function parsedOnce(tree) {
+  const parsed = new Map();
+  const source = (file) => {
+    if (!parsed.has(file)) parsed.set(file, sourceOf({file, read: tree.read}));
+    return parsed.get(file);
+  };
+  return {...tree, source};
+}
 
 /** inkweave-ui's exports map, from its package.json. */
 const uiExports = (read = onDisk.read) => JSON.parse(read(`${UI.root}/package.json`)).exports;
@@ -65,28 +75,80 @@ function ownExports(source) {
   });
 }
 
+/** Each binding of the import clause, as [its local name, its name in the module ('*' for a namespace)]. */
+const clauseBindings = ({name, namedBindings}) => [
+  ...(name ? [[name.text, 'default']] : []),
+  ...(namedBindings && ts.isNamespaceImport(namedBindings) ? [[namedBindings.name.text, '*']] : []),
+  ...(namedBindings && ts.isNamedImports(namedBindings)
+    ? namedBindings.elements.map(({name: local, propertyName}) => [local.text, (propertyName ?? local).text])
+    : []),
+];
+
+/** A file's imported bindings, by local name: the module each comes from, and its name there. */
+const importedBindings = (source) =>
+  new Map(
+    source.statements
+      .filter((node) => ts.isImportDeclaration(node) && node.importClause && !node.importClause.isTypeOnly)
+      .flatMap((node) =>
+        clauseBindings(node.importClause).map(([local, imported]) => [local, {module: node.moduleSpecifier.text, local: imported}]),
+      ),
+  );
+
+/** An `export … from` declaration's sources. A namespace export forwards only its own name. */
+function fromSources(node) {
+  const module = node.moduleSpecifier.text;
+  const clause = node.exportClause;
+  if (clause === undefined) return [{module, star: true}];
+  if (ts.isNamespaceExport(clause)) return [{name: clause.name.text, module, local: '*'}];
+  return listed(node).map(({name, local}) => ({name, module, local}));
+}
+
+/** An `export {…}` list with no module: each name that one of the file's imports brought in. */
+const localListSources = ({node, imports}) =>
+  (listed(node) ?? []).flatMap(({name, local}) => (imports.has(local) ? [{name, ...imports.get(local)}] : []));
+
+/** `export const x = y`, where y is one of the file's imports. */
+function aliasSources({node, imports}) {
+  if (!ts.isVariableStatement(node) || !isExported(node)) return [];
+  return node.declarationList.declarations.flatMap(({name, initializer}) => {
+    const binding = initializer && ts.isIdentifier(initializer) ? imports.get(initializer.text) : undefined;
+    return binding && ts.isIdentifier(name) ? [{name: name.text, ...binding}] : [];
+  });
+}
+
+/**
+ * Where a file's exports come from when another module holds them: `{name, module, local}` for a
+ * name, `local` being its name in `module` ('*' for a namespace), or `{module, star: true}` for
+ * `export *`. An `export … from`, and a local export of an import, by list or by `const x = y`.
+ */
+function exportSources(source) {
+  const imports = importedBindings(source);
+  return source.statements.flatMap((node) => {
+    if (!ts.isExportDeclaration(node)) return aliasSources({node, imports});
+    return node.moduleSpecifier === undefined ? localListSources({node, imports}) : fromSources(node);
+  });
+}
+
 /**
  * The `inkweave-ui/…` module a file's export `name` comes from, through any chain of re-exports,
- * renames or `export *`, or undefined when the name is the app's own. `tree` gives `read` and
- * `exists`, and `packages` the package's exports map.
+ * renames, `export *` or local exports of imports, or undefined when the name is the app's own.
+ * `tree` gives `source` (parsedOnce), `exists`, and `exports`, the package's exports map.
  */
 function forwardedFrom({file, name, tree, seen = new Set()}) {
   if (seen.has(file)) return undefined;
   seen.add(file);
-  for (const {module, names} of reExports(sourceOf({file, read: tree.read}))) {
-    const entry = names?.find((listed) => listed.name === name);
-    if (names !== null && entry === undefined) continue;
-    const local = entry?.local ?? name;
-    const found = followModule({from: file, module, name: local, tree, seen, star: names === null});
+  for (const entry of exportSources(tree.source(file))) {
+    if (!entry.star && entry.name !== name) continue;
+    const found = followModule({from: file, module: entry.module, name: entry.star ? name : entry.local, tree, seen, star: entry.star});
     if (found !== undefined) return found;
   }
   return undefined;
 }
 
-/** Where `name` comes from once a re-export points at `module`. */
+/** Where `name` comes from once an export points at `module`. A namespace of an app module is the app's own. */
 function followModule({from, module, name, tree, seen, star}) {
   if (module.startsWith(`${UI.name}/`)) return !star || packageExports({module, name, tree}) ? module : undefined;
-  if (!isRelative(module)) return undefined;
+  if (!isRelative(module) || name === '*') return undefined;
   const file = resolveRelative({from, specifier: module, exists: tree.exists});
   return file === undefined ? undefined : forwardedFrom({file, name, tree, seen});
 }
@@ -94,12 +156,13 @@ function followModule({from, module, name, tree, seen, star}) {
 /** Whether the package module behind `module` declares `name`: what an `export *` of it forwards. */
 function packageExports({module, name, tree}) {
   const resolved = resolvePackage({specifier: module, packages: [{...UI, exports: tree.exports}]});
-  return resolved?.file !== undefined && ownExports(sourceOf({file: resolved.file, read: tree.read})).includes(name);
+  return resolved?.file !== undefined && ownExports(tree.source(resolved.file)).includes(name);
 }
 
 /** Every stylesheet the package exports, as the bridge would import it: `inkweave-ui/styles/x.css`. */
 function packageStylesheets(exports) {
-  return Object.entries(exports).flatMap(([key, target]) =>
+  const paths = Object.entries(exports).flatMap(([key, target]) => (targetPath(target) ? [[key, targetPath(target)]] : []));
+  return paths.flatMap(([key, target]) =>
     fs
       .globSync(path.posix.join(UI.root, target).replace('*', '**/*'))
       .map((file) => file.split(path.sep).join('/'))
@@ -113,13 +176,13 @@ function packageStylesheets(exports) {
 
 /** The bridge's re-exports from the app's source, each with the file its path names. */
 function appEntries(tree) {
-  return reExports(sourceOf({file: BRIDGE, read: tree.read}))
+  return reExports(tree.source(BRIDGE))
     .filter(({module}) => module.startsWith(APP_SOURCE))
     .map((entry) => ({...entry, file: resolveRelative({from: BRIDGE, specifier: entry.module, exists: tree.exists})}));
 }
 
 describe("the bridge's sources", () => {
-  const tree = {...onDisk, exports: uiExports()};
+  const tree = parsedOnce({...onDisk, exports: uiExports()});
 
   it("names a file at every path into the app's source", () => {
     const missing = appEntries(tree)
@@ -137,7 +200,7 @@ describe("the bridge's sources", () => {
   });
 
   it("loads the app's index.css and every stylesheet the package exports", () => {
-    const loaded = new Set(sideEffectImports(sourceOf({file: BRIDGE, read: tree.read})));
+    const loaded = new Set(sideEffectImports(tree.source(BRIDGE)));
     const missing = [APP_STYLESHEET, ...packageStylesheets(tree.exports)].filter((sheet) => !loaded.has(sheet));
     expect(missing).toEqual([]);
   });
@@ -150,19 +213,33 @@ describe('forwardedFrom', () => {
       "export {useThing} from './hooks';",
       "export * from './more';",
       "export {APP_NAME} from './own';",
+      "export * from './locals';",
+      "export * as theme from 'inkweave-ui/tokens/theme';",
+      "export * as own from './own';",
       '',
     ].join('\n'),
     'app/hooks.ts': "export {useThing as useThing} from 'inkweave-ui/hooks/useThing';\n",
     'app/more.ts': "export * from 'inkweave-ui/tokens/lorcana';\nexport {renamed as OTHER} from './own';\n",
     'app/own.ts': "export const APP_NAME = 'Inkweave';\nexport const renamed = 1;\n",
+    'app/locals.ts': [
+      "import {COLORS as UI_COLORS, SPACING} from 'inkweave-ui/tokens/theme';",
+      "import {useThing as hook} from './hooks';",
+      "import type {Ink} from 'inkweave-ui/tokens/lorcana';",
+      "import {APP_NAME as name} from './own';",
+      'export {UI_COLORS as PALETTE, hook};',
+      'export const GAPS = SPACING;',
+      'export const TITLE = name;',
+      'export type {Ink};',
+      '',
+    ].join('\n'),
     'ui/src/tokens/lorcana.ts': 'export const ALL_INKS = [];\nexport function inkOf() {}\n',
-    'ui/src/tokens/theme.ts': 'export const COLORS = {};\n',
+    'ui/src/tokens/theme.ts': 'export const COLORS = {};\nexport const RADIUS = {};\n',
   };
-  const memoryTree = {
+  const memoryTree = parsedOnce({
     read: (file) => files[file.replace(`${UI.root}/`, 'ui/')],
     exists: (file) => Object.hasOwn(files, file),
     exports: {'./tokens/*': './src/tokens/*.ts'},
-  };
+  });
   const from = (name) => forwardedFrom({file: 'app/index.ts', name, tree: memoryTree});
 
   it('follows a named re-export, a rename and a chain of files to the package', () => {
@@ -180,6 +257,20 @@ describe('forwardedFrom', () => {
   it("leaves the app's own names alone, through a chain and a rename", () => {
     expect(from('APP_NAME')).toBeUndefined();
     expect(from('OTHER')).toBeUndefined();
+  });
+
+  it('follows a local export of an import, by list or by `const x = y`, to the package', () => {
+    expect(from('PALETTE')).toBe('inkweave-ui/tokens/theme');
+    expect(from('GAPS')).toBe('inkweave-ui/tokens/theme');
+    expect(from('hook')).toBe('inkweave-ui/hooks/useThing');
+    expect(from('TITLE')).toBeUndefined();
+    expect(from('Ink')).toBeUndefined();
+  });
+
+  it("reads a namespace export as one name, the package's namespace or the app's own", () => {
+    expect(from('theme')).toBe('inkweave-ui/tokens/theme');
+    expect(from('RADIUS')).toBeUndefined();
+    expect(from('own')).toBeUndefined();
   });
 });
 

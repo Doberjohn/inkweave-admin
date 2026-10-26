@@ -3,8 +3,9 @@
 // Startup is the JavaScript dist/index.html loads: its module script and any
 // modulepreloads. It must stay one file within BUDGET, gzipped at level 9 as
 // the shared component library's study measured it. Every url() in the built
-// CSS must name a file the build wrote, a data: URI or a path forwarded to
-// inkweave.ink (forwarded-paths.json): Vite only warns on a stylesheet url it
+// CSS must name a file the build wrote (public/ included), or a path forwarded
+// to inkweave.ink (forwarded-paths.json), unless it names no file at all, as
+// the app's cssUrlGuard reads urls: Vite only warns on a stylesheet url it
 // can't resolve and ships it as written, so a moved symbol draws nothing.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,6 +22,9 @@ const TAG = /<(script|link)\b[^>]*>/g;
 const ATTR = /\b([\w-]+)="([^"]*)"/g;
 const ASSET_JS = /^\/assets\/.+\.js$/;
 const CSS_URL = /url\(\s*(['"]?)(.*?)\1\s*\)/g;
+// Urls no file of the build backs, as the app's cssUrlGuard has them: a scheme (data: among them),
+// another origin, or a fragment reference.
+const NOT_A_FILE = /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i;
 
 /** What a <script> or <link> tag starts loading: a module script's src, or a modulepreload's href. */
 function loadedBy([tag, kind]) {
@@ -52,30 +56,40 @@ export function sizeProblems(measured, budget) {
   ];
 }
 
+/** The site path a url names: one relative to the stylesheet resolves against its folder. */
+const sitePath = ({url, sheet}) => path.posix.resolve(path.posix.dirname(sheet), url.replace(/[?#].*$/, ''));
+
 /**
- * Each url() in a stylesheet that is neither a data: URI or fragment reference, nor a built
- * /assets/ file (`emitted` holds their paths), nor under a forwarded prefix.
+ * Each url() in the stylesheet at site path `sheet` that names a file, but neither a built one
+ * (`emitted` holds their site paths) nor one under a forwarded prefix.
  */
-export function cssUrlProblems({css, emitted, forwarded}) {
+export function cssUrlProblems({css, sheet, emitted, forwarded}) {
   const resolves = (url) => {
-    const file = url.replace(/[?#].*$/, '');
+    const file = sitePath({url, sheet});
     return emitted.has(file) || forwarded.some((prefix) => file.startsWith(prefix));
   };
   const urls = [...new Set([...css.matchAll(CSS_URL)].map((match) => match[2]))];
   return urls
-    .filter((url) => !/^(data:|#)/.test(url) && !resolves(url))
+    .filter((url) => !NOT_A_FILE.test(url) && !resolves(url))
     .map((url) => `url(${url}) names no built file or forwarded path`);
 }
 
+/** Every file dist/ holds, by its site path ("/assets/x.css", "/favicon.svg"). */
+const builtFiles = () =>
+  fs
+    .readdirSync(DIST, {recursive: true, withFileTypes: true})
+    .filter((entry) => entry.isFile())
+    .map((entry) => `/${path.relative(DIST, path.join(entry.parentPath, entry.name)).split(path.sep).join('/')}`);
+
 function stylesheetProblems() {
-  const assets = fs.readdirSync(path.join(DIST, 'assets'));
-  const emitted = new Set(assets.map((name) => `/assets/${name}`));
+  const files = builtFiles();
+  const emitted = new Set(files);
   const {paths: forwarded} = JSON.parse(fs.readFileSync(path.join(ROOT, 'forwarded-paths.json'), 'utf8'));
-  return assets
-    .filter((name) => name.endsWith('.css'))
-    .flatMap((name) => {
-      const css = fs.readFileSync(path.join(DIST, 'assets', name), 'utf8');
-      return cssUrlProblems({css, emitted, forwarded}).map((problem) => `assets/${name}: ${problem}`);
+  return files
+    .filter((sheet) => sheet.endsWith('.css'))
+    .flatMap((sheet) => {
+      const css = fs.readFileSync(path.join(DIST, sheet), 'utf8');
+      return cssUrlProblems({css, sheet, emitted, forwarded}).map((problem) => `${sheet.slice(1)}: ${problem}`);
     });
 }
 

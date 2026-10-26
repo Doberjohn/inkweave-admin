@@ -68,6 +68,24 @@ describe('exportTarget', () => {
     expect(exportTarget({exports: UI_EXPORTS, subpath: './lorcana/InkIcon'})).toBeUndefined();
     expect(exportTarget({exports: UI_EXPORTS, subpath: '.'})).toBeUndefined();
   });
+
+  it('lets the most specific key decide, whatever the order, so a null under it blocks the subpath', () => {
+    const exports = {'./components/*': './src/components/*.tsx', './components/internal/*': null, './components/Exact': './src/Exact.tsx'};
+    expect(exportTarget({exports, subpath: './components/internal/Secret'})).toBeUndefined();
+    expect(exportTarget({exports, subpath: './components/Exact'})).toBe('./src/Exact.tsx');
+    expect(exportTarget({exports, subpath: './components/CtaButton'})).toBe('./src/components/CtaButton.tsx');
+  });
+
+  it("reads a condition object's import, else its default, and gives nothing for any other shape", () => {
+    const exports = {
+      './a/*': {types: './types/*.d.ts', import: './src/a/*.ts'},
+      './b/*': {default: './src/b/*.ts'},
+      './c/*': {node: './src/c/*.cjs'},
+    };
+    expect(exportTarget({exports, subpath: './a/x'})).toBe('./src/a/x.ts');
+    expect(exportTarget({exports, subpath: './b/x'})).toBe('./src/b/x.ts');
+    expect(exportTarget({exports, subpath: './c/x'})).toBeUndefined();
+  });
 });
 
 describe('resolvePackage', () => {

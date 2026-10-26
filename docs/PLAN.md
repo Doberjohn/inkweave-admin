@@ -102,7 +102,7 @@ The relative submodule URL `../inkweave.git` resolves against the admin remote: 
 
 ### 4.2 The bridge
 
-- `src/app-bridge.ts` re-exports exactly what admin uses from `upstream/inkweave/apps/web/src/**`, from `inkweave-ui` and from the engine. An ESLint `no-restricted-imports` rule rejects `upstream/**` and `inkweave-ui` imports everywhere else (#101). Two tooling files are exceptions: `eslint.config.js` loads the app's design-token plugin, and `vite.config.ts` its React Compiler guard.
+- `src/app-bridge.ts` re-exports exactly what admin uses from `upstream/inkweave/apps/web/src/**`, from `inkweave-ui` and from the engine. An ESLint `no-restricted-imports` rule rejects `upstream/**` and `inkweave-ui` imports everywhere else (#101). Two tooling exceptions remain: `eslint.config.js` loads the app's design-token plugin, and one import in `vite.config.ts`, the app's React Compiler guard, disables the rule on its own line.
 - The engine is a pnpm workspace package in admin (`upstream/inkweave/packages/synergy-engine`), built with its own tsup config before admin builds.
 - `inkweave-ui`, the app's shared component library (`upstream/inkweave/packages/ui`, Doberjohn/inkweave#976), is a second workspace package. It ships source and subpath exports only, so the bridge imports it by name (`inkweave-ui/components/CtaButton`), and admin's Vite and React Compiler compile it. The app's own `uiCompilerGuard` fails admin's build when the compiler reached none of its components, and `bridge-sources` fails when the bridge takes a name from the app's source that the app only forwards from the package, or skips a stylesheet the package exports.
 - Bridged app files compile under admin's toolchain. So admin:

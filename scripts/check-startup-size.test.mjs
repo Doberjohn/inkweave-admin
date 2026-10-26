@@ -50,7 +50,8 @@ describe('sizeProblems', () => {
 });
 
 describe('cssUrlProblems', () => {
-  const emitted = new Set(['/assets/amber-AAAA.svg']);
+  const sheet = '/assets/index-BBBB.css';
+  const emitted = new Set(['/assets/amber-AAAA.svg', '/favicon.svg']);
   const forwarded = ['/fonts/', '/brand/'];
 
   it('passes built files, forwarded paths, data URIs and fragment references', () => {
@@ -58,14 +59,21 @@ describe('cssUrlProblems', () => {
       '.a{background:url(/assets/amber-AAAA.svg)}.b{mask:url("/brand/mark.svg?v=2")}' +
       "@font-face{src:url('/fonts/marcellus-400.woff2')}.c{background:url(data:image/svg+xml,%3Csvg%3E)}" +
       '.d{filter:url(#glow)}';
-    expect(cssUrlProblems({css, emitted, forwarded})).toEqual([]);
+    expect(cssUrlProblems({css, sheet, emitted, forwarded})).toEqual([]);
+  });
+
+  it("passes a file from public/, another origin's url, and urls relative to the stylesheet", () => {
+    const css =
+      '.a{background:url(/favicon.svg)}.b{src:url(https://fonts.example/x.woff2)}.c{mask:url(//cdn.example/x.svg)}' +
+      '.d{background:url(amber-AAAA.svg)}.e{mask:url(../brand/mark.svg)}';
+    expect(cssUrlProblems({css, sheet, emitted, forwarded})).toEqual([]);
   });
 
   it("names each url that resolves to nothing, once, the prototype's relative symbol among them", () => {
     const css =
       ".a{background:url('./assets/amber.svg?no-inline')}.b{background:url(./assets/amber.svg?no-inline)}" +
       '.c{mask:url(/amber.svg)}';
-    expect(cssUrlProblems({css, emitted, forwarded})).toEqual([
+    expect(cssUrlProblems({css, sheet, emitted, forwarded})).toEqual([
       'url(./assets/amber.svg?no-inline) names no built file or forwarded path',
       'url(/amber.svg) names no built file or forwarded path',
     ]);

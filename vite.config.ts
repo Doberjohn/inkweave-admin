@@ -7,6 +7,8 @@ import babel from '@rolldown/plugin-babel';
 import {defineConfig} from 'vitest/config';
 // The app's own guard (Doberjohn/inkweave#977), by path, so it moves with the pin. Its .ts
 // extension stays: .storybook/main.ts loads this config as native ESM, which strips types itself.
+// D3's one tooling exception in this file, so the ban stays on every other line of it.
+// eslint-disable-next-line no-restricted-imports -- the build's React Compiler guard for inkweave-ui (#101)
 import {uiCompilerGuard} from './upstream/inkweave/apps/web/build-guards.ts';
 
 // Public app paths the bridged loader, images and fonts request same-origin

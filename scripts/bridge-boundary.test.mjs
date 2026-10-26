@@ -58,9 +58,16 @@ describe('the app-bridge boundary', () => {
     await expectAllowed('src/app-bridge.ts', LEAK, 'no-restricted-imports');
   });
 
-  it("allows vite.config.ts to load the app's React Compiler guard", async () => {
-    const guard = "import {uiCompilerGuard} from './upstream/inkweave/apps/web/build-guards.ts';\nexport const plugin = uiCompilerGuard();\n";
-    await expectAllowed('vite.config.ts', guard, 'no-restricted-imports');
+  it("lets vite.config.ts load the app's React Compiler guard, on that one line", async () => {
+    const [result] = await eslint.lintFiles(['vite.config.ts']);
+    expect(result.messages).toEqual([]);
+  });
+
+  it.each([
+    ['another upstream import', LEAK.replaceAll('../../', './')],
+    ['an inkweave-ui import', "import {CtaButton} from 'inkweave-ui/components/CtaButton';\nexport const Button = CtaButton;\n"],
+  ])('rejects %s in vite.config.ts', async (_, code) => {
+    expect(await ruleIds('vite.config.ts', code)).toContain('no-restricted-imports');
   });
 
   it('rejects a dynamic upstream import outside the bridge', async () => {
