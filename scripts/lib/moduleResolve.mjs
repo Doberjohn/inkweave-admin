@@ -14,6 +14,10 @@ const withoutQuery = (specifier) => specifier.replace(/\?.*$/, '');
 
 export const isRelative = (specifier) => RELATIVE.test(specifier);
 
+// inkweave-ui, the workspace package admin builds from the submodule (pnpm-workspace.yaml). Its
+// exports map is read from its package.json.
+export const INKWEAVE_UI = {name: 'inkweave-ui', root: 'upstream/inkweave/packages/ui'};
+
 /**
  * The file a relative `specifier` names from the file `from`, or undefined when no candidate
  * exists. `exists(path)` says whether a file is there.

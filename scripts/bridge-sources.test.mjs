@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
-import {isRelative, resolvePackage, resolveRelative, starMatch} from './lib/moduleResolve.mjs';
+import {INKWEAVE_UI, isRelative, resolvePackage, resolveRelative, starMatch} from './lib/moduleResolve.mjs';
 
 // The bridge takes the app's modules by path and inkweave-ui's by name (#101). A pin bump can move
 // a module out of the app and leave its name forwarded from the package by an app barrel, so the
@@ -12,7 +12,7 @@ import {isRelative, resolvePackage, resolveRelative, starMatch} from './lib/modu
 // the real tree, by path from the repo root, which is where Vitest runs.
 
 const BRIDGE = 'src/app-bridge.ts';
-const UI = {name: 'inkweave-ui', root: 'upstream/inkweave/packages/ui'};
+const UI = INKWEAVE_UI;
 const APP_SOURCE = '../upstream/inkweave/apps/web/src/';
 const APP_STYLESHEET = '../upstream/inkweave/apps/web/src/index.css';
 

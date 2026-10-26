@@ -4,18 +4,19 @@ import {builtinModules} from 'node:module';
 import path from 'node:path';
 import ts from 'typescript';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {isRelative, resolveRelative} from './lib/moduleResolve.mjs';
+import {INKWEAVE_UI, isRelative, resolvePackage, resolveRelative} from './lib/moduleResolve.mjs';
 
 // Vite leaves a Node builtin out of the browser bundle: it gives the importer a stub and warns. So
 // an import of one in code the browser loads passes lint, tsc, Vitest and `pnpm build`, and only
 // the page shows it, by failing to load or by throwing at the first call into the stub. Two doors
 // lead to it: the app's plain-JavaScript scripts that src/app-bridge.ts bundles, and the fixtures
-// that stories load (promoFixtures.ts). This walks everything src/main.tsx, the Storybook preview
-// and each story load, through their relative imports, and fails on an import of a builtin. It
-// follows relative imports only: a bare package, the synergy engine included, is not read.
+// that stories load (promoFixtures.ts). A third is inkweave-ui, whose source the bridge bundles as
+// it is (#101). This walks everything src/main.tsx, the Storybook preview and each story load,
+// through their relative imports and into inkweave-ui, and fails on an import of a builtin. Any
+// other bare package, the synergy engine included, is not read.
 
-// A relative specifier resolves as a bundler resolves it (lib/moduleResolve.mjs). Only code is read:
-// CSS, JSON and images load nothing.
+// A relative specifier resolves as a bundler resolves it, and a package's subpath through its
+// exports map (lib/moduleResolve.mjs). Only code is read: CSS, JSON and images load nothing.
 const CODE = new Set(['.ts', '.tsx', '.mjs', '.js', '.jsx']);
 const NODE_BUILTINS = new Set(builtinModules);
 
@@ -67,25 +68,40 @@ function specifiersOf(file, text) {
 
 /**
  * Sorts one specifier that `from` imports, for the walk: a Node builtin, a code file to read next, a
- * relative specifier that names no file (a miss: a TS-style "./x.js" for x.ts is one), or nothing to
- * follow (a bare package, or an asset).
+ * specifier that names no file (a miss: a TS-style "./x.js" for x.ts is one, and so is a package
+ * subpath the exports map lacks), or nothing to follow (another package, or an asset).
  * @returns {{kind: 'builtin' | 'miss' | 'none'} | {kind: 'code', file: string}}
  */
-function loadOf({from, specifier, exists}) {
+function loadOf({from, specifier, tree}) {
   if (isNodeBuiltin(specifier)) return {kind: 'builtin'};
-  if (!isRelative(specifier)) return {kind: 'none'};
-  const found = resolveRelative({from, specifier, exists});
-  if (found === undefined) return {kind: 'miss'};
-  return CODE.has(path.posix.extname(found)) ? {kind: 'code', file: found} : {kind: 'none'};
+  if (!isRelative(specifier)) return packageLoad({specifier, tree});
+  return fileLoad(resolveRelative({from, specifier, exists: tree.exists}));
+}
+
+// A file the walk found, or undefined for none: code is read next, and anything else loads nothing.
+function fileLoad(file) {
+  if (file === undefined) return {kind: 'miss'};
+  return CODE.has(path.posix.extname(file)) ? {kind: 'code', file} : {kind: 'none'};
+}
+
+// A bare specifier. A subpath of one of the walk's packages is read as the exports map resolves it,
+// and one the map lacks, the bare root among them, is a miss, as the build would fail on it. Any
+// other package is not read.
+function packageLoad({specifier, tree}) {
+  const resolved = resolvePackage({specifier, packages: tree.packages});
+  if (resolved === undefined) return {kind: 'none'};
+  return fileLoad(resolved.file !== undefined && tree.exists(resolved.file) ? resolved.file : undefined);
 }
 
 /**
- * Every Node builtin a walk from `entries` reaches through relative imports, every relative import it
- * found no file for, and the files it visited. Paths are repo-relative with "/" separators. `read(path)`
- * gives a file's text and `exists(path)` says whether a file is there.
+ * Every Node builtin a walk from `entries` reaches through relative imports and into `packages`
+ * (each `{name, root, exports}`), every import it found no file for, and the files it visited. Paths
+ * are repo-relative with "/" separators. `read(path)` gives a file's text and `exists(path)` says
+ * whether a file is there.
  * @returns {{visited: string[], nodeImports: Array<{file: string, specifier: string}>, unresolved: Array<{file: string, specifier: string}>}}
  */
-function walk({entries, read, exists}) {
+function walk(tree) {
+  const {entries, read} = tree;
   const seen = new Set(entries);
   const visited = [...seen];
   const nodeImports = [];
@@ -93,7 +109,7 @@ function walk({entries, read, exists}) {
   // A file found on the way joins `visited`, and the loop reaches it in turn.
   for (const file of visited) {
     for (const specifier of specifiersOf(file, read(file))) {
-      const load = loadOf({from: file, specifier, exists});
+      const load = loadOf({from: file, specifier, tree});
       if (load.kind === 'builtin') nodeImports.push({file, specifier});
       if (load.kind === 'miss') unresolved.push({file, specifier});
       if (load.kind === 'code' && !seen.has(load.file)) {
@@ -105,18 +121,25 @@ function walk({entries, read, exists}) {
   return {visited, nodeImports, unresolved};
 }
 
-// The checkout's files, by path from the repo root, which is where Vitest runs.
-const onDisk = (entries) => ({
-  entries,
-  read: (file) => fs.readFileSync(file, 'utf8'),
-  exists: (file) => fs.existsSync(file) && fs.statSync(file).isFile(),
-});
+// The checkout's files, by path from the repo root, which is where Vitest runs, and inkweave-ui
+// with the exports map its package.json holds.
+const onDisk = (entries) => {
+  const read = (file) => fs.readFileSync(file, 'utf8');
+  const {exports} = JSON.parse(read(`${INKWEAVE_UI.root}/package.json`));
+  return {
+    entries,
+    read,
+    exists: (file) => fs.existsSync(file) && fs.statSync(file).isFile(),
+    packages: [{...INKWEAVE_UI, exports}],
+  };
+};
 
-// A plain object of path to text.
-const inMemory = (files, entries) => ({
+// A plain object of path to text, with any packages the walk may read.
+const inMemory = (files, entries, packages = []) => ({
   entries,
   read: (file) => files[file],
   exists: (file) => Object.hasOwn(files, file),
+  packages,
 });
 
 // What the site loads, and what Storybook loads: the preview every story runs in, and each story.
@@ -135,12 +158,13 @@ describe('what the browser loads', () => {
   }, 120_000);
 
   // A walk that went nowhere would pass the next test, so this one pins what it must reach, and that no
-  // relative import ended a branch of it unread.
-  it('reaches the bridged promo merge and the promo fixtures', () => {
+  // import it follows ended a branch of it unread.
+  it('reaches the bridged promo merge, inkweave-ui and the promo fixtures', () => {
     for (const file of [
       'upstream/inkweave/scripts/lib/promo-printings.mjs',
       'upstream/inkweave/scripts/lib/finishes.mjs',
       'upstream/inkweave/scripts/lib/fold-variants.mjs',
+      'upstream/inkweave/packages/ui/src/components/DialogShell.tsx',
       'src/tools/studio/promos/__tests__/promoFixtures.ts',
     ]) {
       expect(loaded.visited).toContain(file);
@@ -215,5 +239,39 @@ describe('the walk', () => {
   it('names a relative import that resolves to no file, such as a TS-style .js for a .ts', () => {
     const files = {'a.ts': "import './b.js';\nimport './style.css';\nimport 'a-package';\n", 'b.ts': '', 'style.css': 'body {}'};
     expect(walk(inMemory(files, ['a.ts'])).unresolved).toEqual([{file: 'a.ts', specifier: './b.js'}]);
+  });
+});
+
+describe("the walk into a package's source", () => {
+  const KIT = {name: 'kit', root: 'kit', exports: {'./components/*': './src/components/*.tsx', './styles/*.css': './src/styles/*.css'}};
+
+  it('reads a subpath as the exports map resolves it, and finds a builtin there', () => {
+    const files = {
+      'a.ts': "import {Button} from 'kit/components/Button';\nimport 'kit/styles/base.css';\n",
+      'kit/src/components/Button.tsx': "import {theme} from '../theme';\n",
+      'kit/src/theme.ts': "import {readFileSync} from 'node:fs';\n",
+      'kit/src/styles/base.css': 'body {}',
+    };
+    const loaded = walk(inMemory(files, ['a.ts'], [KIT]));
+    expect(loaded.visited).toEqual(['a.ts', 'kit/src/components/Button.tsx', 'kit/src/theme.ts']);
+    expect(loaded.nodeImports).toEqual([{file: 'kit/src/theme.ts', specifier: 'node:fs'}]);
+  });
+
+  it('names a subpath the exports map lacks, the bare root, and an exported file that is missing', () => {
+    const files = {
+      'a.ts': [
+        "import 'kit/src/components/Button';",
+        "import 'kit';",
+        "import 'kit/components/Gone';",
+        "import 'kit-extra/components/Button';",
+        '',
+      ].join('\n'),
+      'kit/src/components/Button.tsx': '',
+    };
+    expect(walk(inMemory(files, ['a.ts'], [KIT])).unresolved).toEqual([
+      {file: 'a.ts', specifier: 'kit/src/components/Button'},
+      {file: 'a.ts', specifier: 'kit'},
+      {file: 'a.ts', specifier: 'kit/components/Gone'},
+    ]);
   });
 });
