@@ -1,6 +1,6 @@
 import type {Preview} from '@storybook/react-vite';
 import {themes} from 'storybook/theming';
-// The bridge also loads the app's global stylesheet (fonts, .card-tile) and the skeleton styles.
+// The bridge also loads the app's global stylesheet (fonts, .card-tile) and inkweave-ui's.
 import {COLORS} from '../src/app-bridge';
 import {AdminStyles} from '../src/theme/AdminStyles';
 import {resetVotesFilter} from '../src/tools/analytics/votesFilter';

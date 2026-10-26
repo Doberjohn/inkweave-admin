@@ -1,11 +1,18 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {searchCardsByName} from '../../../app-bridge';
+import {suggestCardsByName} from '../../../app-bridge';
 
 /**
  * The switcher searches from two letters: useAutocomplete's own default,
  * passed to it explicitly so its list and the status below agree.
  */
 export const MIN_QUERY = 2;
+
+/**
+ * The switcher's one search, the app's search box's: names, newest set first.
+ * Its list and its status both run it, so the status never says "No cards
+ * match." beside a list of cards, however the app changes the search.
+ */
+export const SWITCHER_SEARCH = suggestCardsByName;
 
 /** The switcher's status when a query finds no card (R-30, the handoff's words). */
 export const NO_MATCH = 'No cards match.';
@@ -43,15 +50,14 @@ export interface SwitcherState {
 /**
  * The switcher's polite status (R-30): "No cards match." while the field has
  * focus, its list is closed and the typed text finds no card, and '' the rest
- * of the time. It runs searchCardsByName, the match the list sorts
- * (suggestCardsByName), on the live text rather than the debounced one, so it never shows during the 150 ms the
- * list takes to catch up. With no cards loaded nothing was searched, so it
- * says nothing.
+ * of the time. It runs the list's SWITCHER_SEARCH on the live text rather
+ * than the debounced one, so it never shows during the 150 ms the list takes
+ * to catch up. With no cards loaded nothing was searched, so it says nothing.
  */
 export function switcherStatus({cards, query, listOpen, focused}: SwitcherState): string {
   // Out of sight: the field has no focus, or its list shows the last results.
   if (!focused || listOpen) return '';
   // Nothing searched: no cards to search, or under two letters.
   if (cards.length === 0 || query.length < MIN_QUERY) return '';
-  return searchCardsByName(cards, query).length === 0 ? NO_MATCH : '';
+  return SWITCHER_SEARCH(cards, query).length === 0 ? NO_MATCH : '';
 }

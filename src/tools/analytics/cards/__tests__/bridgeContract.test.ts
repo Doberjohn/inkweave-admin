@@ -4,7 +4,6 @@ import {
   TIER_COLORS,
   fetchCardSynergies,
   getStrengthTier,
-  searchCardsByName,
   suggestCardsByName,
   type StrengthTierLabel,
 } from '../../../../app-bridge';
@@ -99,26 +98,20 @@ const ANNA: LorcanaCard = {
   fullName: 'Anna - Heir to Arendelle',
 };
 
-// R3-5's switcher says "No cards match." when this finds nothing (R-30).
-describe('searchCardsByName', () => {
-  it("matches a card's name or version in any case, never its id", () => {
-    expect(searchCardsByName([ELSA, ANNA], 'elsa')).toEqual([ELSA]);
-    expect(searchCardsByName([ELSA, ANNA], 'HEIR')).toEqual([ANNA]);
-    expect(searchCardsByName([ELSA, ANNA], '2983')).toEqual([]);
-  });
-});
-
-// The switcher's `search`: the list it shows, up to six of them.
+// R3-5's switcher's `search`: the list it shows, up to six of them, and its
+// "No cards match." when this finds nothing (R-30).
 describe('suggestCardsByName', () => {
   const NEWER_ELSA: LorcanaCard = {...ELSA, id: '3100', version: 'Ice Maker', fullName: 'Elsa - Ice Maker', setCode: '11'};
   const cards = [ELSA, NEWER_ELSA, ANNA];
   const ids = (found: LorcanaCard[]) => found.map(({id}) => id);
 
-  it('lists the newest set first', () => {
-    expect(ids(suggestCardsByName(cards, 'elsa'))).toEqual(['3100', '2983']);
+  it("matches a card's name or version in any case, never its id", () => {
+    expect(suggestCardsByName([ELSA, ANNA], 'elsa')).toEqual([ELSA]);
+    expect(suggestCardsByName([ELSA, ANNA], 'HEIR')).toEqual([ANNA]);
+    expect(suggestCardsByName([ELSA, ANNA], '2983')).toEqual([]);
   });
 
-  it.each(['elsa', 'HEIR', '2983'])('finds for "%s" the cards searchCardsByName finds', (query) => {
-    expect(ids(suggestCardsByName(cards, query)).sort()).toEqual(ids(searchCardsByName(cards, query)).sort());
+  it('lists the newest set first', () => {
+    expect(ids(suggestCardsByName(cards, 'elsa'))).toEqual(['3100', '2983']);
   });
 });

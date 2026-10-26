@@ -215,14 +215,22 @@ function staticSpecifierOf(node) {
   return declares ? node.moduleSpecifier?.text : undefined;
 }
 
-/** The specifier an `import('x')` call names, or undefined for any other node. */
+/** The specifier an `import('x').T` or `typeof import('x')` type names, or undefined for any other node. */
+function importTypeSpecifierOf(node) {
+  if (!ts.isImportTypeNode(node) || !ts.isLiteralTypeNode(node.argument)) return undefined;
+  const {literal} = node.argument;
+  return ts.isStringLiteral(literal) ? literal.text : undefined;
+}
+
+/** The specifier an `import('x')` call or type names, or undefined for any other node. */
 function dynamicSpecifierOf(node) {
-  if (!ts.isCallExpression(node) || node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
+  if (!ts.isCallExpression(node)) return importTypeSpecifierOf(node);
+  if (node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
   const [first] = node.arguments;
   return first && ts.isStringLiteralLike(first) ? first.text : undefined;
 }
 
-/** Every module a file names: its imports and re-exports, type-only ones too, and its import() calls. */
+/** Every module a file names: its imports and re-exports, type-only ones too, and its import() calls and types. */
 function specifiersIn(source) {
   const found = [];
   const visit = (node) => {
@@ -241,13 +249,13 @@ function packageOf(specifier) {
 }
 
 /**
- * Where one specifier of `from` leads: `file`, the code file to read next, if any, and `reached`,
- * the package a bare specifier counts as. inkweave-ui's subpaths lead into its source too.
+ * Where one specifier of `from` leads: `file`, the code file to read next, if there is one, and
+ * `reached`, the package a bare specifier counts as. inkweave-ui's subpaths lead into its source too.
  */
 function stepOf({from, specifier, tree}) {
   if (isRelative(specifier)) return {file: resolveRelative({from, specifier, exists: tree.exists})};
-  const resolved = resolvePackage({specifier, packages: [{...UI, exports: tree.exports}]});
-  return {file: resolved?.file, reached: packageOf(specifier)};
+  const file = resolvePackage({specifier, packages: [{...UI, exports: tree.exports}]})?.file;
+  return {file: file !== undefined && tree.exists(file) ? file : undefined, reached: packageOf(specifier)};
 }
 
 /** Each step out of `file`, keeping the packages it reaches in `reached`: the code files it leads to. */
@@ -262,7 +270,8 @@ function stepsOutOf({file, tree, reached}) {
 /**
  * The packages a walk from the code files `entries` reaches, sorted: through relative imports,
  * import() and type-only imports, into inkweave-ui's source by its exports map, and counting each
- * other bare specifier by its package. A path that names no file ends the walk there.
+ * other bare specifier by its package. A path that names no file, relative or in inkweave-ui,
+ * ends the walk there.
  */
 function reachedPackages({entries, tree}) {
   const seen = new Set(entries);
@@ -406,20 +415,29 @@ describe('reachedPackages', () => {
       "import type {Session} from '@scope/auth/dist/types';",
       "import {useX} from 'inkweave-ui/hooks/useX';",
       "import {gone} from './gone';",
+      "import {useGone} from 'inkweave-ui/hooks/useGone';",
       "export const lazy = () => import('lazy-pkg');",
+      "export type Typed = import('typed-pkg').Typed;",
       '',
     ].join('\n'),
     'app/b.ts': 'export const b = 1;\n',
     'ui/src/hooks/useX.ts': "import {useState} from 'react';\nexport const useX = useState;\n",
   };
+  const inMemory = (file) => file.replace(`${UI.root}/`, 'ui/');
   const memoryTree = parsedOnce({
-    read: (file) => files[file.replace(`${UI.root}/`, 'ui/')],
-    exists: (file) => Object.hasOwn(files, file),
+    read: (file) => files[inMemory(file)],
+    exists: (file) => Object.hasOwn(files, inMemory(file)),
     exports: {'./hooks/*': './src/hooks/*.ts'},
   });
 
-  it('counts type-only imports, import() and inkweave-ui by package, walks into the package, and skips a missing file', () => {
-    expect(reachedPackages({entries: ['app/a.ts'], tree: memoryTree})).toEqual(['@scope/auth', 'inkweave-ui', 'lazy-pkg', 'react']);
+  it('counts type-only imports, import() calls and types, and inkweave-ui by package, walks into the package, and skips a missing file', () => {
+    expect(reachedPackages({entries: ['app/a.ts'], tree: memoryTree})).toEqual([
+      '@scope/auth',
+      'inkweave-ui',
+      'lazy-pkg',
+      'react',
+      'typed-pkg',
+    ]);
   });
 });
 

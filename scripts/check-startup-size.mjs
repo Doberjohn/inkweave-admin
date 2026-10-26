@@ -114,7 +114,7 @@ function strayProblems(html) {
   const assets = fs.readdirSync(path.join(DIST, 'assets'));
   const outside = strayScripts({html, assets, allowed: []});
   console.log(`Scripts outside startup: ${outside.length > 0 ? outside.join(', ') : 'none'}`);
-  return strayScripts({html, assets}).map((file) => {
+  return outside.filter((file) => !LAZY_CHUNKS.includes(chunkName(file))).map((file) => {
     const gzipBytes = zlib.gzipSync(fs.readFileSync(path.join(DIST, 'assets', file)), {level: 9}).length;
     return `${file} (${gzipBytes} B gzipped) loads after startup, and LAZY_CHUNKS doesn't name "${chunkName(file)}"`;
   });
@@ -126,7 +126,7 @@ function main() {
   console.log(`Startup JavaScript: ${measured.files} file(s), ${measured.gzipBytes} B gzipped`);
   const problems = [...sizeProblems(measured, BUDGET), ...strayProblems(html), ...stylesheetProblems()];
   if (problems.length === 0) {
-    console.log(`Startup size and stylesheet urls: OK (budget ${BUDGET.gzipBytes} B)`);
+    console.log(`Startup size, scripts outside startup and stylesheet urls: OK (budget ${BUDGET.gzipBytes} B)`);
     return;
   }
   console.error(`Startup check failed (${problems.length}):`);

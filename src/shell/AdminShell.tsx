@@ -1,6 +1,5 @@
 import {Outlet} from 'react-router-dom';
-import {SkeletonTheme} from 'react-loading-skeleton';
-import {CardDataProvider, COLORS, FONTS} from '../app-bridge';
+import {CardDataProvider, FONTS} from '../app-bridge';
 import {useGithubToken} from '../github/useGithubToken';
 import {AdminStyles} from '../theme/AdminStyles';
 import {ADMIN_COLORS} from '../theme/adminTheme';
@@ -19,29 +18,26 @@ export function AdminShell() {
   // page beside it back to its token gate.
   const {token, clearToken} = useGithubToken();
   return (
-    // The app mounts one SkeletonTheme for all of its skeletons (AppLayout.tsx); admin does the same here.
-    <SkeletonTheme baseColor={COLORS.surfaceAlt} highlightColor={COLORS.surfaceHover}>
-      <CardDataProvider>
-        <AdminStyles />
-        <div
-          style={{
-            display: 'flex',
-            height: '100dvh',
-            overflow: 'hidden',
-            background: ADMIN_COLORS.page,
-            color: ADMIN_COLORS.text,
-            fontFamily: FONTS.body,
-          }}>
-          <Sidebar tokenSaved={Boolean(token)} onForgetToken={clearToken} />
-          {/* PageLayout fills this column and scrolls its own body. A page
-              outside it scrolls the column. */}
-          <div style={{flex: 1, minWidth: 0, overflowY: 'auto'}}>
-            <KnownCardsProvider>
-              <Outlet />
-            </KnownCardsProvider>
-          </div>
+    <CardDataProvider>
+      <AdminStyles />
+      <div
+        style={{
+          display: 'flex',
+          height: '100dvh',
+          overflow: 'hidden',
+          background: ADMIN_COLORS.page,
+          color: ADMIN_COLORS.text,
+          fontFamily: FONTS.body,
+        }}>
+        <Sidebar tokenSaved={Boolean(token)} onForgetToken={clearToken} />
+        {/* PageLayout fills this column and scrolls its own body. A page
+            outside it scrolls the column. */}
+        <div style={{flex: 1, minWidth: 0, overflowY: 'auto'}}>
+          <KnownCardsProvider>
+            <Outlet />
+          </KnownCardsProvider>
         </div>
-      </CardDataProvider>
-    </SkeletonTheme>
+      </div>
+    </CardDataProvider>
   );
 }
