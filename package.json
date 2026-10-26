@@ -9,7 +9,7 @@
     "build": "pnpm build:engine && tsc -b && vite build",
     "typecheck": "pnpm build:engine && tsc -b",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
     "test": "vitest",
     "test:run": "pnpm build:engine && vitest run",
     "check:deps": "node scripts/check-shared-deps.mjs",
