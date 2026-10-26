@@ -1,7 +1,14 @@
 // @vitest-environment node
 import zlib from 'node:zlib';
 import {describe, expect, it} from 'vitest';
-import {cssUrlProblems, measureStartup, sizeProblems, startupScripts} from './check-startup-size.mjs';
+import {
+  chunkName,
+  cssUrlProblems,
+  measureStartup,
+  sizeProblems,
+  startupScripts,
+  strayScripts,
+} from './check-startup-size.mjs';
 
 /** dist/index.html as Vite writes it, with the given modulepreloads. */
 const indexHtml = (preloads = []) =>
@@ -22,6 +29,28 @@ describe('startupScripts', () => {
 
   it('leaves out icons, stylesheets and inline scripts', () => {
     expect(startupScripts(indexHtml())).toEqual(['/assets/index-AAAA.js']);
+  });
+});
+
+describe('chunkName', () => {
+  it("drops Rolldown's hash, which may hold a dash or an underscore", () => {
+    expect(chunkName('CardOverviewModal-mwaKx-OJ.js')).toBe('CardOverviewModal');
+    expect(chunkName('react-dom-AbCd_123.js')).toBe('react-dom');
+  });
+});
+
+describe('strayScripts', () => {
+  const html = indexHtml(['vendor-CCCC']);
+  const built = ['index-AAAA.js', 'vendor-CCCC.js', 'index-BBBB.css', 'amber-DDDD.svg'];
+
+  it('ignores the module script, a modulepreload, a stylesheet and an SVG', () => {
+    expect(strayScripts({html, assets: built, allowed: []})).toEqual([]);
+  });
+
+  it('lists a script startup never loads only while LAZY_CHUNKS leaves it out', () => {
+    const assets = [...built, 'CardOverviewModal-mwaKx-OJ.js'];
+    expect(strayScripts({html, assets, allowed: ['CardOverviewModal']})).toEqual([]);
+    expect(strayScripts({html, assets, allowed: []})).toEqual(['CardOverviewModal-mwaKx-OJ.js']);
   });
 });
 

@@ -232,6 +232,12 @@ describe('forwardedFrom', () => {
       'export type {Ink};',
       '',
     ].join('\n'),
+    'app/loader.ts': [
+      "import {isChaseRarity as isChase} from 'inkweave-ui/lib/printings';",
+      'const own = 1;',
+      'export {isChase as isChaseRarity, own};',
+      '',
+    ].join('\n'),
     'ui/src/tokens/lorcana.ts': 'export const ALL_INKS = [];\nexport function inkOf() {}\n',
     'ui/src/tokens/theme.ts': 'export const COLORS = {};\nexport const RADIUS = {};\n',
   };
@@ -265,6 +271,12 @@ describe('forwardedFrom', () => {
     expect(from('hook')).toBe('inkweave-ui/hooks/useThing');
     expect(from('TITLE')).toBeUndefined();
     expect(from('Ink')).toBeUndefined();
+  });
+
+  it("follows the loader's import-then-export form, and leaves a listed local of its own alone", () => {
+    const fromLoader = (name) => forwardedFrom({file: 'app/loader.ts', name, tree: memoryTree});
+    expect(fromLoader('isChaseRarity')).toBe('inkweave-ui/lib/printings');
+    expect(fromLoader('own')).toBeUndefined();
   });
 
   it("reads a namespace export as one name, the package's namespace or the app's own", () => {
