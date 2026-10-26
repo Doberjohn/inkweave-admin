@@ -4,6 +4,7 @@ import {builtinModules} from 'node:module';
 import path from 'node:path';
 import ts from 'typescript';
 import {beforeAll, describe, expect, it} from 'vitest';
+import {isRelative, resolveRelative} from './lib/moduleResolve.mjs';
 
 // Vite leaves a Node builtin out of the browser bundle: it gives the importer a stub and warns. So
 // an import of one in code the browser loads passes lint, tsc, Vitest and `pnpm build`, and only
@@ -13,11 +14,9 @@ import {beforeAll, describe, expect, it} from 'vitest';
 // and each story load, through their relative imports, and fails on an import of a builtin. It
 // follows relative imports only: a bare package, the synergy engine included, is not read.
 
-// What a bundler tries for a relative specifier, in order: the file as written, with an extension,
-// as a folder's index. Only code is read: CSS, JSON and images load nothing.
-const SUFFIXES = ['', '.ts', '.tsx', '.mjs', '.js', '/index.ts', '/index.tsx', '/index.js'];
+// A relative specifier resolves as a bundler resolves it (lib/moduleResolve.mjs). Only code is read:
+// CSS, JSON and images load nothing.
 const CODE = new Set(['.ts', '.tsx', '.mjs', '.js', '.jsx']);
-const RELATIVE = /^\.\.?(\/|$)/;
 const NODE_BUILTINS = new Set(builtinModules);
 
 const isNodeBuiltin = (specifier) => specifier.startsWith('node:') || NODE_BUILTINS.has(specifier);
@@ -74,9 +73,8 @@ function specifiersOf(file, text) {
  */
 function loadOf({from, specifier, exists}) {
   if (isNodeBuiltin(specifier)) return {kind: 'builtin'};
-  if (!RELATIVE.test(specifier)) return {kind: 'none'};
-  const base = path.posix.join(path.posix.dirname(from), specifier.replace(/\?.*$/, ''));
-  const found = SUFFIXES.map((suffix) => base + suffix).find((candidate) => exists(candidate));
+  if (!isRelative(specifier)) return {kind: 'none'};
+  const found = resolveRelative({from, specifier, exists});
   if (found === undefined) return {kind: 'miss'};
   return CODE.has(path.posix.extname(found)) ? {kind: 'code', file: found} : {kind: 'none'};
 }

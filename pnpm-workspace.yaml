@@ -1,5 +1,7 @@
 packages:
   - 'upstream/inkweave/packages/synergy-engine'
+  # inkweave-ui ships source, not a build: admin's Vite and React Compiler compile it (#101).
+  - 'upstream/inkweave/packages/ui'
 
 # pnpm 10 runs no dependency install scripts unless they are allowed here. With
 # strictDepBuilds, an install that meets an unlisted one fails, so each new one gets a

@@ -47,7 +47,6 @@ describe('fetchCardSynergies', () => {
 
   it.each([
     {name: 'a 404', id: 'empty-404', response: () => new Response('', {status: 404})},
-    {name: 'a 500', id: 'empty-500', response: () => new Response('', {status: 500})},
     {
       name: "an HTML 200 (the dev server's fallback page)",
       id: 'empty-html',
@@ -69,6 +68,7 @@ describe('fetchCardSynergies', () => {
         throw new TypeError('Failed to fetch');
       },
     },
+    {name: 'a 500', id: 'reject-500', failure: async () => new Response('', {status: 500})},
     {name: 'malformed JSON', id: 'reject-json', failure: async () => new Response('{', JSON_TYPE)},
   ])('rejects on $name and keeps nothing, so the next call fetches again', async ({id, failure}) => {
     const fetchMock = vi.fn().mockImplementationOnce(failure).mockImplementationOnce(async () => json());
