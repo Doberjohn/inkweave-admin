@@ -20,8 +20,8 @@ const DIST = path.join(ROOT, 'dist');
 /** main's startup (312,041 B at app pin 1c418ff) plus 1%, rounded up to the next 1,000 B. */
 export const BUDGET = {files: 1, gzipBytes: 316_000};
 
-/** The scripts admin may ship outside startup, by chunk name. */
-export const LAZY_CHUNKS = ['CardOverviewModal']; // the app CardTile's modal warm-up, until Doberjohn/inkweave-admin#102
+/** The scripts admin may ship outside startup, by chunk name: none, since admin has no lazy import of its own. */
+export const LAZY_CHUNKS = [];
 
 const TAG = /<(script|link)\b[^>]*>/g;
 const ATTR = /\b([\w-]+)="([^"]*)"/g;

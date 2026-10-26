@@ -43,8 +43,8 @@ export interface SwitcherState {
 /**
  * The switcher's polite status (R-30): "No cards match." while the field has
  * focus, its list is closed and the typed text finds no card, and '' the rest
- * of the time. It runs the hook's own search, searchCardsByName, on the live
- * text rather than the debounced one, so it never shows during the 150 ms the
+ * of the time. It runs searchCardsByName, the match the list sorts
+ * (suggestCardsByName), on the live text rather than the debounced one, so it never shows during the 150 ms the
  * list takes to catch up. With no cards loaded nothing was searched, so it
  * says nothing.
  */
