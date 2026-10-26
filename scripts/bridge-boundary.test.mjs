@@ -87,6 +87,54 @@ describe('the app-bridge boundary', () => {
   });
 });
 
+// inkweave-ui is a workspace package (#101), so admin imports it by name, which the upstream ban
+// never sees: its own ban keeps it behind the bridge, in every block whose options replace D3's.
+const UI_LEAK = "import {CtaButton} from 'inkweave-ui/components/CtaButton';\nexport const Button = CtaButton;\n";
+const UI_TYPE = "import type {SPACING} from 'inkweave-ui/tokens/theme';\nexport type Gap = typeof SPACING;\n";
+const UI_REEXPORT = "export {COLORS} from 'inkweave-ui/tokens/theme';\n";
+const UI_ROOT = "import * as ui from 'inkweave-ui';\nexport default ui;\n";
+const UI_DYNAMIC = "export const load = () => import('inkweave-ui/tokens/theme');\n";
+const ENGINE = "import {SynergyEngine} from 'inkweave-synergy-engine';\nexport const engine = new SynergyEngine();\n";
+
+describe('the inkweave-ui boundary', () => {
+  it.each([
+    'src/tools/studio/Leak.tsx',
+    'src/shell/Leak.tsx',
+    'src/ui/Leak.tsx',
+    'src/theme/Leak.ts',
+    'src/charts/Leak.tsx',
+    'src/tools/studio/Leak.stories.tsx',
+    'src/shell/__tests__/Leak.test.tsx',
+    'scripts/leak.mjs',
+  ])('rejects an inkweave-ui import in %s', async (filePath) => {
+    expect(await ruleIds(filePath, UI_LEAK)).toContain('no-restricted-imports');
+  });
+
+  it.each([
+    ['a type-only import', UI_TYPE],
+    ['a re-export', UI_REEXPORT],
+    ['an import of the bare root', UI_ROOT],
+  ])('rejects %s of inkweave-ui', async (_, code) => {
+    expect(await ruleIds('src/tools/studio/Leak.ts', code)).toContain('no-restricted-imports');
+  });
+
+  it.each(['src/tools/studio/Leak.ts', 'src/ui/Leak.ts'])('rejects a dynamic inkweave-ui import in %s', async (filePath) => {
+    expect(await ruleIds(filePath, UI_DYNAMIC)).toContain('no-restricted-syntax');
+  });
+
+  it.each([
+    [UI_LEAK, 'no-restricted-imports'],
+    [UI_DYNAMIC, 'no-restricted-syntax'],
+  ])('allows inkweave-ui in src/app-bridge.ts', async (code, ruleId) => {
+    await expectAllowed('src/app-bridge.ts', code, ruleId);
+  });
+
+  it('leaves the engine, the other workspace package, importable anywhere', async () => {
+    await expectAllowed('src/tools/studio/Engine.ts', ENGINE, 'no-restricted-imports');
+    await expectAllowed('src/ui/Engine.ts', ENGINE, 'no-restricted-imports');
+  });
+});
+
 // Admin enables every design-token rule the app's plugin has (CLAUDE.md), by name in eslint.config.js.
 // The plugin is the one the config loads from the pin, so a pin bump that brings a rule fails this until
 // the config enables it too (#84). It reads the plugin through the config: this file may not import upstream.
