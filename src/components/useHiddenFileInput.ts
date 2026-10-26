@@ -1,20 +1,5 @@
 import {useState, type ChangeEvent} from 'react';
-import {ADMIN_LAYOUT} from '../theme/adminTheme';
-
-// Visually hidden but still focusable, so keyboard users can tab to it and open
-// the picker with Space/Enter. display:none would drop it from the tab order,
-// and some browsers refuse to open a display:none file input from a label click.
-const SR_ONLY_INPUT = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -ADMIN_LAYOUT.hairline,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
+import {VISUALLY_HIDDEN} from '../app-bridge';
 
 /**
  * Props for a visually hidden file input inside a clickable tile, and whether
@@ -28,7 +13,10 @@ export function useHiddenFileInput(onFile: (file: File | null) => void) {
     focused,
     inputProps: {
       type: 'file',
-      style: SR_ONLY_INPUT,
+      // Visually hidden but still focusable, so keyboard users can tab to it and open
+      // the picker with Space/Enter. display:none would drop it from the tab order,
+      // and some browsers refuse to open a display:none file input from a label click.
+      style: VISUALLY_HIDDEN,
       onFocus: () => setFocused(true),
       onBlur: () => setFocused(false),
       onChange: (e: ChangeEvent<HTMLInputElement>) => {

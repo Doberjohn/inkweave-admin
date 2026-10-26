@@ -55,6 +55,8 @@ export {
   TABULAR,
   TIER_COLORS,
   TRUNCATE,
+  // Hidden on screen but still focusable: Card studio's file pickers (useHiddenFileInput).
+  VISUALLY_HIDDEN,
   Z_INDEX,
   blackRgba,
   hexRgba,
