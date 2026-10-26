@@ -940,23 +940,23 @@ The inputs most likely to bite someone using R1, which the spec never mentions. 
 
 ## Phase R1: shell and insights (detailed)
 
-Each task lives in its own file under [R-redesign/](R-redesign/), in order. Every task ends with a commit that leaves lint, typecheck and tests green. Each file starts with any contract additions it relies on; those are also collected above.
+Each task had its own file under [R-redesign/](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/), in order; the files were removed once the redesign shipped (#110) and the links below open them in history. Every task ends with a commit that leaves lint, typecheck and tests green. Each file starts with any contract additions it relies on; those are also collected above.
 
 | Task | File | Delivers |
 |---|---|---|
-| R1-1 | [R1-01-banner-removal.md](R-redesign/R1-01-banner-removal.md) | The phase branch; the Banner generator gone in full (tests, playwright, docs, lint exception) |
-| R1-2 | [R1-02-theme.md](R-redesign/R1-02-theme.md) | `adminTheme.ts`, `AdminStyles`, contrast tests, stories on the admin canvas |
-| R1-3 | [R1-03-primitives.md](R-redesign/R1-03-primitives.md) | `format.ts` and the UI primitives with tests and stories |
-| R1-3b | [R1-03b-chart-kit.md](R-redesign/R1-03b-chart-kit.md) | The chart kit: scales, frame with table view, legend, tooltip, keyboard cursor, bar and line/area charts, range control |
-| R1-4 | [R1-04-token-state.md](R-redesign/R1-04-token-state.md) | One shared GitHub token store |
-| R1-5 | [R1-05-artifact-cache.md](R-redesign/R1-05-artifact-cache.md) | Per-session artifact cache |
-| R1-6 | [R1-06-shell.md](R-redesign/R1-06-shell.md) | Sidebar, `PageLayout`, `BranchNotice`, routes (interim) |
-| R1-7 | [R1-07-write-tools.md](R-redesign/R1-07-write-tools.md) | Reveal, image and tuning pages inside `PageLayout`; the sidebar owns Forget token |
-| R1-8 | [R1-08-overview.md](R-redesign/R1-08-overview.md) | Overview at `/`, `verdict.ts` |
-| R1-9 | [R1-09-vote-activity.md](R-redesign/R1-09-vote-activity.md) | Vote activity at `/activity` |
-| R1-10 | [R1-10-web-analytics.md](R-redesign/R1-10-web-analytics.md) | Web analytics at `/web`, bridged ink and rarity icons |
-| R1-11 | [R1-11-calibration-host.md](R-redesign/R1-11-calibration-host.md) | `/calibration` (today's view, `?rule=`), `/analytics` retired |
-| R1-12 | [R1-12-docs-and-check.md](R-redesign/R1-12-docs-and-check.md) | CLAUDE.md and PLAN.md, stories sweep, real-data check, gates, PR |
+| R1-1 | [R1-01-banner-removal.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-01-banner-removal.md) | The phase branch; the Banner generator gone in full (tests, playwright, docs, lint exception) |
+| R1-2 | [R1-02-theme.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-02-theme.md) | `adminTheme.ts`, `AdminStyles`, contrast tests, stories on the admin canvas |
+| R1-3 | [R1-03-primitives.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-03-primitives.md) | `format.ts` and the UI primitives with tests and stories |
+| R1-3b | [R1-03b-chart-kit.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-03b-chart-kit.md) | The chart kit: scales, frame with table view, legend, tooltip, keyboard cursor, bar and line/area charts, range control |
+| R1-4 | [R1-04-token-state.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-04-token-state.md) | One shared GitHub token store |
+| R1-5 | [R1-05-artifact-cache.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-05-artifact-cache.md) | Per-session artifact cache |
+| R1-6 | [R1-06-shell.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-06-shell.md) | Sidebar, `PageLayout`, `BranchNotice`, routes (interim) |
+| R1-7 | [R1-07-write-tools.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-07-write-tools.md) | Reveal, image and tuning pages inside `PageLayout`; the sidebar owns Forget token |
+| R1-8 | [R1-08-overview.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-08-overview.md) | Overview at `/`, `verdict.ts` |
+| R1-9 | [R1-09-vote-activity.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-09-vote-activity.md) | Vote activity at `/activity` |
+| R1-10 | [R1-10-web-analytics.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-10-web-analytics.md) | Web analytics at `/web`, bridged ink and rarity icons |
+| R1-11 | [R1-11-calibration-host.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-11-calibration-host.md) | `/calibration` (today's view, `?rule=`), `/analytics` retired |
+| R1-12 | [R1-12-docs-and-check.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R1-12-docs-and-check.md) | CLAUDE.md and PLAN.md, stories sweep, real-data check, gates, PR |
 
 ### R1 as built (2026-10-02)
 
@@ -969,7 +969,7 @@ Each task lives in its own file under [R-redesign/](R-redesign/), in order. Ever
 
 ## Phase R2: Calibration & tuning (detailed)
 
-[R-redesign/R2-calibration-tuning.md](R-redesign/R2-calibration-tuning.md): tasks R2-1 to R2-8, re-based on R1 as built (main @ c92e260) and pin bc877e1 on 2026-10-05. Its decisions are R-17 to R-26 above.
+[R-redesign/R2-calibration-tuning.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R2-calibration-tuning.md): tasks R2-1 to R2-8, re-based on R1 as built (main @ c92e260) and pin bc877e1 on 2026-10-05. Its decisions are R-17 to R-26 above.
 
 ### R2 as built (2026-10-06)
 
@@ -1011,7 +1011,7 @@ Tasks R2-1 to R2-8, then the final review's fix wave (`a79ecf7`, `dbe6c47`, `8c5
 
 ## Phase R3: Card analytics (detailed)
 
-[R-redesign/R3-card-analytics.md](R-redesign/R3-card-analytics.md): tasks R3-1 to R3-9, re-based on R2 as built (main @ aea40b4) and pin bc877e1 on 2026-10-06. Its decisions are R-28 to R-56 above.
+[R-redesign/R3-card-analytics.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R3-card-analytics.md): tasks R3-1 to R3-9, re-based on R2 as built (main @ aea40b4) and pin bc877e1 on 2026-10-06. Its decisions are R-28 to R-56 above.
 
 ### R3 as built (2026-10-07)
 
@@ -1085,7 +1085,7 @@ Tasks R3-1 to R3-9 (with R3-1a, R3-4b, R3-4c, R3-5b and R3-6a to R3-6c) on `feat
 
 ## Phase R4: Card studio (detailed)
 
-[R-redesign/R4-card-studio.md](R-redesign/R4-card-studio.md): tasks R4-1a to R4-8, re-based on R3 as built and the pin bump (main @ e5e5029, pin 16283a13) on 2026-10-07. Its decisions are R-57 to R-91 above.
+[R-redesign/R4-card-studio.md](https://github.com/Doberjohn/inkweave-admin/blob/2ed41e8edbe6b5afce6e0db3f8a974ea21354cd7/docs/plans/R-redesign/R4-card-studio.md): tasks R4-1a to R4-8, re-based on R3 as built and the pin bump (main @ e5e5029, pin 16283a13) on 2026-10-07. Its decisions are R-57 to R-91 above.
 
 ### R4 as built (2026-10-16)
 
