@@ -58,6 +58,18 @@ describe('the app-bridge boundary', () => {
     await expectAllowed('src/app-bridge.ts', LEAK, 'no-restricted-imports');
   });
 
+  it("lets vite.config.ts load the app's React Compiler guard, on that one line", async () => {
+    const [result] = await eslint.lintFiles(['vite.config.ts']);
+    expect(result.messages).toEqual([]);
+  });
+
+  it.each([
+    ['another upstream import', LEAK.replaceAll('../../', './')],
+    ['an inkweave-ui import', "import {CtaButton} from 'inkweave-ui/components/CtaButton';\nexport const Button = CtaButton;\n"],
+  ])('rejects %s in vite.config.ts', async (_, code) => {
+    expect(await ruleIds('vite.config.ts', code)).toContain('no-restricted-imports');
+  });
+
   it('rejects a dynamic upstream import outside the bridge', async () => {
     expect(await ruleIds('src/shell/Leak.ts', DYNAMIC_LEAK)).toContain('no-restricted-syntax');
   });
@@ -84,6 +96,54 @@ describe('the app-bridge boundary', () => {
 
   it('keeps the useMemo ban on files the boundary covers', async () => {
     expect(await ruleIds('src/shell/Memo.ts', MEMO)).toContain('no-restricted-syntax');
+  });
+});
+
+// inkweave-ui is a workspace package (#101), so admin imports it by name, which the upstream ban
+// never sees: its own ban keeps it behind the bridge, in every block whose options replace D3's.
+const UI_LEAK = "import {CtaButton} from 'inkweave-ui/components/CtaButton';\nexport const Button = CtaButton;\n";
+const UI_TYPE = "import type {SPACING} from 'inkweave-ui/tokens/theme';\nexport type Gap = typeof SPACING;\n";
+const UI_REEXPORT = "export {COLORS} from 'inkweave-ui/tokens/theme';\n";
+const UI_ROOT = "import * as ui from 'inkweave-ui';\nexport default ui;\n";
+const UI_DYNAMIC = "export const load = () => import('inkweave-ui/tokens/theme');\n";
+const ENGINE = "import {SynergyEngine} from 'inkweave-synergy-engine';\nexport const engine = new SynergyEngine();\n";
+
+describe('the inkweave-ui boundary', () => {
+  it.each([
+    'src/tools/studio/Leak.tsx',
+    'src/shell/Leak.tsx',
+    'src/ui/Leak.tsx',
+    'src/theme/Leak.ts',
+    'src/charts/Leak.tsx',
+    'src/tools/studio/Leak.stories.tsx',
+    'src/shell/__tests__/Leak.test.tsx',
+    'scripts/leak.mjs',
+  ])('rejects an inkweave-ui import in %s', async (filePath) => {
+    expect(await ruleIds(filePath, UI_LEAK)).toContain('no-restricted-imports');
+  });
+
+  it.each([
+    ['a type-only import', UI_TYPE],
+    ['a re-export', UI_REEXPORT],
+    ['an import of the bare root', UI_ROOT],
+  ])('rejects %s of inkweave-ui', async (_, code) => {
+    expect(await ruleIds('src/tools/studio/Leak.ts', code)).toContain('no-restricted-imports');
+  });
+
+  it.each(['src/tools/studio/Leak.ts', 'src/ui/Leak.ts'])('rejects a dynamic inkweave-ui import in %s', async (filePath) => {
+    expect(await ruleIds(filePath, UI_DYNAMIC)).toContain('no-restricted-syntax');
+  });
+
+  it.each([
+    [UI_LEAK, 'no-restricted-imports'],
+    [UI_DYNAMIC, 'no-restricted-syntax'],
+  ])('allows inkweave-ui in src/app-bridge.ts', async (code, ruleId) => {
+    await expectAllowed('src/app-bridge.ts', code, ruleId);
+  });
+
+  it('leaves the engine, the other workspace package, importable anywhere', async () => {
+    await expectAllowed('src/tools/studio/Engine.ts', ENGINE, 'no-restricted-imports');
+    await expectAllowed('src/ui/Engine.ts', ENGINE, 'no-restricted-imports');
   });
 });
 

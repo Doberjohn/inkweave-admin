@@ -44,6 +44,9 @@ function boundaryRules(...bans) {
   };
 }
 const UPSTREAM = importBan('upstream', 'Import app code through src/app-bridge.ts (docs/PLAN.md, D3).');
+// inkweave-ui is a workspace package (#101), imported by name, so the upstream
+// ban never sees it: the bridge re-exports what admin uses of it too.
+const UI_PACKAGE = importBan('inkweave-ui', 'Import inkweave-ui through src/app-bridge.ts (docs/PLAN.md, D3).');
 
 // The layers under the tools (docs/plans/R-redesign.md, Global constraints):
 // src/shell, src/ui, src/charts and src/theme never import from src/tools
@@ -129,25 +132,27 @@ export default tseslint.config(
     ignores: TEST_CODE,
     rules: COMPILER_BAILOUTS,
   },
-  // D3: app code enters admin only through src/app-bridge.ts, from any source
-  // file. The one tooling exception is this config, which loads the app's
-  // design-token plugin from the submodule.
+  // D3: app code and inkweave-ui enter admin only through src/app-bridge.ts,
+  // from any source file. The tooling exceptions are this config, which loads
+  // the app's design-token plugin from the submodule before any rule exists,
+  // and one import in vite.config.ts, the app's React Compiler guard for
+  // inkweave-ui (#101), which disables the rule on its own line.
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs}'],
     ignores: ['src/app-bridge.ts', 'eslint.config.js'],
-    rules: boundaryRules(UPSTREAM),
+    rules: boundaryRules(UPSTREAM, UI_PACKAGE),
   },
-  // The layers (#37). Each block repeats D3's upstream ban, since its rule
-  // options replace D3's for these files.
+  // The layers (#37). Each block repeats D3's bans, since its rule options
+  // replace D3's for these files.
   {
     files: ['src/{shell,charts,theme}/**'],
     ignores: LAYER_EXEMPT,
-    rules: boundaryRules(UPSTREAM, TOOLS),
+    rules: boundaryRules(UPSTREAM, UI_PACKAGE, TOOLS),
   },
   {
     files: ['src/ui/**'],
     ignores: LAYER_EXEMPT,
-    rules: boundaryRules(UPSTREAM, CHARTS, TOOLS),
+    rules: boundaryRules(UPSTREAM, UI_PACKAGE, CHARTS, TOOLS),
   },
   {
     files: ['**/*.{js,mjs}'],
