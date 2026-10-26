@@ -67,9 +67,16 @@ describe('comparePackageDeps', () => {
     expect(comparePackageDeps(admin, ui)).toEqual(['missing peer dependency react-dom@^19.3.0 of inkweave-ui']);
   });
 
-  it('reports a package admin declares at another specifier than the package', () => {
+  it('reports a package admin declares at another specifier than the package, which the app does not declare', () => {
     const admin = {dependencies: {react: '^19.3.0', 'react-dom': '^19.3.0'}, devDependencies: {'@types/react': '^19.2.0'}};
-    expect(comparePackageDeps(admin, ui)).toEqual(['version mismatch @types/react: admin ^19.2.0, inkweave-ui ^19.3.0']);
+    expect(comparePackageDeps(admin, ui, app)).toEqual(['version mismatch @types/react: admin ^19.2.0, inkweave-ui ^19.3.0']);
+  });
+
+  it("leaves a package the app declares too at the app's specifier, so --fix always settles the check", () => {
+    const behind = {...ui, devDependencies: {...ui.devDependencies, vite: '^8.2.0'}};
+    const admin = {dependencies: {react: '^19.3.0', 'react-dom': '^19.3.0'}, devDependencies: {vite: '^8.1.0'}};
+    const fixed = alignDeps(admin, app, behind);
+    expect([...compareDeps(fixed, app, behind), ...comparePackageDeps(fixed, behind, app)]).toEqual([]);
   });
 });
 

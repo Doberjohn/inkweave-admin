@@ -7,8 +7,9 @@
 // (#101) as a workspace importer, with its dev dependencies, so (4) it declares
 // the package's peers and (5) uses the package's specifier for every package
 // both declare: a second specifier installs a second copy, and two @types/react
-// give tsc two Reacts. The app's specifier wins where the two differ. Run after
-// each submodule bump; --fix aligns.
+// give tsc two Reacts. A package the app declares too keeps the app's specifier:
+// the app's own manifest test holds inkweave-ui to it, so (5) checks only the
+// packages the app doesn't declare. Run after each submodule bump; --fix aligns.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -53,10 +54,15 @@ export function compareDeps(admin, app, ui = {}) {
   return [...missing, ...mismatched, ...retired];
 }
 
-/** Human-readable problems between admin and inkweave-ui's manifest; an empty array means they agree. */
-export function comparePackageDeps(admin, ui) {
+/**
+ * Human-readable problems between admin and inkweave-ui's manifest; an empty array means they agree.
+ * A package `app` declares too is left to compareDeps, as alignDeps leaves it at the app's specifier.
+ */
+export function comparePackageDeps(admin, ui, app = {}) {
+  const appAll = allDeps(app);
+  const uiOnly = Object.fromEntries(Object.entries(allDeps(ui)).filter(([name]) => !(name in appAll)));
   const missing = missingPeers(admin, ui).map(([name, range]) => `missing peer dependency ${name}@${range} of inkweave-ui`);
-  return [...missing, ...mismatches({admin, deps: allDeps(ui), owner: 'inkweave-ui'})];
+  return [...missing, ...mismatches({admin, deps: uiOnly, owner: 'inkweave-ui'})];
 }
 
 /**
@@ -91,7 +97,7 @@ function main() {
     return;
   }
 
-  const problems = [...compareDeps(admin, app, ui), ...comparePackageDeps(admin, ui)];
+  const problems = [...compareDeps(admin, app, ui), ...comparePackageDeps(admin, ui, app)];
   if (problems.length === 0) {
     console.log('Dependency parity with the app and inkweave-ui: OK');
     return;
