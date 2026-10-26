@@ -2,7 +2,7 @@
 # Lint runs beside the tests, its output held until they finish so the two
 # don't interleave; the commit goes through only when both pass. The lint
 # script keeps an ESLint cache in node_modules/.cache/eslint/, so a repeat
-# lint re-reads only the files that changed.
+# lint re-lints only the files that changed.
 # A cold lint (no cache yet: a fresh install, or the cache deleted) reads every
 # file and loads the same heavy plugins as the tests' ESLint warm-up
 # (scripts/bridge-boundary.test.mjs), so it runs first, as it used to.
@@ -13,6 +13,9 @@ fi
 lint_log=$(mktemp)
 pnpm run lint >"$lint_log" 2>&1 &
 lint_pid=$!
+# Stop lint and drop its log however the hook ends, Ctrl-C included.
+trap 'rc=$?; kill "$lint_pid" 2>/dev/null || :; rm -f "$lint_log"; exit $rc' EXIT
+trap 'exit 130' INT TERM
 test_rc=0
 pnpm run test:run || test_rc=$?
 lint_rc=0

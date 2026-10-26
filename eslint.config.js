@@ -9,7 +9,19 @@ import tseslint from 'typescript-eslint';
 // held to the same design system. Admin enables every one of them by name
 // below. The plugin's ledger lists app paths only, so admin files get the rules
 // enabled here with no exception.
-import {inkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
+import {inkweave as appInkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
+import {createHash} from 'node:crypto';
+import {readdirSync, readFileSync} from 'node:fs';
+
+// The lint script caches results (--cache), keyed on the config, which names a plugin
+// only by its version. The pinned plugin may report a fixed one, so admin versions it
+// by a hash of its rule sources and ledgers: a pin that changes a rule re-lints every file.
+const RULES_DIR = new URL('./upstream/inkweave/apps/web/eslint-rules/', import.meta.url);
+const rulesHash = createHash('sha256');
+for (const name of readdirSync(RULES_DIR).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js')).sort()) {
+  rulesHash.update(name).update(readFileSync(new URL(name, RULES_DIR)));
+}
+const inkweave = {...appInkweave, meta: {...appInkweave.meta, version: rulesHash.digest('hex').slice(0, 12)}};
 
 // Same ban as the app (#291): the React Compiler memoizes automatically.
 const MEMO_BAN = [
