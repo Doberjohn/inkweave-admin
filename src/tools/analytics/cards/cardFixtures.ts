@@ -357,7 +357,7 @@ export function engineFixture(partners: readonly FixturePartner[]): EngineFixtur
   };
 }
 
-/** No synergies: what fetchCardSynergies caches for a missing or unreadable file. */
+/** No synergies: what fetchCardSynergies caches for a missing file (a 404) or a non-JSON 200. */
 export const ENGINE_EMPTY: EngineFixture = engineFixture([]);
 
 /** One partner. */

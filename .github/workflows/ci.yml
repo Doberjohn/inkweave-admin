@@ -53,6 +53,9 @@ jobs:
       # Windows, so it runs here rather than in the pre-commit hook.
       - run: pnpm check:hooks
       - run: pnpm build
+      # Admin's startup JS against its budget, and every url() in the built CSS against the
+      # files the build wrote and the paths forwarded to inkweave.ink (#101).
+      - run: pnpm check:size
       # CodeScene's coverage views (#97): line and branch coverage, uploaded for this commit once
       # every check above has passed. CodeScene's analysis reads the newest upload at or before
       # the commit it analyses, so a later push that CI skips (state.json only) still has it. A

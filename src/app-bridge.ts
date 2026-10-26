@@ -1,9 +1,16 @@
-// The ONLY module allowed to import from upstream/ (the pinned app submodule).
-// Everything admin uses from the app is re-exported here, so a pin bump that
-// changes app internals breaks in exactly one place. Enforced by the
-// no-restricted-imports rule in eslint.config.js (docs/PLAN.md, D3). The engine
-// is admin's own workspace package, so admin imports it by name instead.
+// The ONLY module allowed to import from upstream/ (the pinned app submodule)
+// or from inkweave-ui, the app's shared component library. Everything admin uses
+// from either is re-exported here, so a pin bump that changes them breaks in
+// exactly one place. Enforced by the no-restricted-imports rule in
+// eslint.config.js (docs/PLAN.md, D3). inkweave-ui is a workspace package built
+// from the submodule (packages/ui), so the bridge imports it by name, as the
+// app does; the engine is one too, and admin imports it by name anywhere.
 
+// inkweave-ui's stylesheets, in the order the app's main.tsx loads them: the
+// kit's focus rings and overlay transitions (DialogShell's), then the ink card
+// placeholder that CardTile draws while a card has no art.
+import 'inkweave-ui/styles/primitives.css';
+import 'inkweave-ui/styles/lorcana.css';
 // The app's global stylesheet: @font-face on /fonts/* (forwarded to
 // inkweave.ink), body colors, the .card-tile rules CardTile depends on, and the
 // reduced-motion block.
@@ -30,7 +37,6 @@ import {
 } from '../upstream/inkweave/scripts/lib/featured-ids.mjs';
 
 export {
-  ALL_INKS,
   COLORS,
   // The kit's dimmed recipe (opacity and cursor): New card fades the logos of the sets that take no new card to its opacity.
   DISABLED_STYLE,
@@ -38,18 +44,8 @@ export {
   EASING,
   FONTS,
   FONT_SIZES,
-  INK_COLORS,
   LETTER_SPACING,
-  // The promo sets, oldest first, each by the code printed on its cards ("P1" in 25/P1) and its name.
-  PROMO_SETS,
   RADIUS,
-  REVEAL_ID_BASE,
-  REVEAL_SET_CODE,
-  REVEAL_SET_NUMBER,
-  // Each set's logo, a WebP under /art/sets/ (forwarded to inkweave.ink): Card studio's New card names its sets with them.
-  SET_LOGOS,
-  SET_NAMES,
-  SET_TOTAL,
   SHADOWS,
   SPACING,
   TABULAR,
@@ -60,30 +56,40 @@ export {
   Z_INDEX,
   blackRgba,
   hexRgba,
+  whiteRgba,
+} from 'inkweave-ui/tokens/theme';
+export {ALL_INKS, INK_COLORS} from 'inkweave-ui/tokens/lorcana';
+// The app's data constants stay in the app.
+export {
+  // The promo sets, oldest first, each by the code printed on its cards ("P1" in 25/P1) and its name.
+  PROMO_SETS,
+  REVEAL_ID_BASE,
+  REVEAL_SET_CODE,
+  REVEAL_SET_NUMBER,
+  // Each set's logo, a WebP under /art/sets/ (forwarded to inkweave.ink): Card studio's New card names its sets with them.
+  SET_LOGOS,
+  SET_NAMES,
+  SET_TOTAL,
   inkBlock,
   // A promo set's place in release order, by its code ("P1", "C3"); -1 for a code none has.
   promoSetRank,
-  whiteRgba,
   // One of PROMO_SETS: its code and name, and any editions it gathers.
   type PromoSet,
 } from '../upstream/inkweave/apps/web/src/shared/constants';
-export {CardTranslationPanel} from '../upstream/inkweave/apps/web/src/shared/components/CardTranslationPanel';
-export {CtaButton} from '../upstream/inkweave/apps/web/src/shared/components/CtaButton';
+export {CardTranslationPanel} from 'inkweave-ui/lorcana/CardTranslationPanel';
+export {CtaButton} from 'inkweave-ui/components/CtaButton';
 // The app's overlay contract (Doberjohn/inkweave#510): portal, scrim, focus
 // trap, Escape, focus restore and scroll lock. inkweave/no-unshelled-dialogs
 // allows aria-modal only through it, so admin's dialogs render in it.
-export {DialogShell} from '../upstream/inkweave/apps/web/src/shared/components/DialogShell';
-export {InkIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkIcon';
+export {DialogShell} from 'inkweave-ui/components/DialogShell';
+export {InkIcon} from 'inkweave-ui/lorcana/InkIcon';
 // Inkable or Uninkable, as the app draws them (Card studio's Inkable buttons).
-export {InkwellIcon} from '../upstream/inkweave/apps/web/src/shared/components/InkwellIcon';
-export {LinkButton} from '../upstream/inkweave/apps/web/src/shared/components/LinkButton';
+export {InkwellIcon} from 'inkweave-ui/lorcana/InkwellIcon';
+export {LinkButton} from 'inkweave-ui/components/LinkButton';
+export {useContainerWidth} from 'inkweave-ui/hooks/useContainerWidth';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): by name,
 // never by id, from two letters, newest set first, after a 150 ms debounce.
-export {
-  useAutocomplete,
-  useContainerWidth,
-  type UseAutocompleteReturn,
-} from '../upstream/inkweave/apps/web/src/shared/hooks';
+export {useAutocomplete, type UseAutocompleteReturn} from '../upstream/inkweave/apps/web/src/shared/hooks';
 export {
   CardDataProvider,
   useCardDataContext,
@@ -172,22 +178,19 @@ export const featuredListProblem: (cards: ReadonlyArray<{id: string | number; in
 // The file's text: one entry per line, as the app keeps it.
 export const featuredIdsJson: (entries: readonly FeaturedEntry[]) => string = appFeaturedIdsJson;
 // A card's precomputed synergy file, /data/synergies/<id>.json (a forwarded
-// path). Each id's result is kept for the session, and a non-OK or non-JSON
-// response is kept as an empty result. A failed fetch or malformed JSON rejects
-// and isn't kept, so the next call fetches again.
+// path). Each id's result is kept for the session, and a 404 or a non-JSON 200
+// is kept as an empty result. A failed fetch, any other error status (a 500) or
+// malformed JSON rejects and isn't kept, so the next call fetches again.
 export {fetchCardSynergies} from '../upstream/inkweave/apps/web/src/features/synergies/hooks/usePrecomputedSynergies';
 // The app's synergy tiers: 9.5 and up Perfect, 7 Strong, 4 Moderate, below 4
 // Weak. A tier's color is its TIER_COLORS entry.
-export {
-  getStrengthTier,
-  type StrengthTierLabel,
-} from '../upstream/inkweave/apps/web/src/features/synergies/utils/scoreUtils';
+export {getStrengthTier, type StrengthTierLabel} from 'inkweave-ui/lib/scoreUtils';
 // RaritySymbol draws Common to Legendary and the Enchanted, Epic and Iconic
 // printings, by lowercased key ("super rare", "enchanted"), and nothing for any
 // other key. rarityConfigOf maps a card's rarity ("Super Rare") to one of the
 // five rarities' keys, and returns undefined for anything else, printings too.
-export {RaritySymbol} from '../upstream/inkweave/apps/web/src/features/reveals/RaritySymbol';
-export {rarityConfigOf} from '../upstream/inkweave/apps/web/src/features/reveals/rarity';
+export {RaritySymbol} from 'inkweave-ui/lorcana/RaritySymbol';
+export {rarityConfigOf} from 'inkweave-ui/lib/rarity';
 // The pinned app's previewCards.json as text. The write chain's tests and Card
 // studio's Edit tests run against it, so a pin bump that changes the file's
 // layout, or what its entries hold, fails here.

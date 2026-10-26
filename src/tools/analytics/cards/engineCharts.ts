@@ -74,9 +74,10 @@ function engineModel(data: CardSynergies, names: PartnerNames): EngineModel | nu
 }
 
 /**
- * Which of the Engine view's states to show. `empty` covers a missing or
- * unreadable file too: fetchCardSynergies keeps a non-OK response as an empty
- * result, so the two can't be told apart.
+ * Which of the Engine view's states to show. `empty` covers a missing file too:
+ * fetchCardSynergies keeps a 404 or a non-JSON 200 as an empty result, so the
+ * two can't be told apart. Any other error status, such as a 500, rejects and
+ * shows as `failed`, with Retry.
  */
 export function engineState(
   synergies: Pick<UseCardSynergiesReturn, 'data' | 'loading' | 'error'>,
