@@ -1,5 +1,12 @@
+import {suggestCardsByName} from '../../../../app-bridge';
 import {NO_MATCH, cardLabel, openedStatus, switcherStatus, type SwitcherState} from '../cardSearch';
 import {SWITCHER_CARDS} from '../cardFixtures';
+
+// The real search, which one case swaps for a single call.
+vi.mock('../../../../app-bridge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../app-bridge')>();
+  return {...actual, suggestCardsByName: vi.fn(actual.suggestCardsByName)};
+});
 
 describe('cardLabel', () => {
   it.each([
@@ -27,6 +34,12 @@ describe('switcherStatus', () => {
   it('says "No cards match." when the typed text finds no card', () => {
     expect(switcherStatus(NO_CARD_FOUND)).toBe(NO_MATCH);
     expect(NO_MATCH).toBe('No cards match.');
+  });
+
+  it("runs the list's search, so it never says no card matches beside a list of them", () => {
+    // "mi" finds cards, unless the list's search finds none: then the status agrees with the list.
+    vi.mocked(suggestCardsByName).mockReturnValueOnce([]);
+    expect(switcherStatus({...NO_CARD_FOUND, query: 'mi'})).toBe(NO_MATCH);
   });
 
   it.each<[string, Partial<SwitcherState>]>([

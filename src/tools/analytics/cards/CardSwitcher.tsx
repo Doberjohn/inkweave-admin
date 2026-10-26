@@ -1,11 +1,18 @@
 import {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {InkIcon, SPACING, TRUNCATE, Z_INDEX, useAutocomplete, type UseAutocompleteReturn} from '../../../app-bridge';
+import {
+  InkIcon,
+  SPACING,
+  TRUNCATE,
+  Z_INDEX,
+  useAutocomplete,
+  type UseAutocompleteReturn,
+} from '../../../app-bridge';
 import {cardsHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {SR_ONLY} from '../../../ui/layout';
-import {MIN_QUERY, cardLabel, openedStatus, switcherStatus} from './cardSearch';
+import {MIN_QUERY, SWITCHER_SEARCH, cardLabel, openedStatus, switcherStatus} from './cardSearch';
 import {OPAQUE_CARD} from './cardStyles';
 
 /** The handoff's "up to 6 results" (the hook's default is 10). */
@@ -98,9 +105,9 @@ interface CardSwitcherProps {
 
 /**
  * The Card analytics header's "Switch card" field (R-30): the app's
- * useAutocomplete as it is, so it searches names, from two letters, newest set
- * first, 150 ms after the last key, and handles the arrow keys, Enter, Escape
- * and the mouse. Picking a card opens its page and empties the field, which
+ * useAutocomplete with the app's search box's `search` (SWITCHER_SEARCH), so
+ * it searches names, from two letters, newest set first, 150 ms after the last
+ * key, and handles the arrow keys, Enter, Escape and the mouse. Picking a card opens its page and empties the field, which
  * keeps focus (R-48). A polite status says which card a pick opened, until the
  * user types again or leaves the field (#34), and when a query finds no card.
  */
@@ -116,6 +123,7 @@ export function CardSwitcher({cards}: CardSwitcherProps) {
       setOpened(card);
       navigate(cardsHref(card.id));
     },
+    search: SWITCHER_SEARCH,
     minChars: MIN_QUERY,
     maxResults: MAX_RESULTS,
   });

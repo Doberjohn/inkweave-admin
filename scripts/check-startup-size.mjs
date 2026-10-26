@@ -2,7 +2,9 @@
 // Admin's startup budget and stylesheet urls (#101). Run after `pnpm build`.
 // Startup is the JavaScript dist/index.html loads: its module script and any
 // modulepreloads. It must stay one file within BUDGET, gzipped at level 9 as
-// the shared component library's study measured it. Every url() in the built
+// the shared component library's study measured it, and no other script may
+// ship unless LAZY_CHUNKS names it: a bridged app module that warms a lazy
+// chunk ships that chunk too, which the bridge's own checks can't see. Every url() in the built
 // CSS must name a file the build wrote (public/ included), or a path forwarded
 // to inkweave.ink (forwarded-paths.json), unless it names no file at all, as
 // the app's cssUrlGuard reads urls: Vite only warns on a stylesheet url it
@@ -17,6 +19,9 @@ const DIST = path.join(ROOT, 'dist');
 
 /** main's startup (312,041 B at app pin 1c418ff) plus 1%, rounded up to the next 1,000 B. */
 export const BUDGET = {files: 1, gzipBytes: 316_000};
+
+/** The scripts admin may ship outside startup, by chunk name: none, since admin has no lazy import of its own. */
+export const LAZY_CHUNKS = [];
 
 const TAG = /<(script|link)\b[^>]*>/g;
 const ATTR = /\b([\w-]+)="([^"]*)"/g;
@@ -37,6 +42,17 @@ function loadedBy([tag, kind]) {
 export function startupScripts(html) {
   const files = [...html.matchAll(TAG)].map(loadedBy).filter((file) => ASSET_JS.test(file ?? ''));
   return [...new Set(files)];
+}
+
+/** A built script's chunk name: its file name without Rolldown's 8-character hash. */
+export const chunkName = (file) => file.replace(/-[\w-]{8}\.js$/, '');
+
+/** The .js files in dist/assets (`assets`, bare names) that startup doesn't load and `allowed` doesn't name, sorted. */
+export function strayScripts({html, assets, allowed = LAZY_CHUNKS}) {
+  const startup = new Set(startupScripts(html));
+  return assets
+    .filter((file) => file.endsWith('.js') && !startup.has(`/assets/${file}`) && !allowed.includes(chunkName(file)))
+    .sort();
 }
 
 /** How many startup JS files there are, and their size gzipped at level 9. */
@@ -93,13 +109,24 @@ function stylesheetProblems() {
     });
 }
 
+/** Each script outside startup that LAZY_CHUNKS doesn't name, with its size gzipped. */
+function strayProblems(html) {
+  const assets = fs.readdirSync(path.join(DIST, 'assets'));
+  const outside = strayScripts({html, assets, allowed: []});
+  console.log(`Scripts outside startup: ${outside.length > 0 ? outside.join(', ') : 'none'}`);
+  return outside.filter((file) => !LAZY_CHUNKS.includes(chunkName(file))).map((file) => {
+    const gzipBytes = zlib.gzipSync(fs.readFileSync(path.join(DIST, 'assets', file)), {level: 9}).length;
+    return `${file} (${gzipBytes} B gzipped) loads after startup, and LAZY_CHUNKS doesn't name "${chunkName(file)}"`;
+  });
+}
+
 function main() {
   const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8');
   const measured = measureStartup({html, readAsset: (file) => fs.readFileSync(path.join(DIST, file))});
   console.log(`Startup JavaScript: ${measured.files} file(s), ${measured.gzipBytes} B gzipped`);
-  const problems = [...sizeProblems(measured, BUDGET), ...stylesheetProblems()];
+  const problems = [...sizeProblems(measured, BUDGET), ...strayProblems(html), ...stylesheetProblems()];
   if (problems.length === 0) {
-    console.log(`Startup size and stylesheet urls: OK (budget ${BUDGET.gzipBytes} B)`);
+    console.log(`Startup size, scripts outside startup and stylesheet urls: OK (budget ${BUDGET.gzipBytes} B)`);
     return;
   }
   console.error(`Startup check failed (${problems.length}):`);

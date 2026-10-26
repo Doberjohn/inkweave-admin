@@ -4,7 +4,7 @@ import {
   TIER_COLORS,
   fetchCardSynergies,
   getStrengthTier,
-  searchCardsByName,
+  suggestCardsByName,
   type StrengthTierLabel,
 } from '../../../../app-bridge';
 
@@ -79,29 +79,39 @@ describe('fetchCardSynergies', () => {
   });
 });
 
-// R3-5's switcher says "No cards match." when this finds nothing (R-30).
-describe('searchCardsByName', () => {
-  const ELSA: LorcanaCard = {
-    id: '2983',
-    name: 'Elsa',
-    version: 'Snow Queen',
-    fullName: 'Elsa - Snow Queen',
-    cost: 1,
-    ink: 'Amber',
-    inkwell: true,
-    type: 'Character',
-  };
-  const ANNA: LorcanaCard = {
-    ...ELSA,
-    id: '17',
-    name: 'Anna',
-    version: 'Heir to Arendelle',
-    fullName: 'Anna - Heir to Arendelle',
-  };
+const ELSA: LorcanaCard = {
+  id: '2983',
+  name: 'Elsa',
+  version: 'Snow Queen',
+  fullName: 'Elsa - Snow Queen',
+  cost: 1,
+  ink: 'Amber',
+  inkwell: true,
+  type: 'Character',
+  setCode: '10',
+};
+const ANNA: LorcanaCard = {
+  ...ELSA,
+  id: '17',
+  name: 'Anna',
+  version: 'Heir to Arendelle',
+  fullName: 'Anna - Heir to Arendelle',
+};
+
+// R3-5's switcher's `search`: the list it shows, up to six of them, and its
+// "No cards match." when this finds nothing (R-30).
+describe('suggestCardsByName', () => {
+  const NEWER_ELSA: LorcanaCard = {...ELSA, id: '3100', version: 'Ice Maker', fullName: 'Elsa - Ice Maker', setCode: '11'};
+  const cards = [ELSA, NEWER_ELSA, ANNA];
+  const ids = (found: LorcanaCard[]) => found.map(({id}) => id);
 
   it("matches a card's name or version in any case, never its id", () => {
-    expect(searchCardsByName([ELSA, ANNA], 'elsa')).toEqual([ELSA]);
-    expect(searchCardsByName([ELSA, ANNA], 'HEIR')).toEqual([ANNA]);
-    expect(searchCardsByName([ELSA, ANNA], '2983')).toEqual([]);
+    expect(suggestCardsByName([ELSA, ANNA], 'elsa')).toEqual([ELSA]);
+    expect(suggestCardsByName([ELSA, ANNA], 'HEIR')).toEqual([ANNA]);
+    expect(suggestCardsByName([ELSA, ANNA], '2983')).toEqual([]);
+  });
+
+  it('lists the newest set first', () => {
+    expect(ids(suggestCardsByName(cards, 'elsa'))).toEqual(['3100', '2983']);
   });
 });

@@ -181,6 +181,114 @@ function appEntries(tree) {
     .map((entry) => ({...entry, file: resolveRelative({from: BRIDGE, specifier: entry.module, exists: tree.exists})}));
 }
 
+const APP_ROOT = '../upstream/inkweave/apps/web/';
+const APP_PACKAGE = 'upstream/inkweave/apps/web/package.json';
+
+/**
+ * Every path the bridge takes from the app, as it spells each one: its imports, side-effect imports
+ * and re-exports under apps/web, sorted. The rest of the bridge is inkweave-ui's, or the app's
+ * scripts/lib. A new path here also needs its packages in parity (check-shared-deps.mjs).
+ */
+const APP_MODULES = [
+  `${APP_ROOT}public/data/previewCards.json?raw`,
+  `${APP_ROOT}src/features/cards/loader`,
+  `${APP_ROOT}src/features/collection/collectionParser`,
+  `${APP_ROOT}src/features/collection/collectionPromos`,
+  `${APP_ROOT}src/features/collection/printingFinishes`,
+  `${APP_ROOT}src/features/synergies/hooks/usePrecomputedSynergies`,
+  `${APP_ROOT}src/index.css`,
+  `${APP_ROOT}src/shared/constants`,
+  `${APP_ROOT}src/shared/contexts/CardDataContext`,
+];
+
+/**
+ * The app's runtime packages that no module the bridge takes reaches. check:deps still requires
+ * them: parity stays whole while the bridged modules reach the rest.
+ */
+const PARITY_ONLY = ['@vercel/speed-insights'];
+
+const CODE = /\.(?:m?js|tsx?)$/;
+
+/** The specifier of an import or a re-export, type-only ones too, or undefined for any other node. */
+function staticSpecifierOf(node) {
+  const declares = ts.isImportDeclaration(node) || ts.isExportDeclaration(node);
+  return declares ? node.moduleSpecifier?.text : undefined;
+}
+
+/** The specifier an `import('x').T` or `typeof import('x')` type names, or undefined for any other node. */
+function importTypeSpecifierOf(node) {
+  if (!ts.isImportTypeNode(node) || !ts.isLiteralTypeNode(node.argument)) return undefined;
+  const {literal} = node.argument;
+  return ts.isStringLiteral(literal) ? literal.text : undefined;
+}
+
+/** The specifier an `import('x')` call or type names, or undefined for any other node. */
+function dynamicSpecifierOf(node) {
+  if (!ts.isCallExpression(node)) return importTypeSpecifierOf(node);
+  if (node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
+  const [first] = node.arguments;
+  return first && ts.isStringLiteralLike(first) ? first.text : undefined;
+}
+
+/** Every module a file names: its imports and re-exports, type-only ones too, and its import() calls and types. */
+function specifiersIn(source) {
+  const found = [];
+  const visit = (node) => {
+    const specifier = staticSpecifierOf(node) ?? dynamicSpecifierOf(node);
+    if (specifier !== undefined) found.push(specifier);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/** The package a bare specifier names: "@scope/auth" for "@scope/auth/dist/types", "react" for "react/jsx-runtime". */
+function packageOf(specifier) {
+  const parts = specifier.replace(/\?.*$/, '').split('/');
+  return parts.slice(0, specifier.startsWith('@') ? 2 : 1).join('/');
+}
+
+/**
+ * Where one specifier of `from` leads: `file`, the code file to read next, if there is one, and
+ * `reached`, the package a bare specifier counts as. inkweave-ui's subpaths lead into its source too.
+ */
+function stepOf({from, specifier, tree}) {
+  if (isRelative(specifier)) return {file: resolveRelative({from, specifier, exists: tree.exists})};
+  const file = resolvePackage({specifier, packages: [{...UI, exports: tree.exports}]})?.file;
+  return {file: file !== undefined && tree.exists(file) ? file : undefined, reached: packageOf(specifier)};
+}
+
+/** Each step out of `file`, keeping the packages it reaches in `reached`: the code files it leads to. */
+function stepsOutOf({file, tree, reached}) {
+  return specifiersIn(tree.source(file)).flatMap((specifier) => {
+    const step = stepOf({from: file, specifier, tree});
+    if (step.reached !== undefined) reached.add(step.reached);
+    return step.file !== undefined && CODE.test(step.file) ? [step.file] : [];
+  });
+}
+
+/**
+ * The packages a walk from the code files `entries` reaches, sorted: through relative imports,
+ * import() and type-only imports, into inkweave-ui's source by its exports map, and counting each
+ * other bare specifier by its package. A path that names no file, relative or in inkweave-ui,
+ * ends the walk there.
+ */
+function reachedPackages({entries, tree}) {
+  const seen = new Set(entries);
+  const reached = new Set();
+  const queue = [...entries];
+  for (const file of queue) {
+    const next = stepsOutOf({file, tree, reached}).filter((step) => !seen.has(step));
+    for (const step of next) seen.add(step);
+    queue.push(...new Set(next));
+  }
+  return [...reached].sort();
+}
+
+/** The bridge's specifiers under apps/web, each once, sorted. */
+const bridgedAppModules = (tree) =>
+  [...new Set(specifiersIn(tree.source(BRIDGE)).filter((specifier) => specifier.startsWith(APP_ROOT)))].sort();
+
 describe("the bridge's sources", () => {
   const tree = parsedOnce({...onDisk, exports: uiExports()});
 
@@ -197,6 +305,20 @@ describe("the bridge's sources", () => {
       .flatMap(({file, names}) => names.map(({local}) => ({name: local, from: forwardedFrom({file, name: local, tree})})))
       .filter(({from}) => from !== undefined);
     expect(forwarded).toEqual([]);
+  });
+
+  it('takes from apps/web exactly APP_MODULES', () => {
+    expect(bridgedAppModules(tree)).toEqual(APP_MODULES);
+  });
+
+  it("reaches every runtime package of the app's but PARITY_ONLY from the bridged code modules", {timeout: 60_000}, () => {
+    const entries = APP_MODULES.map((specifier) => resolveRelative({from: BRIDGE, specifier, exists: tree.exists})).filter(
+      (file) => file !== undefined && CODE.test(file),
+    );
+    const reached = new Set(reachedPackages({entries, tree}));
+    const unreached = Object.keys(JSON.parse(tree.read(APP_PACKAGE)).dependencies).filter((name) => !reached.has(name));
+    expect(entries).toHaveLength(7);
+    expect(unreached).toEqual(PARITY_ONLY);
   });
 
   it("loads the app's index.css and every stylesheet the package exports", () => {
@@ -230,6 +352,12 @@ describe('forwardedFrom', () => {
       'export const GAPS = SPACING;',
       'export const TITLE = name;',
       'export type {Ink};',
+      '',
+    ].join('\n'),
+    'app/loader.ts': [
+      "import {isChaseRarity as isChase} from 'inkweave-ui/lib/printings';",
+      'const own = 1;',
+      'export {isChase as isChaseRarity, own};',
       '',
     ].join('\n'),
     'ui/src/tokens/lorcana.ts': 'export const ALL_INKS = [];\nexport function inkOf() {}\n',
@@ -267,10 +395,49 @@ describe('forwardedFrom', () => {
     expect(from('Ink')).toBeUndefined();
   });
 
+  it("follows the loader's import-then-export form, and leaves a listed local of its own alone", () => {
+    const fromLoader = (name) => forwardedFrom({file: 'app/loader.ts', name, tree: memoryTree});
+    expect(fromLoader('isChaseRarity')).toBe('inkweave-ui/lib/printings');
+    expect(fromLoader('own')).toBeUndefined();
+  });
+
   it("reads a namespace export as one name, the package's namespace or the app's own", () => {
     expect(from('theme')).toBe('inkweave-ui/tokens/theme');
     expect(from('RADIUS')).toBeUndefined();
     expect(from('own')).toBeUndefined();
+  });
+});
+
+describe('reachedPackages', () => {
+  const files = {
+    'app/a.ts': [
+      "import {b} from './b';",
+      "import type {Session} from '@scope/auth/dist/types';",
+      "import {useX} from 'inkweave-ui/hooks/useX';",
+      "import {gone} from './gone';",
+      "import {useGone} from 'inkweave-ui/hooks/useGone';",
+      "export const lazy = () => import('lazy-pkg');",
+      "export type Typed = import('typed-pkg').Typed;",
+      '',
+    ].join('\n'),
+    'app/b.ts': 'export const b = 1;\n',
+    'ui/src/hooks/useX.ts': "import {useState} from 'react';\nexport const useX = useState;\n",
+  };
+  const inMemory = (file) => file.replace(`${UI.root}/`, 'ui/');
+  const memoryTree = parsedOnce({
+    read: (file) => files[inMemory(file)],
+    exists: (file) => Object.hasOwn(files, inMemory(file)),
+    exports: {'./hooks/*': './src/hooks/*.ts'},
+  });
+
+  it('counts type-only imports, import() calls and types, and inkweave-ui by package, walks into the package, and skips a missing file', () => {
+    expect(reachedPackages({entries: ['app/a.ts'], tree: memoryTree})).toEqual([
+      '@scope/auth',
+      'inkweave-ui',
+      'lazy-pkg',
+      'react',
+      'typed-pkg',
+    ]);
   });
 });
 

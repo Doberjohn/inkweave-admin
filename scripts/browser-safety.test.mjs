@@ -165,6 +165,8 @@ describe('what the browser loads', () => {
       'upstream/inkweave/scripts/lib/finishes.mjs',
       'upstream/inkweave/scripts/lib/fold-variants.mjs',
       'upstream/inkweave/packages/ui/src/components/DialogShell.tsx',
+      'upstream/inkweave/packages/ui/src/lorcana/CardTile.tsx',
+      'upstream/inkweave/packages/ui/src/hooks/useAutocomplete.ts',
       'src/tools/studio/promos/__tests__/promoFixtures.ts',
     ]) {
       expect(loaded.visited).toContain(file);

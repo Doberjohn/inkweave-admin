@@ -15,9 +15,6 @@ import 'inkweave-ui/styles/lorcana.css';
 // inkweave.ink), body colors, the .card-tile rules CardTile depends on, and the
 // reduced-motion block.
 import '../upstream/inkweave/apps/web/src/index.css';
-// CardTile's loading placeholder is a react-loading-skeleton; the app loads
-// this stylesheet once, in its main.tsx.
-import 'react-loading-skeleton/dist/skeleton.css';
 import type {Ink} from 'inkweave-synergy-engine';
 // The app's promo merge is plain JavaScript (scripts/lib/*.mjs): the typed exports below wrap these.
 import {
@@ -87,26 +84,31 @@ export {InkIcon} from 'inkweave-ui/lorcana/InkIcon';
 export {InkwellIcon} from 'inkweave-ui/lorcana/InkwellIcon';
 export {LinkButton} from 'inkweave-ui/components/LinkButton';
 export {useContainerWidth} from 'inkweave-ui/hooks/useContainerWidth';
-// useAutocomplete is the app's card search combobox (R3-5's switcher): by name,
-// never by id, from two letters, newest set first, after a 150 ms debounce.
-export {useAutocomplete, type UseAutocompleteReturn} from '../upstream/inkweave/apps/web/src/shared/hooks';
+// useAutocomplete is the app's card search combobox (R3-5's switcher): from two
+// letters, after a 150 ms debounce, listing what its `search` finds, which the
+// switcher gives as the loader's suggestCardsByName.
+export {useAutocomplete, type UseAutocompleteReturn} from 'inkweave-ui/hooks/useAutocomplete';
 export {
   CardDataProvider,
   useCardDataContext,
 } from '../upstream/inkweave/apps/web/src/shared/contexts/CardDataContext';
-export {CardTile} from '../upstream/inkweave/apps/web/src/features/cards/components/CardTile';
-// searchCardsByName is useAutocomplete's own match, run without its debounce
-// (R3-5's "No cards match."). transformRawCards is how the app's loader builds
-// the card list: the engine's transform plus imageUrl, the image hashes,
-// scanLanguage and the printings. Card studio builds with it the cards that
-// only the target branch's previewCards.json holds (R-66), so each points at
-// its art, which shows once inkweave.ink serves it. isChaseRarity tells Epic,
-// Enchanted and Iconic from the rest (Edit card's Printings panel names a
-// printing's row by it).
+// inkweave-ui's tile with neither seam: it draws card.imageUrl and warms
+// nothing. Never the app's adapter, which warms the card modal's chunk, so
+// admin would ship that chunk (pnpm check:size fails on it).
+export {CardTile} from 'inkweave-ui/lorcana/CardTile';
+// isChaseRarity tells Epic, Enchanted and Iconic from the rest (Edit card's
+// Printings panel names a printing's row by it).
+export {isChaseRarity} from 'inkweave-ui/lib/printings';
+// suggestCardsByName is the switcher's one search, for its list and its "No
+// cards match." (R3-5): the cards whose name and version hold a word starting
+// with each word of the query, never by id, newest set first. transformRawCards is how the app's loader builds the card
+// list: the engine's transform plus imageUrl, the image hashes, scanLanguage
+// and the printings. Card studio builds with it the cards that only the target
+// branch's previewCards.json holds (R-66), so each points at its art, which
+// shows once inkweave.ink serves it.
 export {
-  isChaseRarity,
-  searchCardsByName,
   smallImageUrl,
+  suggestCardsByName,
   transformRawCards,
 } from '../upstream/inkweave/apps/web/src/features/cards/loader';
 // A printing's versions: its data's `finishes`, else its rarity's (Doberjohn/inkweave#880).
