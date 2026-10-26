@@ -58,6 +58,11 @@ describe('the app-bridge boundary', () => {
     await expectAllowed('src/app-bridge.ts', LEAK, 'no-restricted-imports');
   });
 
+  it("allows vite.config.ts to load the app's React Compiler guard", async () => {
+    const guard = "import {uiCompilerGuard} from './upstream/inkweave/apps/web/build-guards.ts';\nexport const plugin = uiCompilerGuard();\n";
+    await expectAllowed('vite.config.ts', guard, 'no-restricted-imports');
+  });
+
   it('rejects a dynamic upstream import outside the bridge', async () => {
     expect(await ruleIds('src/shell/Leak.ts', DYNAMIC_LEAK)).toContain('no-restricted-syntax');
   });

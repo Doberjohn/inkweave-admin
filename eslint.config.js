@@ -133,11 +133,12 @@ export default tseslint.config(
     rules: COMPILER_BAILOUTS,
   },
   // D3: app code and inkweave-ui enter admin only through src/app-bridge.ts,
-  // from any source file. The one tooling exception is this config, which loads
-  // the app's design-token plugin from the submodule.
+  // from any source file. The tooling exceptions are this config, which loads
+  // the app's design-token plugin from the submodule, and vite.config.ts, which
+  // loads its React Compiler guard for inkweave-ui (#101).
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs}'],
-    ignores: ['src/app-bridge.ts', 'eslint.config.js'],
+    ignores: ['src/app-bridge.ts', 'eslint.config.js', 'vite.config.ts'],
     rules: boundaryRules(UPSTREAM, UI_PACKAGE),
   },
   // The layers (#37). Each block repeats D3's bans, since its rule options

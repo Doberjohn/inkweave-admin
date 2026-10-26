@@ -5,6 +5,9 @@ import {sentryVitePlugin} from '@sentry/vite-plugin';
 import react, {reactCompilerPreset} from '@vitejs/plugin-react';
 import babel from '@rolldown/plugin-babel';
 import {defineConfig} from 'vitest/config';
+// The app's own guard (Doberjohn/inkweave#977), by path, so it moves with the pin. Its .ts
+// extension stays: .storybook/main.ts loads this config as native ESM, which strips types itself.
+import {uiCompilerGuard} from './upstream/inkweave/apps/web/build-guards.ts';
 
 // Public app paths the bridged loader, images and fonts request same-origin
 // (docs/PLAN.md, D5). Production forwards them with vercel.json rewrites;
@@ -33,9 +36,13 @@ export default defineConfig({
   },
   // Same compiler setup as the app (upstream/inkweave/apps/web/vite.config.ts),
   // so bridged components compile identically. babel() must follow react().
+  // The babel plugin skips node_modules, so inkweave-ui compiles only while
+  // pnpm's link resolves to upstream/inkweave/packages/ui: uiCompilerGuard fails
+  // a build in which React Compiler compiled none of the package's components.
   plugins: [
     react(),
     babel({presets: [reactCompilerPreset()]}),
+    uiCompilerGuard(),
     uploadSourceMaps &&
       sentryVitePlugin({
         org: 'fanidis-ioannis-lp',
