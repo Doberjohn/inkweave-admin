@@ -12,15 +12,20 @@ import tseslint from 'typescript-eslint';
 import {inkweave as appInkweave} from './upstream/inkweave/apps/web/eslint-rules/index.js';
 import {createHash} from 'node:crypto';
 import {readdirSync, readFileSync} from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 // The lint script caches results (--cache), keyed on the config, which names a plugin
 // only by its version. The pinned plugin may report a fixed one, so admin versions it
-// by a hash of its rule sources and ledgers: a pin that changes a rule re-lints every file.
-const RULES_DIR = new URL('./upstream/inkweave/apps/web/eslint-rules/', import.meta.url);
+// by a hash of every non-test file under its folder: a pin that changes a rule or a
+// ledger re-lints every file.
+const RULES_DIR = fileURLToPath(new URL('./upstream/inkweave/apps/web/eslint-rules/', import.meta.url));
 const rulesHash = createHash('sha256');
-for (const name of readdirSync(RULES_DIR).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js')).sort()) {
-  rulesHash.update(name).update(readFileSync(new URL(name, RULES_DIR)));
-}
+const ruleFiles = readdirSync(RULES_DIR, {recursive: true, withFileTypes: true})
+  .filter((entry) => entry.isFile() && !/\.test\.[cm]?[jt]s$/.test(entry.name))
+  .map((entry) => path.relative(RULES_DIR, path.join(entry.parentPath, entry.name)))
+  .sort();
+for (const file of ruleFiles) rulesHash.update(file).update(readFileSync(path.join(RULES_DIR, file)));
 const inkweave = {...appInkweave, meta: {...appInkweave.meta, version: rulesHash.digest('hex').slice(0, 12)}};
 
 // Same ban as the app (#291): the React Compiler memoizes automatically.

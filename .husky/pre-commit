@@ -16,12 +16,13 @@ lint_pid=
 # the ESLint processes too; a kill of the hook alone stops only the top pnpm.
 trap 'rc=$?; [ -z "$lint_pid" ] || kill "$lint_pid" 2>/dev/null || :; rm -f "$lint_log" || :; exit $rc' EXIT
 trap 'exit 130' HUP INT TERM
-pnpm run lint >"$lint_log" 2>&1 &
+FORCE_COLOR=1 pnpm run lint >"$lint_log" 2>&1 &
 lint_pid=$!
 test_rc=0
 pnpm run test:run || test_rc=$?
 lint_rc=0
 wait "$lint_pid" || lint_rc=$?
+lint_pid=
 cat "$lint_log"
 rm -f "$lint_log"
 [ "$lint_rc" -eq 0 ] || echo "pre-commit: lint failed (exit $lint_rc)"
