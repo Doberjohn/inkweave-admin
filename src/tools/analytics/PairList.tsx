@@ -1,7 +1,6 @@
-import {SPACING, TABULAR, TRUNCATE} from '../../app-bridge';
+import {Panel, SPACING, TABULAR, TRUNCATE} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {fmtInt} from '../../ui/format';
-import {Panel} from '../../ui/Panel';
 import {pairId} from './calibration/calibrationModel';
 import {pairWords, scoreText} from './calibration/chartData';
 import {gapColor} from './gapColor';

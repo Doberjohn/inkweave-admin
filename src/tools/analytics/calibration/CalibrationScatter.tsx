@@ -6,7 +6,7 @@ import {ScatterChart} from '../../../charts/ScatterChart';
 import {ACROSS_SHARE} from '../../../charts/scatter';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap, fmtInt, fmtScore} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {countOf} from '../activity/activityModel';
 import type {EngineSilentSplit, PairStat} from '../voteAnalyticsTypes';
 import {pairId} from './calibrationModel';

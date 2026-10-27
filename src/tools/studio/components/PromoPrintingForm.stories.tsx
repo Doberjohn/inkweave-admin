@@ -1,8 +1,7 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState, type ReactNode} from 'react';
-import {PROMO_SETS, SPACING} from '../../../app-bridge';
+import {PROMO_SETS, Panel, SPACING} from '../../../app-bridge';
 import {useFileDropGuard} from '../../../components/useFileDrop';
-import {Panel} from '../../../ui/Panel';
 import {EMPTY_PRINTING_FORM, promoSetOptions, type PrintingFormValues, type ScanState} from '../promos/printingForm';
 import {findPrinting} from '../promos/promoCatalog';
 import type {OpenPrintingForm, PrintingFormController} from '../promos/usePrintingForm';

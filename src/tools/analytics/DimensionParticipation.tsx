@@ -1,7 +1,6 @@
-import {SPACING, TABULAR} from '../../app-bridge';
+import {Panel, SPACING, TABULAR} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {MeterBar} from '../../ui/MeterBar';
-import {Panel} from '../../ui/Panel';
 import {dimensionStats} from './dimensionStats';
 import type {DimensionFill} from './voteAnalyticsTypes';
 

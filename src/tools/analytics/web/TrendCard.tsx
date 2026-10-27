@@ -1,9 +1,8 @@
-import {FONTS, SPACING} from '../../../app-bridge';
+import {FONTS, Panel, SPACING} from '../../../app-bridge';
 import {ChartFrame, type ChartTable} from '../../../charts/ChartFrame';
 import {LineChart, type LineSeries} from '../../../charts/LineChart';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
 import type {TrendPoint, VercelEvent} from '../vercelAnalyticsTypes';
 import {trendSummary} from './webModel';
 

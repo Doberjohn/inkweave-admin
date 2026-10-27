@@ -3,7 +3,7 @@ import {BarChart} from '../../../charts/BarChart';
 import {ChartFrame} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import {fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {countOf} from '../activity/activityModel';
 import {CAPTION} from './cardStyles';
 import type {ScoreHistogram} from './cardVotes';

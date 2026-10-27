@@ -1,10 +1,9 @@
 import {useState} from 'react';
-import {LETTER_SPACING, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
+import {LETTER_SPACING, Panel, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap, fmtInt} from '../../../ui/format';
 import {LowNTag} from '../../../ui/LowNTag';
-import {Panel} from '../../../ui/Panel';
 import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {gapColor} from '../gapColor';
 import type {RuleStat} from '../voteAnalyticsTypes';

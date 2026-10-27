@@ -1,8 +1,7 @@
 import type {CSSProperties} from 'react';
-import {SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
+import {Panel, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
 import {PanelLink} from './PanelLink';
 import type {ReportingWindow, VercelAnalytics} from '../vercelAnalyticsTypes';
 

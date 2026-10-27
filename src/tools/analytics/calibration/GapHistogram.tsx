@@ -4,7 +4,7 @@ import {ChartLegend} from '../../../charts/ChartLegend';
 import type {TooltipContent} from '../../../charts/ChartTooltip';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt, sharePercent} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import type {PairStat} from '../voteAnalyticsTypes';
 import {
   GAP_SERIES,

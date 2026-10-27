@@ -1,11 +1,10 @@
 import {useRef, useState} from 'react';
-import {CtaButton, Notice, SPACING} from '../../app-bridge';
+import {CtaButton, Notice, Panel, SPACING} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
 import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {fmtWeekday} from '../../ui/format';
-import {Panel} from '../../ui/Panel';
 import {SegmentedControl} from '../../ui/SegmentedControl';
 import {AREA_LABELS, AREAS} from './changePaths';
 import {ChangeItem} from './ChangeItem';

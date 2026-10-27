@@ -1,9 +1,8 @@
-import {SPACING, TRUNCATE} from '../../../app-bridge';
+import {Panel, SPACING, TRUNCATE} from '../../../app-bridge';
 import {CardLink} from '../../../shell/CardLink';
 import {cardsHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap, fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
 import {countOf} from '../activity/activityModel';
 import {scoreText} from '../calibration/chartData';
 import {gapColor} from '../gapColor';

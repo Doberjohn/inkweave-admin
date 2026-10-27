@@ -1,12 +1,11 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
 import {MemoryRouter} from 'react-router-dom';
-import {FONTS, SPACING, getStrengthTier} from '../app-bridge';
+import {FONTS, Panel, SPACING, getStrengthTier} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {TIER_COLOR, TIER_SERIES} from '../tools/analytics/cards/engineView';
 import {gapColor} from '../tools/analytics/gapColor';
 import {fmtDay, fmtGap, fmtInt, fmtScore} from '../ui/format';
-import {Panel} from '../ui/Panel';
 import {BarChart, type BarDatum} from './BarChart';
 import {ChartFrame, type ChartTable, type ChartView} from './ChartFrame';
 import {ChartLegend} from './ChartLegend';

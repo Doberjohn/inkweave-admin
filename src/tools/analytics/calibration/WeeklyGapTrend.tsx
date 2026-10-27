@@ -3,7 +3,7 @@ import {LineChart} from '../../../charts/LineChart';
 import type {Day} from '../../../charts/scale';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {gapDomain, weekTitle, weeklySubtitle, weeklyTable, type WeeklyGap, type WeeklyScope} from './chartData';
 
 /** The two plots' heights in px: the gap is the story, the score votes its context. */

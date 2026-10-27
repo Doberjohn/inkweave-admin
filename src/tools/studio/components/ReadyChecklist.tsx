@@ -1,8 +1,7 @@
 import type {ReactNode} from 'react';
-import {COLORS, SPACING} from '../../../app-bridge';
+import {COLORS, Panel, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {MeterBar} from '../../../ui/MeterBar';
-import {Panel} from '../../../ui/Panel';
 import type {ChecklistId, ChecklistItem} from '../readiness';
 
 /** A control under an item's message: the way out of what it names. */
