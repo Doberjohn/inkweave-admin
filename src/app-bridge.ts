@@ -41,7 +41,10 @@ export {
   EASING,
   FONTS,
   FONT_SIZES,
+  // The gold's selected-edge step and the neutral ladder's shared steps: admin's theme composes them (adminTheme.ts).
+  GOLD_GLOW,
   LETTER_SPACING,
+  NEUTRAL_LADDER,
   RADIUS,
   SHADOWS,
   SPACING,
