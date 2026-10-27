@@ -5,6 +5,9 @@ import {ADMIN_COLORS as C, ADMIN_RADIUS as R, ADMIN_TYPE as T} from './adminThem
 // so they live here, beside the only rules that use them.
 const NAV_ITEM_HEIGHT = 36;
 const NAV_MARK_SIZE = 24;
+// A segmented control is as tall as an input, so a filter row lines the two up:
+// inkweave-ui's 32px option, with its track's 2px pad and 1px border above and
+// below it (AdminStyles.test.tsx checks the sum).
 const INPUT_HEIGHT = 38;
 // Card studio's controls (R4), sized as the handoff draws them (README §7).
 const CHEVRON_SIZE = 6;
@@ -24,8 +27,9 @@ const RANGE_THUMB = 16;
 /**
  * The width of Edit card's search list, its content box, under which a row moves its marks under its
  * name (#74). A row's fixed parts take 214px of it: its 12px padding each side, the 34px thumbnail,
- * the 68px marks, the 52px number and three 12px gaps. The widest tag, "not deployed yet", is 92px,
- * so in a narrower list the names column can't hold it beside the marks. A 375px phone's list is 277px.
+ * the 68px marks, the 52px number and three 12px gaps. The widest tag, "not deployed yet", is 92px in
+ * inkweave-ui's Tag, so in a narrower list the names column can't hold it beside the marks. A 375px
+ * phone's list is 277px. AdminStyles.test.tsx pins the tag's look it was measured in.
  */
 export const SEARCH_STACK_BELOW = 306;
 /**

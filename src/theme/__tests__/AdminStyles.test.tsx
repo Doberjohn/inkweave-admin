@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {render, screen} from '@testing-library/react';
-import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
+import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING, SegmentedControl, Tag} from '../../app-bridge';
 import {AdminStyles, FEATURED_TWO_UP_BELOW, SEARCH_STACK_BELOW} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 
@@ -357,6 +357,35 @@ describe('AdminStyles', () => {
     );
     // Elsewhere the row's own inline grid lays it out, so a wider list looks as it always has.
     expect(css.replace(narrow?.[0] ?? '', '')).not.toMatch(/[.]adm-search-(names|marks)/);
+  });
+
+  it('keeps the tag look SEARCH_STACK_BELOW was measured in: "not deployed yet" at 92px (#74)', () => {
+    render(<Tag>not deployed yet</Tag>);
+    const tag = getComputedStyle(screen.getByText('not deployed yet'));
+    // inkweave-ui's Tag sets these. A pin bump that changes one needs the tag measured again, and the breakpoint moved.
+    expect({
+      fontSize: tag.fontSize,
+      fontWeight: tag.fontWeight,
+      padding: [tag.paddingLeft, tag.paddingRight],
+      border: [tag.borderLeftWidth, tag.borderRightWidth],
+      whiteSpace: tag.whiteSpace,
+    }).toEqual({fontSize: '10px', fontWeight: '500', padding: ['4px', '4px'], border: ['1px', '1px'], whiteSpace: 'nowrap'});
+  });
+
+  it('makes a segmented control as tall as an input, so a filter row lines the two up', () => {
+    render(
+      <>
+        <AdminStyles />
+        <input aria-label="Search pairs" className="adm-input" />
+        <SegmentedControl ariaLabel="Score band" options={[{value: 'all', label: 'All'}]} value="all" onChange={() => {}} />
+      </>,
+    );
+    const look = screen.getByRole('group', {name: 'Score band'}).style;
+    const px = (property: string) => parseFloat(look.getPropertyValue(property));
+    // SegmentedControl.css draws the track's 1px border; jsdom can't read it through the var() colour beside it.
+    const TRACK_BORDER = 1;
+    const track = px('--segmented-height') + 2 * px('--segmented-gap') + 2 * TRACK_BORDER;
+    expect(getComputedStyle(screen.getByRole('textbox')).height).toBe(`${track}px`);
   });
 
   it("runs Featured cards' slots three to a row, and two in a column narrower than three fit (#95)", () => {
