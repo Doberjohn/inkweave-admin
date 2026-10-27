@@ -107,6 +107,7 @@ export default tseslint.config(
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'jsx-a11y': jsxA11y,
+      inkweave,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -120,10 +121,12 @@ export default tseslint.config(
       // eslint-plugin-react-compiler (inkweave#937). Its recommended set leaves off two that the
       // old plugin reported: a hook used as a value or swapped between renders (hooks), and code
       // the compiler reads as invalid JavaScript (syntax). The two things only the old plugin
-      // caught, a turned-off react-hooks rule and a 'use no memo' directive, are
-      // inkweave/no-compiler-opt-out below.
+      // caught, a comment that turns off a react-hooks rule and a 'use no memo' directive, are
+      // inkweave/no-compiler-opt-out's. It holds every file here, as the old plugin did, not only
+      // src/: the build's compiler also compiles .storybook/preview.tsx.
       'react-hooks/hooks': 'error',
       'react-hooks/syntax': 'error',
+      'inkweave/no-compiler-opt-out': 'error',
       'no-restricted-syntax': ['error', ...MEMO_BAN],
     },
   },
@@ -144,9 +147,6 @@ export default tseslint.config(
       'inkweave/no-dim-text': 'error',
       'inkweave/no-unloaded-font-weight': 'error',
       'inkweave/no-raw-spacing': 'error',
-      // Not a token rule: it fails a comment that turns off a react-hooks rule, or a 'use no memo'
-      // directive, either of which lets React Compiler skip code without a word (inkweave#937).
-      'inkweave/no-compiler-opt-out': 'error',
     },
   },
   {
