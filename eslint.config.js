@@ -82,15 +82,15 @@ const CHARTS = importBan(
 // nothing (Doberjohn/inkweave-admin#59). react-hooks reports each bailout
 // under its category's rule. These are the ones its recommended set leaves off
 // or at warn, which the commit gate lets through: syntax the compiler can't
-// lower yet (todo: a try/finally, for one), its own invariants, a syntax
-// error, syntax it won't support, and a library it won't memoize. A broken
-// rule of hooks and a suppressed hooks rule are errors already (rules-of-hooks,
-// inkweave/no-compiler-opt-out). Every source file under src/ is held to
-// them, stories included; tests never ship. react-hooks runs its own copy of
+// lower yet (todo: a try/finally, for one), its own invariants, syntax it
+// won't support, and a library it won't memoize. A broken rule of hooks, a
+// suppressed hooks rule and a syntax error are errors already, in every file
+// (rules-of-hooks, inkweave/no-compiler-opt-out, react-hooks/syntax). Every
+// source file under src/ is held to these, stories included; tests never ship. react-hooks runs its own copy of
 // the compiler, not the build's babel-plugin-react-compiler, so bumping either
 // can change what these catch.
 const COMPILER_BAILOUTS = Object.fromEntries(
-  ['todo', 'invariant', 'syntax', 'unsupported-syntax', 'incompatible-library'].map((rule) => [`react-hooks/${rule}`, 'error']),
+  ['todo', 'invariant', 'unsupported-syntax', 'incompatible-library'].map((rule) => [`react-hooks/${rule}`, 'error']),
 );
 const TEST_CODE = ['**/*.test.{ts,tsx}', '**/__tests__/**', 'src/test/**'];
 
