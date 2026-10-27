@@ -1,4 +1,4 @@
-import {Tag} from './Tag';
+import {Tag} from '../app-bridge';
 
 /**
  * The "low n" tag: a number that rests on fewer than `minVotes` score votes is

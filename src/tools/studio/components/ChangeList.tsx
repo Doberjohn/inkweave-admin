@@ -1,8 +1,7 @@
 import {useRef} from 'react';
-import {SPACING, LinkButton} from '../../../app-bridge';
+import {LinkButton, Panel, SPACING} from '../../../app-bridge';
 import {focusNearRow} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {Panel} from '../../../ui/Panel';
 import {changeCount, type ChangeRow} from '../changeRows';
 
 type RowId = ChangeRow['id'];

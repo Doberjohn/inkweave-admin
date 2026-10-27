@@ -2,7 +2,7 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import type {Ink} from 'inkweave-synergy-engine';
 import {useState} from 'react';
 import {MemoryRouter, NavLink} from 'react-router-dom';
-import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING} from '../app-bridge';
+import {ALL_INKS, FONTS, InkIcon, InkwellIcon, RaritySymbol, SPACING, SegmentedControl} from '../app-bridge';
 import {useFileDrop, useFileDropGuard} from '../components/useFileDrop';
 import {useHiddenFileInput} from '../components/useHiddenFileInput';
 import {PICK_MIN_WIDTH} from '../tools/studio/studioStyles';
@@ -151,11 +151,11 @@ export const Radius: Story = {
   ),
 };
 
-const BANDS = ['All', '7+', '5–6', '≤4'] as const;
+const BANDS = ['All', '7+', '5–6', '≤4'].map((band) => ({value: band, label: band}));
 
-/** Every adm-* class in its states. Tab through it to see the focus rings. */
+/** Every adm-* class in its states, and the bridged SegmentedControl. Tab through it to see the focus rings. */
 function ControlsDemo() {
-  const [band, setBand] = useState<(typeof BANDS)[number]>('All');
+  const [band, setBand] = useState('All');
   const [row, setRow] = useState<string | null>('Ramp');
   const [card, setCard] = useState('Searches');
   return (
@@ -183,12 +183,8 @@ function ControlsDemo() {
         </NavLink>
       </nav>
 
-      <div role="group" aria-label="Score band" className="adm-seg" style={{justifySelf: 'start'}}>
-        {BANDS.map((b) => (
-          <button key={b} type="button" className="adm-seg-btn" aria-pressed={band === b} onClick={() => setBand(b)}>
-            {b}
-          </button>
-        ))}
+      <div style={{justifySelf: 'start'}}>
+        <SegmentedControl ariaLabel="Score band" options={BANDS} value={band} onChange={setBand} />
       </div>
 
       <div style={{maxWidth: 420, overflow: 'hidden', ...bordered(ADMIN_COLORS.card), borderRadius: ADMIN_RADIUS.panel}}>

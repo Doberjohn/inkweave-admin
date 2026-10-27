@@ -1,13 +1,11 @@
 import {useRef, type CSSProperties} from 'react';
-import {SPACING, useContainerWidth} from '../../../app-bridge';
+import {Notice, Panel, SPACING, useContainerWidth} from '../../../app-bridge';
 import {BAR_Y_AXIS_WIDTH, BarChart, type BarDatum} from '../../../charts/BarChart';
 import {ChartFrame, type ChartTable} from '../../../charts/ChartFrame';
 import type {TooltipContent} from '../../../charts/ChartTooltip';
 import type {SeriesDef} from '../../../charts/series';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtGap, fmtInt} from '../../../ui/format';
-import {Notice} from '../../../ui/Notice';
-import {Panel} from '../../../ui/Panel';
 import {gapColor} from '../gapColor';
 import {WEEKS_SHOWN, recentWeeks, weeksThatFit} from './overviewStats';
 import type {WeeklyPoint} from '../voteAnalyticsTypes';

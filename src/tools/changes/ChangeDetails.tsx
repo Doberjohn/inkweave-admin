@@ -1,11 +1,10 @@
 import {Link} from 'react-router-dom';
-import {SPACING} from '../../app-bridge';
+import {SPACING, Tag} from '../../app-bridge';
 import {REPO_URL} from '../../github/githubApi';
 import {FILES_LISTED} from '../../github/githubHistory';
 import {CardLink} from '../../shell/CardLink';
 import {studioHref} from '../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {Tag} from '../../ui/Tag';
 import {useDetails, useScanUrl, type ChangeSource} from './changeSource';
 import type {CommitDetails, ScanFile} from './commitDetails';
 import {ReadFailure} from './ReadFailure';

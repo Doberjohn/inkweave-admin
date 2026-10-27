@@ -1,12 +1,11 @@
 import {useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {FONTS, SPACING, useContainerWidth} from '../../../app-bridge';
+import {FONTS, Panel, SPACING, useContainerWidth} from '../../../app-bridge';
 import {calibrationHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap, fmtInt} from '../../../ui/format';
 import {LowNTag} from '../../../ui/LowNTag';
-import {Panel} from '../../../ui/Panel';
 import {GapScale} from '../GapScale';
 import {gapColor} from '../gapColor';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';

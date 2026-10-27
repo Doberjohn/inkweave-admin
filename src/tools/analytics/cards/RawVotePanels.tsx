@@ -1,6 +1,5 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {SPACING} from '../../../app-bridge';
-import {Notice} from '../../../ui/Notice';
+import {Notice, SPACING} from '../../../app-bridge';
 import {twoUp} from '../../../ui/layout';
 import {activityWindow, type VoteSpan} from '../activity/activityModel';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';

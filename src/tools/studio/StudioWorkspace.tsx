@@ -1,13 +1,12 @@
 import {useRef} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
-import {useContainerWidth} from '../../app-bridge';
+import {SegmentedControl, useContainerWidth} from '../../app-bridge';
 import {useGithubToken} from '../../github/useGithubToken';
 import {keepClearOfFoot} from '../../shell/clearBand';
 import type {FocusHandoff} from '../../shell/focusHandoff';
 import {studioHref, type StudioMode} from '../../shell/nav';
 import {PageLayout} from '../../shell/PageLayout';
 import {UnsavedChangesGuard} from '../../shell/UnsavedChangesGuard';
-import {SegmentedControl} from '../../ui/SegmentedControl';
 import {useRevealAdmin} from '../reveal/useRevealAdmin';
 import {VersionsTray} from './components/VersionsTray';
 import {EditPane} from './EditPane';

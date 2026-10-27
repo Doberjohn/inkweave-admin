@@ -1,10 +1,9 @@
 import {useRef} from 'react';
-import {COLORS, SPACING, CtaButton} from '../../../app-bridge';
+import {COLORS, CtaButton, Notice, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {Notice} from '../../../ui/Notice';
 import {loadAgainNote} from '../loadAgainNote';
 import {outcomeShows, type ShownOutcome} from '../outcomeShows';
 

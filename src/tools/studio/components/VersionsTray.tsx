@@ -1,12 +1,11 @@
 import {useId, useRef, useState, type CSSProperties, type FocusEvent, type ReactNode, type RefObject} from 'react';
-import {COLORS, CtaButton, LinkButton, SPACING} from '../../../app-bridge';
+import {COLORS, CtaButton, LinkButton, Notice, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {Notice} from '../../../ui/Notice';
 import {choiceLabel} from '../finishes/finishValues';
 import {clashMessage} from '../finishes/publishVersions';
 import {clashCount, hasClash, removalNote, type VersionChange, type VersionClash} from '../finishes/versionBatch';

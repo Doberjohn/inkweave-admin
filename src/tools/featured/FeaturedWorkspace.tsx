@@ -1,6 +1,6 @@
 import {useRef, useState} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, LinkButton, SPACING, useCardDataContext} from '../../app-bridge';
+import {CtaButton, LinkButton, Notice, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {targetBranch} from '../../github/githubCommit';
 import {isRejectedToken} from '../../github/rejectedToken';
@@ -9,7 +9,6 @@ import {PageLayout} from '../../shell/PageLayout';
 import {UnsavedChangesGuard, type UnsavedQuestion} from '../../shell/UnsavedChangesGuard';
 import {writeInFlightMessage} from '../../shell/writeInFlight';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {Notice} from '../../ui/Notice';
 import {FEATURED_SUBTITLE, FEATURED_TITLE} from './featuredCopy';
 import {FeaturedSaveBar} from './FeaturedSaveBar';
 import {FeaturedSearch} from './FeaturedSearch';

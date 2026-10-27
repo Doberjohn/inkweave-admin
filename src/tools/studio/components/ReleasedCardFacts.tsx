@@ -1,8 +1,7 @@
 import type {Ink, LorcanaCard} from 'inkweave-synergy-engine';
-import {InkIcon, RaritySymbol, SPACING, rarityConfigOf} from '../../../app-bridge';
+import {InkIcon, Panel, RaritySymbol, SPACING, rarityConfigOf} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {cardFacts} from '../../../ui/cardFacts';
-import {Panel} from '../../../ui/Panel';
 
 /** A glyph beside its name. */
 const ICON_SIZE = 18;

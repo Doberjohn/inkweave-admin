@@ -1,8 +1,7 @@
 import type {CSSProperties} from 'react';
-import {SPACING} from '../../../app-bridge';
+import {Panel, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
 import {PairLine} from '../CardName';
 import {latestVotes} from './overviewStats';

@@ -1,11 +1,15 @@
-import {COLORS, FONT_SIZES, RADIUS, hexRgba} from '../app-bridge';
+import {COLORS, FONT_SIZES, GOLD_GLOW, NEUTRAL_LADDER, RADIUS, hexRgba} from '../app-bridge';
 
 // Admin's theme (docs/plans/R-redesign.md, decisions R-1, R-5 and R-6). Text,
 // accent and semantic colours are the app's own tokens. The darker neutral
-// ladder of the redesign (surfaces, lines, hovers, bars) has no app token, so
-// it is mixed here from one: COLORS.gray400 at a small alpha over the page.
-// Every value goes through the bridge, so admin passes the app's design-token
-// rules with no exception and no app change.
+// ladder of the redesign (surfaces, lines, hovers, bars) is mixed from one:
+// COLORS.gray400 at a small alpha over the page. The steps the primitives
+// inkweave-ui took from admin draw with (panel, card, navHover, border,
+// strongBorder) are the package's NEUTRAL_LADDER, and accentStrong its
+// GOLD_GLOW.strongBorder, so admin's own classes and those components share
+// one value each (Doberjohn/inkweave#982); the rest are mixed here. Every
+// value goes through the bridge, so admin passes the app's design-token rules
+// with no exception.
 //
 // Why gray400 and not whiteRgba: white over COLORS.background drifts towards
 // warm grey (the handoff's #333348 lands at #37373d), while the app's
@@ -54,17 +58,17 @@ export const ADMIN_COLORS = {
   // Surfaces
   page: COLORS.background,
   sidebar: ladder(0.025),
-  panel: ladder(0.025),
-  card: ladder(0.04),
+  panel: NEUTRAL_LADDER.panel,
+  card: NEUTRAL_LADDER.card,
   aside: ladder(0.005),
   rowHover: ladder(0.06),
-  navHover: ladder(0.125),
+  navHover: NEUTRAL_LADDER.navHover,
   // Lines, faintest first: row rules inside a panel, panel and card edges,
   // input edges, then emphasised edges (nav marks, outline buttons, dashed notices).
   divider: ladder(0.11),
-  border: ladder(0.15),
+  border: NEUTRAL_LADDER.border,
   inputBorder: ladder(0.21),
-  strongBorder: ladder(0.325),
+  strongBorder: NEUTRAL_LADDER.strongBorder,
   // Chart marks
   barTrack: ladder(0.25),
   barNeutral: ladder(0.7),
@@ -82,7 +86,7 @@ export const ADMIN_COLORS = {
   // accentTint (axe passes only above 4.5).
   rowSelected: hexRgba(COLORS.primary, 0.05),
   accentBorder: hexRgba(COLORS.primary, 0.3),
-  accentStrong: hexRgba(COLORS.primary, 0.5),
+  accentStrong: GOLD_GLOW.strongBorder,
   // Semantic: the engine over-rates (red) or under-rates (green) a pair
   over: COLORS.error,
   under: COLORS.success,

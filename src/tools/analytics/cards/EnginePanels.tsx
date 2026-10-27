@@ -1,6 +1,6 @@
 import {useRef, useState} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {FONTS} from '../../../app-bridge';
+import {FONTS, Notice, Panel} from '../../../app-bridge';
 import {ChartFrame, type ChartView} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import {NetworkDiagram} from '../../../charts/NetworkDiagram';
@@ -8,8 +8,6 @@ import {useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell
 import {useCardArt} from '../../../shell/knownCards';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
-import {Notice} from '../../../ui/Notice';
-import {Panel} from '../../../ui/Panel';
 import {SplitMeter} from '../../../ui/SplitMeter';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import {CAPTION} from './cardStyles';

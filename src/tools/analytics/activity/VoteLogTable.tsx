@@ -1,8 +1,7 @@
-import {CtaButton, LETTER_SPACING, LinkButton, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
+import {CtaButton, LETTER_SPACING, LinkButton, Panel, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtWeekday} from '../../../ui/format';
 import {SR_ONLY} from '../../../ui/layout';
-import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
 import {PairLine} from '../CardName';
 import type {VoteLogRow} from '../voteLogTypes';

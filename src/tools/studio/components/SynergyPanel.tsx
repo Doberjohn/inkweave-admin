@@ -1,5 +1,5 @@
 import type {SynergyGroup} from 'inkweave-synergy-engine';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {SynergyPreviewPanel} from '../../reveal/components/SynergyPreviewPanel';
 
 /**

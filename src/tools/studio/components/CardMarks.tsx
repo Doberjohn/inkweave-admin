@@ -1,6 +1,5 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {InkIcon, RaritySymbol, SPACING, rarityConfigOf} from '../../../app-bridge';
-import {Tag} from '../../../ui/Tag';
+import {InkIcon, RaritySymbol, SPACING, Tag, rarityConfigOf} from '../../../app-bridge';
 import type {CardTag} from '../editSearch';
 
 /** The ink and rarity glyphs' box, in px: the handoff's search rows draw them at 20 to 22. */

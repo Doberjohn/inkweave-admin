@@ -6,7 +6,7 @@ import {VOTES_FILTERS, setVotesFilter} from './votesFilter';
 const meta: Meta<typeof VotesFilterControl> = {
   title: 'Admin/Insights/Votes filter',
   component: VotesFilterControl,
-  // .storybook/preview.tsx mounts AdminStyles (adm-seg) and puts the filter back to Any before every story.
+  // .storybook/preview.tsx puts the filter back to Any before every story.
   decorators: [
     (Story) => (
       <div style={{padding: SPACING.xxxl}}>

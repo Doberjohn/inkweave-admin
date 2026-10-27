@@ -1,7 +1,6 @@
 import {useRef} from 'react';
-import {CtaButton, SPACING} from '../../../app-bridge';
+import {CtaButton, Notice, SPACING} from '../../../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
-import {Notice} from '../../../ui/Notice';
 
 const STACK: React.CSSProperties = {display: 'flex', flexDirection: 'column', gap: SPACING.sm};
 

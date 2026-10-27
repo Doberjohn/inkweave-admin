@@ -75,12 +75,17 @@ function ownExports(source) {
   });
 }
 
-/** Each binding of the import clause, as [its local name, its name in the module ('*' for a namespace)]. */
+/**
+ * Each value binding of the import clause, as [its local name, its name in the module ('*' for a
+ * namespace)]. A type-only specifier binds no value, so it has none.
+ */
 const clauseBindings = ({name, namedBindings}) => [
   ...(name ? [[name.text, 'default']] : []),
   ...(namedBindings && ts.isNamespaceImport(namedBindings) ? [[namedBindings.name.text, '*']] : []),
   ...(namedBindings && ts.isNamedImports(namedBindings)
-    ? namedBindings.elements.map(({name: local, propertyName}) => [local.text, (propertyName ?? local).text])
+    ? namedBindings.elements
+        .filter(({isTypeOnly}) => !isTypeOnly)
+        .map(({name: local, propertyName}) => [local.text, (propertyName ?? local).text])
     : []),
 ];
 
@@ -153,25 +158,34 @@ function followModule({from, module, name, tree, seen, star}) {
   return file === undefined ? undefined : forwardedFrom({file, name, tree, seen});
 }
 
-/** Whether the package module behind `module` declares `name`: what an `export *` of it forwards. */
-function packageExports({module, name, tree}) {
+/** The names the package module behind `module` declares of its own: what an `export *` of it forwards. */
+function uiModuleExports({module, tree}) {
   const resolved = resolvePackage({specifier: module, packages: [{...UI, exports: tree.exports}]});
-  return resolved?.file !== undefined && ownExports(tree.source(resolved.file)).includes(name);
+  return resolved?.file === undefined ? [] : ownExports(tree.source(resolved.file));
+}
+
+/** Whether the package module behind `module` declares `name`. */
+const packageExports = ({module, name, tree}) => uiModuleExports({module, tree}).includes(name);
+
+/** fs.globSync's matches with "/" separators, as the rest of these paths are. */
+const globbed = (pattern) => fs.globSync(pattern).map((file) => file.split(path.sep).join('/'));
+
+/** Every file the package's exports targets reach, each `{key, target, file}`. */
+function exportedFiles(exports) {
+  const paths = Object.entries(exports).flatMap(([key, target]) => (targetPath(target) ? [[key, targetPath(target)]] : []));
+  return paths.flatMap(([key, target]) =>
+    globbed(path.posix.join(UI.root, target).replace('*', '**/*')).map((file) => ({key, target, file})),
+  );
 }
 
 /** Every stylesheet the package exports, as the bridge would import it: `inkweave-ui/styles/x.css`. */
 function packageStylesheets(exports) {
-  const paths = Object.entries(exports).flatMap(([key, target]) => (targetPath(target) ? [[key, targetPath(target)]] : []));
-  return paths.flatMap(([key, target]) =>
-    fs
-      .globSync(path.posix.join(UI.root, target).replace('*', '**/*'))
-      .map((file) => file.split(path.sep).join('/'))
-      .filter((file) => file.endsWith('.css'))
-      .map((file) => {
-        const subpath = `./${path.posix.relative(UI.root, file)}`;
-        return `${UI.name}/${key.replace('*', starMatch({pattern: target, subpath})).slice(2)}`;
-      }),
-  );
+  return exportedFiles(exports)
+    .filter(({file}) => file.endsWith('.css'))
+    .map(({key, target, file}) => {
+      const subpath = `./${path.posix.relative(UI.root, file)}`;
+      return `${UI.name}/${key.replace('*', starMatch({pattern: target, subpath})).slice(2)}`;
+    });
 }
 
 /** The bridge's re-exports from the app's source, each with the file its path names. */
@@ -206,6 +220,12 @@ const APP_MODULES = [
  * them: parity stays whole while the bridged modules reach the rest.
  */
 const PARITY_ONLY = ['@vercel/speed-insights'];
+
+/**
+ * Admin's exports that share a name with inkweave-ui's on purpose, each `{copy: 'file: name', reason}`.
+ * Empty: every promoted module has one source, the package's (#103).
+ */
+const KEEP_OWN = [];
 
 const CODE = /\.(?:m?js|tsx?)$/;
 
@@ -289,6 +309,99 @@ function reachedPackages({entries, tree}) {
 const bridgedAppModules = (tree) =>
   [...new Set(specifiersIn(tree.source(BRIDGE)).filter((specifier) => specifier.startsWith(APP_ROOT)))].sort();
 
+// A test's or a story's file: the copies that matter are the ones a page renders.
+const NOT_SOURCE = /(?:^|\/)__tests__\/|\.(?:test|stories)\.[^/]+$/;
+
+/** Admin's source files, tests, stories and the bridge aside. */
+const adminSources = () => globbed('src/**/*.{ts,tsx}').filter((file) => file !== BRIDGE && !NOT_SOURCE.test(file));
+
+/**
+ * The names the bridge takes from inkweave-ui, each [its name in the bridge, its name in the
+ * package]: by `export … from`, `export *` (every name the module declares) or a local export of
+ * an import, renamed or not.
+ */
+const bridgedUi = (tree) =>
+  exportSources(tree.source(BRIDGE))
+    .filter(({module}) => module.startsWith(`${UI.name}/`))
+    .flatMap((entry) =>
+      entry.star ? uiModuleExports({module: entry.module, tree}).map((name) => [name, name]) : [[entry.name, entry.local]],
+    );
+
+/** Every name inkweave-ui's modules export of their own, tests and stories aside. */
+const packageNames = (tree) =>
+  new Set(
+    exportedFiles(tree.exports)
+      .filter(({file}) => CODE.test(file) && !NOT_SOURCE.test(file))
+      .flatMap(({file}) => ownExports(tree.source(file))),
+  );
+
+/** The values `file` imports from the bridge, each [its local name, its name in the bridge]. */
+const bridgeBindings = ({file, tree}) =>
+  tree
+    .source(file)
+    .statements.filter(
+      (node) =>
+        ts.isImportDeclaration(node) && node.importClause && !node.importClause.isTypeOnly && isRelative(node.moduleSpecifier.text),
+    )
+    .filter(({moduleSpecifier}) => resolveRelative({from: file, specifier: moduleSpecifier.text, exists: tree.exists}) === BRIDGE)
+    .flatMap(({importClause}) => clauseBindings(importClause));
+
+/** The local a file exports as `name`: its own, or the one an `export {local as name}` list renames. */
+function localOf({source, name}) {
+  const lists = source.statements.filter((node) => ts.isExportDeclaration(node) && node.moduleSpecifier === undefined);
+  return lists.flatMap((node) => listed(node) ?? []).find((entry) => entry.name === name)?.local ?? name;
+}
+
+/** Whether `node` names any of `locals`. */
+function mentions(node, locals) {
+  if (ts.isIdentifier(node) && locals.has(node.text)) return true;
+  return ts.forEachChild(node, (child) => mentions(child, locals) || undefined) ?? false;
+}
+
+/**
+ * A test of whether `file`'s export of a name wraps the package's: it forwards, or its declaration
+ * uses, a value the file imports from the bridge under that name, by the bridge's name or, through
+ * `aliases` (the bridge's name to the package's), the package's.
+ */
+function wrapsShared({file, tree, aliases}) {
+  const source = tree.source(file);
+  const bindings = bridgeBindings({file, tree});
+  return (name) => {
+    const locals = new Set(bindings.filter(([, bridged]) => bridged === name || aliases.get(bridged) === name).map(([local]) => local));
+    const local = localOf({source, name});
+    // `export {Base as Notice}` forwards the bridge's own.
+    if (locals.has(local)) return true;
+    return locals.size > 0 && source.statements.some((node) => declaredNames(node).includes(local) && mentions(node, locals));
+  };
+}
+
+/**
+ * The inkweave-ui names a copy in `file` would take: in src/ui, any the package exports, so a
+ * module promoted but never bridged counts too; elsewhere, those the bridge takes, by its names
+ * and the package's.
+ */
+function sharedNames({file, names}) {
+  const bridged = [...names.bridged].flat();
+  return new Set(file.startsWith('src/ui/') ? [...bridged, ...names.package] : bridged);
+}
+
+/**
+ * Each admin export, as "file: name", that copies an inkweave-ui name, `names` holding the
+ * bridge's (`bridged`, its name to the package's) and the package's (`package`). An export that
+ * uses the name taken from the bridge wraps it, and KEEP_OWN's entries are admin's own on purpose.
+ */
+function adminCopies({files, tree, names, keepOwn = KEEP_OWN}) {
+  const kept = new Set(keepOwn.map(({copy}) => copy));
+  return files.flatMap((file) => {
+    const shared = sharedNames({file, names});
+    const wraps = wrapsShared({file, tree, aliases: names.bridged});
+    return ownExports(tree.source(file))
+      .filter((name) => shared.has(name) && !wraps(name))
+      .map((name) => `${file}: ${name}`)
+      .filter((copy) => !kept.has(copy));
+  });
+}
+
 describe("the bridge's sources", () => {
   const tree = parsedOnce({...onDisk, exports: uiExports()});
 
@@ -319,6 +432,15 @@ describe("the bridge's sources", () => {
     const unreached = Object.keys(JSON.parse(tree.read(APP_PACKAGE)).dependencies).filter((name) => !reached.has(name));
     expect(entries).toHaveLength(7);
     expect(unreached).toEqual(PARITY_ONLY);
+  });
+
+  it('keeps no admin copy of an inkweave-ui module, and no KEEP_OWN entry whose copy is gone', () => {
+    const names = {bridged: new Map(bridgedUi(tree)), package: packageNames(tree)};
+    const files = adminSources();
+    expect(adminCopies({files, tree, names})).toEqual([]);
+    // A stale entry would let a new copy at its path pass unseen.
+    const copies = new Set(adminCopies({files, tree, names, keepOwn: []}));
+    expect(KEEP_OWN.map(({copy}) => copy).filter((copy) => !copies.has(copy))).toEqual([]);
   });
 
   it("loads the app's index.css and every stylesheet the package exports", () => {
@@ -437,6 +559,92 @@ describe('reachedPackages', () => {
       'lazy-pkg',
       'react',
       'typed-pkg',
+    ]);
+  });
+});
+
+describe('adminCopies', () => {
+  const files = {
+    'src/app-bridge.ts': '',
+    'src/ui/Panel.tsx': 'export function Panel() {}\nexport const PANEL_GAP = 4;\n',
+    'src/ui/Spinner.tsx': 'export function Spinner() {}\n',
+    'src/tools/Spinner.tsx': 'export function Spinner() {}\n',
+    'src/tools/view/Tag.tsx': 'export const Tag = 1;\n',
+    // Wrappers: by a declaration, a list, a forward, and of a name the bridge renames.
+    'src/ui/Notice.tsx': "import {Notice as BridgedNotice} from '../app-bridge';\nexport const Notice = BridgedNotice;\n",
+    'src/tools/ListedPanel.tsx': "import {Panel as Base} from '../app-bridge';\nconst Framed = () => Base;\nexport {Framed as Panel};\n",
+    'src/tools/ForwardedNotice.tsx': "import {Notice as Base} from '../app-bridge';\nexport {Base as Notice};\n",
+    'src/tools/RenamedChip.tsx': "import {UiChip} from '../app-bridge';\nexport function Chip() {\n  return UiChip;\n}\n",
+    // Copies beside an import of the name that wraps nothing: a type, or a value the copy never uses.
+    'src/tools/TypeOnlyTag.tsx': "import type {Tag as T} from '../app-bridge';\nexport const Tag = (props: T) => props;\n",
+    'src/tools/TypedTag.tsx': "import {type Tag as T} from '../app-bridge';\nexport const Tag = (props: T) => props;\n",
+    'src/tools/view/StaleNotice.tsx': "import {Notice as Base} from '../../app-bridge';\nexport function Notice() {}\nexport const OLD = Base;\n",
+  };
+  const memoryTree = parsedOnce({read: (file) => files[file], exists: (file) => Object.hasOwn(files, file)});
+  const names = {
+    bridged: new Map([
+      ['Notice', 'Notice'],
+      ['Panel', 'Panel'],
+      ['Tag', 'Tag'],
+      ['UiChip', 'Chip'],
+    ]),
+    package: new Set(['Chip', 'Notice', 'Panel', 'Spinner', 'Tag']),
+  };
+  const copies = (paths, keepOwn) => adminCopies({files: paths, tree: memoryTree, names, keepOwn});
+  const PLAIN = ['src/ui/Panel.tsx', 'src/ui/Spinner.tsx', 'src/tools/Spinner.tsx', 'src/tools/view/Tag.tsx'];
+
+  it("lists a bridged name anywhere and any of the package's names in src/ui, and leaves an unrelated export alone", () => {
+    expect(copies(PLAIN)).toEqual(['src/ui/Panel.tsx: Panel', 'src/ui/Spinner.tsx: Spinner', 'src/tools/view/Tag.tsx: Tag']);
+  });
+
+  it("leaves a wrapper alone: one that uses, lists or forwards what it takes from the bridge, by the bridge's name or the package's", () => {
+    expect(
+      copies(['src/ui/Notice.tsx', 'src/tools/ListedPanel.tsx', 'src/tools/ForwardedNotice.tsx', 'src/tools/RenamedChip.tsx']),
+    ).toEqual([]);
+  });
+
+  it('lists a copy beside a type-only import of the name, or a value import the copy never uses', () => {
+    expect(copies(['src/tools/TypeOnlyTag.tsx', 'src/tools/TypedTag.tsx', 'src/tools/view/StaleNotice.tsx'])).toEqual([
+      'src/tools/TypeOnlyTag.tsx: Tag',
+      'src/tools/TypedTag.tsx: Tag',
+      'src/tools/view/StaleNotice.tsx: Notice',
+    ]);
+  });
+
+  it("leaves KEEP_OWN's copies alone", () => {
+    expect(copies(PLAIN, [{copy: 'src/tools/view/Tag.tsx: Tag', reason: 'admin wording'}])).toEqual([
+      'src/ui/Panel.tsx: Panel',
+      'src/ui/Spinner.tsx: Spinner',
+    ]);
+  });
+});
+
+describe('bridgedUi', () => {
+  const files = {
+    'src/app-bridge.ts': [
+      "export {Notice} from 'inkweave-ui/components/Notice';",
+      "export {Panel as UiPanel} from 'inkweave-ui/components/Panel';",
+      "export * from 'inkweave-ui/components/Tag';",
+      "import {Spinner as BaseSpinner} from 'inkweave-ui/components/Spinner';",
+      'export const Spinner = BaseSpinner;',
+      "export {APP_NAME} from '../upstream/inkweave/apps/web/src/shared/constants';",
+      '',
+    ].join('\n'),
+    'ui/src/components/Tag.tsx': 'export function Tag() {}\nexport const TAG_GAP = 4;\n',
+  };
+  const memoryTree = parsedOnce({
+    read: (file) => files[file.replace(`${UI.root}/`, 'ui/')],
+    exists: (file) => Object.hasOwn(files, file),
+    exports: {'./components/*': './src/components/*.tsx'},
+  });
+
+  it("pairs each name the bridge takes from the package with the package's, through a rename, `export *` and a local export", () => {
+    expect(bridgedUi(memoryTree)).toEqual([
+      ['Notice', 'Notice'],
+      ['UiPanel', 'Panel'],
+      ['Tag', 'Tag'],
+      ['TAG_GAP', 'TAG_GAP'],
+      ['Spinner', 'Spinner'],
     ]);
   });
 });

@@ -1,10 +1,9 @@
 import {TUNING} from 'inkweave-synergy-engine';
-import {SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
+import {Panel, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {calibrationHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
 import {BiasBar} from '../../../ui/BiasBar';
-import {Panel} from '../../../ui/Panel';
 import {tuningKeyFor} from '../calibration/calibrationModel';
 import {gapColor} from '../gapColor';
 import {MIN_RULE_VOTES, rulesToReview} from './overviewStats';

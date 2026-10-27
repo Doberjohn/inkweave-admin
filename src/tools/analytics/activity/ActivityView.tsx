@@ -1,6 +1,5 @@
 import {useState} from 'react';
-import {SPACING} from '../../../app-bridge';
-import {Notice} from '../../../ui/Notice';
+import {Notice, SPACING} from '../../../app-bridge';
 import type {VoteLog} from '../voteLogTypes';
 import {ActivityFilterBar} from './ActivityFilterBar';
 import {ActivityKpiRow} from './ActivityKpiRow';

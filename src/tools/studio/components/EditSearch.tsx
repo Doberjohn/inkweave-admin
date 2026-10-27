@@ -1,6 +1,6 @@
 import {useId, useRef} from 'react';
 import {Link} from 'react-router-dom';
-import {CtaButton, FONTS, SPACING, TRUNCATE} from '../../../app-bridge';
+import {CtaButton, FONTS, Notice, SPACING, TRUNCATE} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
@@ -8,7 +8,6 @@ import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {CardThumb} from '../../../ui/CardThumb';
 import {CARD_THUMB} from '../../../ui/layout';
-import {Notice} from '../../../ui/Notice';
 import {idNameParts, numberLabel, type SearchRow} from '../editSearch';
 import {searchStatus} from '../searchStatus';
 import {CardInks, CardTags, MARK_SIZE, RarityMark} from './CardMarks';

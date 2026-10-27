@@ -1,7 +1,6 @@
-import {LinkButton, SPACING} from '../../app-bridge';
+import {LinkButton, Notice, SPACING} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
-import {Notice} from '../../ui/Notice';
 
 interface ReadFailureProps {
   /** What couldn't be read, as the sentence opens: "The app’s history", "What this change did". */

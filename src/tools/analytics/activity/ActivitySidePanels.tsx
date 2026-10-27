@@ -1,8 +1,7 @@
-import {SPACING, TABULAR} from '../../../app-bridge';
+import {Panel, SPACING, TABULAR} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
-import {Panel} from '../../../ui/Panel';
 import {ScorePill} from '../../../ui/ScorePill';
 import {PairLine} from '../CardName';
 import type {VoteLogRow} from '../voteLogTypes';

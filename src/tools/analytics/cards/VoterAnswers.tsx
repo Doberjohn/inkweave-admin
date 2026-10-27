@@ -1,7 +1,6 @@
-import {SPACING} from '../../../app-bridge';
+import {Panel, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {MeterBar} from '../../../ui/MeterBar';
-import {Panel} from '../../../ui/Panel';
 import {SplitMeter} from '../../../ui/SplitMeter';
 import {countOf} from '../activity/activityModel';
 import {CAPTION, NUMBER} from './cardStyles';

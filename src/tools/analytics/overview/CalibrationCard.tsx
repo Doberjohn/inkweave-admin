@@ -1,7 +1,6 @@
-import {FONTS, SPACING} from '../../../app-bridge';
+import {FONTS, Panel, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
 import {RawTag} from '../../../ui/RawTag';
 import {countOf} from '../activity/activityModel';
 import {biasCopy} from '../biasCopy';

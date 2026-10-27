@@ -2,7 +2,7 @@ import {BarChart} from '../../../charts/BarChart';
 import {ChartFrame} from '../../../charts/ChartFrame';
 import {ChartLegend} from '../../../charts/ChartLegend';
 import {fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {BAND_SERIES, barData, chartSubtitle, chartTable, chartTitle, labelEvery, tooltipFor} from './activityChart';
 import type {ChartBucket, DayStack} from './activityModel';
 

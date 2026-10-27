@@ -1,8 +1,7 @@
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {SPACING} from '../../../app-bridge';
+import {Notice, SPACING} from '../../../app-bridge';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {twoUp} from '../../../ui/layout';
-import {Notice} from '../../../ui/Notice';
 import type {UseVoteAnalyticsReturn} from '../useVoteAnalytics';
 import type {UseVoteLogReturn} from '../useVoteLog';
 import {useVotesFilter} from '../votesFilter';

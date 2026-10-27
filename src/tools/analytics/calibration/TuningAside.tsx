@@ -1,6 +1,6 @@
 import {useRef, useState, type RefObject} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
-import {CtaButton, FONTS, LETTER_SPACING, SPACING} from '../../../app-bridge';
+import {CtaButton, FONTS, LETTER_SPACING, Notice, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {GithubTokenGate} from '../../../github/GithubTokenGate';
 import {targetBranch} from '../../../github/githubCommit';
@@ -8,7 +8,6 @@ import {scrollIntoBand} from '../../../shell/clearBand';
 import {focusUnmoved, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtGap} from '../../../ui/format';
-import {Notice} from '../../../ui/Notice';
 import {PendingTray} from '../../tuning/components/PendingTray';
 import {TierRow} from '../../tuning/components/TierRow';
 import {tuningFailureKind} from '../../tuning/tuningFailure';

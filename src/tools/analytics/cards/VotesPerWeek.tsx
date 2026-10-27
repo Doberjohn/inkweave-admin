@@ -2,7 +2,7 @@ import type {LorcanaCard} from 'inkweave-synergy-engine';
 import {BarChart} from '../../../charts/BarChart';
 import {ChartFrame} from '../../../charts/ChartFrame';
 import {fmtInt} from '../../../ui/format';
-import {Panel} from '../../../ui/Panel';
+import {Panel} from '../../../app-bridge';
 import {labelEvery} from '../activity/activityChart';
 import type {VoteSpan} from '../activity/activityModel';
 import type {CardVoteSpan, WeekCount} from './cardVotes';
