@@ -1,10 +1,9 @@
 import {useRef} from 'react';
-import {COLORS, CtaButton, LinkButton, SPACING} from '../../app-bridge';
+import {COLORS, CtaButton, LinkButton, Notice, SPACING} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {targetBranch} from '../../github/githubCommit';
 import {goLiveNote} from '../../github/goLiveNote';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {Notice} from '../../ui/Notice';
 import type {FeaturedFailureKind} from './featuredFailure';
 import type {FeaturedSave} from './useFeaturedEditor';
 

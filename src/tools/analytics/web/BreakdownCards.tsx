@@ -1,8 +1,7 @@
-import {ALL_INKS, INK_COLORS, InkIcon, RaritySymbol, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
+import {ALL_INKS, INK_COLORS, InkIcon, Notice, RaritySymbol, SPACING, TABULAR, TRUNCATE} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtInt} from '../../../ui/format';
 import {MeterBar} from '../../../ui/MeterBar';
-import {Notice} from '../../../ui/Notice';
 import {Panel} from '../../../ui/Panel';
 import type {Breakdown} from '../vercelAnalyticsTypes';
 import {breakdownShares} from './webModel';

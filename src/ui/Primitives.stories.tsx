@@ -11,7 +11,6 @@ import {fmtGap, fmtInt} from './format';
 import {KpiCard} from './KpiCard';
 import {LowNTag} from './LowNTag';
 import {MeterBar} from './MeterBar';
-import {Notice} from './Notice';
 import {Panel} from './Panel';
 import {RawTag} from './RawTag';
 import {ScorePill} from './ScorePill';
@@ -258,19 +257,6 @@ export const ScorePills: Story = {
         <ScorePill key={String(score)} score={score} />
       ))}
     </div>
-  ),
-};
-
-export const Notices: Story = {
-  render: () => (
-    <Stack>
-      <Notice>Loading analytics...</Notice>
-      <Notice>
-        No raw votes yet. Set the <code style={{color: ADMIN_COLORS.accent}}>SUPABASE_SERVICE_ROLE_KEY</code> Actions
-        secret, then re-run admin&apos;s Deploy workflow.
-      </Notice>
-      <Notice tone="error">Could not load vote analytics (vote-analytics.json has not been generated yet).</Notice>
-    </Stack>
   ),
 };
 

@@ -1,5 +1,4 @@
-import {SPACING} from '../../../app-bridge';
-import {Notice} from '../../../ui/Notice';
+import {Notice, SPACING} from '../../../app-bridge';
 import {latestVoteDay} from '../activityStats';
 import {CalibrationCard} from './CalibrationCard';
 import {LatestVotesCard} from './LatestVotesCard';

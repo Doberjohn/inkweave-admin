@@ -1,11 +1,10 @@
 import {useState, type CSSProperties, type ReactNode} from 'react';
 import type {LorcanaCard} from 'inkweave-synergy-engine';
-import {CtaButton, LinkButton, PROMO_SETS, SPACING, useCardDataContext} from '../../app-bridge';
+import {CtaButton, LinkButton, Notice, PROMO_SETS, SPACING, useCardDataContext} from '../../app-bridge';
 import {ForgetTokenOffer} from '../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../github/rejectedToken';
 import type {FocusHandoff} from '../../shell/focusHandoff';
 import {FocusNotice} from '../../shell/FocusNotice';
-import {Notice} from '../../ui/Notice';
 import type {RevealCardForm} from '../reveal/buildPreviewCard';
 import {goneNote} from './branchCards';
 import {IMAGE_ONLY_NOTES, type ImageOnlyReason} from './cardEdit';

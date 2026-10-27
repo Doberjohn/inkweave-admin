@@ -85,6 +85,7 @@ export {InkwellIcon} from 'inkweave-ui/lorcana/InkwellIcon';
 export {LinkButton} from 'inkweave-ui/components/LinkButton';
 // The primitives promoted from admin's own src/ui (Doberjohn/inkweave#982), in
 // admin's look: the package's is their one source, so the two can't drift.
+export {Notice} from 'inkweave-ui/components/Notice';
 export {Tag} from 'inkweave-ui/components/Tag';
 export {useContainerWidth} from 'inkweave-ui/hooks/useContainerWidth';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): from two

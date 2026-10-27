@@ -1,12 +1,11 @@
 import {useRef} from 'react';
 import type {PendingEdit} from '../useTuningAdmin';
-import {COLORS, SPACING, CtaButton, LinkButton} from '../../../app-bridge';
+import {COLORS, CtaButton, LinkButton, Notice, SPACING} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {targetBranch} from '../../../github/githubCommit';
 import {goLiveNote} from '../../../github/goLiveNote';
 import {focusNearRow, rowsWithout} from '../../../shell/rowFocus';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {Notice} from '../../../ui/Notice';
 import {tuningFailureKind} from '../tuningFailure';
 
 interface PendingTrayProps {

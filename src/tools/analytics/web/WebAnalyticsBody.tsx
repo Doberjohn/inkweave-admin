@@ -1,8 +1,7 @@
 import {useState} from 'react';
-import {SPACING} from '../../../app-bridge';
+import {Notice, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
-import {Notice} from '../../../ui/Notice';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
 import {BreakdownCards} from './BreakdownCards';
 import {EventCards} from './EventCards';

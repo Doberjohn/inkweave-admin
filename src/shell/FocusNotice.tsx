@@ -1,5 +1,5 @@
 import {useRef, type ReactNode} from 'react';
-import {Notice} from '../ui/Notice';
+import {Notice} from '../app-bridge';
 import {useTakeHandoff, type FocusHandoff} from './focusHandoff';
 
 const LINE: React.CSSProperties = {margin: 0};

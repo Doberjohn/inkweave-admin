@@ -1,5 +1,5 @@
 import {MIN_CORE_SET, type LorcanaCard} from 'inkweave-synergy-engine';
-import {SPACING} from '../../../app-bridge';
+import {Notice, SPACING} from '../../../app-bridge';
 import {CardLink} from '../../../shell/CardLink';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {FocusNotice} from '../../../shell/FocusNotice';
@@ -7,7 +7,6 @@ import {cardsHref, studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {BiasBar} from '../../../ui/BiasBar';
 import {fmtGap} from '../../../ui/format';
-import {Notice} from '../../../ui/Notice';
 import {Panel} from '../../../ui/Panel';
 import {gapColor} from '../gapColor';
 import {MIN_RULE_VOTES} from '../overview/overviewStats';

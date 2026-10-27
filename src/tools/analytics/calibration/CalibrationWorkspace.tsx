@@ -1,11 +1,10 @@
 import {useRef, useState} from 'react';
 import type {TuningConfig} from 'inkweave-synergy-engine';
-import {LinkButton, SPACING} from '../../../app-bridge';
+import {LinkButton, Notice, SPACING} from '../../../app-bridge';
 import type {FocusHandoff} from '../../../shell/focusHandoff';
 import {PAGE_GUTTER} from '../../../shell/PageLayout';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {twoUp} from '../../../ui/layout';
-import {Notice} from '../../../ui/Notice';
 import {activityWindow} from '../activity/activityModel';
 import {DimensionParticipation} from '../DimensionParticipation';
 import {PairList} from '../PairList';
