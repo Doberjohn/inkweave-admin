@@ -17,16 +17,7 @@ allowBuilds:
 overrides:
   # GHSA-mrhx-c7xc-m3w5: zod below 4.6.6 can exhaust memory validating oversized collections.
   # eslint-plugin-react-hooks takes zod 3.25 or 4, so its copy moves to the fixed 4.6.7.
-  # eslint-plugin-react-compiler still takes zod 3 only, which has no fix: see auditConfig below.
   'zod@>=4.0.0 <4.6.6': 4.6.7
   # GHSA-xjj6-f33q-929c: undici 8 below 8.12.2 can be crashed by a response with too many content
   # encodings. jsdom, the tests' environment, takes undici ^8.12.1, so its copy moves to 8.12.3.
   'undici@>=8.0.0 <8.12.2': 8.12.3
-
-# Advisories the audit (ci.yml's security-audit) accepts, each with its reason.
-auditConfig:
-  ignoreGhsas:
-    # zod 3.25.76, the last zod 3 and with no fix, comes in only through eslint-plugin-react-compiler,
-    # whose newest release still takes zod 3. It runs only while ESLint checks admin's own code, so no
-    # untrusted input reaches it. Drop this when the plugin takes zod 4, or when admin drops the plugin.
-    - GHSA-mrhx-c7xc-m3w5

@@ -2,7 +2,6 @@ import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
-import reactCompiler from 'eslint-plugin-react-compiler';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import tseslint from 'typescript-eslint';
 // The app's design-token rules, loaded from the pinned submodule so admin UI is
@@ -86,7 +85,7 @@ const CHARTS = importBan(
 // lower yet (todo: a try/finally, for one), its own invariants, a syntax
 // error, syntax it won't support, and a library it won't memoize. A broken
 // rule of hooks and a suppressed hooks rule are errors already (rules-of-hooks,
-// react-compiler/react-compiler). Every source file under src/ is held to
+// inkweave/no-compiler-opt-out). Every source file under src/ is held to
 // them, stories included; tests never ship. react-hooks runs its own copy of
 // the compiler, not the build's babel-plugin-react-compiler, so bumping either
 // can change what these catch.
@@ -107,7 +106,6 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
-      'react-compiler': reactCompiler,
       'jsx-a11y': jsxA11y,
     },
     rules: {
@@ -118,7 +116,14 @@ export default tseslint.config(
       // analytics' rules table is, so it needs no inline disable.
       'jsx-a11y/no-noninteractive-tabindex': ['error', {tags: [], roles: ['tabpanel', 'region'], allowExpressionValues: true}],
       'react-refresh/only-export-components': ['warn', {allowConstantExport: true}],
-      'react-compiler/react-compiler': 'error',
+      // React Compiler's checks come from eslint-plugin-react-hooks, which replaced
+      // eslint-plugin-react-compiler (inkweave#937). Its recommended set leaves off two that the
+      // old plugin reported: a hook used as a value or swapped between renders (hooks), and code
+      // the compiler reads as invalid JavaScript (syntax). The two things only the old plugin
+      // caught, a turned-off react-hooks rule and a 'use no memo' directive, are
+      // inkweave/no-compiler-opt-out below.
+      'react-hooks/hooks': 'error',
+      'react-hooks/syntax': 'error',
       'no-restricted-syntax': ['error', ...MEMO_BAN],
     },
   },
