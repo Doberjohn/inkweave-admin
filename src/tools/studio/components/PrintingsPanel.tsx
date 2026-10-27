@@ -1,12 +1,11 @@
 import {Fragment, useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from 'react';
 import {Link} from 'react-router-dom';
-import {CtaButton, type Finish, LinkButton, Notice, Panel, SPACING, Tag} from '../../../app-bridge';
+import {CtaButton, type Finish, LinkButton, Notice, Panel, SPACING, SegmentedControl, Tag} from '../../../app-bridge';
 import {ForgetTokenOffer} from '../../../github/ForgetTokenOffer';
 import {isRejectedToken} from '../../../github/rejectedToken';
 import {focusUnmoved, useFocusHandoff, useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {studioHref} from '../../../shell/nav';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {CHOICE_OPTIONS, choiceOf, type FinishChoice} from '../finishes/finishValues';
 import type {PrintingRow} from '../finishes/printingRows';
 import type {BranchPrintings} from '../finishes/useBranchPrintings';

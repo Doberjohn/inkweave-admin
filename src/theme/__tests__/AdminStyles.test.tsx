@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import {COLORS, DURATION, EASING, FONT_SIZES, RADIUS, SPACING} from '../../app-bridge';
 import {AdminStyles, FEATURED_TWO_UP_BELOW, SEARCH_STACK_BELOW} from '../AdminStyles';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
@@ -8,10 +8,6 @@ import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../adminTheme';
 const CLASSES = [
   'adm-nav-item',
   'adm-nav-mark',
-  'adm-seg',
-  'adm-seg-btn',
-  // A filling segmented control's two buttons to a line (R4-8b).
-  'adm-seg-pair',
   'adm-row-btn',
   'adm-card-btn',
   'adm-input',
@@ -54,7 +50,6 @@ const CLASSES = [
 ];
 const FOCUSABLE = [
   'adm-nav-item',
-  'adm-seg-btn',
   'adm-row-btn',
   'adm-card-btn',
   'adm-input',
@@ -66,7 +61,7 @@ const FOCUSABLE = [
   'adm-switch',
   'adm-range',
 ];
-const PRESSABLE = ['adm-seg-btn', 'adm-row-btn', 'adm-card-btn', 'adm-chart-hit', 'adm-pick-btn'];
+const PRESSABLE = ['adm-row-btn', 'adm-card-btn', 'adm-chart-hit', 'adm-pick-btn'];
 const RGBA = /rgba\(\d+, \d+, \d+, [\d.]+\)/g;
 
 function stylesheet(): string {
@@ -79,7 +74,7 @@ function stylesheet(): string {
 describe('AdminStyles', () => {
   it('defines every adm-* class in the contract', () => {
     const css = stylesheet();
-    // The lookahead keeps .adm-seg from matching inside .adm-seg-btn.
+    // The lookahead keeps .adm-featured from matching inside .adm-featured-grid.
     for (const name of CLASSES) expect(css).toMatch(new RegExp(`[.]${name}(?![a-z-])`));
   });
 
@@ -144,14 +139,13 @@ describe('AdminStyles', () => {
     render(
       <>
         <AdminStyles />
-        <div role="group" aria-label="Score band" className="adm-seg" />
         <button type="button" className="adm-card-btn" aria-pressed="true">Searches</button>
         <button type="button" className="adm-pick-btn adm-ink-tile" aria-pressed="true" aria-label="Amber" />
         <button type="button" className="adm-pick-btn" aria-pressed="true">Rare</button>
         <input aria-label="Search pairs" className="adm-input" />
       </>,
     );
-    const filled = [screen.getByRole('group'), ...screen.getAllByRole('button'), screen.getByRole('textbox')];
+    const filled = [...screen.getAllByRole('button'), screen.getByRole('textbox')];
     for (const el of filled) expect(getComputedStyle(el).backgroundClip, el.className).toBe('padding-box');
   });
 
@@ -167,28 +161,6 @@ describe('AdminStyles', () => {
     expect(css).toContain(`.adm-net-link{display:block;width:100%;height:100%;border-radius:${ADMIN_RADIUS.control}px;}`);
     // Last in the controls' focus-visible list. It has no hover style (a hover shows its tooltip), so FOCUSABLE leaves it out.
     expect(css).toContain(`.adm-net-link:focus-visible{outline:2px solid ${ADMIN_COLORS.accent};outline-offset:2px;}`);
-  });
-
-  it('dims a held segmented button (aria-disabled) as a disabled one, and gives it no hover', () => {
-    render(
-      <>
-        <AdminStyles />
-        <div role="group" aria-label="Versions" className="adm-seg">
-          <button type="button" className="adm-seg-btn" aria-pressed="true" aria-disabled="true">
-            Both
-          </button>
-          <button type="button" className="adm-seg-btn" aria-pressed="false">
-            Foil only
-          </button>
-        </div>
-      </>,
-    );
-    const held = getComputedStyle(screen.getByRole('button', {name: 'Both'}));
-    expect(held.opacity).toBe('0.4');
-    expect(held.cursor).toBe('not-allowed');
-    expect(getComputedStyle(screen.getByRole('button', {name: 'Foil only'})).opacity).toBe('1');
-    // :where() adds no specificity, so the pressed rule after the hover rule still wins on a live button.
-    expect(stylesheet()).toContain('.adm-seg-btn:hover:where(:not(:disabled):not([aria-disabled="true"])){');
   });
 
   it('never dims a bar column, so a focused one keeps its full ring while another is picked', () => {
@@ -373,73 +345,6 @@ describe('AdminStyles', () => {
       const rule = css.split(`.adm-range${track}{`)[1]?.split('}')[0];
       expect(rule, track).toContain(`background:${ADMIN_COLORS.barNeutral};`);
     }
-  });
-
-  it('lets a filling segmented control share its row and wrap a pair at a time, where a plain one keeps its width and padding', () => {
-    render(
-      <>
-        <AdminStyles />
-        <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
-          <span className="adm-seg-pair" data-lone="true">
-            <button type="button" className="adm-seg-btn">
-              Location
-            </button>
-          </span>
-        </div>
-        <div role="group" aria-label="Studio mode" className="adm-seg">
-          <button type="button" className="adm-seg-btn">
-            Edit card
-          </button>
-        </div>
-      </>,
-    );
-    const look = (name: string) => {
-      const group = screen.getByRole('group', {name});
-      const button = getComputedStyle(within(group).getByRole('button'));
-      const {display, flexWrap} = getComputedStyle(group);
-      return {display, flexWrap, flex: button.flex, padding: button.padding, whiteSpace: button.whiteSpace};
-    };
-    // The handoff's Type tabs (dc.html:224): the buttons share the width, and a label never breaks.
-    expect(look('Type')).toEqual({
-      display: 'flex',
-      flexWrap: 'wrap',
-      flex: '1 1 0px',
-      padding: `0px ${SPACING.xs}px`,
-      whiteSpace: 'nowrap',
-    });
-    // Every other segmented control, the header's mode switch included, keeps its look.
-    expect(look('Studio mode')).toMatchObject({display: 'inline-flex', padding: `0px ${SPACING.md}px`, whiteSpace: 'nowrap'});
-    expect(look('Studio mode').flexWrap).not.toBe('wrap');
-    // A pair, here a lone one, grows by its button count and never wraps inside: under one line's width the
-    // whole second pair moves down, two and two (a 320px phone), never three and one.
-    const pair = getComputedStyle(screen.getByRole('group', {name: 'Type'}).firstElementChild!);
-    expect({display: pair.display, flex: pair.flex, flexWrap: pair.flexWrap, gap: pair.gap}).toEqual({
-      display: 'flex',
-      flex: '1 1 0px',
-      flexWrap: 'nowrap',
-      gap: `${SPACING.xxs}px`,
-    });
-  });
-
-  it("shares a filling line by button count, so an odd count's lone last button takes one button's width on a line it shares", () => {
-    const css = stylesheet();
-    // A pair grows by its two buttons from the gap inside it, a lone one by its one from nothing: on a line they
-    // share, every button takes the same width. A lone button alone on the last line fills that line.
-    expect(css).toContain(`.adm-seg-pair{display:flex;flex:2 1 ${SPACING.xxs}px;gap:${SPACING.xxs}px;}`);
-    expect(css).toContain('.adm-seg-pair[data-lone="true"]{flex:1 1 0;}');
-    render(
-      <>
-        <AdminStyles />
-        <div role="group" aria-label="Type" className="adm-seg" data-fill="true">
-          <span data-testid="pair" className="adm-seg-pair" />
-          <span data-testid="lone" className="adm-seg-pair" data-lone="true" />
-        </div>
-      </>,
-    );
-    expect([getComputedStyle(screen.getByTestId('pair')).flex, getComputedStyle(screen.getByTestId('lone')).flex]).toEqual([
-      `2 1 ${SPACING.xxs}px`,
-      '1 1 0px',
-    ]);
   });
 
   it("moves a search row's marks under its name in a list too narrow for its widest tag beside them, and nothing wider (#74)", () => {

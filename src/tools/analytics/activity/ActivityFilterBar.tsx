@@ -1,7 +1,6 @@
-import {LinkButton, SPACING} from '../../../app-bridge';
+import {LinkButton, SPACING, SegmentedControl} from '../../../app-bridge';
 import {RangeControl} from '../../../charts/range';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {BAND_LABELS, SCORE_BANDS, hasActiveFilters, type ActivityFilters, type BandFilter} from './activityModel';
 
 const BAND_OPTIONS: ReadonlyArray<{value: BandFilter; label: string}> = [

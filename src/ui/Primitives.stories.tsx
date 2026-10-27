@@ -1,5 +1,4 @@
 import type {Meta, StoryObj} from '@storybook/react-vite';
-import {useState} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {within} from 'storybook/test';
 import {FONTS, LinkButton, Panel, SPACING, TABULAR, TIER_COLORS, Tag} from '../app-bridge';
@@ -13,7 +12,6 @@ import {LowNTag} from './LowNTag';
 import {MeterBar} from './MeterBar';
 import {RawTag} from './RawTag';
 import {ScorePill} from './ScorePill';
-import {SegmentedControl} from './SegmentedControl';
 import {Sparkline} from './Sparkline';
 import {SplitMeter, type SplitMeterPart} from './SplitMeter';
 
@@ -21,7 +19,7 @@ const meta: Meta = {
   title: 'Admin/UI/Primitives',
   parameters: {layout: 'fullscreen'},
   // The admin page: its background, text colour and body font. The adm-* classes
-  // SegmentedControl relies on come from .storybook/preview.tsx, which mounts
+  // ArtLink relies on come from .storybook/preview.tsx, which mounts
   // AdminStyles for every story.
   decorators: [
     (Story) => (
@@ -125,27 +123,6 @@ export const Panels: Story = {
     </Stack>
   ),
 };
-
-type Band = 'all' | 'high' | 'mid' | 'low' | 'unscored';
-const BANDS: ReadonlyArray<{value: Band; label: string}> = [
-  {value: 'all', label: 'All'},
-  {value: 'high', label: '7+'},
-  {value: 'mid', label: '5–6'},
-  {value: 'low', label: '≤4'},
-  {value: 'unscored', label: 'No score'},
-];
-
-function SegmentedDemo() {
-  const [band, setBand] = useState<Band>('all');
-  return (
-    <div style={{display: 'flex', alignItems: 'center', gap: SPACING.md}}>
-      <SegmentedControl ariaLabel="Score band" options={BANDS} value={band} onChange={setBand} />
-      <span style={{color: ADMIN_COLORS.muted}}>Selected: {band}</span>
-    </div>
-  );
-}
-
-export const Segmented: Story = {render: () => <SegmentedDemo />};
 
 const SHARES = [1, 0.62, 0.3, 0.05];
 const GAPS = [-4, -1.2, -0.3, 0, null, 0.3, 1.2, 4];

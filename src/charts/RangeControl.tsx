@@ -1,4 +1,4 @@
-import {SegmentedControl} from '../ui/SegmentedControl';
+import {SegmentedControl} from '../app-bridge';
 import {RANGE_OPTIONS, type RangePreset} from './range';
 
 interface RangeControlProps {

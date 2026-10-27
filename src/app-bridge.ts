@@ -87,6 +87,7 @@ export {LinkButton} from 'inkweave-ui/components/LinkButton';
 // admin's look: the package's is their one source, so the two can't drift.
 export {Notice} from 'inkweave-ui/components/Notice';
 export {Panel} from 'inkweave-ui/components/Panel';
+export {SegmentedControl} from 'inkweave-ui/components/SegmentedControl';
 export {Tag} from 'inkweave-ui/components/Tag';
 export {useContainerWidth} from 'inkweave-ui/hooks/useContainerWidth';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): from two

@@ -6,9 +6,6 @@ import {ADMIN_COLORS as C, ADMIN_RADIUS as R, ADMIN_TYPE as T} from './adminThem
 const NAV_ITEM_HEIGHT = 36;
 const NAV_MARK_SIZE = 24;
 const INPUT_HEIGHT = 38;
-// 32 + the track's 2px padding and 1px border on each side = INPUT_HEIGHT, so a
-// segmented control lines up with the inputs beside it in a filter row.
-const SEG_BUTTON_HEIGHT = 32;
 // Card studio's controls (R4), sized as the handoff draws them (README §7).
 const CHEVRON_SIZE = 6;
 /** An ink tile's widest, which the primary ink row's grid columns cap too (PickerGroup's `inks` layout). */
@@ -47,9 +44,6 @@ const FOCUS_RING = `outline:2px solid ${C.accent};`;
 // Hover rules skip disabled controls. :where() adds no specificity, so the
 // [aria-pressed] rules after them still win.
 const ENABLED = ':where(:not(:disabled))';
-// A segmented control's buttons skip held ones too: aria-disabled, which keeps
-// a focused one's focus where a native disabled would drop it (its `held`).
-const LIVE = ':where(:not(:disabled):not([aria-disabled="true"]))';
 // A file cover's rings skip a held one: a <label> is never :disabled itself, so
 // it is held while the input it wraps is.
 const FILE_LIVE = ':where(:not(:has(input:disabled)))';
@@ -85,24 +79,12 @@ const FILE_LIVE = ':where(:not(:has(input:disabled)))';
  * an inner <span style={...}>.
  *
  * A translucent fill shows through its own border, so the classes that have
- * both (adm-seg, adm-card-btn, adm-input, adm-select) clip the fill to the
+ * both (adm-card-btn, adm-input, adm-select) clip the fill to the
  * padding box. They set background-color, never the background shorthand,
  * which would reset the clip.
  *
  * Nav items pad 8px, not the handoff's 6 (off the spacing scale): in the 64px
  * rail, 12px gutters leave 40px, and 8 + 24 + 8 centres the mark exactly.
- *
- * A segmented control is as wide as its options. With data-fill="true"
- * (SegmentedControl's fill, Card studio's Type) it fills its row instead, as
- * the handoff's Type tabs do: the buttons share the width from a 4px pad.
- * They sit two by two in adm-seg-pair, which never wraps inside, so where
- * one line can't hold them all (a 320px phone) the second pair takes the
- * next line whole: two and two, never three and one. A pair grows by its
- * button count, from the gap inside it, so on a line they share every button
- * takes the same width, an odd count's last one, alone in its pair
- * (data-lone="true"), too. A lone button alone on the last line fills that
- * line. A held control's buttons (aria-disabled) look off as disabled ones
- * do, and take no hover.
  *
  * adm-scroll-region is a box that scrolls a table sideways. While the table
  * overflows it, it takes tabIndex 0 and role="region" with a name, so the
@@ -167,15 +149,6 @@ const CSS = `
 .adm-nav-item:hover .adm-nav-mark{color:${C.text};}
 .adm-nav-item[aria-current="page"] .adm-nav-mark{border-color:${C.accentStrong};color:${C.accent};}
 
-.adm-seg{display:inline-flex;align-items:stretch;gap:${SPACING.xxs}px;padding:${SPACING.xxs}px;background-color:${C.card};background-clip:padding-box;border:1px solid ${C.border};border-radius:${R.control}px;}
-.adm-seg-btn{display:inline-flex;align-items:center;justify-content:center;min-height:${SEG_BUTTON_HEIGHT}px;margin:0;padding:0 ${SPACING.md}px;border:none;border-radius:${R.control}px;background:transparent;color:${C.muted};font-family:inherit;font-size:${T.small}px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background-color ${FAST},color ${FAST};}
-.adm-seg-btn:hover${LIVE}{background:${C.navHover};color:${C.text};}
-.adm-seg-btn[aria-pressed="true"]{background:${C.navHover};color:${C.accent};box-shadow:inset 0 0 0 1px ${C.accentStrong};}
-.adm-seg[data-fill="true"]{display:flex;flex-wrap:wrap;}
-.adm-seg-pair{display:flex;flex:2 1 ${SPACING.xxs}px;gap:${SPACING.xxs}px;}
-.adm-seg-pair[data-lone="true"]{flex:1 1 0;}
-.adm-seg-pair>.adm-seg-btn{flex:1 1 0;padding:0 ${SPACING.xs}px;}
-
 .adm-row-btn{background:transparent;color:${C.text};cursor:pointer;transition:background-color ${FAST};}
 button.adm-row-btn{display:block;width:100%;margin:0;padding:0;border:none;border-radius:0;font:inherit;text-align:left;}
 .adm-row-btn:hover${ENABLED}{background:${C.rowHover};}
@@ -238,11 +211,11 @@ textarea.adm-input{height:auto;min-height:${INPUT_HEIGHT * 2}px;padding:${SPACIN
 .adm-range:hover${ENABLED}::-moz-range-thumb{background:${C.accentHover};}
 .adm-range[data-unset="true"]::-webkit-slider-thumb{opacity:0;}
 .adm-range[data-unset="true"]::-moz-range-thumb{opacity:0;}
-.adm-nav-item:focus-visible,.adm-seg-btn:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
+.adm-nav-item:focus-visible,.adm-card-btn:focus-visible,.adm-input:focus-visible,.adm-select:focus-visible,.adm-net-link:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-pick-btn:focus-visible,.adm-switch:focus-visible,.adm-range:focus-visible{${FOCUS_RING}outline-offset:2px;}
 .adm-row-btn:focus-visible,.adm-acc-head:focus-visible{${FOCUS_RING}outline-offset:-2px;}
 
-.adm-seg-btn:disabled,.adm-seg-btn[aria-disabled="true"],.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
+.adm-row-btn:disabled,.adm-card-btn:disabled,.adm-input:disabled,.adm-select:disabled{opacity:.4;cursor:not-allowed;}
 .adm-acc-head:disabled,.adm-pick-btn:disabled,.adm-switch:disabled,.adm-range:disabled{opacity:.4;cursor:not-allowed;}
 .adm-file-cover:has(input:disabled){opacity:.4;cursor:not-allowed;}
 
@@ -280,7 +253,7 @@ button.adm-row-btn.adm-pick-row{display:grid;grid-template-columns:auto minmax(0
 
 @media (prefers-reduced-motion: reduce){
 .adm-link{transition:none;}
-.adm-nav-item,.adm-nav-mark,.adm-seg-btn,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
+.adm-nav-item,.adm-nav-mark,.adm-row-btn,.adm-card-btn,.adm-input,.adm-select,.adm-hover-row,.adm-option{transition:none;}
 .adm-acc-head,.adm-acc-head::after,.adm-pick-btn,.adm-switch,.adm-switch::before,.adm-file-btn,.adm-file-cover{transition:none;}
 .adm-chart-hit,.adm-chart-mark,.adm-chart-cursor,.adm-chart-tip{transition:none;}
 .adm-chart-bar,.adm-chart-line,.adm-chart-area,.adm-chart-label,.adm-chart-tip{animation:none;}

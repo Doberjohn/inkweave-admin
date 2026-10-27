@@ -1,8 +1,7 @@
 import {useEffect, useId, useRef, useState} from 'react';
-import {LETTER_SPACING, SPACING, TABULAR} from '../app-bridge';
+import {LETTER_SPACING, SPACING, SegmentedControl, TABULAR} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {ArtLink} from '../ui/ArtLink';
-import {SegmentedControl} from '../ui/SegmentedControl';
 
 /**
  * A table cell that opens a page: its text, the path its link goes to (a

@@ -1,6 +1,5 @@
 import type {CardType} from 'inkweave-synergy-engine';
-import {SPACING} from '../../../app-bridge';
-import {SegmentedControl} from '../../../ui/SegmentedControl';
+import {SPACING, SegmentedControl} from '../../../app-bridge';
 import {CARD_TYPES, STAT_FIELDS, STAT_LABELS} from '../../reveal/constants';
 import {COST_SLIDER_MAX, costSlider, type SectionProps} from '../formSections';
 import {Field, TextField} from './Field';

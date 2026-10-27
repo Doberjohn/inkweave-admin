@@ -1,10 +1,9 @@
 import {useId, type CSSProperties} from 'react';
-import {COLORS, CtaButton, SPACING} from '../../../app-bridge';
+import {COLORS, CtaButton, SPACING, SegmentedControl} from '../../../app-bridge';
 import {useFileDrop} from '../../../components/useFileDrop';
 import {useHiddenFileInput} from '../../../components/useHiddenFileInput';
 import {useFocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {SegmentedControl} from '../../../ui/SegmentedControl';
 import {IMAGE_ACCEPT, IMAGE_FORMATS, fileDescription, type FrameState, type ImageNoteIds} from '../cardPanel';
 import {fieldIds} from '../fieldWiring';
 import {CHOICE_OPTIONS} from '../finishes/finishValues';

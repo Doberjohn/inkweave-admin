@@ -229,7 +229,7 @@ describe('StudioForm: wide', () => {
     render(<Harness />);
     const type = screen.getByRole('group', {name: 'Type'});
     expect(type).toHaveAttribute('data-fill', 'true');
-    const pairs = Array.from(type.querySelectorAll(':scope > .adm-seg-pair'), (pair) =>
+    const pairs = Array.from(type.querySelectorAll(':scope > .segmented-pair'), (pair) =>
       within(pair as HTMLElement).getAllByRole('button').map((button) => button.textContent),
     );
     expect(pairs).toEqual([

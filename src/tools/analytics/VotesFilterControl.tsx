@@ -1,6 +1,5 @@
-import {SPACING} from '../../app-bridge';
+import {SPACING, SegmentedControl} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {SegmentedControl} from '../../ui/SegmentedControl';
 import {VOTES_FILTERS, useVotesFilter, votesFilterById} from './votesFilter';
 
 const OPTIONS = VOTES_FILTERS.map(({id, label}) => ({value: id, label}));
