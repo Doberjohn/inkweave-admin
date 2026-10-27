@@ -57,7 +57,7 @@ const ladder = (alpha: number) => hexRgba(COLORS.gray400, alpha);
 export const ADMIN_COLORS = {
   // Surfaces
   page: COLORS.background,
-  sidebar: NEUTRAL_LADDER.panel,
+  sidebar: ladder(0.025),
   panel: NEUTRAL_LADDER.panel,
   card: NEUTRAL_LADDER.card,
   aside: ladder(0.005),
