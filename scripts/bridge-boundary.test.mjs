@@ -281,7 +281,57 @@ const INCOMPATIBLE = [
   '',
 ].join('\n');
 
+// HOOK_AS_VALUE reads a hook as a value, which the compiler stops on and react-hooks' recommended
+// set leaves off. SUPPRESSED and NO_MEMO opt a component out of the compiler, which only
+// inkweave/no-compiler-opt-out catches since eslint-plugin-react-compiler went.
+const HOOK_AS_VALUE = [
+  "import {useState} from 'react';",
+  'export function Probe() {',
+  '  const hook = useState;',
+  '  const [value] = hook(0);',
+  '  return <span>{value}</span>;',
+  '}',
+  '',
+].join('\n');
+const SUPPRESSED = [
+  "import {useEffect} from 'react';",
+  'export function Probe({id, load}: {id: string; load: (id: string) => void}) {',
+  '  useEffect(() => {',
+  '    load(id);',
+  '    // eslint-disable-next-line react-hooks/exhaustive-deps',
+  '  }, []);',
+  '  return <span>{id}</span>;',
+  '}',
+  '',
+].join('\n');
+const NO_MEMO = [
+  'export function Probe({id}: {id: string}) {',
+  "  'use no memo';",
+  '  return <span>{id}</span>;',
+  '}',
+  '',
+].join('\n');
+
 describe('the React Compiler bailouts', () => {
+  it('rejects a hook used as a value, as an error', async () => {
+    expect(await lint('src/tools/studio/Probe.tsx', HOOK_AS_VALUE)).toContainEqual(
+      expect.objectContaining({ruleId: 'react-hooks/hooks', severity: 2}),
+    );
+  });
+
+  // The build's compiler compiles every file it is handed, not only src/: Storybook's
+  // decorators in .storybook/preview.tsx too.
+  it.each([
+    ['a turned-off react-hooks rule', 'src/tools/studio/Probe.tsx', SUPPRESSED],
+    ["a 'use no memo' directive", 'src/tools/studio/Probe.tsx', NO_MEMO],
+    ['a turned-off react-hooks rule', '.storybook/preview.tsx', SUPPRESSED],
+    ["a 'use no memo' directive", '.storybook/preview.tsx', NO_MEMO],
+  ])('rejects %s in %s, as an error', async (_name, filePath, code) => {
+    expect(await lint(filePath, code)).toContainEqual(
+      expect.objectContaining({ruleId: 'inkweave/no-compiler-opt-out', severity: 2}),
+    );
+  });
+
   it('rejects a hook the compiler skips for a try/finally it cannot lower yet, as an error', async () => {
     expect(await lint('src/tools/studio/useSave.ts', FINALLY)).toContainEqual(
       expect.objectContaining({ruleId: 'react-hooks/todo', severity: 2}),
