@@ -2,7 +2,7 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import {useState} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {within} from 'storybook/test';
-import {FONTS, LinkButton, SPACING, TABULAR, TIER_COLORS} from '../app-bridge';
+import {FONTS, LinkButton, SPACING, TABULAR, TIER_COLORS, Tag} from '../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../theme/adminTheme';
 import {ArtLink} from './ArtLink';
 import {BiasBar} from './BiasBar';
@@ -18,7 +18,6 @@ import {ScorePill} from './ScorePill';
 import {SegmentedControl} from './SegmentedControl';
 import {Sparkline} from './Sparkline';
 import {SplitMeter, type SplitMeterPart} from './SplitMeter';
-import {Tag} from './Tag';
 
 const meta: Meta = {
   title: 'Admin/UI/Primitives',

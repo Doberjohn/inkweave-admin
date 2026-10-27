@@ -1,9 +1,8 @@
 import type {CSSProperties} from 'react';
-import {LETTER_SPACING, LinkButton, SPACING} from '../../../app-bridge';
+import {LETTER_SPACING, LinkButton, SPACING, Tag} from '../../../app-bridge';
 import {baseName} from '../../../components/fileName';
 import {targetBranch} from '../../../github/githubCommit';
 import {ADMIN_COLORS, ADMIN_LAYOUT, ADMIN_TYPE} from '../../../theme/adminTheme';
-import {Tag} from '../../../ui/Tag';
 import {RAW_DIR} from '../../image/githubClient';
 import {PREVIEW_PATH} from '../../reveal/githubClient';
 import {previewIdText, type NewCardSet} from '../newCardSets';

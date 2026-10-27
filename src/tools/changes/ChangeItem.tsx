@@ -1,7 +1,6 @@
 import {useId, useRef, useState} from 'react';
-import {SPACING, TABULAR} from '../../app-bridge';
+import {SPACING, TABULAR, Tag} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../theme/adminTheme';
-import {Tag} from '../../ui/Tag';
 import {AREA_LABELS} from './changePaths';
 import {ChangeDetails} from './ChangeDetails';
 import type {ChangeSource} from './changeSource';

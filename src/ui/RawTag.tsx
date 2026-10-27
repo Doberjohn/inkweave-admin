@@ -1,4 +1,4 @@
-import {Tag} from './Tag';
+import {Tag} from '../app-bridge';
 
 /**
  * Marks a number computed from the raw vote log (vote-log.json) rather than

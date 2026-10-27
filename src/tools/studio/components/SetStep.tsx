@@ -1,10 +1,9 @@
 import {useId, useRef, type CSSProperties} from 'react';
-import {CtaButton, FONTS, LETTER_SPACING, REVEAL_ID_BASE, SPACING} from '../../../app-bridge';
+import {CtaButton, FONTS, LETTER_SPACING, REVEAL_ID_BASE, SPACING, Tag} from '../../../app-bridge';
 import {baseName} from '../../../components/fileName';
 import {useTakeHandoff, type FocusHandoff} from '../../../shell/focusHandoff';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {Notice} from '../../../ui/Notice';
-import {Tag} from '../../../ui/Tag';
 import {PREVIEW_PATH} from '../../reveal/githubClient';
 import {closedReason, closedSets, setLabel, type NewCardSet, type NewCardSets, type RevealSetState} from '../newCardSets';
 import {STUDIO_OWN_ROW, STUDIO_PANEL} from '../studioStyles';

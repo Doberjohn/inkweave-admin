@@ -83,6 +83,9 @@ export {InkIcon} from 'inkweave-ui/lorcana/InkIcon';
 // Inkable or Uninkable, as the app draws them (Card studio's Inkable buttons).
 export {InkwellIcon} from 'inkweave-ui/lorcana/InkwellIcon';
 export {LinkButton} from 'inkweave-ui/components/LinkButton';
+// The primitives promoted from admin's own src/ui (Doberjohn/inkweave#982), in
+// admin's look: the package's is their one source, so the two can't drift.
+export {Tag} from 'inkweave-ui/components/Tag';
 export {useContainerWidth} from 'inkweave-ui/hooks/useContainerWidth';
 // useAutocomplete is the app's card search combobox (R3-5's switcher): from two
 // letters, after a 150 ms debounce, listing what its `search` finds, which the

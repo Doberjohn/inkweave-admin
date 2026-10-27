@@ -1,8 +1,7 @@
 import {useRef} from 'react';
-import {COLORS, CtaButton, InkIcon, LinkButton, SPACING} from '../../app-bridge';
+import {COLORS, CtaButton, InkIcon, LinkButton, SPACING, Tag} from '../../app-bridge';
 import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../theme/adminTheme';
 import {CardId} from '../../ui/CardId';
-import {Tag} from '../../ui/Tag';
 import {entryName} from './githubClient';
 import type {FeaturedSlot} from './featuredSlots';
 
