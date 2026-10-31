@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createClient} from '@supabase/supabase-js';
+import {fetchAllRows} from './lib/supabaseRows.mjs';
 import {buildAnalytics, buildVoteLog, pairKey, ruleRosterEntry} from './lib/voteAnalytics.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,18 +52,6 @@ function emptyArtifact() {
       engineSilentSplit: {listed: 0, unlisted: 0}, weekly: [], dimensionFill: null},
     rules: [], pairs: [],
   };
-}
-
-/** Read every row of a Supabase table, paginating past PostgREST's 1000-row cap. */
-async function fetchAllRows(client, table, columns) {
-  const rows = [];
-  for (let from = 0; ; from += 1000) {
-    const {data, error} = await client.from(table).select(columns).range(from, from + 999);
-    if (error) throw new Error(`${table} read failed: ${error.message}`);
-    rows.push(...data);
-    if (data.length < 1000) break;
-  }
-  return rows;
 }
 
 /** Read the synergy artifacts into an enginePairs Map + per-rule pair totals. */

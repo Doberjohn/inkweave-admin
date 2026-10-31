@@ -2,7 +2,7 @@ import type {Meta, StoryObj} from '@storybook/react-vite';
 import {FONTS, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {WebAnalyticsBody} from './WebAnalyticsBody';
-import type {TrendPoint, VercelAnalytics} from '../vercelAnalyticsTypes';
+import type {TrendPoint, VercelAnalytics, VercelEvent} from '../vercelAnalyticsTypes';
 
 const meta: Meta<typeof WebAnalyticsBody> = {
   title: 'Admin/Insights/Web analytics',
@@ -232,6 +232,96 @@ const populated: VercelAnalytics = {
  * with its count. Table swaps the chart for all 30 days.
  */
 export const Populated: Story = {args: {analytics: populated}};
+
+/** One of the launch's events, never sent yet: the precompute asks only its count. */
+function unsent(name: string, label: string, group: VercelEvent['group']): VercelEvent {
+  return {name, label, group, total: 0, visitors: 0, trend: [], breakdowns: []};
+}
+
+/**
+ * The page once the launch's flags are on in part: Populated's four events under
+ * Cards and votes, sign-in and friend events with data, the rest of each group in
+ * its Not seen yet line, Collection with no cards at all, and the notice for two
+ * events the last run couldn't read.
+ */
+export const Launch: Story = {
+  args: {
+    analytics: {
+      ...populated,
+      events: [
+        ...populated.events,
+        {
+          name: 'sign_in_started',
+          label: 'Sign-ins started',
+          group: 'sign_in',
+          total: 310,
+          visitors: 240,
+          trend: trend(6),
+          breakdowns: [
+            {
+              prop: 'provider',
+              label: 'By provider',
+              rows: [
+                {value: 'google', count: 220, visitors: 170},
+                {value: 'discord', count: 90, visitors: 70},
+              ],
+            },
+            {
+              prop: 'surface',
+              label: 'By surface',
+              rows: [
+                {value: 'collection', count: 190, visitors: 150},
+                {value: 'header', count: 120, visitors: 90},
+              ],
+            },
+          ],
+        },
+        {
+          name: 'sign_in_completed',
+          label: 'Sign-ins completed',
+          group: 'sign_in',
+          total: 280,
+          visitors: 225,
+          trend: trend(5),
+          breakdowns: [
+            {
+              prop: 'provider',
+              label: 'By provider',
+              rows: [
+                {value: 'google', count: 200, visitors: 160},
+                {value: 'discord', count: 80, visitors: 65},
+              ],
+            },
+          ],
+        },
+        unsent('sign_in_failed', 'Sign-ins failed', 'sign_in'),
+        unsent('collection_mode_toggled', 'Collection mode switched', 'collection'),
+        unsent('collection_imported', 'Collections imported', 'collection'),
+        unsent('binder_view_changed', 'Binder views picked', 'collection'),
+        {
+          name: 'friend_code_copied',
+          label: 'Friend codes copied',
+          group: 'friends',
+          total: 42,
+          visitors: 30,
+          trend: trend(0),
+          breakdowns: [
+            {
+              prop: 'result',
+              label: 'By result',
+              rows: [
+                {value: 'copied', count: 40, visitors: 29},
+                {value: 'blocked', count: 2, visitors: 2},
+              ],
+            },
+          ],
+        },
+        unsent('friend_request_sent', 'Friend requests sent', 'friends'),
+      ],
+      unavailable: ['friend_action', 'collection_deleted'],
+    },
+  },
+};
 
 /**
  * The edges of real data: one event with a single day of data in a 61-day

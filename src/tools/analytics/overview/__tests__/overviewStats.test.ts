@@ -87,6 +87,17 @@ describe('trackedEventsTotal', () => {
   it('is null when no events were tracked', () => {
     expect(trackedEventsTotal(vercel({events: []}))).toBeNull();
   });
+
+  it('adds no event type for an event never sent', () => {
+    expect(trackedEventsTotal(vercel({events: [event('search', 5), event('friend_action', 0)]}))).toEqual({
+      total: 5,
+      eventTypes: 1,
+    });
+  });
+
+  it('is null when no event has been sent', () => {
+    expect(trackedEventsTotal(vercel({events: [event('friend_action', 0), event('sign_in_shown', 0)]}))).toBeNull();
+  });
 });
 
 describe('engineSilentFigure', () => {

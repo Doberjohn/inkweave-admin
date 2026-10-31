@@ -5,7 +5,9 @@ import {renderWithCards} from '../../../../test/cardLinks';
 import {OverviewView, type OverviewViewProps} from '../OverviewView';
 import {
   ANALYTICS,
+  COLLECTORS,
   EMPTY_VOTE_LOG,
+  NO_COLLECTOR_KEY,
   NO_EVENTS,
   NO_RAW_ANALYTICS,
   NO_VERCEL,
@@ -20,6 +22,8 @@ const LOADED: OverviewViewProps = {
   voteLogError: null,
   vercel: VERCEL,
   vercelError: null,
+  collectors: COLLECTORS,
+  collectorsError: null,
 };
 
 // The cards link to other pages, so the view needs a router.
@@ -131,6 +135,23 @@ describe('OverviewView', () => {
     expect(screen.getByText('Loading Web Analytics...')).toBeInTheDocument();
   });
 
+  it('lists no row and counts no event type for an event never sent', () => {
+    const neverSent = {name: 'friend_action', label: 'Friend actions', total: 0, visitors: 0, trend: [], breakdowns: []};
+    renderView({vercel: {...VERCEL, events: [...VERCEL.events, neverSent]}});
+    const rows = within(screen.getByRole('list', {name: 'Web events'})).getAllByRole('listitem');
+    expect(rows).toHaveLength(5);
+    expect(screen.queryByText('Friend actions')).not.toBeInTheDocument();
+    expect(within(kpis()).getByText('5 event types · Vercel')).toBeInTheDocument();
+  });
+
+  it('says no events are tracked when none has been sent', () => {
+    const neverSent = {name: 'friend_action', label: 'Friend actions', total: 0, visitors: 0, trend: [], breakdowns: []};
+    renderView({vercel: {...VERCEL, events: [neverSent]}});
+    expect(screen.queryByRole('list', {name: 'Web events'})).not.toBeInTheDocument();
+    expect(within(kpis()).getByText('No events tracked yet')).toBeInTheDocument();
+    expect(screen.getByText('No events tracked yet.')).toBeInTheDocument();
+  });
+
   it('keeps Tracked events blank while the Vercel data loads', () => {
     renderView({vercel: null});
     expect(within(kpis()).getByText('—')).toBeInTheDocument();
@@ -198,5 +219,24 @@ describe('OverviewView', () => {
     expect(screen.getByText('Could not load Web Analytics (vercel-analytics.json: HTTP 500).')).toBeInTheDocument();
     expect(within(kpis()).getByText('Vercel data could not load')).toBeInTheDocument();
     expect(screen.getByText(/the last bar runs through the latest vote\.$/)).toBeInTheDocument();
+  });
+
+  it("shows this week's returning collectors out of every collector, with a link to the page", () => {
+    renderView();
+    const card = screen.getByRole('region', {name: 'Returning this week'});
+    expect(within(card).getByText('4')).toBeInTheDocument();
+    expect(within(card).getByText('of 12 collectors · 2 new')).toBeInTheDocument();
+    expect(within(card).getByRole('link', {name: 'Open collectors →'})).toHaveAttribute('href', '/collectors');
+  });
+
+  it.each<[string, Partial<OverviewViewProps>, string]>([
+    ['loading', {collectors: null}, 'Loading collector analytics...'],
+    ['missing', {collectors: null, collectorsError: new Error('collector-analytics.json has not been generated yet')}, 'Could not load collector analytics (collector-analytics.json has not been generated yet).'],
+    ['without the key', {collectors: NO_COLLECTOR_KEY}, 'Needs SUPABASE_SERVICE_ROLE_KEY.'],
+    ['after a failed read', {collectors: {...NO_COLLECTOR_KEY, reason: 'read-failed'}}, "Couldn't read the collections table on the last deploy."],
+    ['with no collectors', {collectors: {...COLLECTORS, collectors: 0, new7: 0, returning7: 0, weeks: []}}, 'No collections yet.'],
+  ])('says so in the collectors card %s', (_state, overrides, line) => {
+    renderView(overrides);
+    expect(screen.getByRole('region', {name: 'Returning this week'})).toHaveTextContent(line);
   });
 });

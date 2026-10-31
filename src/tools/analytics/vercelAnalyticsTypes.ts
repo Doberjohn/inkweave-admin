@@ -20,10 +20,15 @@ export interface Breakdown {
   rows: BreakdownRow[];
 }
 
+/** The heading an event's card sits under on the Web analytics page (EVENT_GROUPS in web/webModel.ts). */
+export type EventGroup = 'cards' | 'sign_in' | 'collection' | 'friends';
+
 export interface VercelEvent {
   /** Custom event name from the AnalyticsEvents catalog (e.g. 'vote_submitted'). */
   name: string;
   label: string;
+  /** Its query's group; a file written before groups has none, which reads as 'cards'. */
+  group?: EventGroup;
   /** Lifetime occurrences (events/count). */
   total: number;
   visitors: number;
@@ -43,4 +48,9 @@ export interface VercelAnalytics {
   hasVercelData: boolean;
   reportingWindow: ReportingWindow | null;
   events: VercelEvent[];
+  /**
+   * The events whose requests failed on the run, by name, left out of `events`.
+   * Missing (the empty file, or one written before it) reads as none.
+   */
+  unavailable?: string[];
 }

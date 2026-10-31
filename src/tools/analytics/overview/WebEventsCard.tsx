@@ -4,6 +4,7 @@ import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme'
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {PanelLink} from './PanelLink';
 import type {ReportingWindow, VercelAnalytics} from '../vercelAnalyticsTypes';
+import {isSeen, sortEventsByTotal} from '../web/webModel';
 
 const MUTED: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
@@ -19,7 +20,10 @@ interface WebEventsCardProps {
   error: Error | null;
 }
 
-/** The card body: the Web analytics page's states in short form, or the events busiest first. */
+/**
+ * The card body: the Web analytics page's states in short form, or the events
+ * the app has sent, busiest first. One never sent gets no row of zeros.
+ */
 function WebEventsBody({vercel, error}: WebEventsCardProps) {
   if (error) return <p style={MUTED}>Could not load Web Analytics ({error.message}).</p>;
   if (!vercel) return <p style={MUTED}>Loading Web Analytics...</p>;
@@ -30,9 +34,9 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
       </p>
     );
   }
-  if (vercel.events.length === 0) return <p style={MUTED}>No events tracked yet.</p>;
+  const events = sortEventsByTotal(vercel.events.filter(isSeen));
+  if (events.length === 0) return <p style={MUTED}>No events tracked yet.</p>;
 
-  const events = [...vercel.events].sort((a, b) => b.total - a.total);
   // Each fill is scaled to the busiest event, so the top row is always full width.
   const top = Math.max(1, events[0].total);
   return (

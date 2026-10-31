@@ -2,6 +2,10 @@
 import {describe, it, expect} from 'vitest';
 import {
   eventNameFilter,
+  breakdownFilter,
+  collectEvents,
+  queryEvent,
+  MAX_FAILURES_IN_A_ROW,
   eventDataDimension,
   breakdownDimension,
   breakdownValueKey,
@@ -21,6 +25,24 @@ describe('eventNameFilter', () => {
 
   it('doubles single quotes in the event name', () => {
     expect(eventNameFilter("o'brien")).toBe("eventName eq 'o''brien'");
+  });
+});
+
+describe('breakdownFilter', () => {
+  it("is the event's filter alone with no where", () => {
+    expect(breakdownFilter('binder_view_changed')).toBe("eventName eq 'binder_view_changed'");
+  });
+
+  it('narrows the event by each where prop', () => {
+    expect(breakdownFilter('binder_view_changed', {control: 'set'})).toBe(
+      "eventName eq 'binder_view_changed' and eventData/control eq 'set'",
+    );
+  });
+
+  it('doubles a quote in a where value', () => {
+    expect(breakdownFilter('binder_view_changed', {control: "o'brien"})).toBe(
+      "eventName eq 'binder_view_changed' and eventData/control eq 'o''brien'",
+    );
   });
 });
 
@@ -226,6 +248,114 @@ describe('buildVercelAnalytics', () => {
     expect(art.hasVercelData).toBe(true);
     expect(art.reportingWindow.since).toBe('2026-06-03');
     expect(art.events).toHaveLength(1);
+    expect(art.unavailable).toEqual([]);
+  });
+
+  it('keeps hasVercelData true with every event failed, naming them in unavailable', () => {
+    const art = buildVercelAnalytics({
+      events: [],
+      window: {since: '2026-06-03', until: '2026-07-03'},
+      unavailable: ['vote_submitted', 'card_selected'],
+    });
+    expect(art.hasVercelData).toBe(true);
+    expect(art.events).toEqual([]);
+    expect(art.unavailable).toEqual(['vote_submitted', 'card_selected']);
+  });
+});
+
+const WINDOW = {since: '2026-09-01', until: '2026-10-31'};
+const QUERY = {
+  name: 'friend_binder_opened',
+  label: "Friends' binders opened",
+  group: 'friends',
+  breakdowns: [
+    {prop: 'result', label: 'By result'},
+    {prop: 'from', label: 'By way in', where: {result: 'shown'}},
+  ],
+};
+
+/**
+ * A fake Vercel: each request is recorded, and `answer(endpoint, params)` gives its
+ * data (or throws). By default an event has been sent 4 times and every aggregate
+ * is empty.
+ */
+function fakeAsk(answer = () => undefined) {
+  const asked = [];
+  const ask = async (endpoint, params) => {
+    asked.push({endpoint, ...params});
+    const data = answer(endpoint, params);
+    if (data !== undefined) return data;
+    return endpoint === 'events/count' ? {count: 4, visitors: 2} : [];
+  };
+  return {ask, asked};
+}
+
+describe('queryEvent', () => {
+  it('asks an event never sent for its count alone, with no trend or breakdowns', async () => {
+    const {ask, asked} = fakeAsk((endpoint) => (endpoint === 'events/count' ? {count: 0, visitors: 0} : undefined));
+    const ev = await queryEvent(QUERY, WINDOW, ask);
+    expect(asked).toEqual([{endpoint: 'events/count', filter: "eventName eq 'friend_binder_opened'"}]);
+    expect(ev).toMatchObject({name: 'friend_binder_opened', group: 'friends', total: 0, trend: [], breakdowns: []});
+  });
+
+  it('asks a sent event for its trend and each breakdown, narrowing by where', async () => {
+    const {ask, asked} = fakeAsk();
+    const ev = await queryEvent(QUERY, WINDOW, ask);
+    expect(asked.map((a) => [a.endpoint, a.by ?? null, a.filter])).toEqual([
+      ['events/count', null, "eventName eq 'friend_binder_opened'"],
+      ['events/aggregate', 'day', "eventName eq 'friend_binder_opened'"],
+      ['events/aggregate', 'eventData/result', "eventName eq 'friend_binder_opened'"],
+      ['events/aggregate', 'eventData/from', "eventName eq 'friend_binder_opened' and eventData/result eq 'shown'"],
+    ]);
+    expect(asked[1]).toMatchObject({since: '2026-09-01', until: '2026-10-31'});
+    expect(ev.total).toBe(4);
+    expect(ev.breakdowns.map((b) => b.label)).toEqual(['By result', 'By way in']);
+  });
+});
+
+describe('collectEvents', () => {
+  const second = {...QUERY, name: 'friend_action', group: 'friends'};
+
+  it("leaves out an event whose breakdown fails, names it with the error, and still asks the next", async () => {
+    const {ask, asked} = fakeAsk((endpoint, params) => {
+      if (params.by === 'eventData/from') throw new Error('Vercel API events/aggregate 500');
+      return undefined;
+    });
+    const failing = {...QUERY, breakdowns: [{prop: 'from', label: 'By way in'}]};
+    const {events, failures} = await collectEvents([failing, {...second, breakdowns: []}], WINDOW, ask);
+    expect(failures).toEqual([{name: 'friend_binder_opened', message: 'Vercel API events/aggregate 500'}]);
+    expect(events.map((e) => e.name)).toEqual(['friend_action']);
+    expect(asked.filter((a) => a.filter === "eventName eq 'friend_action'")).toHaveLength(2);
+  });
+
+  it('keeps each event in its group', async () => {
+    const {ask} = fakeAsk();
+    const {events} = await collectEvents([QUERY, {...second, group: 'cards'}], WINDOW, ask);
+    expect(events.map((e) => e.group)).toEqual(['friends', 'cards']);
+  });
+
+  it(`stops asking after ${MAX_FAILURES_IN_A_ROW} failures in a row, naming every event left`, async () => {
+    const {ask, asked} = fakeAsk(() => {
+      throw new Error('Vercel API events/count 401');
+    });
+    const queries = ['a', 'b', 'c', 'd', 'e'].map((name) => ({...QUERY, name}));
+    const {events, failures} = await collectEvents(queries, WINDOW, ask);
+    expect(events).toEqual([]);
+    expect(asked).toHaveLength(MAX_FAILURES_IN_A_ROW);
+    expect(failures.map((f) => f.name)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(failures[3].message).toBe('not asked after 3 failures in a row');
+  });
+
+  it('starts the count of failures in a row again after an event that succeeds', async () => {
+    const failingNames = new Set(['a', 'b', 'd', 'e']);
+    const {ask} = fakeAsk((_endpoint, params) => {
+      if ([...failingNames].some((name) => params.filter === `eventName eq '${name}'`)) throw new Error('500');
+      return {count: 0, visitors: 0};
+    });
+    const queries = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({...QUERY, name}));
+    const {events, failures} = await collectEvents(queries, WINDOW, ask);
+    expect(events.map((e) => e.name)).toEqual(['c', 'f']);
+    expect(failures.map((f) => f.message)).toEqual(['500', '500', '500', '500']);
   });
 });
 
@@ -236,7 +366,7 @@ describe('emptyVercelAnalytics', () => {
 });
 
 describe('EVENT_QUERIES', () => {
-  it('covers all 11 catalog events with stable names', () => {
+  it('covers all 31 catalog events with stable names, in order', () => {
     expect(EVENT_QUERIES.map((q) => q.name)).toEqual([
       'reveal_card_click',
       'vote_submitted',
@@ -249,6 +379,40 @@ describe('EVENT_QUERIES', () => {
       'sort_changed',
       'synergy_group_viewed',
       'card_printing_view',
+      'sign_in_shown',
+      'sign_in_started',
+      'sign_in_completed',
+      'sign_in_failed',
+      'collection_mode_toggled',
+      'collection_started',
+      'collection_start_failed',
+      'collection_import_opened',
+      'collection_imported',
+      'collection_import_failed',
+      'collection_deleted',
+      'collection_copies_changed',
+      'binder_view_changed',
+      'binder_page_turned',
+      'friend_code_copied',
+      'friend_request_sent',
+      'friend_action',
+      'collection_sharing_changed',
+      'friend_binder_opened',
+      'friends_who_have_it_opened',
+    ]);
+  });
+
+  it('files every query under one of the four groups', () => {
+    const groups = new Set(['cards', 'sign_in', 'collection', 'friends']);
+    expect(EVENT_QUERIES.filter((q) => !groups.has(q.group)).map((q) => q.name)).toEqual([]);
+  });
+
+  it("breaks binder_view_changed's value down one control at a time", () => {
+    const binder = EVENT_QUERIES.find((q) => q.name === 'binder_view_changed');
+    expect(binder.breakdowns.filter((b) => b.where).map((b) => [b.label, b.where])).toEqual([
+      ['Sets picked', {control: 'set'}],
+      ['Show picked', {control: 'show'}],
+      ['Headline picked', {control: 'axis'}],
     ]);
   });
 });

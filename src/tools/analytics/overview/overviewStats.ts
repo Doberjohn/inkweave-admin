@@ -3,6 +3,7 @@ import {fmtInt} from '../../../ui/format';
 import type {GlobalStats, RuleStat, WeeklyPoint} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
+import {isSeen} from '../web/webModel';
 
 /**
  * Rules backed by fewer score votes than this are left out of Rules to review:
@@ -29,14 +30,17 @@ const COLUMN_MIN = 40;
 
 /**
  * The sum of every tracked event's all-time total, and how many event types it
- * covers. Null when there is nothing to sum: the artifact hasn't loaded, it is
- * the empty file written without the Vercel secrets (or after a failed API
- * call), or no events were tracked.
+ * covers: only the events the app has sent, so the launch's events waiting
+ * behind their flags add no type. Null when there is nothing to sum: the
+ * artifact hasn't loaded, it is the empty file written without the Vercel
+ * secrets, or no event has been sent.
  */
 export function trackedEventsTotal(v: VercelAnalytics | null): {total: number; eventTypes: number} | null {
   // No artifact yet, or the empty one: neither has Vercel data.
-  if (!v?.hasVercelData || v.events.length === 0) return null;
-  return {total: v.events.reduce((sum, e) => sum + e.total, 0), eventTypes: v.events.length};
+  if (!v?.hasVercelData) return null;
+  const seen = v.events.filter(isSeen);
+  if (seen.length === 0) return null;
+  return {total: seen.reduce((sum, e) => sum + e.total, 0), eventTypes: seen.length};
 }
 
 /**

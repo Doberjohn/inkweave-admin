@@ -103,7 +103,8 @@ export function BreakdownCards({breakdowns}: {breakdowns: Breakdown[]}) {
         gap: SPACING.lg,
       }}>
       {breakdowns.map((breakdown) => (
-        <BreakdownCard key={breakdown.prop} breakdown={breakdown} />
+        // binder_view_changed breaks `value` down three ways, one control at a time, so the prop alone repeats.
+        <BreakdownCard key={`${breakdown.prop} ${breakdown.label}`} breakdown={breakdown} />
       ))}
     </div>
   );

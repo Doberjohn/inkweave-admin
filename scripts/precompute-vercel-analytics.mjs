@@ -14,10 +14,12 @@
  *   - VERCEL_ANALYTICS_WINDOW_DAYS  lookback in days (optional, default 60, at most 62)
  *
  * A web-analytics tab is not worth a failed deploy: without the token or project
- * id, or when the API fails, this writes the empty-but-valid file and exits 0.
- * It exits 1 only when it cannot write that file. Workflow logs are public while
- * the repo is, so it logs the file it wrote and, on an API failure, the endpoint
- * and HTTP status: never event counts or response bodies.
+ * id this writes the empty-but-valid file and exits 0. An event whose requests fail
+ * is left out of the file and named in its `unavailable`, so one failure costs that
+ * event alone; only an unexpected error writes the empty file. It exits 1 only when
+ * it cannot write the file. Workflow logs are public while the repo is, so it logs
+ * the file it wrote, each failed event's endpoint and HTTP status, and how many
+ * requests it made: never event counts or response bodies.
  *
  * Docs: https://vercel.com/docs/analytics/web-analytics-api
  */
@@ -26,13 +28,9 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
   EVENT_QUERIES,
-  DEFAULT_BREAKDOWN_LIMIT,
-  eventNameFilter,
-  breakdownDimension,
-  breakdownValueKey,
+  collectEvents,
   reportingWindow,
   resolveWindowDays,
-  buildEvent,
   buildVercelAnalytics,
   emptyVercelAnalytics,
 } from './lib/vercelAnalytics.mjs';
@@ -42,7 +40,7 @@ const OUT_DIR = path.join(ROOT, 'public/admin-data');
 const OUT_NAME = 'vercel-analytics.json';
 const API_BASE = 'https://api.vercel.com/v1/query/web-analytics';
 // Each request's deadline, body included. Fetch has no overall one, so a stalled
-// request would hold the deploy instead of failing into the empty file.
+// request would hold the deploy instead of failing its event.
 const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Write the admin-data file, naming it (never its contents) in the log. */
@@ -72,33 +70,6 @@ async function vercelQuery(endpoint, params, {token, projectId, teamId}) {
   return body.data;
 }
 
-/** Pull count + trend + every configured breakdown for one event. */
-async function queryEvent(query, window, creds) {
-  const filter = eventNameFilter(query.name);
-  const count = await vercelQuery('events/count', {filter}, creds);
-  const trend = await vercelQuery(
-    'events/aggregate',
-    {since: window.since, until: window.until, by: 'day', filter},
-    creds,
-  );
-  const breakdowns = [];
-  for (const b of query.breakdowns) {
-    const rows = await vercelQuery(
-      'events/aggregate',
-      {
-        since: window.since,
-        until: window.until,
-        by: breakdownDimension(b),
-        filter,
-        limit: String(b.limit ?? DEFAULT_BREAKDOWN_LIMIT),
-      },
-      creds,
-    );
-    breakdowns.push({prop: b.prop, label: b.label, valueKey: breakdownValueKey(b), numeric: b.numeric, rows});
-  }
-  return buildEvent({name: query.name, label: query.label, count, trend, breakdowns});
-}
-
 async function main() {
   console.log('⚙ Pre-computing Vercel Web Analytics...');
   const token = process.env.VERCEL_ANALYTICS_TOKEN;
@@ -115,17 +86,24 @@ async function main() {
   const window = reportingWindow(new Date(), days);
   const creds = {token, projectId, teamId};
 
-  const events = [];
-  for (const query of EVENT_QUERIES) {
-    events.push(await queryEvent(query, window, creds));
-  }
-  writeArtifact(buildVercelAnalytics({events, window}));
+  let requests = 0;
+  const ask = (endpoint, params) => {
+    requests += 1;
+    return vercelQuery(endpoint, params, creds);
+  };
+  const {events, failures} = await collectEvents(EVENT_QUERIES, window, ask);
+  // The messages name an endpoint and a status (vercelQuery), never a count or a body.
+  for (const failure of failures) console.warn(`  ⚠ left out ${failure.name}: ${failure.message}`);
+  // How many requests says what a run costs, and nothing about visitors.
+  console.log(`  asked Vercel ${requests} requests`);
+  writeArtifact(buildVercelAnalytics({events, window, unavailable: failures.map((failure) => failure.name)}));
 }
 
 main().catch((err) => {
-  // An API failure must not break a deploy: log it, write the empty file so the
-  // tab shows its no-data state, and exit 0. If even that write fails, exit 1, so
-  // no deploy ships without the file.
+  // collectEvents keeps each API failure to its event, so this is an unexpected
+  // error, which must not break a deploy either: log it, write the empty file so
+  // the tab shows its no-data state, and exit 0. If even that write fails, exit 1,
+  // so no deploy ships without the file.
   console.warn(`  ⚠ Vercel-analytics precompute failed; writing the empty file: ${err.message}`);
   try {
     writeArtifact(emptyVercelAnalytics());

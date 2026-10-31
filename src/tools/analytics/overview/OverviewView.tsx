@@ -1,12 +1,14 @@
 import {Notice, SPACING} from '../../../app-bridge';
 import {latestVoteDay} from '../activityStats';
 import {CalibrationCard} from './CalibrationCard';
+import {CollectorsCard} from './CollectorsCard';
 import {LatestVotesCard} from './LatestVotesCard';
 import {OverviewKpis} from './OverviewKpis';
 import {rawAccuracy} from './overviewStats';
 import {RulesToReviewCard} from './RulesToReviewCard';
 import {WebEventsCard} from './WebEventsCard';
 import {WeeklyCard} from './WeeklyCard';
+import type {CollectorAnalytics} from '../collectorAnalyticsTypes';
 import type {VoteAnalytics} from '../voteAnalyticsTypes';
 import type {VoteLog} from '../voteLogTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
@@ -21,6 +23,9 @@ export interface OverviewViewProps {
   /** vercel-analytics.json, or null while it loads or after it failed. */
   vercel: VercelAnalytics | null;
   vercelError: Error | null;
+  /** collector-analytics.json, or null while it loads or after it failed. */
+  collectors: CollectorAnalytics | null;
+  collectorsError: Error | null;
 }
 
 /** Two cards side by side from 780px of content width, stacked below. */
@@ -39,10 +44,11 @@ function AnalyticsNotice({loading, error}: OverviewViewProps['analyticsState']) 
 /**
  * The Overview's body. Each card reads its own artifact and shows that
  * artifact's states, so a missing vote-analytics.json hides only the cards
- * built from it (KPIs, calibration, weekly, rules), not Latest votes or Web
- * events. Purely presentational: OverviewPage fetches.
+ * built from it (KPIs, calibration, weekly, rules), not Latest votes, Web
+ * events or Returning this week. Purely presentational: OverviewPage fetches.
  */
-export function OverviewView({analytics, analyticsState, voteLog, voteLogError = null, vercel, vercelError}: OverviewViewProps) {
+export function OverviewView(props: OverviewViewProps) {
+  const {analytics, analyticsState, voteLog, voteLogError = null, vercel, vercelError, collectors, collectorsError} = props;
   return (
     // A grid, not a column flexbox: panels with overflow:hidden collapse in one.
     <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: SPACING.xxl}}>
@@ -65,6 +71,7 @@ export function OverviewView({analytics, analyticsState, voteLog, voteLogError =
         {analytics && <RulesToReviewCard rules={analytics.rules} />}
         <LatestVotesCard voteLog={voteLog} error={voteLogError} />
         <WebEventsCard vercel={vercel} error={vercelError} />
+        <CollectorsCard collectors={collectors} error={collectorsError} />
       </div>
     </div>
   );
