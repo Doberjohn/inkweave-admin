@@ -37,8 +37,9 @@ describe('CollectorsView', () => {
     ]);
   });
 
-  // The precompute's weeks partition its collectors, and the 7 days' collectors into
-  // new and returning, so a fixture that breaks either shows a page no deploy could.
+  // The precompute's weeks partition its collectors, and the 7 days' active collectors
+  // take in the new and the returning, so a fixture that breaks either shows a page no
+  // deploy could. These fixtures have no one whose only session ran across the line.
   it.each([
     {of: "the Collectors page's", fixture: COUNTS},
     {of: "the Overview's", fixture: COLLECTORS},

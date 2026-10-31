@@ -43,11 +43,13 @@ const atLeastAgo = (ms, now, days) => ms <= now - days * DAY_MS;
 const savedAfter = (collector, days) => collector.latest - collector.first >= days * DAY_MS;
 
 /**
- * A save in the last `days` from a collector whose first save came before them.
- * Exact, since a later save only moves `updated_at` forward.
+ * A return in the last `days` from a collector whose first save came before them:
+ * a save there that is also a day or more after the first, so one session that
+ * runs across the line is no return. Exact, since a later save only moves
+ * `updated_at` forward.
  */
 const returnedWithin = (collector, now, days) =>
-  inLast(collector.latest, now, days) && atLeastAgo(collector.first, now, days);
+  inLast(collector.latest, now, days) && atLeastAgo(collector.first, now, days) && savedAfter(collector, 1);
 
 /** How many of `items` pass `test`. */
 function countWhere(items, test) {

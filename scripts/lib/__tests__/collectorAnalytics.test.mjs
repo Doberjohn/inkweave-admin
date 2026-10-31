@@ -4,7 +4,8 @@ import {COLLECTOR_COLUMNS, buildCollectorAnalytics, collectorArtifact, weekStart
 
 const NOW = Date.parse('2026-11-04T12:00:00Z'); // a Wednesday
 const MINUTE = 60 * 1000;
-const DAY = 24 * 60 * MINUTE;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 /** A collector whose first save was `firstAgo` ms before NOW and whose latest was `latestAgo` ms before it. */
 const at = (firstAgo, latestAgo) => ({
   created_at: new Date(NOW - firstAgo).toISOString(),
@@ -46,6 +47,12 @@ describe('buildCollectorAnalytics', () => {
     expect(counts(at(10 * DAY, 7 * DAY - MINUTE)).returning7).toBe(1);
   });
 
+  it('never counts one session that runs across the 7-day line as a return, and counts a save a day after it', () => {
+    expect(counts(at(7 * DAY + HOUR, 7 * DAY - HOUR))).toMatchObject({returning7: 0, new7: 0});
+    expect(counts(at(7 * DAY + 12 * HOUR, 6 * DAY + 12 * HOUR)).returning7).toBe(1);
+    expect(counts(at(30 * DAY + HOUR, 30 * DAY - HOUR)).returning30).toBe(0);
+  });
+
   it('counts returning over 30 days the same way, with its line exactly 30 days back', () => {
     expect(counts(row(31, 2)).returning30).toBe(1);
     expect(counts(row(20, 1)).returning30).toBe(0);
@@ -77,11 +84,21 @@ describe('buildCollectorAnalytics', () => {
     expect(counts(at(10 * DAY, 3 * DAY + MINUTE)).weeks[0].weekIn).toBe(0);
   });
 
-  it("adds up its start weeks' active7 to new7 plus returning7, the 7 days' collectors split two ways", () => {
-    const result = counts(row(2, 1), row(5, 5), row(9, 2), row(16, 6), row(16, 12), row(40, 3), at(7 * DAY, DAY));
+  it("counts in its start weeks' active7 every collector with a save in the 7 days, new, returning or neither", () => {
+    // The last row's one session ran across the 7-day line: active, but neither new nor a return.
+    const result = counts(
+      row(2, 1),
+      row(5, 5),
+      row(9, 2),
+      row(16, 6),
+      row(16, 12),
+      row(40, 3),
+      at(7 * DAY, DAY),
+      at(7 * DAY + HOUR, 7 * DAY - HOUR),
+    );
     const active = result.weeks.reduce((sum, week) => sum + week.active7, 0);
-    expect(active).toBe(6);
-    expect(result.new7 + result.returning7).toBe(active);
+    expect(active).toBe(7);
+    expect(result).toMatchObject({new7: 2, returning7: 4});
   });
 });
 
