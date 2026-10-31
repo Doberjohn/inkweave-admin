@@ -136,11 +136,15 @@ async function main() {
   const cards = loadAppCards();
   const names = cardNames(cards);
   const listedIds = listedCardIds(cards, engine);
-  const scoreRows = await fetchAllRows(createClient(url, anon), 'pair_scores', '*');
+  const scoreRows = await fetchAllRows(createClient(url, anon), {
+    table: 'pair_scores',
+    columns: '*',
+    order: ['card_a_id', 'card_b_id'],
+  });
 
   let rawVotes = null;
   if (service) {
-    rawVotes = await fetchAllRows(createClient(url, service), 'votes', VOTE_COLUMNS);
+    rawVotes = await fetchAllRows(createClient(url, service), {table: 'votes', columns: VOTE_COLUMNS, order: ['id']});
   } else {
     console.warn('  ⚠ SUPABASE_SERVICE_ROLE_KEY absent: leaving out weekly activity, voters, dimensions and the vote log.');
   }

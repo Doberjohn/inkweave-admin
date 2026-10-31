@@ -26,6 +26,8 @@ function trackedEventsHint(vercel: VercelAnalytics | null, vercelError: Error | 
       </span>
     );
   }
+  // Every event failed on the last run, so none tracked would be wrong.
+  if ((vercel.unavailable ?? []).length > 0) return "Vercel events couldn't be read";
   return 'No events tracked yet';
 }
 

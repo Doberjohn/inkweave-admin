@@ -76,6 +76,13 @@ describe('buildCollectorAnalytics', () => {
     expect(counts(at(10 * DAY, 3 * DAY)).weeks[0].weekIn).toBe(1);
     expect(counts(at(10 * DAY, 3 * DAY + MINUTE)).weeks[0].weekIn).toBe(0);
   });
+
+  it("adds up its start weeks' active7 to new7 plus returning7, the 7 days' collectors split two ways", () => {
+    const result = counts(row(2, 1), row(5, 5), row(9, 2), row(16, 6), row(16, 12), row(40, 3), at(7 * DAY, DAY));
+    const active = result.weeks.reduce((sum, week) => sum + week.active7, 0);
+    expect(active).toBe(6);
+    expect(result.new7 + result.returning7).toBe(active);
+  });
 });
 
 describe('weekStart', () => {
@@ -90,12 +97,20 @@ function fakeClient({pages = [[]], error = null} = {}) {
   const reads = [];
   const client = {
     from: (table) => ({
-      select: (columns) => ({
-        range: async (from, to) => {
-          reads.push({table, columns, from, to});
-          return error ? {data: null, error} : {data: pages[reads.length - 1] ?? [], error: null};
-        },
-      }),
+      select: (columns) => {
+        const order = [];
+        const query = {
+          order: (column) => {
+            order.push(column);
+            return query;
+          },
+          range: async (from, to) => {
+            reads.push({table, columns, order, from, to});
+            return error ? {data: null, error} : {data: pages[reads.length - 1] ?? [], error: null};
+          },
+        };
+        return query;
+      },
     }),
   };
   return {client, reads};
@@ -106,10 +121,12 @@ describe('collectorArtifact', () => {
     vi.restoreAllMocks();
   });
 
-  it('asks collections for its two timestamps and nothing else', async () => {
+  it('asks collections for its two timestamps and nothing else, its pages in key order', async () => {
     const {client, reads} = fakeClient({pages: [[row(8, 2)]]});
     const artifact = await collectorArtifact({client, now: NOW});
-    expect(reads).toEqual([{table: 'collections', columns: 'created_at, updated_at', from: 0, to: 999}]);
+    expect(reads).toEqual([
+      {table: 'collections', columns: 'created_at, updated_at', order: ['owner_id'], from: 0, to: 999},
+    ]);
     expect(COLLECTOR_COLUMNS).toBe('created_at, updated_at');
     expect(artifact).toMatchObject({hasData: true, collectors: 1, returning7: 1});
   });
@@ -118,9 +135,9 @@ describe('collectorArtifact', () => {
     const full = Array.from({length: 1000}, () => row(8, 2));
     const {client, reads} = fakeClient({pages: [full, [row(3, 1)]]});
     const artifact = await collectorArtifact({client, now: NOW});
-    expect(reads.map((r) => [r.from, r.to])).toEqual([
-      [0, 999],
-      [1000, 1999],
+    expect(reads.map((r) => [r.from, r.to, r.order])).toEqual([
+      [0, 999, ['owner_id']],
+      [1000, 1999, ['owner_id']],
     ]);
     expect(artifact.collectors).toBe(1001);
   });

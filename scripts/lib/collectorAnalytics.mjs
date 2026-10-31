@@ -21,6 +21,9 @@ const DAY_MS = 86_400_000;
 /** The two columns the counts need. Never owner_id or entries: no id leaves the database. */
 export const COLLECTOR_COLUMNS = 'created_at, updated_at';
 
+/** The table's key orders the pages from inside the database, so the read never returns it. */
+const COLLECTOR_ORDER = ['owner_id'];
+
 /** The UTC Monday that starts `ms`'s week, as YYYY-MM-DD. */
 export function weekStart(ms) {
   const day = new Date(ms);
@@ -106,7 +109,8 @@ export function buildCollectorAnalytics({rows, now}) {
 export async function collectorArtifact({client, now}) {
   if (!client) return {hasData: false, reason: 'no-key'};
   try {
-    return buildCollectorAnalytics({rows: await fetchAllRows(client, 'collections', COLLECTOR_COLUMNS), now});
+    const rows = await fetchAllRows(client, {table: 'collections', columns: COLLECTOR_COLUMNS, order: COLLECTOR_ORDER});
+    return buildCollectorAnalytics({rows, now});
   } catch (err) {
     console.warn(`  ⚠ ${err.message}`);
     return {hasData: false, reason: 'read-failed'};

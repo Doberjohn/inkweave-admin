@@ -34,40 +34,17 @@ import {
   buildVercelAnalytics,
   emptyVercelAnalytics,
 } from './lib/vercelAnalytics.mjs';
+import {vercelQuery} from './lib/vercelQuery.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'public/admin-data');
 const OUT_NAME = 'vercel-analytics.json';
-const API_BASE = 'https://api.vercel.com/v1/query/web-analytics';
-// Each request's deadline, body included. Fetch has no overall one, so a stalled
-// request would hold the deploy instead of failing its event.
-const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Write the admin-data file, naming it (never its contents) in the log. */
 function writeArtifact(obj) {
   fs.mkdirSync(OUT_DIR, {recursive: true});
   fs.writeFileSync(path.join(OUT_DIR, OUT_NAME), JSON.stringify({...obj, generatedAt: new Date().toISOString()}));
   console.log(`  wrote public/admin-data/${OUT_NAME}`);
-}
-
-/**
- * One authenticated GET against the Web Analytics Query API; returns the `data` field.
- * Its errors name the endpoint and HTTP status only: the workflow logs them, and a
- * response body can hold event data.
- */
-async function vercelQuery(endpoint, params, {token, projectId, teamId}) {
-  const search = new URLSearchParams({projectId, ...params});
-  if (teamId) search.set('teamId', teamId);
-  const res = await fetch(`${API_BASE}/${endpoint}?${search}`, {
-    headers: {Authorization: `Bearer ${token}`},
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`Vercel API ${endpoint} ${res.status}`);
-  // JSON.parse quotes the text around a syntax error, so its message is replaced too.
-  const body = await res.json().catch(() => {
-    throw new Error(`Vercel API ${endpoint} ${res.status}: the response could not be read as JSON`);
-  });
-  return body.data;
 }
 
 async function main() {

@@ -4,6 +4,7 @@ import {MemoryRouter} from 'react-router-dom';
 import {CollectorsPage} from '../CollectorsPage';
 import {CollectorsView} from '../CollectorsView';
 import {COUNTS} from '../collectorFixtures';
+import {COLLECTORS} from '../../overview/overviewFixtures';
 
 /** The value under a headline figure's label. */
 function figure(label: string) {
@@ -20,9 +21,9 @@ describe('CollectorsView', () => {
   it('leads with the headline counts', () => {
     render(<CollectorsView analytics={COUNTS} />);
     expect(figure('Collectors').getByText('27')).toBeInTheDocument();
-    expect(figure('New, 7 days').getByText('5')).toBeInTheDocument();
-    expect(figure('Returning, 7 days').getByText('9')).toBeInTheDocument();
-    expect(figure('Returning, 30 days').getByText('14')).toBeInTheDocument();
+    expect(figure('New, 7 days').getByText('10')).toBeInTheDocument();
+    expect(figure('Returning, 7 days').getByText('5')).toBeInTheDocument();
+    expect(figure('Returning, 30 days').getByText('6')).toBeInTheDocument();
     expect(figure('Came back at least once').getByText('17 of 27')).toBeInTheDocument();
   });
 
@@ -30,10 +31,20 @@ describe('CollectorsView', () => {
     render(<CollectorsView analytics={COUNTS} />);
     expect(weekRows()).toEqual([
       ['Nov 2', '5', '1', 'too new', '5'],
-      ['Oct 26', '8', '5', '1 of 3', '4'],
-      ['Oct 19', '10', '8', '6 of 10', '3'],
-      ['Oct 12', '4', '3', '2 of 4', '1'],
+      ['Oct 26', '8', '5', '1 of 3', '6'],
+      ['Oct 19', '6', '5', '3 of 6', '2'],
+      ['Sep 28', '8', '6', '4 of 8', '2'],
     ]);
+  });
+
+  // The precompute's weeks partition its collectors, and the 7 days' collectors into
+  // new and returning, so a fixture that breaks either shows a page no deploy could.
+  it.each([
+    {of: "the Collectors page's", fixture: COUNTS},
+    {of: "the Overview's", fixture: COLLECTORS},
+  ])('keeps $of fixture adding up: starts to collectors, active7 to new7 plus returning7', ({fixture}) => {
+    expect(fixture.weeks.reduce((sum, week) => sum + week.started, 0)).toBe(fixture.collectors);
+    expect(fixture.weeks.reduce((sum, week) => sum + week.active7, 0)).toBe(fixture.new7 + fixture.returning7);
   });
 
   it("says what the counts can't see", () => {

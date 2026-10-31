@@ -42,9 +42,9 @@ function CollectorKpis({counts}: {counts: CollectorCounts}) {
       aria-label="Key figures"
       style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: SPACING.md}}>
       <KpiCard label="Collectors" value={fmtInt(counts.collectors)} hint="accounts with a collection" />
-      <KpiCard label="New, 7 days" value={fmtInt(counts.new7)} hint="first save this week" />
-      <KpiCard label="Returning, 7 days" value={fmtInt(counts.returning7)} hint="saved again this week" />
-      <KpiCard label="Returning, 30 days" value={fmtInt(counts.returning30)} hint="saved again this month" />
+      <KpiCard label="New, 7 days" value={fmtInt(counts.new7)} hint="first save in the last 7 days" />
+      <KpiCard label="Returning, 7 days" value={fmtInt(counts.returning7)} hint="saved again in the last 7 days" />
+      <KpiCard label="Returning, 30 days" value={fmtInt(counts.returning30)} hint="saved again in the last 30 days" />
       <KpiCard
         label="Came back at least once"
         value={outOf(counts.cameBack, counts.collectors)}
@@ -77,7 +77,7 @@ function StartWeeksTable({weeks}: {weeks: CollectorWeek[]}) {
                 Saved a week in
               </th>
               <th scope="col" style={HEAD_CELL}>
-                Active this week
+                Active, last 7 days
               </th>
             </tr>
           </thead>

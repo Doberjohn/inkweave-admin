@@ -105,13 +105,13 @@ export const WebAnalyticsError: Story = {
   args: {vercel: null, vercelError: new Error('vercel-analytics.json: HTTP 500')},
 };
 
-/** Returning this week, deployed without the service-role key. */
+/** Returning, 7 days, deployed without the service-role key. */
 export const NoCollectorKey: Story = {args: {collectors: NO_COLLECTOR_KEY}};
 
-/** Returning this week, after a deploy that couldn't read the collections table. */
+/** Returning, 7 days, after a deploy that couldn't read the collections table. */
 export const CollectorReadFailed: Story = {args: {collectors: {...NO_COLLECTOR_KEY, reason: 'read-failed'}}};
 
-/** Returning this week, before anyone has started a collection. */
+/** Returning, 7 days, before anyone has started a collection. */
 export const NoCollectors: Story = {
   args: {collectors: {...COLLECTORS, collectors: 0, new7: 0, returning7: 0, returning30: 0, cameBack: 0, weeks: []}},
 };

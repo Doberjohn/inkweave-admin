@@ -13,7 +13,7 @@ interface CollectorsCardProps {
   error: Error | null;
 }
 
-/** The card body: the Collectors page's states in short form, or this week's returning collectors. */
+/** The card body: the Collectors page's states in short form, or the last 7 days' returning collectors. */
 function CollectorsBody({collectors, error}: CollectorsCardProps) {
   if (error) return <p style={MUTED}>Could not load collector analytics ({error.message}).</p>;
   if (!collectors) return <p style={MUTED}>Loading collector analytics...</p>;
@@ -40,13 +40,13 @@ function CollectorsBody({collectors, error}: CollectorsCardProps) {
 }
 
 /**
- * The Overview's collectors card: the collectors who saved again this week
- * after starting before it, out of every collector, with a link to the
+ * The Overview's collectors card: the collectors who saved again in the last
+ * 7 days after starting before them, out of every collector, with a link to the
  * Collectors page.
  */
 export function CollectorsCard({collectors, error}: CollectorsCardProps) {
   return (
-    <Panel title="Returning this week" action={<PanelLink to="/collectors">Open collectors →</PanelLink>}>
+    <Panel title="Returning, 7 days" action={<PanelLink to="/collectors">Open collectors →</PanelLink>}>
       <CollectorsBody collectors={collectors} error={error} />
     </Panel>
   );

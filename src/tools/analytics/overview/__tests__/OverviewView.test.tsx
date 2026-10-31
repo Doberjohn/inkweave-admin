@@ -152,6 +152,20 @@ describe('OverviewView', () => {
     expect(screen.getByText('No events tracked yet.')).toBeInTheDocument();
   });
 
+  it("notes under the events it read how many the last run couldn't read", () => {
+    renderView({vercel: {...VERCEL, unavailable: ['friend_action', 'binder_opened']}});
+    const card = screen.getByRole('region', {name: 'Web events'});
+    expect(within(card).getByRole('list', {name: 'Web events'})).toBeInTheDocument();
+    expect(card).toHaveTextContent("Couldn't read 2 events on the last run.");
+  });
+
+  it("says the events couldn't be read, never that none were tracked, when every one failed", () => {
+    renderView({vercel: {...VERCEL, events: [], unavailable: ['vote_submitted']}});
+    expect(screen.getByRole('region', {name: 'Web events'})).toHaveTextContent("Couldn't read 1 event on the last run.");
+    expect(screen.queryByText(/No events tracked yet/)).not.toBeInTheDocument();
+    expect(within(kpis()).getByText("Vercel events couldn't be read")).toBeInTheDocument();
+  });
+
   it('keeps Tracked events blank while the Vercel data loads', () => {
     renderView({vercel: null});
     expect(within(kpis()).getByText('—')).toBeInTheDocument();
@@ -221,9 +235,9 @@ describe('OverviewView', () => {
     expect(screen.getByText(/the last bar runs through the latest vote\.$/)).toBeInTheDocument();
   });
 
-  it("shows this week's returning collectors out of every collector, with a link to the page", () => {
+  it("shows the last 7 days' returning collectors out of every collector, with a link to the page", () => {
     renderView();
-    const card = screen.getByRole('region', {name: 'Returning this week'});
+    const card = screen.getByRole('region', {name: 'Returning, 7 days'});
     expect(within(card).getByText('4')).toBeInTheDocument();
     expect(within(card).getByText('of 12 collectors · 2 new')).toBeInTheDocument();
     expect(within(card).getByRole('link', {name: 'Open collectors →'})).toHaveAttribute('href', '/collectors');
@@ -237,6 +251,6 @@ describe('OverviewView', () => {
     ['with no collectors', {collectors: {...COLLECTORS, collectors: 0, new7: 0, returning7: 0, weeks: []}}, 'No collections yet.'],
   ])('says so in the collectors card %s', (_state, overrides, line) => {
     renderView(overrides);
-    expect(screen.getByRole('region', {name: 'Returning this week'})).toHaveTextContent(line);
+    expect(screen.getByRole('region', {name: 'Returning, 7 days'})).toHaveTextContent(line);
   });
 });

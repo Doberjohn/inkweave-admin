@@ -45,7 +45,7 @@ function AnalyticsNotice({loading, error}: OverviewViewProps['analyticsState']) 
  * The Overview's body. Each card reads its own artifact and shows that
  * artifact's states, so a missing vote-analytics.json hides only the cards
  * built from it (KPIs, calibration, weekly, rules), not Latest votes, Web
- * events or Returning this week. Purely presentational: OverviewPage fetches.
+ * events or Returning, 7 days. Purely presentational: OverviewPage fetches.
  */
 export function OverviewView(props: OverviewViewProps) {
   const {analytics, analyticsState, voteLog, voteLogError = null, vercel, vercelError, collectors, collectorsError} = props;
