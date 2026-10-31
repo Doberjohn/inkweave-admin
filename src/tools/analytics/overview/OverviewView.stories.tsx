@@ -6,8 +6,10 @@ import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {OverviewView} from './OverviewView';
 import {
   ANALYTICS,
+  COLLECTORS,
   EARLY_ANALYTICS,
   EMPTY_VOTE_LOG,
+  NO_COLLECTOR_KEY,
   NO_EVENTS,
   NO_RAW_ANALYTICS,
   NO_VERCEL,
@@ -52,6 +54,8 @@ const meta: Meta<typeof OverviewView> = {
     voteLogError: null,
     vercel: VERCEL,
     vercelError: null,
+    collectors: COLLECTORS,
+    collectorsError: null,
   },
 };
 export default meta;
@@ -81,7 +85,7 @@ export const NarrowCard: Story = {
 export const EarlyLog: Story = {args: {analytics: EARLY_ANALYTICS}};
 
 export const Loading: Story = {
-  args: {analytics: null, analyticsState: {loading: true, error: null}, voteLog: null, vercel: null},
+  args: {analytics: null, analyticsState: {loading: true, error: null}, voteLog: null, vercel: null, collectors: null},
 };
 
 export const NotGenerated: Story = {
@@ -99,6 +103,21 @@ export const NoEventsTracked: Story = {args: {vercel: NO_EVENTS}};
 
 export const WebAnalyticsError: Story = {
   args: {vercel: null, vercelError: new Error('vercel-analytics.json: HTTP 500')},
+};
+
+/** Returning, 7 days, deployed without the service-role key. */
+export const NoCollectorKey: Story = {args: {collectors: NO_COLLECTOR_KEY}};
+
+/** Returning, 7 days, after a deploy that couldn't read the collections table. */
+export const CollectorReadFailed: Story = {args: {collectors: {...NO_COLLECTOR_KEY, reason: 'read-failed'}}};
+
+/** Returning, 7 days, before anyone has started a collection. */
+export const NoCollectors: Story = {
+  args: {collectors: {...COLLECTORS, collectors: 0, new7: 0, returning7: 0, returning30: 0, cameBack: 0, weeks: []}},
+};
+
+export const CollectorsError: Story = {
+  args: {collectors: null, collectorsError: new Error('collector-analytics.json has not been generated yet')},
 };
 
 export const VoteLogError: Story = {

@@ -5,6 +5,7 @@ import {NotFound} from './shell/NotFound';
 import {ActivityPage} from './tools/analytics/activity/ActivityPage';
 import {CalibrationPage} from './tools/analytics/calibration/CalibrationPage';
 import {CardAnalyticsPage} from './tools/analytics/cards/CardAnalyticsPage';
+import {CollectorsPage} from './tools/analytics/collectors/CollectorsPage';
 import {OverviewPage} from './tools/analytics/overview/OverviewPage';
 import {WebAnalyticsPage} from './tools/analytics/web/WebAnalyticsPage';
 import {ChangesPage} from './tools/changes/ChangesPage';
@@ -19,6 +20,7 @@ export const routes: RouteObject[] = [
       {index: true, element: <OverviewPage />},
       {path: 'activity', element: <ActivityPage />},
       {path: 'web', element: <WebAnalyticsPage />},
+      {path: 'collectors', element: <CollectorsPage />},
       {path: 'calibration', element: <CalibrationPage />},
       // One element for every card: bare /cards opens the last card viewed, or the "Pick a card" prompt.
       {path: 'cards/:cardId?', element: <CardAnalyticsPage />},

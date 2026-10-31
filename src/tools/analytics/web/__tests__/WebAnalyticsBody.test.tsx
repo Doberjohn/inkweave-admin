@@ -102,6 +102,115 @@ async function pick(label: RegExp) {
   await userEvent.click(screen.getByRole('button', {name: label}));
 }
 
+/** The launch's groups: a sign-in event with data and one not sent, collection's two unsent, a friend event. */
+const LAUNCH: VercelAnalytics = {
+  ...ANALYTICS,
+  events: [
+    ...ANALYTICS.events,
+    event('friend_action', 'Friend actions', 12000, {group: 'friends'}),
+    event('sign_in_started', 'Sign-ins started', 40, {group: 'sign_in'}),
+    event('sign_in_failed', 'Sign-ins failed', 0, {group: 'sign_in'}),
+    event('collection_imported', 'Collections imported', 0, {group: 'collection'}),
+    event('collection_started', 'Empty collections started', 0, {group: 'collection'}),
+  ],
+};
+
+describe('WebAnalyticsBody groups', () => {
+  it('puts each group under its heading, in page order, each with its own cards busiest first', () => {
+    render(<WebAnalyticsBody analytics={LAUNCH} />);
+    expect(screen.getAllByRole('heading', {level: 2}).slice(0, 4).map((h) => h.textContent)).toEqual([
+      'Cards and votes',
+      'Sign-in',
+      'Collection',
+      'Friends',
+    ]);
+    // Each card names its event in a <code>.
+    const names = within(screen.getByRole('region', {name: 'Cards and votes'}))
+      .getAllByRole('button')
+      .map((card) => card.querySelector('code')?.textContent);
+    expect(names).toEqual(['reveal_card_click', 'search_submitted', 'vote_skipped']);
+    expect(within(screen.getByRole('region', {name: 'Sign-in'})).getAllByRole('button')).toHaveLength(1);
+    expect(within(screen.getByRole('region', {name: 'Friends'})).getByRole('button', {name: /Friend actions/})).toBeInTheDocument();
+  });
+
+  it("names an event never sent in its group's Not seen yet line, never as a card", () => {
+    render(<WebAnalyticsBody analytics={LAUNCH} />);
+    expect(within(screen.getByRole('region', {name: 'Sign-in'})).getByText('Not seen yet: Sign-ins failed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Sign-ins failed/})).not.toBeInTheDocument();
+    // A group whose events are all unsent keeps its heading and its line, with no cards.
+    expect(within(screen.getByRole('region', {name: 'Collection'})).getByText('Not seen yet: Collections imported, Empty collections started')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', {name: 'Collection'})).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', {name: 'Cards and votes'})).queryByText(/Not seen yet/)).not.toBeInTheDocument();
+  });
+
+  it('selects the busiest event of any group first', () => {
+    render(<WebAnalyticsBody analytics={LAUNCH} />);
+    expect(screen.getByRole('button', {name: /Friend actions/})).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', {name: 'Friend actions per day'})).toBeInTheDocument();
+  });
+
+  it('sums and counts only the events the app has sent', () => {
+    render(<WebAnalyticsBody analytics={LAUNCH} />);
+    expect(screen.getByText('events tracked across 5 event types · all-time')).toHaveTextContent(
+      '26,730 events tracked across 5 event types · all-time',
+    );
+  });
+
+  it('leaves out a group with no events at all', () => {
+    render(<WebAnalyticsBody analytics={ANALYTICS} />);
+    expect(screen.getByRole('region', {name: 'Cards and votes'})).toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: 'Friends'})).not.toBeInTheDocument();
+  });
+
+  it('names the events the last run could not read, above the cards', () => {
+    render(<WebAnalyticsBody analytics={{...LAUNCH, unavailable: ['vote_submitted', 'card_selected']}} />);
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent(
+      "Couldn't read these from Vercel on the last run: vote_submitted, card_selected. The next Deploy asks again.",
+    );
+    expect(within(notice).getByText('vote_submitted').tagName).toBe('CODE');
+    expect(screen.queryByText('VERCEL_ANALYTICS_TOKEN')).not.toBeInTheDocument();
+  });
+
+  it('shows no unavailable notice for a file without the list', () => {
+    render(<WebAnalyticsBody analytics={LAUNCH} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says no events are tracked when every event failed, and still names them', () => {
+    render(<WebAnalyticsBody analytics={{...ANALYTICS, events: [], unavailable: ['vote_submitted']}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('vote_submitted');
+    expect(screen.getByText('No events tracked yet.')).toBeInTheDocument();
+  });
+
+  it("draws each breakdown of one prop, as binder_view_changed's three of value, without a key clash", () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const binder = event('binder_view_changed', 'Binder views picked', 50000, {
+      group: 'collection',
+      breakdowns: [
+        {prop: 'value', label: 'Sets picked', rows: [row('12', 3)]},
+        {prop: 'value', label: 'Show picked', rows: [row('owned', 2)]},
+        {prop: 'value', label: 'Headline picked', rows: [row('missing', 1)]},
+      ],
+    });
+    render(<WebAnalyticsBody analytics={{...ANALYTICS, events: [...ANALYTICS.events, binder]}} />);
+    const logged = errors.mock.calls.flat().join(' ');
+    errors.mockRestore();
+    for (const title of ['Sets picked', 'Show picked', 'Headline picked']) {
+      expect(screen.getByRole('heading', {name: title})).toBeInTheDocument();
+    }
+    expect(logged).not.toMatch(/same key/);
+  });
+
+  it('says no events are tracked when none has been sent, keeping the Not seen yet lines', () => {
+    const unsent = LAUNCH.events.filter((e) => e.total === 0);
+    render(<WebAnalyticsBody analytics={{...LAUNCH, events: unsent}} />);
+    expect(screen.getByText('No events tracked yet.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', {name: 'Sign-in'})).getByText('Not seen yet: Sign-ins failed')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
 describe('WebAnalyticsBody', () => {
   it('focuses the busiest event first, then the one you pick', async () => {
     render(<WebAnalyticsBody analytics={ANALYTICS} />);

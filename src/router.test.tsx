@@ -205,6 +205,16 @@ describe('admin routes', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText('master')).not.toBeInTheDocument();
   });
+
+  it('opens Collectors at /collectors, current in the sidebar and with no branch notice', () => {
+    renderAt('/collectors');
+    expect(screen.getByRole('heading', {level: 1, name: 'Collectors'})).toBeInTheDocument();
+    expect(screen.getByText('Loading collector analytics...')).toBeInTheDocument();
+    const link = sidebarNav().getByRole('link', {name: 'Collectors'});
+    expect(link).toHaveAttribute('href', '/collectors');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText('master')).not.toBeInTheDocument();
+  });
 });
 
 describe('Card studio routes', () => {

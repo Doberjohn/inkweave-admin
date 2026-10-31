@@ -4,8 +4,12 @@ import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme'
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {PanelLink} from './PanelLink';
 import type {ReportingWindow, VercelAnalytics} from '../vercelAnalyticsTypes';
+import {isSeen, sortEventsByTotal, unreadCount} from '../web/webModel';
 
 const MUTED: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
+
+/** The busiest events the card lists, so it stays a summary once the launch's events arrive. */
+const ROWS_SHOWN = 8;
 
 /** Totals are all-time; only the Web analytics page's trends use the reporting window. */
 function windowCaption(range: ReportingWindow | null): string {
@@ -19,7 +23,42 @@ interface WebEventsCardProps {
   error: Error | null;
 }
 
-/** The card body: the Web analytics page's states in short form, or the events busiest first. */
+/**
+ * How many events the last run couldn't read from Vercel, so a list without them
+ * never reads as complete. The Web analytics page names them.
+ */
+function UnreadNote({count}: {count: number}) {
+  if (count === 0) return null;
+  return (
+    <p style={MUTED}>
+      Couldn&apos;t read {fmtInt(count)} {count === 1 ? 'event' : 'events'} on the last run.
+    </p>
+  );
+}
+
+/** How many sent events the card leaves to the Web analytics page, or nothing when it lists them all. */
+function MoreNote({count}: {count: number}) {
+  if (count === 0) return null;
+  return <p style={MUTED}>{fmtInt(count)} more on the Web analytics page.</p>;
+}
+
+/**
+ * The card with no event sent yet: says so when the last run read any event, and
+ * how many it couldn't read, so a run that read nothing never says none was sent.
+ */
+function NoEventsSeen({read, unread}: {read: number; unread: number}) {
+  return (
+    <div style={{display: 'flex', flexDirection: 'column', gap: SPACING.xs}}>
+      {(read > 0 || unread === 0) && <p style={MUTED}>No events tracked yet.</p>}
+      <UnreadNote count={unread} />
+    </div>
+  );
+}
+
+/**
+ * The card body: the Web analytics page's states in short form, or the events
+ * the app has sent, busiest first. One never sent gets no row of zeros.
+ */
 function WebEventsBody({vercel, error}: WebEventsCardProps) {
   if (error) return <p style={MUTED}>Could not load Web Analytics ({error.message}).</p>;
   if (!vercel) return <p style={MUTED}>Loading Web Analytics...</p>;
@@ -30,9 +69,10 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
       </p>
     );
   }
-  if (vercel.events.length === 0) return <p style={MUTED}>No events tracked yet.</p>;
+  const events = sortEventsByTotal(vercel.events.filter(isSeen));
+  const unread = unreadCount(vercel);
+  if (events.length === 0) return <NoEventsSeen read={vercel.events.length} unread={unread} />;
 
-  const events = [...vercel.events].sort((a, b) => b.total - a.total);
   // Each fill is scaled to the busiest event, so the top row is always full width.
   const top = Math.max(1, events[0].total);
   return (
@@ -40,7 +80,7 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
       <ul
         aria-label="Web events"
         style={{listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: SPACING.xs}}>
-        {events.map((e) => (
+        {events.slice(0, ROWS_SHOWN).map((e) => (
           <li
             key={e.name}
             style={{
@@ -71,6 +111,8 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
           </li>
         ))}
       </ul>
+      <MoreNote count={Math.max(0, events.length - ROWS_SHOWN)} />
+      <UnreadNote count={unread} />
       <p style={{...MUTED, fontSize: ADMIN_TYPE.label}}>{windowCaption(vercel.reportingWindow)}</p>
     </div>
   );

@@ -23,6 +23,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {id: 'calibration', label: 'Calibration & tuning', mark: 'Ca', path: '/calibration', group: 'insights', writes: true},
   {id: 'activity', label: 'Vote activity', mark: 'Ac', path: '/activity', group: 'insights', writes: false},
   {id: 'web', label: 'Web analytics', mark: 'Wa', path: '/web', group: 'insights', writes: false},
+  // Returning collectors, from the app's collections table (#116). It only reads.
+  {id: 'collectors', label: 'Collectors', mark: 'Co', path: '/collectors', group: 'insights', writes: false},
   {id: 'cards', label: 'Card analytics', mark: 'Cd', path: '/cards', group: 'insights', writes: false},
   // New card and Edit card on one page (R4), in place of the write tools at /reveal and /image,
   // which now redirect here (R-10). Both modes commit to the app repo, so the page writes (R-4).

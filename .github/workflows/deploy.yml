@@ -86,8 +86,9 @@ jobs:
           pnpm --dir app-master --filter inkweave-synergy-engine build
           node app-master/scripts/precompute-synergies.mjs
 
-      # The secrets reach only this step. Its log names the files it writes,
-      # never their numbers: workflow logs are public while the repo is.
+      # The secrets reach only this step. Its log names the files it writes and the
+      # requests that failed, never a number from the data: workflow logs are public
+      # while the repo is.
       - name: Precompute analytics into public/admin-data/
         env:
           APP_DIR: app-master
@@ -100,6 +101,7 @@ jobs:
           ANALYTICS_VERCEL_TEAM_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: |
           node scripts/precompute-vote-analytics.mjs
+          node scripts/precompute-collector-analytics.mjs
           node scripts/precompute-vercel-analytics.mjs
 
       - name: Pull Vercel production settings

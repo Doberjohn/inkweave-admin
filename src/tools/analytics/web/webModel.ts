@@ -1,5 +1,12 @@
 import {eachDay, isDay} from '../../../charts/scale';
-import type {BreakdownRow, ReportingWindow, TrendPoint, VercelEvent} from '../vercelAnalyticsTypes';
+import type {
+  BreakdownRow,
+  EventGroup,
+  ReportingWindow,
+  TrendPoint,
+  VercelAnalytics,
+  VercelEvent,
+} from '../vercelAnalyticsTypes';
 
 /** The value Vercel gives the row that folds a breakdown's tail beyond its query limit. */
 export const OTHERS_VALUE = 'Others';
@@ -14,6 +21,60 @@ export const NOT_SET_LABEL = '(not set)';
 /** Events busiest first. Returns a copy, and ties keep the artifact's order (sort is stable). */
 export function sortEventsByTotal(events: VercelEvent[]): VercelEvent[] {
   return [...events].sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Whether the app has ever sent the event. One never sent (the launch's events while
+ * their flags are off) has no card, row or event type anywhere: the precompute asks
+ * only its count, and a card of zeros would say nothing.
+ */
+export function isSeen(event: VercelEvent): boolean {
+  return event.total > 0;
+}
+
+/** How many events the last run couldn't read. A file from before `unavailable` existed has none. */
+export function unreadCount(analytics: VercelAnalytics | null): number {
+  return analytics?.unavailable?.length ?? 0;
+}
+
+/** The Web analytics page's groups, in page order, each with its heading. */
+export const EVENT_GROUPS: readonly {id: EventGroup; heading: string}[] = [
+  {id: 'cards', heading: 'Cards and votes'},
+  {id: 'sign_in', heading: 'Sign-in'},
+  {id: 'collection', heading: 'Collection'},
+  {id: 'friends', heading: 'Friends'},
+];
+
+/** One group's part of the page. */
+export interface EventGroupSection {
+  id: EventGroup;
+  heading: string;
+  /** Its events the app has sent, busiest first. */
+  events: VercelEvent[];
+  /** The labels of its events never sent, in the artifact's order. */
+  notSeen: string[];
+}
+
+/** The event's group: its own, or 'cards' for a file written before groups (or a group this page lacks). */
+function groupOf(event: VercelEvent): EventGroup {
+  return EVENT_GROUPS.some((group) => group.id === event.group) ? (event.group as EventGroup) : 'cards';
+}
+
+/**
+ * The events by group, in EVENT_GROUPS' order: each group's sent events busiest
+ * first, and the labels of those never sent. A group with no events at all is
+ * left out.
+ */
+export function groupEvents(events: VercelEvent[]): EventGroupSection[] {
+  return EVENT_GROUPS.map(({id, heading}) => {
+    const members = events.filter((event) => groupOf(event) === id);
+    return {
+      id,
+      heading,
+      events: sortEventsByTotal(members.filter(isSeen)),
+      notSeen: members.filter((event) => !isSeen(event)).map((event) => event.label),
+    };
+  }).filter((section) => section.events.length > 0 || section.notSeen.length > 0);
 }
 
 /**

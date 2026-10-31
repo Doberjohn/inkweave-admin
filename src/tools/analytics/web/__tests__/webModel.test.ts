@@ -1,9 +1,17 @@
 import {describe, expect, it} from 'vitest';
-import type {BreakdownRow, TrendPoint, VercelEvent} from '../../vercelAnalyticsTypes';
-import {NOT_SET_LABEL, breakdownShares, fillTrendDays, sortEventsByTotal, trendSummary} from '../webModel';
+import type {BreakdownRow, EventGroup, TrendPoint, VercelEvent} from '../../vercelAnalyticsTypes';
+import {
+  EVENT_GROUPS,
+  NOT_SET_LABEL,
+  breakdownShares,
+  fillTrendDays,
+  groupEvents,
+  sortEventsByTotal,
+  trendSummary,
+} from '../webModel';
 
-function event(name: string, total: number): VercelEvent {
-  return {name, label: name, total, visitors: 1, trend: [], breakdowns: []};
+function event(name: string, total: number, group?: EventGroup): VercelEvent {
+  return {name, label: name, group, total, visitors: 1, trend: [], breakdowns: []};
 }
 
 /** One point per day from 2026-09-01, with the given counts. */
@@ -14,6 +22,47 @@ function days(...counts: number[]): TrendPoint[] {
 function row(value: string, count: number): BreakdownRow {
   return {value, count, visitors: 1};
 }
+
+describe('groupEvents', () => {
+  it("orders the groups as EVENT_GROUPS, whatever the artifact's order", () => {
+    const sections = groupEvents([
+      event('friend_action', 2, 'friends'),
+      event('sign_in_started', 3, 'sign_in'),
+      event('collection_imported', 1, 'collection'),
+      event('vote_submitted', 9, 'cards'),
+    ]);
+    expect(sections.map((section) => section.id)).toEqual(EVENT_GROUPS.map((group) => group.id));
+    expect(sections.map((section) => section.heading)).toEqual(['Cards and votes', 'Sign-in', 'Collection', 'Friends']);
+  });
+
+  it('sorts each group busiest first', () => {
+    const [cards] = groupEvents([event('a', 5, 'cards'), event('b', 9, 'cards'), event('c', 7, 'cards')]);
+    expect(cards.events.map((e) => e.name)).toEqual(['b', 'c', 'a']);
+  });
+
+  it("puts the labels of events never sent in the group's not-seen list, not among its events", () => {
+    const [signIn] = groupEvents([
+      event('sign_in_started', 0, 'sign_in'),
+      event('sign_in_shown', 4, 'sign_in'),
+      event('sign_in_failed', 0, 'sign_in'),
+    ]);
+    expect(signIn.events.map((e) => e.name)).toEqual(['sign_in_shown']);
+    expect(signIn.notSeen).toEqual(['sign_in_started', 'sign_in_failed']);
+  });
+
+  it('files an event without a group, or with one the page lacks, under cards', () => {
+    const odd = {...event('b', 2), group: 'decks' as EventGroup};
+    const sections = groupEvents([event('a', 3), odd]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].id).toBe('cards');
+    expect(sections[0].events.map((e) => e.name)).toEqual(['a', 'b']);
+  });
+
+  it('leaves out a group with no events at all', () => {
+    const sections = groupEvents([event('vote_submitted', 9, 'cards'), event('friend_action', 0, 'friends')]);
+    expect(sections.map((section) => section.id)).toEqual(['cards', 'friends']);
+  });
+});
 
 describe('sortEventsByTotal', () => {
   it('puts the busiest event first and keeps the artifact order on ties', () => {

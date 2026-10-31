@@ -1,10 +1,11 @@
 import type {RuleStat, VoteAnalytics, WeeklyPoint} from '../voteAnalyticsTypes';
 import type {VoteLog, VoteLogRow} from '../voteLogTypes';
+import type {CollectorCounts, NoCollectorCounts} from '../collectorAnalyticsTypes';
 import type {VercelAnalytics, VercelEvent} from '../vercelAnalyticsTypes';
 
 /*
  * Overview fixtures, shared by the Overview's tests and stories: sample rules,
- * votes and events in the shape of the three admin-data artifacts. The weekly
+ * votes, events and collectors in the shape of the four admin-data artifacts. The weekly
  * series runs 14 Mondays, so the 12-week window has two weeks to cut, and its
  * totals add up to totalVotes.
  */
@@ -170,3 +171,29 @@ export const NO_VERCEL: VercelAnalytics = {
 
 /** Vercel answered, but no custom events have been tracked. */
 export const NO_EVENTS: VercelAnalytics = {...VERCEL, events: []};
+
+/**
+ * Twelve collectors, four of them back in the last 7 days and two new, as of
+ * Wednesday 30 September. Only the oldest week started before the 30 days.
+ */
+export const COLLECTORS: CollectorCounts = {
+  generatedAt: '2026-09-30T04:14:00Z',
+  hasData: true,
+  collectors: 12,
+  new7: 2,
+  returning7: 4,
+  returning30: 5,
+  cameBack: 8,
+  weeks: [
+    {week: '2026-09-28', started: 2, cameBack: 0, weekIn: 0, weekInOf: 0, active7: 2},
+    {week: '2026-09-21', started: 4, cameBack: 3, weekIn: 2, weekInOf: 4, active7: 2},
+    {week: '2026-08-24', started: 6, cameBack: 5, weekIn: 3, weekInOf: 6, active7: 2},
+  ],
+};
+
+/** The file written without the service-role key. */
+export const NO_COLLECTOR_KEY: NoCollectorCounts = {
+  generatedAt: '2026-09-30T04:14:00Z',
+  hasData: false,
+  reason: 'no-key',
+};

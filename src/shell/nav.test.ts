@@ -38,7 +38,7 @@ describe('the Calibration & tuning item', () => {
   it('heads Insights, where the analytics page was', () => {
     const insights = NAV_ITEMS.filter((item) => item.group === 'insights').map((item) => item.id);
     // Card analytics ends the group (R3), as the handoff lists it.
-    expect(insights).toEqual(['calibration', 'activity', 'web', 'cards']);
+    expect(insights).toEqual(['calibration', 'activity', 'web', 'collectors', 'cards']);
     expect(NAV_ITEMS.some((item) => item.id === 'analytics')).toBe(false);
   });
 
@@ -47,6 +47,20 @@ describe('the Calibration & tuning item', () => {
     // The tuning editor moved into the page (R-4), and /tuning only redirects to it.
     expect(isWritePath('/calibration')).toBe(true);
     expect(NAV_ITEMS.some((item) => item.id === 'tuning' || item.path === '/tuning')).toBe(false);
+  });
+});
+
+describe('the Collectors item', () => {
+  it('sits under Insights after Web analytics, owns /collectors and writes nothing', () => {
+    expect(navItemFor('/collectors')).toEqual({
+      id: 'collectors',
+      label: 'Collectors',
+      mark: 'Co',
+      path: '/collectors',
+      group: 'insights',
+      writes: false,
+    });
+    expect(isWritePath('/collectors')).toBe(false);
   });
 });
 

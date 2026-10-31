@@ -7,12 +7,14 @@ import type {VercelEvent} from '../vercelAnalyticsTypes';
 interface EventCardsProps {
   /** Already sorted, busiest first, each trend filled to the window (fillTrendDays). */
   events: VercelEvent[];
+  /** The group's name for the cards: its heading ("Sign-in"). */
+  label: string;
   selectedName: string;
   onSelect: (name: string) => void;
 }
 
 /**
- * One card per tracked event: label, event name, all-time total, visitors and
+ * One card per tracked event in a group: label, event name, all-time total, visitors and
  * the window's sparkline. The cards pick the event that the trend and the
  * breakdowns below describe. Each is a native button styled by AdminStyles'
  * adm-card-btn (a <button> takes no inline style, #509); the picked one is
@@ -22,12 +24,14 @@ interface EventCardsProps {
  * button would nest one control in another, so the interactive chart is the
  * trend card below.
  */
-export function EventCards({events, selectedName, onSelect}: EventCardsProps) {
+export function EventCards({events, label, selectedName, onSelect}: EventCardsProps) {
   return (
     <div
       role="group"
-      aria-label="Tracked events"
-      style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: SPACING.md}}>
+      aria-label={`${label} events`}
+      // auto-fill, not auto-fit: a group of one or two keeps the column width of a full row, so the
+      // cards line up from group to group instead of stretching across the page.
+      style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SPACING.md}}>
       {events.map((event) => {
         const selected = event.name === selectedName;
         return (
