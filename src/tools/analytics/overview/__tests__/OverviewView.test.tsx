@@ -152,6 +152,22 @@ describe('OverviewView', () => {
     expect(screen.getByText('No events tracked yet.')).toBeInTheDocument();
   });
 
+  it('lists the 8 busiest sent events and says how many more the Web analytics page has', () => {
+    const many = Array.from({length: 10}, (_, i) => ({
+      name: `event_${i}`,
+      label: `Event ${i}`,
+      total: 100 - i,
+      visitors: 1,
+      trend: [],
+      breakdowns: [],
+    }));
+    renderView({vercel: {...VERCEL, events: many}});
+    const rows = within(screen.getByRole('list', {name: 'Web events'})).getAllByRole('listitem');
+    expect(rows.map((row) => row.textContent)).toEqual(many.slice(0, 8).map((e) => `${e.label}${e.total}`));
+    expect(screen.getByRole('region', {name: 'Web events'})).toHaveTextContent('2 more on the Web analytics page.');
+    expect(within(kpis()).getByText('10 event types · Vercel')).toBeInTheDocument();
+  });
+
   it("notes under the events it read how many the last run couldn't read", () => {
     renderView({vercel: {...VERCEL, unavailable: ['friend_action', 'binder_opened']}});
     const card = screen.getByRole('region', {name: 'Web events'});

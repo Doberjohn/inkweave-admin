@@ -8,6 +8,9 @@ import {isSeen, sortEventsByTotal, unreadCount} from '../web/webModel';
 
 const MUTED: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
+/** The busiest events the card lists, so it stays a summary once the launch's events arrive. */
+const ROWS_SHOWN = 8;
+
 /** Totals are all-time; only the Web analytics page's trends use the reporting window. */
 function windowCaption(range: ReportingWindow | null): string {
   if (!range) return 'Totals all-time';
@@ -31,6 +34,12 @@ function UnreadNote({count}: {count: number}) {
       Couldn&apos;t read {fmtInt(count)} {count === 1 ? 'event' : 'events'} on the last run.
     </p>
   );
+}
+
+/** How many sent events the card leaves to the Web analytics page, or nothing when it lists them all. */
+function MoreNote({count}: {count: number}) {
+  if (count === 0) return null;
+  return <p style={MUTED}>{fmtInt(count)} more on the Web analytics page.</p>;
 }
 
 /**
@@ -71,7 +80,7 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
       <ul
         aria-label="Web events"
         style={{listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: SPACING.xs}}>
-        {events.map((e) => (
+        {events.slice(0, ROWS_SHOWN).map((e) => (
           <li
             key={e.name}
             style={{
@@ -102,6 +111,7 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
           </li>
         ))}
       </ul>
+      <MoreNote count={Math.max(0, events.length - ROWS_SHOWN)} />
       <UnreadNote count={unread} />
       <p style={{...MUTED, fontSize: ADMIN_TYPE.label}}>{windowCaption(vercel.reportingWindow)}</p>
     </div>
