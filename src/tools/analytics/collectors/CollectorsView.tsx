@@ -1,29 +1,23 @@
 import type {CSSProperties} from 'react';
-import {LETTER_SPACING, Notice, Panel, SPACING, TABULAR} from '../../../app-bridge';
+import {Notice, Panel, SPACING} from '../../../app-bridge';
 import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {KpiCard} from '../../../ui/KpiCard';
+import {CELL as TABLE_CELL, HEAD_CELL as TABLE_HEAD_CELL, NUMBER} from '../cards/cardStyles';
 import type {CollectorAnalytics, CollectorCounts, CollectorWeek} from '../collectorAnalyticsTypes';
 
+/** The analytics tables' cells, padded wider for a table that spans its panel. */
+const PADDING = `${SPACING.sm}px ${SPACING.lg}px`;
+
 const HEAD_CELL: CSSProperties = {
-  padding: `${SPACING.sm}px ${SPACING.lg}px`,
+  ...TABLE_HEAD_CELL,
+  padding: PADDING,
   background: ADMIN_COLORS.panel,
   textAlign: 'right',
-  fontSize: ADMIN_TYPE.label,
-  fontWeight: 700,
-  letterSpacing: LETTER_SPACING.cap,
-  textTransform: 'uppercase',
-  color: ADMIN_COLORS.muted,
   whiteSpace: 'nowrap',
 };
 
-const CELL: CSSProperties = {
-  ...TABULAR,
-  padding: `${SPACING.sm}px ${SPACING.lg}px`,
-  borderTop: `1px solid ${ADMIN_COLORS.divider}`,
-  textAlign: 'right',
-  color: ADMIN_COLORS.text,
-};
+const CELL: CSSProperties = {...TABLE_CELL, ...NUMBER, padding: PADDING, color: ADMIN_COLORS.text};
 
 /** "3 of 5": a count out of the collectors it could have been. */
 function outOf(n: number, of: number): string {

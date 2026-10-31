@@ -4,7 +4,7 @@ import {ADMIN_COLORS, ADMIN_RADIUS, ADMIN_TYPE} from '../../../theme/adminTheme'
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {PanelLink} from './PanelLink';
 import type {ReportingWindow, VercelAnalytics} from '../vercelAnalyticsTypes';
-import {isSeen, sortEventsByTotal} from '../web/webModel';
+import {isSeen, sortEventsByTotal, unreadCount} from '../web/webModel';
 
 const MUTED: CSSProperties = {margin: 0, fontSize: ADMIN_TYPE.small, color: ADMIN_COLORS.muted};
 
@@ -34,6 +34,19 @@ function UnreadNote({count}: {count: number}) {
 }
 
 /**
+ * The card with no event sent yet: says so when the last run read any event, and
+ * how many it couldn't read, so a run that read nothing never says none was sent.
+ */
+function NoEventsSeen({read, unread}: {read: number; unread: number}) {
+  return (
+    <div style={{display: 'flex', flexDirection: 'column', gap: SPACING.xs}}>
+      {(read > 0 || unread === 0) && <p style={MUTED}>No events tracked yet.</p>}
+      <UnreadNote count={unread} />
+    </div>
+  );
+}
+
+/**
  * The card body: the Web analytics page's states in short form, or the events
  * the app has sent, busiest first. One never sent gets no row of zeros.
  */
@@ -48,10 +61,8 @@ function WebEventsBody({vercel, error}: WebEventsCardProps) {
     );
   }
   const events = sortEventsByTotal(vercel.events.filter(isSeen));
-  // A file from before `unavailable` existed has none.
-  const unread = (vercel.unavailable ?? []).length;
-  if (events.length === 0 && unread > 0) return <UnreadNote count={unread} />;
-  if (events.length === 0) return <p style={MUTED}>No events tracked yet.</p>;
+  const unread = unreadCount(vercel);
+  if (events.length === 0) return <NoEventsSeen read={vercel.events.length} unread={unread} />;
 
   // Each fill is scaled to the busiest event, so the top row is always full width.
   const top = Math.max(1, events[0].total);

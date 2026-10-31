@@ -78,7 +78,8 @@ function startWeeks(collectors, now) {
   const byWeek = new Map();
   for (const collector of collectors) {
     const week = weekStart(collector.first);
-    byWeek.set(week, [...(byWeek.get(week) ?? []), collector]);
+    if (!byWeek.has(week)) byWeek.set(week, []);
+    byWeek.get(week).push(collector);
   }
   return [...byWeek.keys()]
     .sort()

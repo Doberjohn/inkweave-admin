@@ -217,7 +217,7 @@ Each of R2 to R4 was detailed when it started, after the owner had used the phas
 
 Card lists and art are real already (forwarded to inkweave.ink). The analytics artifacts exist only in the deployment:
 1. Sign in to `https://inkweave-admin.vercel.app` in a browser.
-2. Open and save `/admin-data/vote-analytics.json`, `/admin-data/vote-log.json` and `/admin-data/vercel-analytics.json` into the local `public/admin-data/` (git-ignored).
+2. Open and save `/admin-data/vote-analytics.json`, `/admin-data/vote-log.json`, `/admin-data/vercel-analytics.json` and `/admin-data/collector-analytics.json` into the local `public/admin-data/` (git-ignored).
 3. `pnpm dev` and open `http://localhost:5180`.
 
 Never commit those files. The repo is private now, but the vote log holds raw votes, and it ships only inside the login-gated deployment.

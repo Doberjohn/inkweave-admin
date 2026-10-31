@@ -3,7 +3,7 @@ import {fmtInt} from '../../../ui/format';
 import type {GlobalStats, RuleStat, WeeklyPoint} from '../voteAnalyticsTypes';
 import type {VoteLogRow} from '../voteLogTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
-import {isSeen} from '../web/webModel';
+import {isSeen, unreadCount} from '../web/webModel';
 
 /**
  * Rules backed by fewer score votes than this are left out of Rules to review:
@@ -27,6 +27,15 @@ export const WEEKS_SHOWN = 12;
  * every week prints its date and its gap. A narrower plot shows fewer weeks.
  */
 const COLUMN_MIN = 40;
+
+/**
+ * " · 2 unread" for the end of a hint when the last run couldn't read some events,
+ * so a figure summed without them says it is partial; nothing when it read them all.
+ */
+export function unreadSuffix(v: VercelAnalytics | null): string {
+  const unread = unreadCount(v);
+  return unread > 0 ? ` · ${fmtInt(unread)} unread` : '';
+}
 
 /**
  * The sum of every tracked event's all-time total, and how many event types it

@@ -525,6 +525,15 @@ export function buildVercelAnalytics({events, window, unavailable = []}) {
  * The empty-but-valid artifact written when the Vercel token/project env is absent,
  * or when the run fails outright. It has no `unavailable`, which reads as none.
  */
+/**
+ * The artifact for a run that failed outside its per-event handling: every query's
+ * event named unavailable, so the page says the read failed. The empty file would
+ * ask for a token that is already set.
+ */
+export function failedRunAnalytics(queries) {
+  return buildVercelAnalytics({events: [], window: null, unavailable: queries.map((query) => query.name)});
+}
+
 export function emptyVercelAnalytics() {
   return {hasVercelData: false, reportingWindow: null, events: []};
 }

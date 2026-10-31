@@ -16,7 +16,7 @@
  * A web-analytics tab is not worth a failed deploy: without the token or project
  * id this writes the empty-but-valid file and exits 0. An event whose requests fail
  * is left out of the file and named in its `unavailable`, so one failure costs that
- * event alone; only an unexpected error writes the empty file. It exits 1 only when
+ * event alone; an unexpected error names every event there. It exits 1 only when
  * it cannot write the file. Workflow logs are public while the repo is, so it logs
  * the file it wrote, each failed event's endpoint and HTTP status, and how many
  * requests it made: never event counts or response bodies.
@@ -33,6 +33,7 @@ import {
   resolveWindowDays,
   buildVercelAnalytics,
   emptyVercelAnalytics,
+  failedRunAnalytics,
 } from './lib/vercelAnalytics.mjs';
 import {vercelQuery} from './lib/vercelQuery.mjs';
 
@@ -78,14 +79,14 @@ async function main() {
 
 main().catch((err) => {
   // collectEvents keeps each API failure to its event, so this is an unexpected
-  // error, which must not break a deploy either: log it, write the empty file so
-  // the tab shows its no-data state, and exit 0. If even that write fails, exit 1,
-  // so no deploy ships without the file.
-  console.warn(`  ⚠ Vercel-analytics precompute failed; writing the empty file: ${err.message}`);
+  // error, which must not break a deploy either: log it, write a file naming every
+  // event unavailable, so the tab says the read failed, and exit 0. If even that
+  // write fails, exit 1, so no deploy ships without the file.
+  console.warn(`  ⚠ Vercel-analytics precompute failed; writing every event as unavailable: ${err.message}`);
   try {
-    writeArtifact(emptyVercelAnalytics());
+    writeArtifact(failedRunAnalytics(EVENT_QUERIES));
   } catch (writeErr) {
-    console.warn(`  ⚠ Could not write the empty file: ${writeErr.message}`);
+    console.warn(`  ⚠ Could not write the file: ${writeErr.message}`);
     process.exitCode = 1;
   }
 });

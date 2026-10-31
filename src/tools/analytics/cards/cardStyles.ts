@@ -6,7 +6,8 @@ import {ADMIN_COLORS, ADMIN_TYPE} from '../../../theme/adminTheme';
  * The styles the card page's panels share: its two tables' cells, its links,
  * its captions and its one opaque fill. The head cells set their type as
  * RulesTable's and VoteDetailTable's do; the body cells pad 8px all round,
- * closer than either table's rows.
+ * closer than either table's rows. The Collectors page's start-week table
+ * builds on the cells too, padding them wider.
  */
 
 /** A muted line under a chart or a list: a caveat, a count left out, where the data comes from. */

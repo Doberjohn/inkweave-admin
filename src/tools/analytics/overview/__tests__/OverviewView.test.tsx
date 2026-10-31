@@ -157,6 +157,16 @@ describe('OverviewView', () => {
     const card = screen.getByRole('region', {name: 'Web events'});
     expect(within(card).getByRole('list', {name: 'Web events'})).toBeInTheDocument();
     expect(card).toHaveTextContent("Couldn't read 2 events on the last run.");
+    expect(within(kpis()).getByText('5 event types · Vercel · 2 unread')).toBeInTheDocument();
+  });
+
+  it("says none of the events it read was sent, and how many it couldn't read, when one failed", () => {
+    const neverSent = {name: 'friend_action', label: 'Friend actions', total: 0, visitors: 0, trend: [], breakdowns: []};
+    renderView({vercel: {...VERCEL, events: [neverSent], unavailable: ['vote_submitted']}});
+    const card = screen.getByRole('region', {name: 'Web events'});
+    expect(card).toHaveTextContent('No events tracked yet.');
+    expect(card).toHaveTextContent("Couldn't read 1 event on the last run.");
+    expect(within(kpis()).getByText('No events tracked yet · 1 unread')).toBeInTheDocument();
   });
 
   it("says the events couldn't be read, never that none were tracked, when every one failed", () => {

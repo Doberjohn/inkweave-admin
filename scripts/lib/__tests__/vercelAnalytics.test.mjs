@@ -15,6 +15,7 @@ import {
   buildEvent,
   buildVercelAnalytics,
   emptyVercelAnalytics,
+  failedRunAnalytics,
   EVENT_QUERIES,
 } from '../vercelAnalytics.mjs';
 
@@ -236,6 +237,18 @@ describe('buildEvent', () => {
     expect(ev.total).toBe(0);
     expect(ev.trend).toEqual([]);
     expect(ev.breakdowns).toEqual([]);
+  });
+});
+
+describe('failedRunAnalytics', () => {
+  it('names every query unavailable, with Vercel data, so the page never asks for a token that is set', () => {
+    const art = failedRunAnalytics([{name: 'vote_submitted'}, {name: 'card_selected'}]);
+    expect(art).toEqual({
+      hasVercelData: true,
+      reportingWindow: null,
+      events: [],
+      unavailable: ['vote_submitted', 'card_selected'],
+    });
   });
 });
 

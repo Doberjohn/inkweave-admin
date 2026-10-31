@@ -4,7 +4,8 @@ import {ADMIN_COLORS} from '../../../theme/adminTheme';
 import {fmtDay, fmtInt} from '../../../ui/format';
 import {KpiCard} from '../../../ui/KpiCard';
 import {RawTag} from '../../../ui/RawTag';
-import {engineSilentFigure, trackedEventsTotal} from './overviewStats';
+import {engineSilentFigure, trackedEventsTotal, unreadSuffix} from './overviewStats';
+import {unreadCount} from '../web/webModel';
 import type {VoteAnalytics} from '../voteAnalyticsTypes';
 import type {VercelAnalytics} from '../vercelAnalyticsTypes';
 
@@ -26,9 +27,9 @@ function trackedEventsHint(vercel: VercelAnalytics | null, vercelError: Error | 
       </span>
     );
   }
-  // Every event failed on the last run, so none tracked would be wrong.
-  if ((vercel.unavailable ?? []).length > 0) return "Vercel events couldn't be read";
-  return 'No events tracked yet';
+  // The last run read no event at all, so "none tracked" would be wrong.
+  if (vercel.events.length === 0 && unreadCount(vercel) > 0) return "Vercel events couldn't be read";
+  return `No events tracked yet${unreadSuffix(vercel)}`;
 }
 
 /**
@@ -68,7 +69,11 @@ export function OverviewKpis({analytics, vercel, vercelError}: OverviewKpisProps
       <KpiCard
         label="Tracked events"
         value={tracked ? fmtInt(tracked.total) : '—'}
-        hint={tracked ? `${fmtInt(tracked.eventTypes)} event types · Vercel` : trackedEventsHint(vercel, vercelError)}
+        hint={
+          tracked
+            ? `${fmtInt(tracked.eventTypes)} event types · Vercel${unreadSuffix(vercel)}`
+            : trackedEventsHint(vercel, vercelError)
+        }
       />
     </section>
   );

@@ -1,5 +1,12 @@
 import {eachDay, isDay} from '../../../charts/scale';
-import type {BreakdownRow, EventGroup, ReportingWindow, TrendPoint, VercelEvent} from '../vercelAnalyticsTypes';
+import type {
+  BreakdownRow,
+  EventGroup,
+  ReportingWindow,
+  TrendPoint,
+  VercelAnalytics,
+  VercelEvent,
+} from '../vercelAnalyticsTypes';
 
 /** The value Vercel gives the row that folds a breakdown's tail beyond its query limit. */
 export const OTHERS_VALUE = 'Others';
@@ -23,6 +30,11 @@ export function sortEventsByTotal(events: VercelEvent[]): VercelEvent[] {
  */
 export function isSeen(event: VercelEvent): boolean {
   return event.total > 0;
+}
+
+/** How many events the last run couldn't read. A file from before `unavailable` existed has none. */
+export function unreadCount(analytics: VercelAnalytics | null): number {
+  return analytics?.unavailable?.length ?? 0;
 }
 
 /** The Web analytics page's groups, in page order, each with its heading. */
