@@ -18,8 +18,8 @@
  * is left out of the file and named in its `unavailable`, so one failure costs that
  * event alone; an unexpected error names every event there. It exits 1 only when
  * it cannot write the file. Workflow logs are public while the repo is, so it logs
- * the file it wrote, each failed event's endpoint and HTTP status, and how many
- * requests it made: never event counts or response bodies.
+ * the file it wrote and each failed event's endpoint and HTTP status: never a count,
+ * a response body, or how many requests it made, which says which events were sent.
  *
  * Docs: https://vercel.com/docs/analytics/web-analytics-api
  */
@@ -64,16 +64,10 @@ async function main() {
   const window = reportingWindow(new Date(), days);
   const creds = {token, projectId, teamId};
 
-  let requests = 0;
-  const ask = (endpoint, params) => {
-    requests += 1;
-    return vercelQuery(endpoint, params, creds);
-  };
+  const ask = (endpoint, params) => vercelQuery(endpoint, params, creds);
   const {events, failures} = await collectEvents(EVENT_QUERIES, window, ask);
   // The messages name an endpoint and a status (vercelQuery), never a count or a body.
   for (const failure of failures) console.warn(`  ⚠ left out ${failure.name}: ${failure.message}`);
-  // How many requests says what a run costs, and nothing about visitors.
-  console.log(`  asked Vercel ${requests} requests`);
   writeArtifact(buildVercelAnalytics({events, window, unavailable: failures.map((failure) => failure.name)}));
 }
 
